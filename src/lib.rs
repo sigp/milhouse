@@ -3,6 +3,7 @@ pub mod interface;
 pub mod iter;
 pub mod leaf;
 pub mod list;
+pub mod serde;
 pub mod tree;
 pub mod utils;
 

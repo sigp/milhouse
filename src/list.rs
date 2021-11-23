@@ -1,7 +1,9 @@
 use crate::interface::{ImmList, Interface, MutList, PushList};
 use crate::iter::Iter;
+use crate::serde::ListVisitor;
 use crate::utils::{borrow_mut, int_log};
 use crate::{Error, Tree};
+use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tree_hash::{Hash256, TreeHash};
@@ -126,5 +128,34 @@ impl<'a, T: Clone, N: Unsigned> IntoIterator for &'a List<T, N> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+impl<'a, T: Clone, N: Unsigned> Serialize for List<T, N>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.len()))?;
+        for e in self {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de, T, N> Deserialize<'de> for List<T, N>
+where
+    T: Deserialize<'de> + Clone,
+    N: Unsigned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(ListVisitor::default())
     }
 }
