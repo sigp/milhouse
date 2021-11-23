@@ -1,4 +1,5 @@
 use crate::interface::{ImmList, Interface, MutList, PushList};
+use crate::iter::Iter;
 use crate::utils::{borrow_mut, int_log};
 use crate::{Error, Tree};
 use std::marker::PhantomData;
@@ -17,6 +18,10 @@ pub struct List<T, N: Unsigned> {
 impl<T: Clone, N: Unsigned> List<T, N> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
+    }
+
+    pub fn empty() -> Self {
+        Self::try_from_iter(std::iter::empty()).unwrap()
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
@@ -38,6 +43,10 @@ impl<T: Clone, N: Unsigned> List<T, N> {
 
     pub fn as_mut(&mut self) -> Interface<T, &mut Self> {
         Interface::new(self)
+    }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter::new(&self.tree, self.depth, self.length)
     }
 }
 
@@ -108,5 +117,14 @@ impl<T: TreeHash + Clone, N: Unsigned> TreeHash for List<T, N> {
     fn tree_hash_root(&self) -> Hash256 {
         let root = self.tree.tree_hash();
         tree_hash::mix_in_length(&root, self.len())
+    }
+}
+
+impl<'a, T: Clone, N: Unsigned> IntoIterator for &'a List<T, N> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }

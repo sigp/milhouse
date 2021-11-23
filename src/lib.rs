@@ -1,5 +1,6 @@
 pub mod error;
 pub mod interface;
+pub mod iter;
 pub mod leaf;
 pub mod list;
 pub mod tree;
@@ -10,3 +11,10 @@ pub use interface::ImmList;
 pub use leaf::Leaf;
 pub use list::List;
 pub use tree::Tree;
+
+pub mod prelude {
+    pub use crate::{
+        interface::{ImmList, Interface, MutList, PushList},
+        Leaf, List, Tree,
+    };
+}
