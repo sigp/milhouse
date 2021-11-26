@@ -1,4 +1,4 @@
-use crate::{interface::PushList, List};
+use crate::List;
 use serde::Deserialize;
 use std::marker::PhantomData;
 use typenum::Unsigned;
@@ -33,7 +33,7 @@ where
         let mut list = List::empty();
 
         while let Some(val) = seq.next_element()? {
-            (&mut list).push(val).map_err(|e| {
+            list.push(val).map_err(|e| {
                 serde::de::Error::custom(format!(
                     "Deserialization failed. Length cannot be greater than {}. Error: {:?}",
                     N::to_usize(),

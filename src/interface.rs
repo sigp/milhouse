@@ -5,6 +5,10 @@ pub trait ImmList<T> {
     fn get(&self, idx: usize) -> Option<&T>;
 
     fn len(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 pub trait MutList<T>: ImmList<T>
@@ -21,21 +25,21 @@ where
     fn push(&mut self, value: T) -> Result<(), Error>;
 }
 
-pub struct Interface<T, B>
+pub struct Interface<'a, T, B>
 where
     T: Clone,
     B: MutList<T>,
 {
-    backing: B,
+    backing: &'a mut B,
     updates: BTreeMap<usize, T>,
 }
 
-impl<T, B> Interface<T, B>
+impl<'a, T, B> Interface<'a, T, B>
 where
     T: Clone,
     B: MutList<T>,
 {
-    pub fn new(backing: B) -> Self {
+    pub fn new(backing: &'a mut B) -> Self {
         Self {
             backing,
             updates: BTreeMap::new(),
@@ -70,7 +74,7 @@ where
     }
 }
 
-impl<T, B> Interface<T, B>
+impl<'a, T, B> Interface<'a, T, B>
 where
     T: Clone,
     B: PushList<T>,
@@ -83,7 +87,7 @@ where
     }
 }
 
-impl<T, B> Drop for Interface<T, B>
+impl<'a, T, B> Drop for Interface<'a, T, B>
 where
     T: Clone,
     B: MutList<T>,

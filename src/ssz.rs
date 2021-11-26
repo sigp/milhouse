@@ -1,4 +1,4 @@
-use crate::{interface::PushList, List};
+use crate::List;
 use ssz::{read_offset, Decode, DecodeError, BYTES_PER_LENGTH_OFFSET};
 use typenum::Unsigned;
 

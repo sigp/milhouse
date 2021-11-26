@@ -1,9 +1,3 @@
-/// Borrow function to help with implementing traits for `&'a mut T`.
-#[inline(always)]
-pub fn borrow_mut<'s, 'a, T>(v: &'s &'a mut T) -> &'s T {
-    &*v
-}
-
 /// Compute ceil(log(n))
 ///
 /// Smallest number of bits d so that n <= 2^d

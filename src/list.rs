@@ -1,7 +1,7 @@
 use crate::interface::{ImmList, Interface, MutList, PushList};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
-use crate::utils::{borrow_mut, int_log};
+use crate::utils::int_log;
 use crate::{Error, Tree};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
@@ -48,7 +48,7 @@ impl<T: Clone, N: Unsigned> List<T, N> {
         self
     }
 
-    pub fn as_mut(&mut self) -> Interface<T, &mut Self> {
+    pub fn as_mut(&mut self) -> Interface<T, Self> {
         Interface::new(self)
     }
 
@@ -63,6 +63,14 @@ impl<T: Clone, N: Unsigned> List<T, N> {
 
     pub fn len(&self) -> usize {
         ImmList::len(self)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        ImmList::is_empty(self)
+    }
+
+    pub fn push(&mut self, value: T) -> Result<(), Error> {
+        PushList::push(self, value)
     }
 }
 
@@ -80,17 +88,7 @@ impl<T: Clone, N: Unsigned> ImmList<T> for List<T, N> {
     }
 }
 
-impl<'a, T: Clone, N: Unsigned> ImmList<T> for &'a mut List<T, N> {
-    fn get<'s>(&'s self, index: usize) -> Option<&'s T> {
-        borrow_mut(self).get(index)
-    }
-
-    fn len(&self) -> usize {
-        borrow_mut(self).len()
-    }
-}
-
-impl<'a, T, N> MutList<T> for &'a mut List<T, N>
+impl<T, N> MutList<T> for List<T, N>
 where
     T: Clone,
     N: Unsigned,
@@ -101,7 +99,7 @@ where
     }
 }
 
-impl<'a, T, N> PushList<T> for &'a mut List<T, N>
+impl<T, N> PushList<T> for List<T, N>
 where
     T: Clone,
     N: Unsigned,
