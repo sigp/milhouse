@@ -4,6 +4,7 @@ use crate::serde::ListVisitor;
 use crate::utils::{borrow_mut, int_log};
 use crate::{Error, Tree};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tree_hash::{Hash256, TreeHash};
@@ -43,12 +44,25 @@ impl<T: Clone, N: Unsigned> List<T, N> {
         }
     }
 
+    pub fn as_mut_ref(&mut self) -> &mut Self {
+        self
+    }
+
     pub fn as_mut(&mut self) -> Interface<T, &mut Self> {
         Interface::new(self)
     }
 
     pub fn iter(&self) -> Iter<T> {
         Iter::new(&self.tree, self.depth, self.length)
+    }
+
+    // Wrap trait methods so we present a Vec-like interface without having to import anything.
+    pub fn get(&self, index: usize) -> Option<&T> {
+        ImmList::get(self, index)
+    }
+
+    pub fn len(&self) -> usize {
+        ImmList::len(self)
     }
 }
 
@@ -100,6 +114,12 @@ where
         self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
         self.length += 1;
         Ok(())
+    }
+}
+
+impl<T: Clone, N: Unsigned> Default for List<T, N> {
+    fn default() -> Self {
+        Self::empty()
     }
 }
 
@@ -157,5 +177,86 @@ where
         D: Deserializer<'de>,
     {
         deserializer.deserialize_seq(ListVisitor::default())
+    }
+}
+
+// FIXME: duplicated from `ssz::encode::impl_for_vec`
+impl<T: Encode + Clone, N: Unsigned> Encode for List<T, N> {
+    fn is_ssz_fixed_len() -> bool {
+        false
+    }
+
+    fn ssz_bytes_len(&self) -> usize {
+        if <T as Encode>::is_ssz_fixed_len() {
+            <T as Encode>::ssz_fixed_len() * self.len()
+        } else {
+            let mut len = self.iter().map(|item| item.ssz_bytes_len()).sum();
+            len += BYTES_PER_LENGTH_OFFSET * self.len();
+            len
+        }
+    }
+
+    fn ssz_append(&self, buf: &mut Vec<u8>) {
+        if T::is_ssz_fixed_len() {
+            buf.reserve(T::ssz_fixed_len() * self.len());
+
+            for item in self {
+                item.ssz_append(buf);
+            }
+        } else {
+            let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
+
+            for item in self {
+                encoder.append(item);
+            }
+
+            encoder.finalize();
+        }
+    }
+}
+
+impl<T, N> Decode for List<T, N>
+where
+    T: Decode + Clone,
+    N: Unsigned,
+{
+    fn is_ssz_fixed_len() -> bool {
+        false
+    }
+
+    fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
+        let max_len = N::to_usize();
+
+        if bytes.is_empty() {
+            Ok(List::empty())
+        } else if T::is_ssz_fixed_len() {
+            let num_items = bytes
+                .len()
+                .checked_div(T::ssz_fixed_len())
+                .ok_or(ssz::DecodeError::ZeroLengthItem)?;
+
+            if num_items > max_len {
+                return Err(ssz::DecodeError::BytesInvalid(format!(
+                    "List of {} items exceeds maximum of {}",
+                    num_items, max_len
+                )));
+            }
+
+            bytes
+                .chunks(T::ssz_fixed_len())
+                .try_fold(List::empty(), |mut list, chunk| {
+                    list.as_mut_ref()
+                        .push(T::from_ssz_bytes(chunk)?)
+                        .map_err(|e| {
+                            ssz::DecodeError::BytesInvalid(format!(
+                                "List of max capacity {} full: {:?}",
+                                max_len, e
+                            ))
+                        })?;
+                    Ok(list)
+                })
+        } else {
+            crate::ssz::decode_list_of_variable_length_items(bytes)
+        }
     }
 }

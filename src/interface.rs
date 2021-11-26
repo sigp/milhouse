@@ -63,6 +63,11 @@ where
         }
         Ok(())
     }
+
+    pub fn len(&self) -> usize {
+        // Use backing length directly, assuming no staged pushes (might need amending in future).
+        self.backing.len()
+    }
 }
 
 impl<T, B> Interface<T, B>
@@ -72,6 +77,7 @@ where
 {
     pub fn push(&mut self, value: T) -> Result<(), Error> {
         // Flush changes and push directly (possibly not the most efficient?)
+        // If we change this we should change the implementation of `len` too.
         self.apply()?;
         self.backing.push(value)
     }
