@@ -1,6 +1,7 @@
 use crate::List;
 use serde::Deserialize;
 use std::marker::PhantomData;
+use tree_hash::TreeHash;
 use typenum::Unsigned;
 
 pub struct ListVisitor<T, N> {
@@ -17,7 +18,7 @@ impl<T, N> Default for ListVisitor<T, N> {
 
 impl<'a, T, N> serde::de::Visitor<'a> for ListVisitor<T, N>
 where
-    T: Deserialize<'a> + Clone,
+    T: Deserialize<'a> + TreeHash + Clone,
     N: Unsigned,
 {
     type Value = List<T, N>;

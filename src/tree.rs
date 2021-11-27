@@ -1,4 +1,5 @@
-use crate::{Error, Leaf};
+use crate::utils::{opt_packing_depth, opt_packing_factor};
+use crate::{Error, Leaf, PackedLeaf};
 use derivative::Derivative;
 use eth2_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
@@ -7,8 +8,9 @@ use tree_hash::{Hash256, TreeHash};
 
 #[derive(Debug, Derivative)]
 #[derivative(PartialEq)]
-pub enum Tree<T> {
+pub enum Tree<T: TreeHash + Clone> {
     Leaf(Leaf<T>),
+    PackedLeaf(PackedLeaf<T>),
     Node {
         #[derivative(PartialEq = "ignore")]
         hash: RwLock<Option<Hash256>>,
@@ -18,7 +20,7 @@ pub enum Tree<T> {
     Zero(usize),
 }
 
-impl<T: Clone> Clone for Tree<T> {
+impl<T: TreeHash + Clone> Clone for Tree<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Node { hash, left, right } => Self::Node {
@@ -27,12 +29,17 @@ impl<T: Clone> Clone for Tree<T> {
                 right: right.clone(),
             },
             Self::Leaf(leaf) => Self::Leaf(leaf.clone()),
+            Self::PackedLeaf(leaf) => Self::PackedLeaf(leaf.clone()),
             Self::Zero(depth) => Self::Zero(*depth),
         }
     }
 }
 
-impl<T> Tree<T> {
+impl<T: TreeHash + Clone> Tree<T> {
+    pub fn empty(depth: usize) -> Arc<Self> {
+        Self::zero(depth)
+    }
+
     pub fn node(left: Arc<Self>, right: Arc<Self>) -> Arc<Self> {
         Arc::new(Self::Node {
             hash: RwLock::new(None),
@@ -49,36 +56,12 @@ impl<T> Tree<T> {
         Arc::new(Self::Leaf(Leaf::new(value)))
     }
 
-    pub fn create(leaves: Vec<Arc<Self>>, depth: usize) -> Arc<Self> {
-        if leaves.is_empty() {
-            return Self::zero(depth);
-        }
-
-        let mut current_layer = leaves;
-
-        // Disgustingly imperative
-        for depth in 0..depth {
-            let mut new_layer = Vec::with_capacity(current_layer.len() / 2);
-            let mut iter = current_layer.into_iter();
-
-            while let Some(left) = iter.next() {
-                if let Some(right) = iter.next() {
-                    new_layer.push(Self::node(left, right));
-                } else {
-                    new_layer.push(Self::node(left, Self::zero(depth)));
-                }
-            }
-
-            current_layer = new_layer;
-        }
-
-        assert_eq!(current_layer.len(), 1);
-        current_layer.pop().expect("current layer not empty")
-    }
-
     pub fn get(&self, index: usize, depth: usize) -> Option<&T> {
         match self {
             Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(value),
+            Self::PackedLeaf(PackedLeaf { values, .. }) if depth == 0 => {
+                values.get(index % T::tree_hash_packing_factor())
+            }
             Self::Node { left, right, .. } if depth > 0 => {
                 let new_depth = depth - 1;
                 // Left
@@ -103,9 +86,13 @@ impl<T> Tree<T> {
         // FIXME: check index less than 2^depth
         match self {
             Self::Leaf(_) if depth == 0 => Ok(Self::leaf(new_value)),
+            Self::PackedLeaf(leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
+                leaf.insert_at_index(index, new_value)?,
+            ))),
             Self::Node { left, right, .. } if depth > 0 => {
+                let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
                 let new_depth = depth - 1;
-                if (index >> new_depth) & 1 == 0 {
+                if (index >> (new_depth + packing_depth)) & 1 == 0 {
                     // Index lies on the left, recurse left
                     Ok(Self::node(
                         left.with_updated_leaf(index, new_value, new_depth)?,
@@ -121,7 +108,11 @@ impl<T> Tree<T> {
             }
             Self::Zero(zero_depth) if *zero_depth == depth => {
                 if depth == 0 {
-                    Ok(Self::leaf(new_value))
+                    if opt_packing_factor::<T>().is_some() {
+                        Ok(Arc::new(Self::PackedLeaf(PackedLeaf::single(new_value))))
+                    } else {
+                        Ok(Self::leaf(new_value))
+                    }
                 } else {
                     // Split zero node into a node with left and right, and recurse into
                     // the appropriate subtree
@@ -133,9 +124,7 @@ impl<T> Tree<T> {
             _ => Err(Error::Oops),
         }
     }
-}
 
-impl<T: TreeHash> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {
@@ -151,6 +140,7 @@ impl<T: TreeHash> Tree<T> {
                     tree_hash
                 }
             }
+            Self::PackedLeaf(leaf) => leaf.tree_hash(),
             Self::Zero(depth) => Hash256::from_slice(&ZERO_HASHES[*depth]),
             Self::Node { hash, left, right } => {
                 let read_lock = hash.read();

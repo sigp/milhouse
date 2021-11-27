@@ -1,7 +1,7 @@
 use crate::interface::{ImmList, Interface, MutList, PushList};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
-use crate::utils::int_log;
+use crate::utils::{int_log, opt_packing_depth};
 use crate::{Error, Tree};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
@@ -11,45 +11,53 @@ use tree_hash::{Hash256, TreeHash};
 use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct List<T, N: Unsigned> {
+pub struct List<T: TreeHash + Clone, N: Unsigned> {
     tree: Arc<Tree<T>>,
     length: usize,
     depth: usize,
     _phantom: PhantomData<N>,
 }
 
-impl<T: Clone, N: Unsigned> List<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
     }
 
     pub fn empty() -> Self {
-        Self::try_from_iter(std::iter::empty()).unwrap()
-    }
-
-    pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let leaves = iter.into_iter().map(Tree::leaf).collect::<Vec<_>>();
-        if leaves.len() <= N::to_usize() {
-            let length = leaves.len();
-            let depth = int_log(N::to_usize());
-            let tree = Tree::create(leaves, depth);
-            Ok(Self {
-                tree,
-                length,
-                depth,
-                _phantom: PhantomData,
-            })
+        // If the leaves are packed then they reduce the depth
+        // FIXME(sproul): test really small lists that fit within a single packed leaf
+        let depth = if let Some(packing_bits) = opt_packing_depth::<T>() {
+            int_log(N::to_usize()).checked_sub(packing_bits).unwrap()
         } else {
-            Err(Error::Oops)
+            int_log(N::to_usize())
+        };
+        let tree = Tree::empty(depth);
+
+        Self {
+            tree,
+            length: 0,
+            depth,
+            _phantom: PhantomData,
         }
     }
 
-    pub fn as_mut_ref(&mut self) -> &mut Self {
-        self
+    pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
+        // FIXME(sproul): use a more efficient builder pattern
+        let mut list = Self::empty();
+
+        for item in iter.into_iter() {
+            list.push(item)?;
+        }
+
+        Ok(list)
     }
 
     pub fn as_mut(&mut self) -> Interface<T, Self> {
         Interface::new(self)
+    }
+
+    pub fn to_vec(&self) -> Vec<T> {
+        self.iter().cloned().collect()
     }
 
     pub fn iter(&self) -> Iter<T> {
@@ -74,7 +82,7 @@ impl<T: Clone, N: Unsigned> List<T, N> {
     }
 }
 
-impl<T: Clone, N: Unsigned> ImmList<T> for List<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for List<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len() {
             self.tree.get(index, self.depth)
@@ -90,7 +98,7 @@ impl<T: Clone, N: Unsigned> ImmList<T> for List<T, N> {
 
 impl<T, N> MutList<T> for List<T, N>
 where
-    T: Clone,
+    T: TreeHash + Clone,
     N: Unsigned,
 {
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {
@@ -101,7 +109,7 @@ where
 
 impl<T, N> PushList<T> for List<T, N>
 where
-    T: Clone,
+    T: TreeHash + Clone,
     N: Unsigned,
 {
     fn push(&mut self, value: T) -> Result<(), Error> {
@@ -115,13 +123,13 @@ where
     }
 }
 
-impl<T: Clone, N: Unsigned> Default for List<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned> Default for List<T, N> {
     fn default() -> Self {
         Self::empty()
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> TreeHash for List<T, N> {
+impl<T: TreeHash + TreeHash + Clone, N: Unsigned> TreeHash for List<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::List
     }
@@ -140,7 +148,7 @@ impl<T: TreeHash + Clone, N: Unsigned> TreeHash for List<T, N> {
     }
 }
 
-impl<'a, T: Clone, N: Unsigned> IntoIterator for &'a List<T, N> {
+impl<'a, T: TreeHash + Clone, N: Unsigned> IntoIterator for &'a List<T, N> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
 
@@ -149,7 +157,7 @@ impl<'a, T: Clone, N: Unsigned> IntoIterator for &'a List<T, N> {
     }
 }
 
-impl<'a, T: Clone, N: Unsigned> Serialize for List<T, N>
+impl<'a, T: TreeHash + Clone, N: Unsigned> Serialize for List<T, N>
 where
     T: Serialize,
 {
@@ -167,7 +175,7 @@ where
 
 impl<'de, T, N> Deserialize<'de> for List<T, N>
 where
-    T: Deserialize<'de> + Clone,
+    T: Deserialize<'de> + TreeHash + Clone,
     N: Unsigned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -179,7 +187,7 @@ where
 }
 
 // FIXME: duplicated from `ssz::encode::impl_for_vec`
-impl<T: Encode + Clone, N: Unsigned> Encode for List<T, N> {
+impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
     fn is_ssz_fixed_len() -> bool {
         false
     }
@@ -215,7 +223,7 @@ impl<T: Encode + Clone, N: Unsigned> Encode for List<T, N> {
 
 impl<T, N> Decode for List<T, N>
 where
-    T: Decode + Clone,
+    T: Decode + TreeHash + Clone,
     N: Unsigned,
 {
     fn is_ssz_fixed_len() -> bool {
@@ -243,14 +251,12 @@ where
             bytes
                 .chunks(T::ssz_fixed_len())
                 .try_fold(List::empty(), |mut list, chunk| {
-                    list.as_mut_ref()
-                        .push(T::from_ssz_bytes(chunk)?)
-                        .map_err(|e| {
-                            ssz::DecodeError::BytesInvalid(format!(
-                                "List of max capacity {} full: {:?}",
-                                max_len, e
-                            ))
-                        })?;
+                    list.push(T::from_ssz_bytes(chunk)?).map_err(|e| {
+                        ssz::DecodeError::BytesInvalid(format!(
+                            "List of max capacity {} full: {:?}",
+                            max_len, e
+                        ))
+                    })?;
                     Ok(list)
                 })
         } else {

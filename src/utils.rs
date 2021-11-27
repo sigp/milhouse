@@ -1,3 +1,5 @@
+use tree_hash::{TreeHash, TreeHashType};
+
 /// Compute ceil(log(n))
 ///
 /// Smallest number of bits d so that n <= 2^d
@@ -6,4 +8,17 @@ pub fn int_log(n: usize) -> usize {
         Some(x) => x.trailing_zeros() as usize,
         None => 8 * std::mem::size_of::<usize>(),
     }
+}
+
+pub fn opt_packing_factor<T: TreeHash>() -> Option<usize> {
+    match T::tree_hash_type() {
+        TreeHashType::Basic => Some(T::tree_hash_packing_factor()),
+        TreeHashType::Container | TreeHashType::List | TreeHashType::Vector => None,
+    }
+}
+
+/// Compute the depth in a tree at which to start packing values into a `PackedLeaf`.
+pub fn opt_packing_depth<T: TreeHash>() -> Option<usize> {
+    let packing_factor = opt_packing_factor::<T>()?;
+    Some(int_log(packing_factor))
 }

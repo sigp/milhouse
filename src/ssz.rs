@@ -1,5 +1,6 @@
 use crate::List;
 use ssz::{read_offset, Decode, DecodeError, BYTES_PER_LENGTH_OFFSET};
+use tree_hash::TreeHash;
 use typenum::Unsigned;
 
 /// Decodes `bytes` as if it were a list of variable-length items.
@@ -7,7 +8,7 @@ use typenum::Unsigned;
 /// The `ssz::SszDecoder` can also perform this functionality, however it it significantly faster
 /// as it is optimized to read same-typed items whilst `ssz::SszDecoder` supports reading items of
 /// differing types.
-pub fn decode_list_of_variable_length_items<T: Decode + Clone, N: Unsigned>(
+pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Unsigned>(
     bytes: &[u8],
 ) -> Result<List<T, N>, DecodeError> {
     if bytes.is_empty() {
@@ -52,16 +53,13 @@ pub fn decode_list_of_variable_length_items<T: Decode + Clone, N: Unsigned>(
 
         let slice = slice_option.ok_or(DecodeError::OutOfBoundsByte { i: offset })?;
 
-        values
-            .as_mut_ref()
-            .push(T::from_ssz_bytes(slice)?)
-            .map_err(|e| {
-                DecodeError::BytesInvalid(format!(
-                    "List of max capacity {} full: {:?}",
-                    N::to_usize(),
-                    e
-                ))
-            })?;
+        values.push(T::from_ssz_bytes(slice)?).map_err(|e| {
+            DecodeError::BytesInvalid(format!(
+                "List of max capacity {} full: {:?}",
+                N::to_usize(),
+                e
+            ))
+        })?;
     }
 
     Ok(values)

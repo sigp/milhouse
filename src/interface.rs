@@ -99,7 +99,6 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use crate::List;
     use typenum::U8;
 
