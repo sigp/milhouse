@@ -63,9 +63,10 @@ impl<T: TreeHash + Clone> Tree<T> {
                 values.get(index % T::tree_hash_packing_factor())
             }
             Self::Node { left, right, .. } if depth > 0 => {
+                let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
                 let new_depth = depth - 1;
                 // Left
-                if (index >> new_depth) & 1 == 0 {
+                if (index >> (new_depth + packing_depth)) & 1 == 0 {
                     left.get(index, new_depth)
                 }
                 // Right
