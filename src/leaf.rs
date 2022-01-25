@@ -3,9 +3,9 @@ use parking_lot::RwLock;
 use tree_hash::Hash256;
 
 #[derive(Debug, Derivative)]
-#[derivative(PartialEq)]
+#[derivative(PartialEq, Hash)]
 pub struct Leaf<T> {
-    #[derivative(PartialEq = "ignore")]
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub hash: RwLock<Option<Hash256>>,
     pub value: T,
 }

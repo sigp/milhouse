@@ -12,10 +12,10 @@ use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct List<T: TreeHash + Clone, N: Unsigned> {
-    tree: Arc<Tree<T>>,
-    length: usize,
-    depth: usize,
-    _phantom: PhantomData<N>,
+    pub(crate) tree: Arc<Tree<T>>,
+    pub(crate) length: usize,
+    pub(crate) depth: usize,
+    pub(crate) _phantom: PhantomData<N>,
 }
 
 impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {

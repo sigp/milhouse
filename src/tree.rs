@@ -7,12 +7,12 @@ use std::sync::Arc;
 use tree_hash::{Hash256, TreeHash};
 
 #[derive(Debug, Derivative)]
-#[derivative(PartialEq)]
+#[derivative(PartialEq, Hash)]
 pub enum Tree<T: TreeHash + Clone> {
     Leaf(Leaf<T>),
     PackedLeaf(PackedLeaf<T>),
     Node {
-        #[derivative(PartialEq = "ignore")]
+        #[derivative(PartialEq = "ignore", Hash = "ignore")]
         hash: RwLock<Option<Hash256>>,
         left: Arc<Self>,
         right: Arc<Self>,

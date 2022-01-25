@@ -7,9 +7,9 @@ use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 pub const MAX_FACTOR: usize = 32;
 
 #[derive(Debug, Derivative)]
-#[derivative(PartialEq)]
+#[derivative(PartialEq, Hash)]
 pub struct PackedLeaf<T: TreeHash + Clone> {
-    #[derivative(PartialEq = "ignore")]
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub hash: RwLock<Option<Hash256>>,
     pub(crate) values: SmallVec<[T; MAX_FACTOR]>,
 }

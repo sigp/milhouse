@@ -10,6 +10,7 @@ pub mod ssz;
 mod tests;
 pub mod tree;
 pub mod utils;
+pub mod vector;
 
 pub use error::Error;
 pub use interface::ImmList;
@@ -17,3 +18,4 @@ pub use leaf::Leaf;
 pub use list::List;
 pub use packed_leaf::PackedLeaf;
 pub use tree::Tree;
+pub use vector::Vector;
