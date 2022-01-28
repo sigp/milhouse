@@ -31,7 +31,6 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
                 self.index += 1;
 
                 // Backtrack to the parent node of the next subtree
-                self.stack.pop();
                 for _ in 0..=self.index.trailing_zeros() {
                     self.stack.pop();
                 }
