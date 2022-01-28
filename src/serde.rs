@@ -31,7 +31,9 @@ where
     where
         A: serde::de::SeqAccess<'a>,
     {
-        let mut list = List::empty();
+        let mut list = List::empty().map_err(|e| {
+            serde::de::Error::custom(format!("Invalid type and length for list: {:?}", e))
+        })?;
 
         while let Some(val) = seq.next_element()? {
             list.push(val).map_err(|e| {

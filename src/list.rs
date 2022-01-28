@@ -23,27 +23,29 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         Self::try_from_iter(vec)
     }
 
-    pub fn empty() -> Self {
+    pub fn empty() -> Result<Self, Error> {
         // If the leaves are packed then they reduce the depth
         // FIXME(sproul): test really small lists that fit within a single packed leaf
         let depth = if let Some(packing_bits) = opt_packing_depth::<T>() {
-            int_log(N::to_usize()).checked_sub(packing_bits).unwrap()
+            int_log(N::to_usize())
+                .checked_sub(packing_bits)
+                .ok_or(Error::Oops)?
         } else {
             int_log(N::to_usize())
         };
         let tree = Tree::empty(depth);
 
-        Self {
+        Ok(Self {
             tree,
             length: 0,
             depth,
             _phantom: PhantomData,
-        }
+        })
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
         // FIXME(sproul): use a more efficient builder pattern
-        let mut list = Self::empty();
+        let mut list = Self::empty()?;
 
         for item in iter.into_iter() {
             list.push(item)?;
@@ -125,7 +127,8 @@ where
 
 impl<T: TreeHash + Clone, N: Unsigned> Default for List<T, N> {
     fn default() -> Self {
-        Self::empty()
+        // FIXME: should probably remove this `Default` implementation
+        Self::empty().expect("invalid type and length")
     }
 }
 
@@ -233,8 +236,14 @@ where
     fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
         let max_len = N::to_usize();
 
+        let empty_list = || {
+            List::empty().map_err(|e| {
+                ssz::DecodeError::BytesInvalid(format!("Invalid type and length: {:?}", e))
+            })
+        };
+
         if bytes.is_empty() {
-            Ok(List::empty())
+            empty_list()
         } else if T::is_ssz_fixed_len() {
             let num_items = bytes
                 .len()
@@ -250,7 +259,7 @@ where
 
             bytes
                 .chunks(T::ssz_fixed_len())
-                .try_fold(List::empty(), |mut list, chunk| {
+                .try_fold(empty_list()?, |mut list, chunk| {
                     list.push(T::from_ssz_bytes(chunk)?).map_err(|e| {
                         ssz::DecodeError::BytesInvalid(format!(
                             "List of max capacity {} full: {:?}",
