@@ -4,6 +4,7 @@ use crate::iter::Iter;
 use crate::serde::ListVisitor;
 use crate::utils::{int_log, opt_packing_depth};
 use crate::{Error, Tree};
+use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::marker::PhantomData;
@@ -38,9 +39,13 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         })
     }
 
-    pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
+    pub fn builder() -> Result<Builder<T>, Error> {
         let depth = Self::depth()?;
-        let mut builder = Builder::new(depth);
+        Ok(Builder::new(depth))
+    }
+
+    pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
+        let mut builder = Self::builder()?;
 
         for item in iter.into_iter() {
             builder.push(item)?;
@@ -260,14 +265,10 @@ where
     fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
         let max_len = N::to_usize();
 
-        let empty_list = || {
+        if bytes.is_empty() {
             List::empty().map_err(|e| {
                 ssz::DecodeError::BytesInvalid(format!("Invalid type and length: {:?}", e))
             })
-        };
-
-        if bytes.is_empty() {
-            empty_list()
         } else if T::is_ssz_fixed_len() {
             let num_items = bytes
                 .len()
@@ -281,17 +282,14 @@ where
                 )));
             }
 
-            bytes
-                .chunks(T::ssz_fixed_len())
-                .try_fold(empty_list()?, |mut list, chunk| {
-                    list.push(T::from_ssz_bytes(chunk)?).map_err(|e| {
-                        ssz::DecodeError::BytesInvalid(format!(
-                            "List of max capacity {} full: {:?}",
-                            max_len, e
-                        ))
-                    })?;
-                    Ok(list)
-                })
+            process_results(
+                bytes.chunks(T::ssz_fixed_len()).map(T::from_ssz_bytes),
+                |iter| {
+                    List::try_from_iter(iter).map_err(|e| {
+                        ssz::DecodeError::BytesInvalid(format!("Error building ssz List: {:?}", e))
+                    })
+                },
+            )?
         } else {
             crate::ssz::decode_list_of_variable_length_items(bytes)
         }

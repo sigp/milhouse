@@ -1,4 +1,5 @@
 use crate::List;
+use itertools::process_results;
 use serde::Deserialize;
 use std::marker::PhantomData;
 use tree_hash::TreeHash;
@@ -31,19 +32,13 @@ where
     where
         A: serde::de::SeqAccess<'a>,
     {
-        let mut list = List::empty().map_err(|e| {
-            serde::de::Error::custom(format!("Invalid type and length for list: {:?}", e))
-        })?;
-
-        while let Some(val) = seq.next_element()? {
-            list.push(val).map_err(|e| {
-                serde::de::Error::custom(format!(
-                    "Deserialization failed. Length cannot be greater than {}. Error: {:?}",
-                    N::to_usize(),
-                    e
-                ))
-            })?;
-        }
-        Ok(list)
+        process_results(
+            std::iter::from_fn(|| seq.next_element().transpose()),
+            |iter| {
+                List::try_from_iter(iter).map_err(|e| {
+                    serde::de::Error::custom(format!("Error deserializing List: {:?}", e))
+                })
+            },
+        )?
     }
 }

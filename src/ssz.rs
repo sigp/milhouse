@@ -1,5 +1,6 @@
 use crate::List;
 use ssz::{read_offset, Decode, DecodeError, BYTES_PER_LENGTH_OFFSET};
+use std::marker::PhantomData;
 use tree_hash::TreeHash;
 use typenum::Unsigned;
 
@@ -38,8 +39,8 @@ pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Uns
         )));
     }
 
-    // FIXME: use an efficient list builder here
-    let mut values = empty_list()?;
+    let mut builder = List::<T, N>::builder()
+        .map_err(|e| DecodeError::BytesInvalid(format!("Invalid type and length: {:?}", e)))?;
 
     let mut offset = first_offset;
     for i in 1..=num_items {
@@ -58,7 +59,7 @@ pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Uns
 
         let slice = slice_option.ok_or(DecodeError::OutOfBoundsByte { i: offset })?;
 
-        values.push(T::from_ssz_bytes(slice)?).map_err(|e| {
+        builder.push(T::from_ssz_bytes(slice)?).map_err(|e| {
             DecodeError::BytesInvalid(format!(
                 "List of max capacity {} full: {:?}",
                 N::to_usize(),
@@ -67,5 +68,14 @@ pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Uns
         })?;
     }
 
-    Ok(values)
+    let (tree, depth, length) = builder
+        .finish()
+        .map_err(|e| DecodeError::BytesInvalid(format!("Error finishing list builder: {:?}", e)))?;
+
+    Ok(List {
+        tree,
+        length,
+        depth,
+        _phantom: PhantomData,
+    })
 }

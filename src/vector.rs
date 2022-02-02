@@ -31,8 +31,9 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
     }
 
     pub fn from_elem(elem: T) -> Self {
-        // FIXME(sproul): this could be a lot faster and safer
-        Self::new(vec![elem; N::to_usize()]).unwrap()
+        // FIXME(sproul): propagate Result
+        Self::try_from(List::try_from_iter(std::iter::repeat(elem).take(N::to_usize())).unwrap())
+            .unwrap()
     }
 
     pub fn as_mut(&mut self) -> Interface<T, Self> {
