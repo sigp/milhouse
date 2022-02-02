@@ -3,12 +3,11 @@ use crate::interface::{ImmList, Interface, MutList, PushList};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
 use crate::utils::{int_log, opt_packing_depth};
-use crate::{Error, Tree};
+use crate::{Arc, Error, Tree};
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::marker::PhantomData;
-use std::sync::Arc;
 use tree_hash::{Hash256, TreeHash};
 use typenum::Unsigned;
 

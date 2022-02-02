@@ -1,3 +1,4 @@
+use crate::Arc;
 use derivative::Derivative;
 use parking_lot::RwLock;
 use tree_hash::Hash256;
@@ -6,8 +7,8 @@ use tree_hash::Hash256;
 #[derivative(PartialEq, Hash)]
 pub struct Leaf<T> {
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    pub hash: RwLock<Option<Hash256>>,
-    pub value: T,
+    pub hash: RwLock<Hash256>,
+    pub value: Arc<T>,
 }
 
 impl<T> Clone for Leaf<T>
@@ -16,7 +17,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hash: RwLock::new(self.hash.read().as_ref().cloned()),
+            hash: RwLock::new(*self.hash.read()),
             value: self.value.clone(),
         }
     }
@@ -25,8 +26,8 @@ where
 impl<T> Leaf<T> {
     pub fn new(value: T) -> Self {
         Self {
-            hash: RwLock::new(None),
-            value,
+            hash: RwLock::new(Hash256::zero()),
+            value: Arc::new(value),
         }
     }
 }

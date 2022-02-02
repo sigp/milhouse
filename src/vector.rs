@@ -1,13 +1,11 @@
 use crate::interface::{ImmList, Interface, MutList};
 use crate::iter::Iter;
-use crate::List;
-use crate::{Error, Tree};
+use crate::{Arc, Error, List, Tree};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
-use std::sync::Arc;
 use tree_hash::{Hash256, TreeHash};
 use typenum::Unsigned;
 

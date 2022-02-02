@@ -1,6 +1,5 @@
 use crate::utils::{opt_packing_depth, opt_packing_factor};
-use crate::{Error, PackedLeaf, Tree};
-use std::sync::Arc;
+use crate::{Arc, Error, PackedLeaf, Tree};
 use tree_hash::TreeHash;
 
 pub struct Builder<T: TreeHash + Clone> {

@@ -19,4 +19,5 @@ pub use leaf::Leaf;
 pub use list::List;
 pub use packed_leaf::PackedLeaf;
 pub use tree::Tree;
+pub use triomphe::Arc;
 pub use vector::Vector;

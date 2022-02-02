@@ -26,7 +26,7 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
         match self.stack.last() {
             None | Some(Tree::Zero(_)) => None,
             Some(Tree::Leaf(Leaf { value, .. })) => {
-                let result = Some(value);
+                let result = Some(value.as_ref());
 
                 self.index += 1;
 

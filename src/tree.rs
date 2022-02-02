@@ -1,9 +1,8 @@
 use crate::utils::{opt_packing_depth, opt_packing_factor};
-use crate::{Error, Leaf, PackedLeaf};
+use crate::{Arc, Error, Leaf, PackedLeaf};
 use derivative::Derivative;
 use eth2_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
-use std::sync::Arc;
 use tree_hash::{Hash256, TreeHash};
 
 #[derive(Debug, Derivative)]
@@ -13,7 +12,7 @@ pub enum Tree<T: TreeHash + Clone> {
     PackedLeaf(PackedLeaf<T>),
     Node {
         #[derivative(PartialEq = "ignore", Hash = "ignore")]
-        hash: RwLock<Option<Hash256>>,
+        hash: RwLock<Hash256>,
         left: Arc<Self>,
         right: Arc<Self>,
     },
@@ -24,7 +23,7 @@ impl<T: TreeHash + Clone> Clone for Tree<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Node { hash, left, right } => Self::Node {
-                hash: RwLock::new(hash.read().as_ref().cloned()),
+                hash: RwLock::new(*hash.read()),
                 left: left.clone(),
                 right: right.clone(),
             },
@@ -42,7 +41,7 @@ impl<T: TreeHash + Clone> Tree<T> {
 
     pub fn node(left: Arc<Self>, right: Arc<Self>) -> Arc<Self> {
         Arc::new(Self::Node {
-            hash: RwLock::new(None),
+            hash: RwLock::new(Hash256::zero()),
             left,
             right,
         })
@@ -58,7 +57,7 @@ impl<T: TreeHash + Clone> Tree<T> {
 
     pub fn node_unboxed(left: Arc<Self>, right: Arc<Self>) -> Self {
         Self::Node {
-            hash: RwLock::new(None),
+            hash: RwLock::new(Hash256::zero()),
             left,
             right,
         }
@@ -149,11 +148,12 @@ impl<T: TreeHash + Clone> Tree<T> {
                 let read_lock = hash.read();
                 let existing_hash = *read_lock;
                 drop(read_lock);
-                if let Some(hash) = existing_hash {
-                    hash
+                // FIXME(sproul): re-consider 0 leaf case performance
+                if !existing_hash.is_zero() {
+                    existing_hash
                 } else {
                     let tree_hash = value.tree_hash_root();
-                    *hash.write() = Some(tree_hash);
+                    *hash.write() = tree_hash;
                     tree_hash
                 }
             }
@@ -163,14 +163,15 @@ impl<T: TreeHash + Clone> Tree<T> {
                 let read_lock = hash.read();
                 let existing_hash = *read_lock;
                 drop(read_lock);
-                if let Some(hash) = existing_hash {
-                    hash
+
+                if !existing_hash.is_zero() {
+                    existing_hash
                 } else {
                     let left_hash = left.tree_hash();
                     let right_hash = right.tree_hash();
                     let tree_hash =
                         Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()));
-                    *hash.write() = Some(tree_hash);
+                    *hash.write() = tree_hash;
                     tree_hash
                 }
             }

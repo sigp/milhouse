@@ -1,7 +1,6 @@
 use crate::Error;
 use derivative::Derivative;
 use parking_lot::RwLock;
-use smallvec::{smallvec, SmallVec};
 use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 
 pub const MAX_FACTOR: usize = 32;
@@ -10,8 +9,8 @@ pub const MAX_FACTOR: usize = 32;
 #[derivative(PartialEq, Hash)]
 pub struct PackedLeaf<T: TreeHash + Clone> {
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    pub hash: RwLock<Option<Hash256>>,
-    pub(crate) values: SmallVec<[T; MAX_FACTOR]>,
+    pub hash: RwLock<Hash256>,
+    pub(crate) values: Vec<T>,
 }
 
 impl<T> Clone for PackedLeaf<T>
@@ -20,7 +19,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hash: RwLock::new(self.hash.read().as_ref().cloned()),
+            hash: RwLock::new(*self.hash.read()),
             values: self.values.clone(),
         }
     }
@@ -29,14 +28,13 @@ where
 impl<T: TreeHash + Clone> PackedLeaf<T> {
     pub fn tree_hash(&self) -> Hash256 {
         let read_lock = self.hash.read();
-        let existing_hash = *read_lock;
+        let mut hash = *read_lock;
         drop(read_lock);
 
-        if let Some(hash) = existing_hash {
+        if !hash.is_zero() {
             return hash;
         }
 
-        let mut hash = Hash256::zero();
         let hash_bytes = hash.as_bytes_mut();
 
         let value_len = BYTES_PER_CHUNK / T::tree_hash_packing_factor();
@@ -45,14 +43,14 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
                 .copy_from_slice(&value.tree_hash_packed_encoding());
         }
 
-        *self.hash.write() = Some(hash);
+        *self.hash.write() = hash;
         hash
     }
 
     pub fn single(value: T) -> Self {
         PackedLeaf {
-            hash: RwLock::new(None),
-            values: smallvec![value],
+            hash: RwLock::new(Hash256::zero()),
+            values: vec![value],
         }
     }
 
@@ -70,7 +68,7 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         }
 
         Ok(Self {
-            hash: RwLock::new(None),
+            hash: RwLock::new(Hash256::zero()),
             values,
         })
     }
