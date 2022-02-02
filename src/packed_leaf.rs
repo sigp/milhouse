@@ -74,4 +74,13 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
             values,
         })
     }
+
+    pub fn push(&mut self, value: T) -> Result<(), Error> {
+        if self.values.len() == T::tree_hash_packing_factor() {
+            // FIXME(sproul): remove panic
+            panic!("packed leaf is full");
+        }
+        self.values.push(value);
+        Ok(())
+    }
 }

@@ -1,3 +1,4 @@
+pub mod builder;
 pub mod error;
 pub mod interface;
 pub mod iter;

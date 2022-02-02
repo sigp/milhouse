@@ -56,6 +56,22 @@ impl<T: TreeHash + Clone> Tree<T> {
         Arc::new(Self::Leaf(Leaf::new(value)))
     }
 
+    pub fn node_unboxed(left: Arc<Self>, right: Arc<Self>) -> Self {
+        Self::Node {
+            hash: RwLock::new(None),
+            left,
+            right,
+        }
+    }
+
+    pub fn zero_unboxed(depth: usize) -> Self {
+        Self::Zero(depth)
+    }
+
+    pub fn leaf_unboxed(value: T) -> Self {
+        Self::Leaf(Leaf::new(value))
+    }
+
     pub fn get(&self, index: usize, depth: usize) -> Option<&T> {
         match self {
             Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(value),

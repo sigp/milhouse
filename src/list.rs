@@ -1,3 +1,4 @@
+use crate::builder::Builder;
 use crate::interface::{ImmList, Interface, MutList, PushList};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
@@ -26,13 +27,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
     pub fn empty() -> Result<Self, Error> {
         // If the leaves are packed then they reduce the depth
         // FIXME(sproul): test really small lists that fit within a single packed leaf
-        let depth = if let Some(packing_bits) = opt_packing_depth::<T>() {
-            int_log(N::to_usize())
-                .checked_sub(packing_bits)
-                .ok_or(Error::Oops)?
-        } else {
-            int_log(N::to_usize())
-        };
+        let depth = Self::depth()?;
         let tree = Tree::empty(depth);
 
         Ok(Self {
@@ -44,7 +39,26 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        // FIXME(sproul): use a more efficient builder pattern
+        let depth = Self::depth()?;
+        let mut builder = Builder::new(depth);
+
+        for item in iter.into_iter() {
+            builder.push(item)?;
+        }
+
+        let (tree, depth, length) = builder.finish()?;
+
+        Ok(Self {
+            tree,
+            length,
+            depth,
+            _phantom: PhantomData,
+        })
+    }
+
+    /// This method exists for testing purposes.
+    #[doc(hidden)]
+    pub fn try_from_iter_slow(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
         let mut list = Self::empty()?;
 
         for item in iter.into_iter() {
@@ -81,6 +95,16 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
         PushList::push(self, value)
+    }
+
+    fn depth() -> Result<usize, Error> {
+        if let Some(packing_bits) = opt_packing_depth::<T>() {
+            int_log(N::to_usize())
+                .checked_sub(packing_bits)
+                .ok_or(Error::Oops)
+        } else {
+            Ok(int_log(N::to_usize()))
+        }
     }
 }
 
