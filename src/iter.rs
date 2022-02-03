@@ -1,18 +1,26 @@
 use crate::{utils::opt_packing_depth, Leaf, PackedLeaf, Tree};
 use tree_hash::TreeHash;
 
+#[derive(Debug)]
 pub struct Iter<'a, T: TreeHash + Clone> {
     pub(crate) stack: Vec<&'a Tree<T>>,
-    pub(crate) index: u64,
+    pub(crate) index: usize,
     pub(crate) full_depth: usize,
     pub(crate) length: usize,
 }
 
 impl<'a, T: TreeHash + Clone> Iter<'a, T> {
     pub fn new(root: &'a Tree<T>, depth: usize, length: usize) -> Self {
+        Self::from_index(0, root, depth, length)
+    }
+
+    pub fn from_index(index: usize, root: &'a Tree<T>, depth: usize, length: usize) -> Self {
+        let mut stack = Vec::with_capacity(depth);
+        stack.push(root);
+
         Iter {
-            stack: vec![root],
-            index: 0,
+            stack,
+            index,
             full_depth: depth,
             length,
         }
@@ -23,6 +31,10 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.length {
+            return None;
+        }
+
         match self.stack.last() {
             None | Some(Tree::Zero(_)) => None,
             Some(Tree::Leaf(Leaf { value, .. })) => {
@@ -39,7 +51,7 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
             }
             Some(Tree::PackedLeaf(PackedLeaf { values, .. })) => {
                 let packing_factor = T::tree_hash_packing_factor();
-                let sub_index = self.index as usize % packing_factor;
+                let sub_index = self.index % packing_factor;
 
                 let result = values.get(sub_index);
 
@@ -80,7 +92,8 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.length, Some(self.length))
+        let remaining = self.length.saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 

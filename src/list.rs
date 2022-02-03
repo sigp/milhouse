@@ -84,6 +84,17 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         Iter::new(&self.tree, self.depth, self.length)
     }
 
+    pub fn iter_from(&self, index: usize) -> Result<Iter<T>, Error> {
+        // Return an empty iterator at index == length, just like slicing.
+        if index > self.len() {
+            return Err(Error::OutOfBoundsIterFrom {
+                index,
+                len: self.len(),
+            });
+        }
+        Ok(Iter::from_index(index, &self.tree, self.depth, self.length))
+    }
+
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&T> {
         ImmList::get(self, index)

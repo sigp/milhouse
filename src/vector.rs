@@ -46,6 +46,16 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
         Iter::new(&self.tree, self.depth, self.len())
     }
 
+    pub fn iter_from(&self, index: usize) -> Result<Iter<T>, Error> {
+        if index > self.len() {
+            return Err(Error::OutOfBoundsIterFrom {
+                index,
+                len: self.len(),
+            });
+        }
+        Ok(Iter::from_index(index, &self.tree, self.depth, self.len()))
+    }
+
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&T> {
         ImmList::get(self, index)
