@@ -132,6 +132,13 @@ where
     N: Unsigned,
 {
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {
+        if index >= self.len() {
+            return Err(Error::OutOfBoundsUpdate {
+                index,
+                len: self.len(),
+            });
+        }
+
         self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
         Ok(())
     }
@@ -144,7 +151,7 @@ where
 {
     fn push(&mut self, value: T) -> Result<(), Error> {
         if self.length == N::to_usize() {
-            return Err(Error::Oops);
+            return Err(Error::ListFull { len: self.length });
         }
         let index = self.length;
         self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;

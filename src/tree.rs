@@ -93,13 +93,15 @@ impl<T: TreeHash + Clone> Tree<T> {
         }
     }
 
+    /// Create a new tree where the `index`th leaf is set to `new_value`.
+    ///
+    /// NOTE: callers are responsible for bounds-checking `index` before calling this function.
     pub fn with_updated_leaf(
         &self,
         index: usize,
         new_value: T,
         depth: usize,
     ) -> Result<Arc<Self>, Error> {
-        // FIXME: check index less than 2^depth
         match self {
             Self::Leaf(_) if depth == 0 => Ok(Self::leaf(new_value)),
             Self::PackedLeaf(leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(

@@ -3,8 +3,6 @@ use derivative::Derivative;
 use parking_lot::RwLock;
 use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 
-pub const MAX_FACTOR: usize = 32;
-
 #[derive(Debug, Derivative)]
 #[derivative(PartialEq, Hash)]
 pub struct PackedLeaf<T: TreeHash + Clone> {
@@ -75,8 +73,9 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
         if self.values.len() == T::tree_hash_packing_factor() {
-            // FIXME(sproul): remove panic
-            panic!("packed leaf is full");
+            return Err(Error::PackedLeafFull {
+                len: self.values.len(),
+            });
         }
         self.values.push(value);
         Ok(())
