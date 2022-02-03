@@ -134,7 +134,7 @@ impl<T: Default + TreeHash + Clone, N: Unsigned> Default for Vector<T, N> {
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
+impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::Vector
     }

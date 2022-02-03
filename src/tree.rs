@@ -142,7 +142,9 @@ impl<T: TreeHash + Clone> Tree<T> {
             _ => Err(Error::Oops),
         }
     }
+}
 
+impl<T: TreeHash + Clone + Send + Sync> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {
@@ -169,8 +171,9 @@ impl<T: TreeHash + Clone> Tree<T> {
                 if !existing_hash.is_zero() {
                     existing_hash
                 } else {
-                    let left_hash = left.tree_hash();
-                    let right_hash = right.tree_hash();
+                    // Parallelism goes brrrr.
+                    let (left_hash, right_hash) =
+                        rayon::join(|| left.tree_hash(), || right.tree_hash());
                     let tree_hash =
                         Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()));
                     *hash.write() = tree_hash;
