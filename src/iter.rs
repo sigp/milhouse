@@ -10,10 +10,6 @@ pub struct Iter<'a, T: TreeHash + Clone> {
 }
 
 impl<'a, T: TreeHash + Clone> Iter<'a, T> {
-    pub fn new(root: &'a Tree<T>, depth: usize, length: usize) -> Self {
-        Self::from_index(0, root, depth, length)
-    }
-
     pub fn from_index(index: usize, root: &'a Tree<T>, depth: usize, length: usize) -> Self {
         let mut stack = Vec::with_capacity(depth);
         stack.push(root);

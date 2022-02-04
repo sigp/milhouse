@@ -1,4 +1,4 @@
-use crate::{interface::MutList, List, Vector};
+use crate::{List, Vector};
 use ssz_types::{FixedVector, VariableList};
 use tree_hash::TreeHash;
 use typenum::U16;
@@ -72,7 +72,7 @@ fn out_of_order_mutations() {
     ];
 
     for (i, v) in mutations {
-        list.replace(i, v).unwrap();
+        *list.get_mut(i).unwrap() = v;
         vec[i] = v;
         assert_eq!(list.get(i), Some(&v));
     }

@@ -1,5 +1,7 @@
 use crate::builder::Builder;
-use crate::interface::{ImmList, Interface, MutList, PushList};
+use crate::cow::Cow;
+use crate::interface::{ImmList, Interface, MutList};
+use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
 use crate::utils::{int_log, opt_packing_depth};
@@ -13,10 +15,15 @@ use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct List<T: TreeHash + Clone, N: Unsigned> {
+    pub(crate) interface: Interface<T, ListInner<T, N>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) length: usize,
     pub(crate) depth: usize,
-    pub(crate) _phantom: PhantomData<N>,
+    _phantom: PhantomData<N>,
 }
 
 impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
@@ -24,18 +31,23 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         Self::try_from_iter(vec)
     }
 
+    pub(crate) fn from_parts(tree: Arc<Tree<T>>, depth: usize, length: usize) -> Self {
+        Self {
+            interface: Interface::new(ListInner {
+                tree,
+                length,
+                depth,
+                _phantom: PhantomData,
+            }),
+        }
+    }
+
     pub fn empty() -> Result<Self, Error> {
         // If the leaves are packed then they reduce the depth
         // FIXME(sproul): test really small lists that fit within a single packed leaf
         let depth = Self::depth()?;
         let tree = Tree::empty(depth);
-
-        Ok(Self {
-            tree,
-            length: 0,
-            depth,
-            _phantom: PhantomData,
-        })
+        Ok(Self::from_parts(tree, depth, 0))
     }
 
     pub fn builder() -> Result<Builder<T>, Error> {
@@ -52,12 +64,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
 
         let (tree, depth, length) = builder.finish()?;
 
-        Ok(Self {
-            tree,
-            length,
-            depth,
-            _phantom: PhantomData,
-        })
+        Ok(Self::from_parts(tree, depth, length))
     }
 
     /// This method exists for testing purposes.
@@ -69,22 +76,20 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
             list.push(item)?;
         }
 
-        Ok(list)
-    }
+        list.apply_updates()?;
 
-    pub fn as_mut(&mut self) -> Interface<T, Self> {
-        Interface::new(self)
+        Ok(list)
     }
 
     pub fn to_vec(&self) -> Vec<T> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> Iter<T> {
-        Iter::new(&self.tree, self.depth, self.length)
+    pub fn iter(&self) -> InterfaceIter<T> {
+        self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<Iter<T>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T>, Error> {
         // Return an empty iterator at index == length, just like slicing.
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
@@ -92,24 +97,40 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
                 len: self.len(),
             });
         }
-        Ok(Iter::from_index(index, &self.tree, self.depth, self.length))
+        Ok(self.interface.iter_from(index))
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&T> {
-        ImmList::get(self, index)
+        self.interface.get(index)
     }
 
-    pub fn len(&self) -> usize {
-        ImmList::len(self)
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.interface.get_mut(index)
     }
 
-    pub fn is_empty(&self) -> bool {
-        ImmList::is_empty(self)
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
+        self.interface.get_cow(index)
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
-        PushList::push(self, value)
+        self.interface.push(value)
+    }
+
+    pub fn len(&self) -> usize {
+        self.interface.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.interface.is_empty()
+    }
+
+    pub fn has_pending_updates(&self) -> bool {
+        self.interface.has_pending_updates()
+    }
+
+    pub fn apply_updates(&mut self) -> Result<(), Error> {
+        self.interface.apply_updates()
     }
 
     fn depth() -> Result<usize, Error> {
@@ -123,7 +144,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for List<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len() {
             self.tree.get(index, self.depth)
@@ -135,15 +156,27 @@ impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for List<T, N> {
     fn len(&self) -> usize {
         self.length
     }
+
+    fn iter_from(&self, index: usize) -> Iter<T> {
+        Iter::from_index(index, &self.tree, self.depth, self.length)
+    }
 }
 
-impl<T, N> MutList<T> for List<T, N>
+impl<T, N> MutList<T> for ListInner<T, N>
 where
     T: TreeHash + Clone,
     N: Unsigned,
 {
+    fn validate_push(&self) -> Result<(), Error> {
+        if self.length == N::to_usize() {
+            Err(Error::ListFull { len: self.length })
+        } else {
+            Ok(())
+        }
+    }
+
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {
-        if index >= self.len() {
+        if index > self.len() {
             return Err(Error::OutOfBoundsUpdate {
                 index,
                 len: self.len(),
@@ -151,22 +184,9 @@ where
         }
 
         self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
-        Ok(())
-    }
-}
-
-impl<T, N> PushList<T> for List<T, N>
-where
-    T: TreeHash + Clone,
-    N: Unsigned,
-{
-    fn push(&mut self, value: T) -> Result<(), Error> {
-        if self.length == N::to_usize() {
-            return Err(Error::ListFull { len: self.length });
+        if index == self.length {
+            self.length += 1;
         }
-        let index = self.length;
-        self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
-        self.length += 1;
         Ok(())
     }
 }
@@ -192,14 +212,17 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        let root = self.tree.tree_hash();
+        // FIXME(sproul): remove assert
+        assert!(!self.interface.has_pending_updates());
+
+        let root = self.interface.backing.tree.tree_hash();
         tree_hash::mix_in_length(&root, self.len())
     }
 }
 
 impl<'a, T: TreeHash + Clone, N: Unsigned> IntoIterator for &'a List<T, N> {
     type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
+    type IntoIter = InterfaceIter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
