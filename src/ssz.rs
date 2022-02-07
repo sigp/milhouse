@@ -1,6 +1,5 @@
 use crate::List;
 use ssz::{read_offset, Decode, DecodeError, BYTES_PER_LENGTH_OFFSET};
-use std::marker::PhantomData;
 use tree_hash::TreeHash;
 use typenum::Unsigned;
 
@@ -72,10 +71,5 @@ pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Uns
         .finish()
         .map_err(|e| DecodeError::BytesInvalid(format!("Error finishing list builder: {:?}", e)))?;
 
-    Ok(List {
-        tree,
-        length,
-        depth,
-        _phantom: PhantomData,
-    })
+    Ok(List::from_parts(tree, length, depth))
 }

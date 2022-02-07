@@ -6,6 +6,7 @@ pub enum Error {
     OutOfBoundsIterFrom { index: usize, len: usize },
     ListFull { len: usize },
     PackedLeafFull { len: usize },
+    PushNotSupported,
     Oops,
 }
 

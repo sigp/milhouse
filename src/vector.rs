@@ -1,7 +1,8 @@
+use crate::cow::Cow;
 use crate::interface::{ImmList, Interface, MutList};
+use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
 use crate::{Arc, Error, List, Tree};
-use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::convert::TryFrom;
@@ -9,13 +10,19 @@ use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
 use typenum::Unsigned;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Derivative)]
-#[derivative(PartialEq, Hash)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(try_from = "List<T, N>")]
 #[serde(into = "List<T, N>")]
+#[serde(bound(serialize = "T: TreeHash + Clone + Serialize, N: Unsigned"))]
+#[serde(bound(deserialize = "T: TreeHash + Clone + Deserialize<'de>, N: Unsigned"))]
 pub struct Vector<T: TreeHash + Clone, N: Unsigned> {
-    pub(crate) tree: Arc<Tree<T>>,
-    pub(crate) depth: usize,
+    interface: Interface<T, VectorInner<T, N>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct VectorInner<T: TreeHash + Clone, N: Unsigned> {
+    tree: Arc<Tree<T>>,
+    depth: usize,
     _phantom: PhantomData<N>,
 }
 
@@ -34,39 +41,51 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
             .unwrap()
     }
 
-    pub fn as_mut(&mut self) -> Interface<T, Self> {
-        Interface::new(self)
-    }
-
     pub fn to_vec(&self) -> Vec<T> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> Iter<T> {
-        Iter::new(&self.tree, self.depth, self.len())
+    pub fn iter(&self) -> InterfaceIter<T> {
+        self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<Iter<T>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T>, Error> {
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
                 index,
                 len: self.len(),
             });
         }
-        Ok(Iter::from_index(index, &self.tree, self.depth, self.len()))
+        Ok(self.interface.iter_from(index))
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&T> {
-        ImmList::get(self, index)
+        self.interface.get(index)
+    }
+
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.interface.get_mut(index)
+    }
+
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
+        self.interface.get_cow(index)
     }
 
     pub fn len(&self) -> usize {
-        ImmList::len(self)
+        self.interface.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        ImmList::is_empty(self)
+        self.interface.is_empty()
+    }
+
+    pub fn has_pending_updates(&self) -> bool {
+        self.interface.has_pending_updates()
+    }
+
+    pub fn apply_updates(&mut self) -> Result<(), Error> {
+        self.interface.apply_updates()
     }
 }
 
@@ -75,10 +94,14 @@ impl<T: TreeHash + Clone, N: Unsigned> TryFrom<List<T, N>> for Vector<T, N> {
 
     fn try_from(list: List<T, N>) -> Result<Self, Error> {
         if list.len() == N::to_usize() {
-            Ok(Vector {
-                tree: list.tree,
-                depth: list.depth,
+            let updates = list.interface.updates;
+            let backing = VectorInner {
+                tree: list.interface.backing.tree,
+                depth: list.interface.backing.depth,
                 _phantom: PhantomData,
+            };
+            Ok(Vector {
+                interface: Interface { updates, backing },
             })
         } else {
             Err(Error::Oops)
@@ -88,16 +111,15 @@ impl<T: TreeHash + Clone, N: Unsigned> TryFrom<List<T, N>> for Vector<T, N> {
 
 impl<T: TreeHash + Clone, N: Unsigned> From<Vector<T, N>> for List<T, N> {
     fn from(vector: Vector<T, N>) -> Self {
-        List {
-            tree: vector.tree,
-            length: N::to_usize(),
-            depth: vector.depth,
-            _phantom: PhantomData,
-        }
+        List::from_parts(
+            vector.interface.backing.tree,
+            vector.interface.backing.depth,
+            N::to_usize(),
+        )
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for Vector<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for VectorInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len() {
             self.tree.get(index, self.depth)
@@ -109,13 +131,21 @@ impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for Vector<T, N> {
     fn len(&self) -> usize {
         N::to_usize()
     }
+
+    fn iter_from(&self, index: usize) -> Iter<T> {
+        Iter::from_index(index, &self.tree, self.depth, N::to_usize())
+    }
 }
 
-impl<T, N> MutList<T> for Vector<T, N>
+impl<T, N> MutList<T> for VectorInner<T, N>
 where
     T: TreeHash + Clone,
     N: Unsigned,
 {
+    fn validate_push(&self) -> Result<(), Error> {
+        Err(Error::PushNotSupported)
+    }
+
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {
         if index >= self.len() {
             return Err(Error::OutOfBoundsUpdate {
@@ -148,7 +178,9 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vec
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        self.tree.tree_hash()
+        // FIXME(sproul): remove assert
+        assert!(!self.interface.has_pending_updates());
+        self.interface.backing.tree.tree_hash()
     }
 }
 

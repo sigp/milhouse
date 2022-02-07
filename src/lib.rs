@@ -1,6 +1,8 @@
 pub mod builder;
+pub mod cow;
 pub mod error;
 pub mod interface;
+pub mod interface_iter;
 pub mod iter;
 pub mod leaf;
 pub mod list;
@@ -13,6 +15,7 @@ pub mod tree;
 pub mod utils;
 pub mod vector;
 
+pub use cow::Cow;
 pub use error::Error;
 pub use interface::ImmList;
 pub use leaf::Leaf;
