@@ -46,9 +46,12 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
     }
 
     pub fn single(value: T) -> Self {
+        let mut values = Vec::with_capacity(T::tree_hash_packing_factor());
+        values.push(value);
+
         PackedLeaf {
             hash: RwLock::new(Hash256::zero()),
-            values: vec![value],
+            values,
         }
     }
 
