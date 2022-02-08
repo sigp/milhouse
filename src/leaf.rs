@@ -1,7 +1,7 @@
-use crate::Arc;
 use derivative::Derivative;
 use parking_lot::RwLock;
 use tree_hash::Hash256;
+use triomphe::Arc;
 
 #[derive(Debug, Derivative)]
 #[derivative(PartialEq, Hash)]

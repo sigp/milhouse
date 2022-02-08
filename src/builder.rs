@@ -1,11 +1,13 @@
+use crate::slab::{OwnedRef, Pool};
 use crate::utils::{opt_packing_depth, opt_packing_factor};
-use crate::{Arc, Error, PackedLeaf, Tree};
+use crate::{Error, PackedLeaf, Tree};
 use tree_hash::TreeHash;
 
 pub struct Builder<T: TreeHash + Clone> {
     stack: Vec<Tree<T>>,
     depth: usize,
     length: usize,
+    pool: Pool<Tree<T>>,
 }
 
 impl<T: TreeHash + Clone> Builder<T> {
@@ -14,6 +16,7 @@ impl<T: TreeHash + Clone> Builder<T> {
             stack: Vec::with_capacity(depth),
             depth,
             length: 0,
+            pool: Pool::new(),
         }
     }
 
@@ -42,7 +45,8 @@ impl<T: TreeHash + Clone> Builder<T> {
 
         for _ in 0..values_to_merge {
             let left = self.stack.pop().ok_or(Error::Oops)?;
-            new_stack_top = Tree::node_unboxed(Arc::new(left), Arc::new(new_stack_top));
+            new_stack_top =
+                Tree::node_unboxed(self.pool.insert(left), self.pool.insert(new_stack_top));
         }
 
         self.stack.push(new_stack_top);
@@ -51,9 +55,9 @@ impl<T: TreeHash + Clone> Builder<T> {
         Ok(())
     }
 
-    pub fn finish(mut self) -> Result<(Arc<Tree<T>>, usize, usize), Error> {
+    pub fn finish(mut self) -> Result<(OwnedRef<Tree<T>>, Pool<Tree<T>>, usize, usize), Error> {
         if self.stack.len() == 0 {
-            return Ok((Tree::zero(self.depth), self.depth, 0));
+            return Ok((Tree::zero(self.depth, &self.pool), self.pool, self.depth, 0));
         }
 
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
@@ -72,8 +76,10 @@ impl<T: TreeHash + Clone> Builder<T> {
                     if (next_index >> (i + packing_depth)) & 1 == 1 {
                         let right = self.stack.pop().ok_or(Error::Oops)?;
                         let left = self.stack.pop().ok_or(Error::Oops)?;
-                        self.stack
-                            .push(Tree::node_unboxed(Arc::new(left), Arc::new(right)));
+                        self.stack.push(Tree::node_unboxed(
+                            self.pool.insert(left),
+                            self.pool.insert(right),
+                        ));
                     } else {
                         break;
                     }
@@ -87,7 +93,8 @@ impl<T: TreeHash + Clone> Builder<T> {
             let depth = (next_index.trailing_zeros() as usize).saturating_sub(packing_depth);
 
             let stack_top = self.stack.pop().ok_or(Error::Oops)?;
-            let new_stack_top = Tree::node_unboxed(Arc::new(stack_top), Tree::zero(depth));
+            let new_stack_top =
+                Tree::node_unboxed(self.pool.insert(stack_top), Tree::zero(depth, &self.pool));
 
             self.stack.push(new_stack_top);
 
@@ -96,8 +103,10 @@ impl<T: TreeHash + Clone> Builder<T> {
                 if (next_index >> (i + packing_depth)) & 1 == 1 {
                     let right = self.stack.pop().ok_or(Error::Oops)?;
                     let left = self.stack.pop().ok_or(Error::Oops)?;
-                    self.stack
-                        .push(Tree::node_unboxed(Arc::new(left), Arc::new(right)));
+                    self.stack.push(Tree::node_unboxed(
+                        self.pool.insert(left),
+                        self.pool.insert(right),
+                    ));
                 } else {
                     break;
                 }
@@ -110,7 +119,7 @@ impl<T: TreeHash + Clone> Builder<T> {
             return Err(Error::Oops);
         }
 
-        let tree = Arc::new(self.stack.pop().ok_or(Error::Oops)?);
-        Ok((tree, self.depth, self.length))
+        let tree = self.pool.insert(self.stack.pop().ok_or(Error::Oops)?);
+        Ok((tree, self.pool, self.depth, self.length))
     }
 }

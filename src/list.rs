@@ -4,8 +4,10 @@ use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
+use crate::slab::{OwnedRef, Pool};
 use crate::utils::{int_log, opt_packing_depth};
-use crate::{Arc, Error, Tree};
+use crate::{Error, Tree};
+use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
@@ -18,9 +20,12 @@ pub struct List<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) interface: Interface<T, ListInner<T, N>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Derivative)]
+#[derivative(PartialEq)]
 pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
-    pub(crate) tree: Arc<Tree<T>>,
+    pub(crate) tree: OwnedRef<Tree<T>>,
+    #[derivative(PartialEq = "ignore")]
+    pub(crate) pool: Pool<Tree<T>>,
     pub(crate) length: usize,
     pub(crate) depth: usize,
     _phantom: PhantomData<N>,
@@ -31,10 +36,16 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         Self::try_from_iter(vec)
     }
 
-    pub(crate) fn from_parts(tree: Arc<Tree<T>>, depth: usize, length: usize) -> Self {
+    pub(crate) fn from_parts(
+        tree: OwnedRef<Tree<T>>,
+        pool: Pool<Tree<T>>,
+        depth: usize,
+        length: usize,
+    ) -> Self {
         Self {
             interface: Interface::new(ListInner {
                 tree,
+                pool,
                 length,
                 depth,
                 _phantom: PhantomData,
@@ -46,8 +57,9 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         // If the leaves are packed then they reduce the depth
         // FIXME(sproul): test really small lists that fit within a single packed leaf
         let depth = Self::depth()?;
-        let tree = Tree::empty(depth);
-        Ok(Self::from_parts(tree, depth, 0))
+        let pool = Pool::new();
+        let tree = Tree::empty(depth, &pool);
+        Ok(Self::from_parts(tree, pool, depth, 0))
     }
 
     pub fn builder() -> Result<Builder<T>, Error> {
@@ -62,9 +74,9 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
             builder.push(item)?;
         }
 
-        let (tree, depth, length) = builder.finish()?;
+        let (tree, pool, depth, length) = builder.finish()?;
 
-        Ok(Self::from_parts(tree, depth, length))
+        Ok(Self::from_parts(tree, pool, depth, length))
     }
 
     /// This method exists for testing purposes.
@@ -187,7 +199,9 @@ where
             });
         }
 
-        self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
+        self.tree = self
+            .tree
+            .with_updated_leaf(index, value, self.depth, &self.pool)?;
         if index == self.length {
             self.length += 1;
         }

@@ -2,7 +2,9 @@ use crate::cow::Cow;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
-use crate::{Arc, Error, List, Tree};
+use crate::slab::{OwnedRef, Pool};
+use crate::{Error, List, Tree};
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::convert::TryFrom;
@@ -19,10 +21,13 @@ pub struct Vector<T: TreeHash + Clone, N: Unsigned> {
     interface: Interface<T, VectorInner<T, N>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Derivative)]
+#[derivative(PartialEq)]
 pub struct VectorInner<T: TreeHash + Clone, N: Unsigned> {
-    tree: Arc<Tree<T>>,
+    tree: OwnedRef<Tree<T>>,
     depth: usize,
+    #[derivative(PartialEq = "ignore")]
+    pool: Pool<Tree<T>>,
     _phantom: PhantomData<N>,
 }
 
@@ -97,6 +102,7 @@ impl<T: TreeHash + Clone, N: Unsigned> TryFrom<List<T, N>> for Vector<T, N> {
             let updates = list.interface.updates;
             let backing = VectorInner {
                 tree: list.interface.backing.tree,
+                pool: list.interface.backing.pool,
                 depth: list.interface.backing.depth,
                 _phantom: PhantomData,
             };
@@ -113,6 +119,7 @@ impl<T: TreeHash + Clone, N: Unsigned> From<Vector<T, N>> for List<T, N> {
     fn from(vector: Vector<T, N>) -> Self {
         List::from_parts(
             vector.interface.backing.tree,
+            vector.interface.backing.pool,
             vector.interface.backing.depth,
             N::to_usize(),
         )
@@ -153,7 +160,9 @@ where
                 len: self.len(),
             });
         }
-        self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
+        self.tree = self
+            .tree
+            .with_updated_leaf(index, value, self.depth, &self.pool)?;
         Ok(())
     }
 }

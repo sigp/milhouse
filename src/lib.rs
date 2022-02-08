@@ -8,6 +8,7 @@ pub mod leaf;
 pub mod list;
 pub mod packed_leaf;
 pub mod serde;
+pub mod slab;
 pub mod ssz;
 #[cfg(test)]
 mod tests;
@@ -21,6 +22,7 @@ pub use interface::ImmList;
 pub use leaf::Leaf;
 pub use list::List;
 pub use packed_leaf::PackedLeaf;
+pub use slab::OwnedRef;
 pub use tree::Tree;
 pub use triomphe::Arc;
 pub use vector::Vector;
