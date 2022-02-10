@@ -1,6 +1,7 @@
 use crate::Error;
 use derivative::Derivative;
 use parking_lot::RwLock;
+use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 
 #[derive(Debug, Derivative)]
@@ -45,6 +46,13 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         hash
     }
 
+    pub fn empty() -> Self {
+        PackedLeaf {
+            hash: RwLock::new(Hash256::zero()),
+            values: Vec::with_capacity(T::tree_hash_packing_factor()),
+        }
+    }
+
     pub fn single(value: T) -> Self {
         let mut values = Vec::with_capacity(T::tree_hash_packing_factor());
         values.push(value);
@@ -56,22 +64,44 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
     }
 
     pub fn insert_at_index(&self, index: usize, value: T) -> Result<Self, Error> {
+        let mut updated = PackedLeaf {
+            hash: RwLock::new(Hash256::zero()),
+            values: self.values.clone(),
+        };
         let sub_index = index % T::tree_hash_packing_factor();
+        updated.insert_mut(sub_index, value)?;
+        Ok(updated)
+    }
 
-        let mut values = self.values.clone();
+    pub fn update(&self, prefix: usize, updates: BTreeMap<usize, T>) -> Result<Self, Error> {
+        let mut updated = PackedLeaf {
+            hash: RwLock::new(Hash256::zero()),
+            values: self.values.clone(),
+        };
+
+        for (index, value) in updates {
+            // Key should match prefix bits exactly.
+            let sub_index = index % T::tree_hash_packing_factor();
+            if index ^ prefix != sub_index {
+                return Err(Error::PackedLeafInvalidUpdate { index, prefix });
+            }
+            updated.insert_mut(sub_index, value)?;
+        }
+        Ok(updated)
+    }
+
+    pub fn insert_mut(&mut self, sub_index: usize, value: T) -> Result<(), Error> {
+        // Ensure hash is 0.
+        *self.hash.get_mut() = Hash256::zero();
 
         if sub_index == self.values.len() {
-            values.push(value);
+            self.values.push(value);
         } else if sub_index < self.values.len() {
-            values[sub_index] = value;
+            self.values[sub_index] = value;
         } else {
             return Err(Error::Oops);
         }
-
-        Ok(Self {
-            hash: RwLock::new(Hash256::zero()),
-            values,
-        })
+        Ok(())
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {

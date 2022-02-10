@@ -2,9 +2,11 @@ use crate::cow::Cow;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
+use crate::utils::max_btree_index;
 use crate::{Arc, Error, List, Tree};
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
+use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
@@ -154,6 +156,14 @@ where
             });
         }
         self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
+        Ok(())
+    }
+
+    fn update(&mut self, updates: BTreeMap<usize, T>) -> Result<(), Error> {
+        if max_btree_index(&updates).map_or(true, |index| index >= self.len()) {
+            return Err(Error::InvalidVectorUpdate);
+        }
+        self.tree = self.tree.with_updated_leaves(updates, 0, self.depth)?;
         Ok(())
     }
 }

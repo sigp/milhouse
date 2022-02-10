@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use tree_hash::{TreeHash, TreeHashType};
 
 /// Compute ceil(log(n))
@@ -21,4 +22,14 @@ pub fn opt_packing_factor<T: TreeHash>() -> Option<usize> {
 pub fn opt_packing_depth<T: TreeHash>() -> Option<usize> {
     let packing_factor = opt_packing_factor::<T>()?;
     Some(int_log(packing_factor))
+}
+
+/// Compute the maximum index of a BTreeMap.
+pub fn max_btree_index<T>(map: &BTreeMap<usize, T>) -> Option<usize> {
+    map.keys().next_back().copied()
+}
+
+/// Compute the length a data structure will have after applying `updates`.
+pub fn updated_length<T>(prev_len: usize, updates: &BTreeMap<usize, T>) -> usize {
+    max_btree_index(updates).map_or(prev_len, |max_idx| std::cmp::max(max_idx + 1, prev_len))
 }

@@ -4,11 +4,12 @@ use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
-use crate::utils::{int_log, opt_packing_depth};
+use crate::utils::{int_log, max_btree_index, opt_packing_depth, updated_length};
 use crate::{Arc, Error, Tree};
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
 use typenum::Unsigned;
@@ -191,6 +192,15 @@ where
         if index == self.length {
             self.length += 1;
         }
+        Ok(())
+    }
+
+    fn update(&mut self, updates: BTreeMap<usize, T>) -> Result<(), Error> {
+        if max_btree_index(&updates).map_or(true, |index| index >= N::to_usize()) {
+            return Err(Error::InvalidListUpdate);
+        }
+        self.length = updated_length(self.length, &updates);
+        self.tree = self.tree.with_updated_leaves(updates, 0, self.depth)?;
         Ok(())
     }
 }

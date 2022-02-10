@@ -6,7 +6,14 @@ pub enum Error {
     OutOfBoundsIterFrom { index: usize, len: usize },
     ListFull { len: usize },
     PackedLeafFull { len: usize },
+    LeafUpdateMissing { index: usize },
+    PackedLeafInvalidUpdate { index: usize, prefix: usize },
+    NodeUpdatesMissing { prefix: usize },
+    InvalidListUpdate,
+    InvalidVectorUpdate,
     PushNotSupported,
+    UpdateLeafError,
+    UpdateLeavesError,
     Oops,
 }
 

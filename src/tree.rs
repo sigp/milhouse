@@ -3,6 +3,7 @@ use crate::{Arc, Error, Leaf, PackedLeaf};
 use derivative::Derivative;
 use eth2_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
+use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash};
 
 #[derive(Debug, Derivative)]
@@ -139,7 +140,72 @@ impl<T: TreeHash + Clone> Tree<T> {
                         .with_updated_leaf(index, new_value, depth)
                 }
             }
-            _ => Err(Error::Oops),
+            _ => Err(Error::UpdateLeafError),
+        }
+    }
+
+    pub fn with_updated_leaves(
+        &self,
+        mut updates: BTreeMap<usize, T>,
+        prefix: usize,
+        depth: usize,
+    ) -> Result<Arc<Self>, Error> {
+        match self {
+            Self::Leaf(_) if depth == 0 => {
+                let index = prefix;
+                let value = updates
+                    .remove(&index)
+                    .ok_or(Error::LeafUpdateMissing { index })?;
+                Ok(Self::leaf(value))
+            }
+            Self::PackedLeaf(packed_leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
+                packed_leaf.update(prefix, updates)?,
+            ))),
+            Self::Node { left, right, .. } if depth > 0 => {
+                if updates.is_empty() {
+                    return Err(Error::NodeUpdatesMissing { prefix });
+                }
+
+                let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
+                let new_depth = depth - 1;
+                let left_prefix = prefix;
+                let right_prefix = prefix | (1 << (new_depth + packing_depth));
+
+                let right_updates = updates.split_off(&right_prefix);
+                let left_updates = updates;
+
+                let new_left = if !left_updates.is_empty() {
+                    left.with_updated_leaves(left_updates, left_prefix, new_depth)?
+                } else {
+                    left.clone()
+                };
+                let new_right = if !right_updates.is_empty() {
+                    right.with_updated_leaves(right_updates, right_prefix, new_depth)?
+                } else {
+                    right.clone()
+                };
+                Ok(Self::node(new_left, new_right))
+            }
+            Self::Zero(zero_depth) if *zero_depth == depth => {
+                if depth == 0 {
+                    if opt_packing_factor::<T>().is_some() {
+                        let packed_leaf = PackedLeaf::empty().update(prefix, updates)?;
+                        Ok(Arc::new(Self::PackedLeaf(packed_leaf)))
+                    } else {
+                        let index = prefix;
+                        let value = updates
+                            .remove(&index)
+                            .ok_or(Error::LeafUpdateMissing { index })?;
+                        Ok(Self::leaf(value))
+                    }
+                } else {
+                    // Split zero node into a node with left and right and recurse.
+                    let new_zero = Self::zero(depth - 1);
+                    Self::node(new_zero.clone(), new_zero)
+                        .with_updated_leaves(updates, prefix, depth)
+                }
+            }
+            _ => Err(Error::UpdateLeavesError),
         }
     }
 }

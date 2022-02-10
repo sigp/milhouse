@@ -75,6 +75,10 @@ fn out_of_order_mutations() {
         *list.get_mut(i).unwrap() = v;
         vec[i] = v;
         assert_eq!(list.get(i), Some(&v));
+
+        list.apply_updates().unwrap();
+
+        assert_eq!(list.get(i), Some(&v));
     }
 
     assert_eq!(list.to_vec(), vec);

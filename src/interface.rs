@@ -1,4 +1,5 @@
 use crate::cow::Cow;
+use crate::utils::updated_length;
 use crate::{
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
@@ -28,6 +29,7 @@ where
 {
     fn validate_push(&self) -> Result<(), Error>;
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
+    fn update(&mut self, updates: BTreeMap<usize, T>) -> Result<(), Error>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -89,10 +91,12 @@ where
     }
 
     pub fn apply_updates(&mut self) -> Result<(), Error> {
-        for (k, v) in self.updates.split_off(&0) {
-            self.backing.replace(k, v)?;
+        if !self.updates.is_empty() {
+            let updates = std::mem::take(&mut self.updates);
+            self.backing.update(updates)
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     pub fn has_pending_updates(&self) -> bool {
@@ -121,16 +125,8 @@ where
         }
     }
 
-    /// Compute the maximum index of the cached updates.
-    fn max_update_index(&self) -> Option<usize> {
-        self.updates.keys().next_back().copied()
-    }
-
     pub fn len(&self) -> usize {
-        let backing_len = self.backing.len();
-        self.max_update_index().map_or(backing_len, |max_idx| {
-            std::cmp::max(max_idx + 1, backing_len)
-        })
+        updated_length(self.backing.len(), &self.updates)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -158,6 +154,9 @@ mod test {
         assert!(list.has_pending_updates());
         list.apply_updates().unwrap();
         assert!(!list.has_pending_updates());
+
+        // Apply empty updates should be OK.
+        list.apply_updates().unwrap();
 
         assert_eq!(*list.get(0).unwrap(), 11);
     }
