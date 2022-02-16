@@ -9,7 +9,7 @@ use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
-use tree_hash::{Hash256, TreeHash};
+use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -179,7 +179,7 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vec
         tree_hash::TreeHashType::Vector
     }
 
-    fn tree_hash_packed_encoding(&self) -> Vec<u8> {
+    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
         unreachable!("Vector should never be packed.")
     }
 

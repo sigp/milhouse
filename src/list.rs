@@ -11,7 +11,7 @@ use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer}
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use tree_hash::{Hash256, TreeHash};
+use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -217,7 +217,7 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
         tree_hash::TreeHashType::List
     }
 
-    fn tree_hash_packed_encoding(&self) -> Vec<u8> {
+    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
         unreachable!("List should never be packed.")
     }
 
