@@ -3,9 +3,15 @@ use tree_hash::TreeHash;
 
 #[derive(Debug)]
 pub struct Iter<'a, T: TreeHash + Clone> {
-    pub(crate) stack: Vec<&'a Tree<T>>,
+    /// Stack of tree nodes corresponding to the current position.
+    stack: Vec<&'a Tree<T>>,
+    /// The list index corresponding to the current position (next element to be yielded).
     pub(crate) index: usize,
-    pub(crate) full_depth: usize,
+    /// The `depth` of the root tree.
+    full_depth: usize,
+    /// Cached packing depth to avoid re-calculating `opt_packing_depth`.
+    packing_depth: usize,
+    /// Number of items that will be yielded by the iterator.
     pub(crate) length: usize,
 }
 
@@ -18,6 +24,7 @@ impl<'a, T: TreeHash + Clone> Iter<'a, T> {
             stack,
             index,
             full_depth: depth,
+            packing_depth: opt_packing_depth::<T>().unwrap_or(0),
             length,
         }
     }
@@ -59,7 +66,7 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
                     let to_pop = self
                         .index
                         .trailing_zeros()
-                        .checked_sub(opt_packing_depth::<T>().unwrap() as u32)
+                        .checked_sub(self.packing_depth as u32)
                         .unwrap();
 
                     for _ in 0..=to_pop {
@@ -71,10 +78,9 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
             }
             Some(Tree::Node { left, right, .. }) => {
                 let depth = self.full_depth - self.stack.len();
-                let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
 
                 // Go left
-                if (self.index >> (depth + packing_depth)) & 1 == 0 {
+                if (self.index >> (depth + self.packing_depth)) & 1 == 0 {
                     self.stack.push(&left);
                     self.next()
                 }
