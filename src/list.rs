@@ -51,6 +51,10 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         Ok(Self::from_parts(tree, depth, 0))
     }
 
+    pub fn repeat(elem: T, n: usize) -> Result<Self, Error> {
+        Self::try_from_iter(std::iter::repeat(elem).take(n))
+    }
+
     pub fn builder() -> Result<Builder<T>, Error> {
         let depth = Self::depth()?;
         Ok(Builder::new(depth))

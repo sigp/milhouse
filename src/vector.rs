@@ -39,8 +39,7 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
 
     pub fn from_elem(elem: T) -> Self {
         // FIXME(sproul): propagate Result
-        Self::try_from(List::try_from_iter(std::iter::repeat(elem).take(N::to_usize())).unwrap())
-            .unwrap()
+        Self::try_from(List::repeat(elem, N::to_usize()).unwrap()).unwrap()
     }
 
     pub fn to_vec(&self) -> Vec<T> {

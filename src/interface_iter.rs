@@ -19,9 +19,6 @@ impl<'a, T: TreeHash + Clone> Iterator for InterfaceIter<'a, T> {
         self.index += 1;
 
         // Advance the tree iterator so that it moves in step with this iterator.
-        if self.tree_iter.index < self.tree_iter.length {
-            assert_eq!(self.tree_iter.index, index);
-        }
         let backing_value = self.tree_iter.next();
 
         // Prioritise the value from the update map.
@@ -49,9 +46,6 @@ impl<'a, T: TreeHash + Clone> InterfaceIterCow<'a, T> {
         self.index += 1;
 
         // Advance the tree iterator so that it moves in step with this iterator.
-        if self.tree_iter.index < self.tree_iter.length {
-            assert_eq!(self.tree_iter.index, index);
-        }
         let backing_value = self.tree_iter.next();
 
         // Construct a CoW pointer using the updated entry from the map, or the corresponding
