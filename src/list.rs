@@ -204,7 +204,7 @@ where
             return Err(Error::InvalidListUpdate);
         }
         self.length = updated_length(self.length, &updates);
-        self.tree = self.tree.with_updated_leaves(updates, 0, self.depth)?;
+        self.tree = self.tree.with_updated_leaves(&updates, 0, self.depth)?;
         Ok(())
     }
 }

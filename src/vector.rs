@@ -162,7 +162,7 @@ where
         if max_btree_index(&updates).map_or(true, |index| index >= self.len()) {
             return Err(Error::InvalidVectorUpdate);
         }
-        self.tree = self.tree.with_updated_leaves(updates, 0, self.depth)?;
+        self.tree = self.tree.with_updated_leaves(&updates, 0, self.depth)?;
         Ok(())
     }
 }

@@ -73,19 +73,17 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         Ok(updated)
     }
 
-    pub fn update(&self, prefix: usize, updates: BTreeMap<usize, T>) -> Result<Self, Error> {
+    pub fn update(&self, prefix: usize, updates: &BTreeMap<usize, T>) -> Result<Self, Error> {
         let mut updated = PackedLeaf {
             hash: RwLock::new(Hash256::zero()),
             values: self.values.clone(),
         };
 
-        for (index, value) in updates {
-            // Key should match prefix bits exactly.
-            let sub_index = index % T::tree_hash_packing_factor();
-            if index ^ prefix != sub_index {
-                return Err(Error::PackedLeafInvalidUpdate { index, prefix });
-            }
-            updated.insert_mut(sub_index, value)?;
+        let packing_factor = T::tree_hash_packing_factor();
+        let start = prefix;
+        let end = prefix + packing_factor;
+        for (index, value) in updates.range(start..end) {
+            updated.insert_mut(index % packing_factor, value.clone())?;
         }
         Ok(updated)
     }

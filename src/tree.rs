@@ -146,15 +146,17 @@ impl<T: TreeHash + Clone> Tree<T> {
 
     pub fn with_updated_leaves(
         &self,
-        mut updates: BTreeMap<usize, T>,
+        updates: &BTreeMap<usize, T>,
         prefix: usize,
         depth: usize,
     ) -> Result<Arc<Self>, Error> {
         match self {
             Self::Leaf(_) if depth == 0 => {
                 let index = prefix;
+                // FIXME(sproul): benchmark clone vs remove
                 let value = updates
-                    .remove(&index)
+                    .get(&index)
+                    .cloned()
                     .ok_or(Error::LeafUpdateMissing { index })?;
                 Ok(Self::leaf(value))
             }
@@ -162,25 +164,26 @@ impl<T: TreeHash + Clone> Tree<T> {
                 packed_leaf.update(prefix, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
-                if updates.is_empty() {
-                    return Err(Error::NodeUpdatesMissing { prefix });
-                }
-
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
                 let new_depth = depth - 1;
                 let left_prefix = prefix;
                 let right_prefix = prefix | (1 << (new_depth + packing_depth));
 
-                let right_updates = updates.split_off(&right_prefix);
-                let left_updates = updates;
+                let has_left_updates = updates.range(left_prefix..right_prefix).next().is_some();
+                let has_right_updates = updates.range(right_prefix..).next().is_some();
 
-                let new_left = if !left_updates.is_empty() {
-                    left.with_updated_leaves(left_updates, left_prefix, new_depth)?
+                // Must have some updates else this recursive branch is a complete waste of time.
+                if !has_left_updates && !has_right_updates {
+                    return Err(Error::NodeUpdatesMissing { prefix });
+                }
+
+                let new_left = if has_left_updates {
+                    left.with_updated_leaves(updates, left_prefix, new_depth)?
                 } else {
                     left.clone()
                 };
-                let new_right = if !right_updates.is_empty() {
-                    right.with_updated_leaves(right_updates, right_prefix, new_depth)?
+                let new_right = if has_right_updates {
+                    right.with_updated_leaves(updates, right_prefix, new_depth)?
                 } else {
                     right.clone()
                 };
@@ -194,7 +197,8 @@ impl<T: TreeHash + Clone> Tree<T> {
                     } else {
                         let index = prefix;
                         let value = updates
-                            .remove(&index)
+                            .get(&index)
+                            .cloned()
                             .ok_or(Error::LeafUpdateMissing { index })?;
                         Ok(Self::leaf(value))
                     }
