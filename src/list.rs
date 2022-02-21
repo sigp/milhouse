@@ -199,12 +199,18 @@ where
         Ok(())
     }
 
-    fn update(&mut self, updates: BTreeMap<usize, T>) -> Result<(), Error> {
+    fn update(
+        &mut self,
+        updates: BTreeMap<usize, T>,
+        hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
+    ) -> Result<(), Error> {
         if max_btree_index(&updates).map_or(true, |index| index >= N::to_usize()) {
             return Err(Error::InvalidListUpdate);
         }
         self.length = updated_length(self.length, &updates);
-        self.tree = self.tree.with_updated_leaves(&updates, 0, self.depth)?;
+        self.tree =
+            self.tree
+                .with_updated_leaves(&updates, 0, self.depth, hash_updates.as_ref())?;
         Ok(())
     }
 }

@@ -25,8 +25,12 @@ where
 
 impl<T> Leaf<T> {
     pub fn new(value: T) -> Self {
+        Self::with_hash(value, Hash256::zero())
+    }
+
+    pub fn with_hash(value: T, hash: Hash256) -> Self {
         Self {
-            hash: RwLock::new(Hash256::zero()),
+            hash: RwLock::new(hash),
             value: Arc::new(value),
         }
     }

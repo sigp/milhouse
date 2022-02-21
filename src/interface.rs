@@ -6,7 +6,7 @@ use crate::{
     Error,
 };
 use std::collections::{btree_map::Entry, BTreeMap};
-use tree_hash::TreeHash;
+use tree_hash::{Hash256, TreeHash};
 
 pub trait ImmList<T>
 where
@@ -29,7 +29,11 @@ where
 {
     fn validate_push(&self) -> Result<(), Error>;
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
-    fn update(&mut self, updates: BTreeMap<usize, T>) -> Result<(), Error>;
+    fn update(
+        &mut self,
+        updates: BTreeMap<usize, T>,
+        hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
+    ) -> Result<(), Error>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -93,7 +97,7 @@ where
     pub fn apply_updates(&mut self) -> Result<(), Error> {
         if !self.updates.is_empty() {
             let updates = std::mem::take(&mut self.updates);
-            self.backing.update(updates)
+            self.backing.update(updates, None)
         } else {
             Ok(())
         }

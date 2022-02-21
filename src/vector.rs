@@ -18,13 +18,13 @@ use typenum::Unsigned;
 #[serde(bound(serialize = "T: TreeHash + Clone + Serialize, N: Unsigned"))]
 #[serde(bound(deserialize = "T: TreeHash + Clone + Deserialize<'de>, N: Unsigned"))]
 pub struct Vector<T: TreeHash + Clone, N: Unsigned> {
-    interface: Interface<T, VectorInner<T, N>>,
+    pub(crate) interface: Interface<T, VectorInner<T, N>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VectorInner<T: TreeHash + Clone, N: Unsigned> {
-    tree: Arc<Tree<T>>,
-    depth: usize,
+    pub(crate) tree: Arc<Tree<T>>,
+    pub(crate) depth: usize,
     _phantom: PhantomData<N>,
 }
 
@@ -158,11 +158,17 @@ where
         Ok(())
     }
 
-    fn update(&mut self, updates: BTreeMap<usize, T>) -> Result<(), Error> {
+    fn update(
+        &mut self,
+        updates: BTreeMap<usize, T>,
+        hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
+    ) -> Result<(), Error> {
         if max_btree_index(&updates).map_or(true, |index| index >= self.len()) {
             return Err(Error::InvalidVectorUpdate);
         }
-        self.tree = self.tree.with_updated_leaves(&updates, 0, self.depth)?;
+        self.tree =
+            self.tree
+                .with_updated_leaves(&updates, 0, self.depth, hash_updates.as_ref())?;
         Ok(())
     }
 }

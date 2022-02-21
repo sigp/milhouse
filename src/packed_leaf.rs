@@ -73,9 +73,14 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         Ok(updated)
     }
 
-    pub fn update(&self, prefix: usize, updates: &BTreeMap<usize, T>) -> Result<Self, Error> {
+    pub fn update(
+        &self,
+        prefix: usize,
+        hash: Hash256,
+        updates: &BTreeMap<usize, T>,
+    ) -> Result<Self, Error> {
         let mut updated = PackedLeaf {
-            hash: RwLock::new(Hash256::zero()),
+            hash: RwLock::new(hash),
             values: self.values.clone(),
         };
 

@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use tree_hash::{TreeHash, TreeHashType};
+use tree_hash::{Hash256, TreeHash, TreeHashType};
 
 /// Compute ceil(log(n))
 ///
@@ -32,4 +32,13 @@ pub fn max_btree_index<T>(map: &BTreeMap<usize, T>) -> Option<usize> {
 /// Compute the length a data structure will have after applying `updates`.
 pub fn updated_length<T>(prev_len: usize, updates: &BTreeMap<usize, T>) -> usize {
     max_btree_index(updates).map_or(prev_len, |max_idx| std::cmp::max(max_idx + 1, prev_len))
+}
+
+/// Get the hash of a node at `(depth, prefix)` from an optional HashMap.
+pub fn opt_hash(
+    hashes: Option<&BTreeMap<(usize, usize), Hash256>>,
+    depth: usize,
+    prefix: usize,
+) -> Option<Hash256> {
+    hashes?.get(&(depth, prefix)).copied()
 }
