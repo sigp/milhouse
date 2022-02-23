@@ -14,7 +14,7 @@ pub enum Error {
     PushNotSupported,
     UpdateLeafError,
     UpdateLeavesError,
-    InvalidDiffZero,
+    InvalidDiffDeleteNotSupported,
     InvalidDiffLeaf,
     InvalidDiffNode,
     InvalidDiffPendingUpdates,

@@ -1,44 +1,45 @@
-use crate::{Diff, List};
+use crate::{Diff, Error, List, ListDiff};
 use std::fmt::Debug;
 use tree_hash::TreeHash;
 use typenum::{Unsigned, U16};
 
-fn check_apply<T>(orig: &T, expected: &T, diff: T::Diff)
+fn check_apply<T, D>(orig: &T, expected: &T, diff: D)
 where
-    T: Diff + PartialEq + Debug + Clone,
+    T: PartialEq + Debug + Clone,
+    D: Diff<Target = T, Error = Error>,
 {
     let mut updated = orig.clone();
-    updated.apply_diff(diff).unwrap();
+    diff.apply_diff(&mut updated).unwrap();
     assert_eq!(&updated, expected);
 }
 
-fn diff_and_check_apply<T>(orig: &T, updated: &T)
+fn diff_and_check_apply<T, D>(orig: &T, updated: &T)
 where
-    T: Diff + PartialEq + Debug + Clone,
-    T::Diff: Debug,
+    T: PartialEq + Debug + Clone,
+    D: Diff<Target = T, Error = Error> + Debug,
 {
-    let diff = orig.compute_diff(&updated).unwrap();
+    let diff = D::compute_diff(orig, updated).unwrap();
     check_apply(orig, updated, diff);
 }
 
-fn check_confluence<T>(orig: &T, a1: &T, a2: &T, b1: &T, b2: &T)
+fn check_confluence<T, D>(orig: &T, a1: &T, a2: &T, b1: &T, b2: &T)
 where
-    T: Diff + PartialEq + Debug + Clone,
-    T::Diff: PartialEq + Debug,
+    T: PartialEq + Debug + Clone,
+    D: Diff<Target = T, Error = Error> + PartialEq + Debug,
 {
     // Every path to a2 and b2 should be part of a valid diff that reproduces the original.
-    diff_and_check_apply(orig, a1);
-    diff_and_check_apply(a1, a2);
-    diff_and_check_apply(orig, a2);
+    diff_and_check_apply::<_, D>(orig, a1);
+    diff_and_check_apply::<_, D>(a1, a2);
+    diff_and_check_apply::<_, D>(orig, a2);
 
-    diff_and_check_apply(orig, b1);
-    diff_and_check_apply(b1, b2);
-    diff_and_check_apply(orig, b2);
+    diff_and_check_apply::<_, D>(orig, b1);
+    diff_and_check_apply::<_, D>(b1, b2);
+    diff_and_check_apply::<_, D>(orig, b2);
 
     // a2 and b2 should be equal and have equal diffs from orig.
     assert_eq!(a2, b2);
-    let a_diff = orig.compute_diff(&a2).unwrap();
-    let b_diff = orig.compute_diff(&b2).unwrap();
+    let a_diff = D::compute_diff(orig, a2).unwrap();
+    let b_diff = D::compute_diff(orig, b2).unwrap();
     assert_eq!(a_diff, b_diff);
 }
 
@@ -80,7 +81,7 @@ fn confluent_diff_list_u64() {
     let b1 = with_updated_index(&orig, 4, 8);
     let b2 = with_updated_index(&b1, 1, 2);
 
-    check_confluence(&orig, &a1, &a2, &b1, &b2);
+    check_confluence::<_, ListDiff<_, _>>(&orig, &a1, &a2, &b1, &b2);
 }
 
 #[test]
@@ -93,5 +94,5 @@ fn confluent_diff_list_u64_push_empty() {
     let b1 = extended(&orig, vec![1, 2, 3]);
     let b2 = extended(&b1, vec![4, 5, 6, 7, 8, 9, 10, 11]);
 
-    check_confluence(&orig, &a1, &a2, &b1, &b2);
+    check_confluence::<_, ListDiff<_, _>>(&orig, &a1, &a2, &b1, &b2);
 }

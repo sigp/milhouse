@@ -3,6 +3,9 @@ use crate::{Arc, Error, Leaf, PackedLeaf};
 use derivative::Derivative;
 use eth2_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use ssz::{Decode, Encode};
+use ssz_derive::{Decode, Encode};
 use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash};
 
@@ -173,6 +176,10 @@ impl<T: TreeHash + Clone> Tree<T> {
                 packed_leaf.update(prefix, hash, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
+                println!(
+                    "with_updated_leaves Node depth={}, prefix={}",
+                    depth, prefix,
+                );
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
                 let new_depth = depth - 1;
                 let left_prefix = prefix;
@@ -213,18 +220,44 @@ impl<T: TreeHash + Clone> Tree<T> {
                         Ok(Self::leaf_with_hash(value, hash))
                     }
                 } else {
+                    println!(
+                        "with_updated_leaves split zero depth={}, prefix={}",
+                        depth, prefix,
+                    );
                     // Split zero node into a node with left and right and recurse.
                     let new_zero = Self::zero(depth - 1);
                     Self::node(new_zero.clone(), new_zero, hash)
                         .with_updated_leaves(updates, prefix, depth, hashes)
                 }
             }
-            _ => Err(Error::UpdateLeavesError),
+            // _ => Err(Error::UpdateLeavesError),
+            Self::Node { .. } => {
+                panic!(
+                    "UpdateLeavesError at node, depth: {}, prefix: {}",
+                    depth, prefix
+                )
+            }
+            Self::Leaf(_) => panic!(
+                "UpdateLeavesError at leaf, depth: {}, prefix: {}",
+                depth, prefix
+            ),
+            Self::PackedLeaf(_) => {
+                panic!(
+                    "UpdateLeavesError at pleaf, depth: {}, prefix: {}",
+                    depth, prefix
+                )
+            }
+            Self::Zero(x) => {
+                panic!(
+                    "UpdateLeavesError at zero({}), depth: {}, prefix: {}",
+                    x, depth, prefix
+                )
+            }
         }
     }
 }
 
-impl<T: PartialEq + TreeHash + Clone> Tree<T> {
+impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
     pub fn diff(
         &self,
         other: &Self,
@@ -290,7 +323,7 @@ impl<T: PartialEq + TreeHash + Clone> Tree<T> {
                 Ok(())
             }
             (Self::Zero(_), rhs) => rhs.add_to_diff(prefix, depth, diff),
-            (_, Self::Zero(_)) => Err(Error::InvalidDiffZero),
+            (_, Self::Zero(_)) => Err(Error::InvalidDiffDeleteNotSupported),
             (Self::Leaf(_) | Self::PackedLeaf(_), _) | (_, Self::Leaf(_) | Self::PackedLeaf(_)) => {
                 Err(Error::InvalidDiffLeaf)
             }
@@ -337,9 +370,9 @@ impl<T: PartialEq + TreeHash + Clone> Tree<T> {
     }
 }
 
-#[derive(Debug, PartialEq, Derivative)]
+#[derive(Debug, PartialEq, Encode, Decode, Deserialize, Serialize, Derivative)]
 #[derivative(Default(bound = "T: TreeHash + Clone"))]
-pub struct TreeDiff<T: TreeHash + Clone> {
+pub struct TreeDiff<T: TreeHash + Clone + Encode + Decode> {
     pub leaves: BTreeMap<usize, T>,
     /// Map from `(depth, prefix)` to node hash.
     pub hashes: BTreeMap<(usize, usize), Hash256>,
