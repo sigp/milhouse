@@ -8,10 +8,11 @@ edition = "2018"
 derivative = "2.2.0"
 eth2_hashing = "0.2.0"
 eth2_ssz = "0.4.0"
+eth2_ssz_derive = "0.3.0"
 itertools = "0.10.3"
 parking_lot = "0.11.2"
 rayon = "1.5.1"
-serde = "1.0.0"
+serde = { version = "1.0.0", features = ["derive"] }
 tree_hash = "0.4.0"
 triomphe = "0.1.5"
 typenum = "1.14.0"
@@ -24,3 +25,4 @@ tree_hash = { path = "../lighthouse/consensus/tree_hash" }
 eth2_ssz_types = { path = "../lighthouse/consensus/ssz_types" }
 eth2_serde_utils = { path = "../lighthouse/consensus/serde_utils" }
 eth2_ssz = { path = "../lighthouse/consensus/ssz" }
+eth2_ssz_derive = { path = "../lighthouse/consensus/ssz_derive" }

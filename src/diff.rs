@@ -1,142 +1,213 @@
-use crate::{
-    interface::{Interface, MutList},
-    list::ListInner,
-    tree::TreeDiff,
-    vector::VectorInner,
-    Error, List, Vector,
-};
-use tree_hash::{Hash256, TreeHash};
+use crate::{interface::MutList, tree::TreeDiff, Error, List, Vector};
+use serde::{Deserialize, Serialize};
+use ssz::{Decode, Encode};
+use ssz_derive::{Decode, Encode};
+use std::marker::PhantomData;
+use tree_hash::TreeHash;
 use typenum::Unsigned;
 
-/// Trait for types which can be mutated via a succinct diff(erence).
-pub trait Diff {
-    /// The type of diffs produced by and applied to `Self`.
-    type Diff;
+/// Trait for diffs that can be applied to a given `Target` type.
+pub trait Diff: Sized {
+    /// The type acted upon.
+    type Target;
+    /// The type of errors produced by diffing `Target`.
+    type Error: From<Error>;
 
-    /// Produce a diff between `self` and `other` where `other` is an updated version of `self`.
-    fn compute_diff(&self, other: &Self) -> Result<Self::Diff, Error>;
+    /// Produce a diff between `orig` and `other` where `other` is an updated version of `orig`.
+    fn compute_diff(orig: &Self::Target, other: &Self::Target) -> Result<Self, Self::Error>;
 
-    /// Apply a diff to `self`, updating it mutably.
-    fn apply_diff(&mut self, diff: Self::Diff) -> Result<(), Error>;
+    /// Apply a diff to `target`, updating it mutably.
+    fn apply_diff(self, target: &mut Self::Target) -> Result<(), Self::Error>;
 }
 
-/// Trait for types which implement `Diff` by using the entire updated value.
-pub trait CloneDiff: Clone {}
+/// The most primitive type of diff which just stores the entire updated value.
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct CloneDiff<T: Clone>(pub T);
 
-impl<T> Diff for T
-where
-    T: CloneDiff,
-{
-    type Diff = T;
+impl<T: Clone> Diff for CloneDiff<T> {
+    type Target = T;
+    type Error = Error;
 
-    fn compute_diff(&self, other: &Self) -> Result<T, Error> {
-        Ok(other.clone())
+    fn compute_diff(_: &T, other: &T) -> Result<Self, Error> {
+        Ok(CloneDiff(other.clone()))
     }
 
-    fn apply_diff(&mut self, diff: T) -> Result<(), Error> {
-        *self = diff;
+    fn apply_diff(self, target: &mut T) -> Result<(), Error> {
+        *target = self.0;
         Ok(())
     }
 }
 
-impl<T, N> Diff for ListInner<T, N>
+impl<T> Encode for CloneDiff<T>
 where
-    T: PartialEq + TreeHash + Clone,
-    N: Unsigned,
+    T: Encode + Clone,
 {
-    type Diff = TreeDiff<T>;
-
-    fn compute_diff(&self, other: &Self) -> Result<Self::Diff, Error> {
-        let mut diff = TreeDiff::default();
-        self.tree.diff(&other.tree, 0, self.depth, &mut diff)?;
-        Ok(diff)
+    fn is_ssz_fixed_len() -> bool {
+        T::is_ssz_fixed_len()
     }
 
-    fn apply_diff(&mut self, diff: Self::Diff) -> Result<(), Error> {
-        self.update(diff.leaves, Some(diff.hashes))
+    fn ssz_fixed_len() -> usize {
+        T::ssz_fixed_len()
+    }
+
+    fn ssz_append(&self, buf: &mut Vec<u8>) {
+        self.0.ssz_append(buf)
+    }
+
+    fn ssz_bytes_len(&self) -> usize {
+        self.0.ssz_bytes_len()
     }
 }
 
-impl<T, N> Diff for VectorInner<T, N>
+impl<T> Decode for CloneDiff<T>
 where
-    T: PartialEq + TreeHash + Clone,
-    N: Unsigned,
+    T: Decode + Clone,
 {
-    type Diff = TreeDiff<T>;
-
-    fn compute_diff(&self, other: &Self) -> Result<Self::Diff, Error> {
-        let mut diff = TreeDiff::default();
-        self.tree.diff(&other.tree, 0, self.depth, &mut diff)?;
-        Ok(diff)
+    fn is_ssz_fixed_len() -> bool {
+        T::is_ssz_fixed_len()
     }
 
-    fn apply_diff(&mut self, diff: Self::Diff) -> Result<(), Error> {
-        self.update(diff.leaves, Some(diff.hashes))
+    fn ssz_fixed_len() -> usize {
+        T::ssz_fixed_len()
+    }
+
+    fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
+        T::from_ssz_bytes(bytes).map(CloneDiff)
     }
 }
 
-impl<T, B> Diff for Interface<T, B>
-where
-    T: TreeHash + Clone,
-    B: MutList<T> + Diff,
-{
-    type Diff = B::Diff;
+/// Newtype for List diffs.
+#[derive(Debug, PartialEq, Decode, Encode, Deserialize, Serialize)]
+#[serde(bound(
+    deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
+    serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
+))]
+pub struct ListDiff<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned> {
+    tree_diff: TreeDiff<T>,
+    #[serde(skip, default)]
+    #[ssz(skip_serializing, skip_deserializing)]
+    _phantom: PhantomData<N>,
+}
 
-    fn compute_diff(&self, other: &Self) -> Result<Self::Diff, Error> {
-        if self.has_pending_updates() || other.has_pending_updates() {
+impl<T, N> Diff for ListDiff<T, N>
+where
+    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    N: Unsigned,
+{
+    type Target = List<T, N>;
+    type Error = Error;
+
+    fn compute_diff(orig: &Self::Target, other: &Self::Target) -> Result<Self, Error> {
+        if orig.has_pending_updates() || other.has_pending_updates() {
             return Err(Error::InvalidDiffPendingUpdates);
         }
-        self.backing.compute_diff(&other.backing)
+        let mut tree_diff = TreeDiff::default();
+        orig.interface.backing.tree.diff(
+            &other.interface.backing.tree,
+            0,
+            orig.interface.backing.depth,
+            &mut tree_diff,
+        )?;
+        Ok(Self {
+            tree_diff,
+            _phantom: PhantomData,
+        })
     }
 
-    fn apply_diff(&mut self, diff: Self::Diff) -> Result<(), Error> {
-        self.backing.apply_diff(diff)
+    fn apply_diff(self, target: &mut Self::Target) -> Result<(), Error> {
+        target
+            .interface
+            .backing
+            .update(self.tree_diff.leaves, Some(self.tree_diff.hashes))
     }
 }
 
-impl<T, N> Diff for List<T, N>
+/// List diff that gracefully handles removals by falling back to a `CloneDiff`.
+///
+/// If removals definitely don't need to be handled then a `ListDiff` is preferable as it is
+/// more space-efficient.
+#[derive(Debug, PartialEq, Decode, Encode, Deserialize, Serialize)]
+#[serde(bound(
+    deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
+    serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
+))]
+#[ssz(enum_behaviour = "union")]
+pub enum ResetListDiff<T, N>
 where
-    T: TreeHash + PartialEq + Clone,
+    T: TreeHash + PartialEq + Clone + Decode + Encode,
     N: Unsigned,
 {
-    type Diff = TreeDiff<T>;
-
-    fn compute_diff(&self, other: &Self) -> Result<Self::Diff, Error> {
-        self.interface.compute_diff(&other.interface)
-    }
-
-    fn apply_diff(&mut self, diff: Self::Diff) -> Result<(), Error> {
-        self.interface.apply_diff(diff)
-    }
+    Reset(CloneDiff<List<T, N>>),
+    Update(ListDiff<T, N>),
 }
 
-impl<T, N> Diff for Vector<T, N>
+impl<T, N> Diff for ResetListDiff<T, N>
 where
-    T: TreeHash + PartialEq + Clone,
+    T: TreeHash + PartialEq + Clone + Decode + Encode,
     N: Unsigned,
 {
-    type Diff = TreeDiff<T>;
+    type Target = List<T, N>;
+    type Error = Error;
 
-    fn compute_diff(&self, other: &Self) -> Result<Self::Diff, Error> {
-        self.interface.compute_diff(&other.interface)
+    fn compute_diff(orig: &Self::Target, other: &Self::Target) -> Result<Self, Error> {
+        // Detect shortening/removals which the current tree diff algorithm can't handle.
+        if other.len() < orig.len() {
+            Ok(Self::Reset(CloneDiff(other.clone())))
+        } else {
+            Ok(Self::Update(ListDiff::compute_diff(orig, other)?))
+        }
     }
 
-    fn apply_diff(&mut self, diff: Self::Diff) -> Result<(), Error> {
-        self.interface.apply_diff(diff)
+    fn apply_diff(self, target: &mut Self::Target) -> Result<(), Error> {
+        match self {
+            Self::Reset(diff) => diff.apply_diff(target),
+            Self::Update(diff) => diff.apply_diff(target),
+        }
     }
 }
 
-// `CloneDiff` implementations.
-impl CloneDiff for u8 {}
-impl CloneDiff for u16 {}
-impl CloneDiff for u32 {}
-impl CloneDiff for u64 {}
-impl CloneDiff for usize {}
+/// Newtype for Vector diffs.
+#[derive(Debug, PartialEq, Decode, Encode, Deserialize, Serialize)]
+#[serde(bound(
+    deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
+    serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
+))]
+pub struct VectorDiff<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned> {
+    tree_diff: TreeDiff<T>,
+    #[ssz(skip_serializing, skip_deserializing)]
+    _phantom: PhantomData<N>,
+}
 
-impl CloneDiff for i8 {}
-impl CloneDiff for i16 {}
-impl CloneDiff for i32 {}
-impl CloneDiff for i64 {}
-impl CloneDiff for isize {}
+impl<T, N> Diff for VectorDiff<T, N>
+where
+    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    N: Unsigned,
+{
+    type Target = Vector<T, N>;
+    type Error = Error;
 
-impl CloneDiff for Hash256 {}
+    fn compute_diff(orig: &Self::Target, other: &Self::Target) -> Result<Self, Error> {
+        if orig.has_pending_updates() || other.has_pending_updates() {
+            return Err(Error::InvalidDiffPendingUpdates);
+        }
+        let mut tree_diff = TreeDiff::default();
+        orig.interface.backing.tree.diff(
+            &other.interface.backing.tree,
+            0,
+            orig.interface.backing.depth,
+            &mut tree_diff,
+        )?;
+        Ok(Self {
+            tree_diff,
+            _phantom: PhantomData,
+        })
+    }
+
+    fn apply_diff(self, target: &mut Self::Target) -> Result<(), Error> {
+        target
+            .interface
+            .backing
+            .update(self.tree_diff.leaves, Some(self.tree_diff.hashes))
+    }
+}

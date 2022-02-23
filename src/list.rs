@@ -68,6 +68,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         }
 
         let (tree, depth, length) = builder.finish()?;
+        assert_eq!(depth, Self::depth().unwrap());
 
         Ok(Self::from_parts(tree, depth, length))
     }
@@ -204,8 +205,13 @@ where
         updates: BTreeMap<usize, T>,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error> {
-        if max_btree_index(&updates).map_or(true, |index| index >= N::to_usize()) {
-            return Err(Error::InvalidListUpdate);
+        if let Some(max_index) = max_btree_index(&updates) {
+            if max_index >= N::to_usize() {
+                return Err(Error::InvalidListUpdate);
+            }
+        } else {
+            // Nothing to do.
+            return Ok(());
         }
         self.length = updated_length(self.length, &updates);
         self.tree =

@@ -17,7 +17,7 @@ pub mod utils;
 pub mod vector;
 
 pub use cow::Cow;
-pub use diff::Diff;
+pub use diff::{CloneDiff, Diff, ListDiff, ResetListDiff, VectorDiff};
 pub use error::Error;
 pub use interface::ImmList;
 pub use leaf::Leaf;

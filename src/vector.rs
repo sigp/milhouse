@@ -163,8 +163,13 @@ where
         updates: BTreeMap<usize, T>,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error> {
-        if max_btree_index(&updates).map_or(true, |index| index >= self.len()) {
-            return Err(Error::InvalidVectorUpdate);
+        if let Some(max_index) = max_btree_index(&updates) {
+            if max_index >= self.len() {
+                return Err(Error::InvalidVectorUpdate);
+            }
+        } else {
+            // Nothing to do.
+            return Ok(());
         }
         self.tree =
             self.tree
