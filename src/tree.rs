@@ -176,10 +176,6 @@ impl<T: TreeHash + Clone> Tree<T> {
                 packed_leaf.update(prefix, hash, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
-                println!(
-                    "with_updated_leaves Node depth={}, prefix={}",
-                    depth, prefix,
-                );
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
                 let new_depth = depth - 1;
                 let left_prefix = prefix;
@@ -220,10 +216,6 @@ impl<T: TreeHash + Clone> Tree<T> {
                         Ok(Self::leaf_with_hash(value, hash))
                     }
                 } else {
-                    println!(
-                        "with_updated_leaves split zero depth={}, prefix={}",
-                        depth, prefix,
-                    );
                     // Split zero node into a node with left and right and recurse.
                     let new_zero = Self::zero(depth - 1);
                     Self::node(new_zero.clone(), new_zero, hash)
