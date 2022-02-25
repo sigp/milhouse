@@ -180,9 +180,13 @@ impl<T: TreeHash + Clone> Tree<T> {
                 let new_depth = depth - 1;
                 let left_prefix = prefix;
                 let right_prefix = prefix | (1 << (new_depth + packing_depth));
+                let right_subtree_end = prefix + (1 << (depth + packing_depth));
 
                 let has_left_updates = updates.range(left_prefix..right_prefix).next().is_some();
-                let has_right_updates = updates.range(right_prefix..).next().is_some();
+                let has_right_updates = updates
+                    .range(right_prefix..right_subtree_end)
+                    .next()
+                    .is_some();
 
                 // Must have some updates else this recursive branch is a complete waste of time.
                 if !has_left_updates && !has_right_updates {
