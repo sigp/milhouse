@@ -2,7 +2,7 @@ use crate::cow::Cow;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
-use crate::utils::max_btree_index;
+use crate::utils::{max_btree_index, Length};
 use crate::{Arc, Error, List, Tree};
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
@@ -115,26 +115,26 @@ impl<T: TreeHash + Clone, N: Unsigned> From<Vector<T, N>> for List<T, N> {
         List::from_parts(
             vector.interface.backing.tree,
             vector.interface.backing.depth,
-            N::to_usize(),
+            Length(N::to_usize()),
         )
     }
 }
 
 impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for VectorInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
-        if index < self.len() {
+        if index < self.len().as_usize() {
             self.tree.get(index, self.depth)
         } else {
             None
         }
     }
 
-    fn len(&self) -> usize {
-        N::to_usize()
+    fn len(&self) -> Length {
+        Length(N::to_usize())
     }
 
     fn iter_from(&self, index: usize) -> Iter<T> {
-        Iter::from_index(index, &self.tree, self.depth, N::to_usize())
+        Iter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
 }
 
@@ -148,10 +148,10 @@ where
     }
 
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {
-        if index >= self.len() {
+        if index >= self.len().as_usize() {
             return Err(Error::OutOfBoundsUpdate {
                 index,
-                len: self.len(),
+                len: self.len().as_usize(),
             });
         }
         self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
@@ -164,7 +164,7 @@ where
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error> {
         if let Some(max_index) = max_btree_index(&updates) {
-            if max_index >= self.len() {
+            if max_index >= self.len().as_usize() {
                 return Err(Error::InvalidVectorUpdate);
             }
         } else {

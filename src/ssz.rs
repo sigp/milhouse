@@ -71,5 +71,5 @@ pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Uns
         .finish()
         .map_err(|e| DecodeError::BytesInvalid(format!("Error finishing list builder: {:?}", e)))?;
 
-    Ok(List::from_parts(tree, length, depth))
+    Ok(List::from_parts(tree, depth, length))
 }

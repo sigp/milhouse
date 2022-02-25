@@ -1,11 +1,11 @@
-use crate::utils::{opt_packing_depth, opt_packing_factor};
+use crate::utils::{opt_packing_depth, opt_packing_factor, Length};
 use crate::{Arc, Error, PackedLeaf, Tree};
 use tree_hash::TreeHash;
 
 pub struct Builder<T: TreeHash + Clone> {
     stack: Vec<Tree<T>>,
     depth: usize,
-    length: usize,
+    length: Length,
     /// Cached value of `opt_packing_factor`.
     packing_factor: Option<usize>,
     /// Cached value of `opt_packing_depth`.
@@ -17,14 +17,14 @@ impl<T: TreeHash + Clone> Builder<T> {
         Self {
             stack: Vec::with_capacity(depth),
             depth,
-            length: 0,
+            length: Length(0),
             packing_factor: opt_packing_factor::<T>(),
             packing_depth: opt_packing_depth::<T>().unwrap_or(0),
         }
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
-        let index = self.length;
+        let index = self.length.as_usize();
         let next_index = index + 1;
 
         // Fold the nodes on the left of this node into it, and then push that node to the stack.
@@ -51,23 +51,24 @@ impl<T: TreeHash + Clone> Builder<T> {
         }
 
         self.stack.push(new_stack_top);
-        self.length += 1;
+        *self.length.as_mut() += 1;
 
         Ok(())
     }
 
-    pub fn finish(mut self) -> Result<(Arc<Tree<T>>, usize, usize), Error> {
+    pub fn finish(mut self) -> Result<(Arc<Tree<T>>, usize, Length), Error> {
         if self.stack.len() == 0 {
-            return Ok((Tree::zero(self.depth), self.depth, 0));
+            return Ok((Tree::zero(self.depth), self.depth, Length(0)));
         }
 
         let capacity = 2usize.pow((self.depth + self.packing_depth) as u32);
-        let mut next_index = self.length;
+        let mut next_index = self.length.as_usize();
 
         // Finish any partially-filled packed leaf.
         if let Some(packing_factor) = self.packing_factor {
-            let skip_indices =
-                packing_factor.saturating_sub(self.length % packing_factor) % packing_factor;
+            let skip_indices = packing_factor
+                .saturating_sub(self.length.as_usize() % packing_factor)
+                % packing_factor;
 
             if skip_indices > 0 {
                 // If the packed leaf lies on the right, merge it with its left sibling and so

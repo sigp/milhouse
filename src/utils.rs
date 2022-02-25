@@ -1,6 +1,20 @@
 use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash, TreeHashType};
 
+/// Length type, to avoid confusion with depth and other `usize` parameters.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct Length(pub usize);
+
+impl Length {
+    pub fn as_mut(&mut self) -> &mut usize {
+        &mut self.0
+    }
+
+    pub fn as_usize(&self) -> usize {
+        self.0
+    }
+}
+
 /// Compute ceil(log(n))
 ///
 /// Smallest number of bits d so that n <= 2^d
@@ -30,8 +44,10 @@ pub fn max_btree_index<T>(map: &BTreeMap<usize, T>) -> Option<usize> {
 }
 
 /// Compute the length a data structure will have after applying `updates`.
-pub fn updated_length<T>(prev_len: usize, updates: &BTreeMap<usize, T>) -> usize {
-    max_btree_index(updates).map_or(prev_len, |max_idx| std::cmp::max(max_idx + 1, prev_len))
+pub fn updated_length<T>(prev_len: Length, updates: &BTreeMap<usize, T>) -> Length {
+    max_btree_index(updates).map_or(prev_len, |max_idx| {
+        Length(std::cmp::max(max_idx + 1, prev_len.as_usize()))
+    })
 }
 
 /// Get the hash of a node at `(depth, prefix)` from an optional HashMap.

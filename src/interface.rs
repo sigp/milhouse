@@ -1,5 +1,5 @@
 use crate::cow::Cow;
-use crate::utils::updated_length;
+use crate::utils::{updated_length, Length};
 use crate::{
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
@@ -14,10 +14,10 @@ where
 {
     fn get(&self, idx: usize) -> Option<&T>;
 
-    fn len(&self) -> usize;
+    fn len(&self) -> Length;
 
     fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.len().as_usize() == 0
     }
 
     fn iter_from(&self, index: usize) -> Iter<T>;
@@ -130,7 +130,7 @@ where
     }
 
     pub fn len(&self) -> usize {
-        updated_length(self.backing.len(), &self.updates)
+        updated_length(self.backing.len(), &self.updates).as_usize()
     }
 
     pub fn is_empty(&self) -> bool {

@@ -4,7 +4,7 @@ use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
-use crate::utils::{int_log, max_btree_index, opt_packing_depth, updated_length};
+use crate::utils::{int_log, max_btree_index, opt_packing_depth, updated_length, Length};
 use crate::{Arc, Error, Tree};
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
@@ -22,7 +22,7 @@ pub struct List<T: TreeHash + Clone, N: Unsigned> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) tree: Arc<Tree<T>>,
-    pub(crate) length: usize,
+    pub(crate) length: Length,
     pub(crate) depth: usize,
     _phantom: PhantomData<N>,
 }
@@ -32,7 +32,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         Self::try_from_iter(vec)
     }
 
-    pub(crate) fn from_parts(tree: Arc<Tree<T>>, depth: usize, length: usize) -> Self {
+    pub(crate) fn from_parts(tree: Arc<Tree<T>>, depth: usize, length: Length) -> Self {
         Self {
             interface: Interface::new(ListInner {
                 tree,
@@ -48,7 +48,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         // FIXME(sproul): test really small lists that fit within a single packed leaf
         let depth = Self::depth()?;
         let tree = Tree::empty(depth);
-        Ok(Self::from_parts(tree, depth, 0))
+        Ok(Self::from_parts(tree, depth, Length(0)))
     }
 
     pub fn repeat(elem: T, n: usize) -> Result<Self, Error> {
@@ -156,14 +156,14 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
 
 impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
-        if index < self.len() {
+        if index < self.len().as_usize() {
             self.tree.get(index, self.depth)
         } else {
             None
         }
     }
 
-    fn len(&self) -> usize {
+    fn len(&self) -> Length {
         self.length
     }
 
@@ -178,24 +178,26 @@ where
     N: Unsigned,
 {
     fn validate_push(&self) -> Result<(), Error> {
-        if self.length == N::to_usize() {
-            Err(Error::ListFull { len: self.length })
+        if self.length.as_usize() == N::to_usize() {
+            Err(Error::ListFull {
+                len: self.length.as_usize(),
+            })
         } else {
             Ok(())
         }
     }
 
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {
-        if index > self.len() {
+        if index > self.len().as_usize() {
             return Err(Error::OutOfBoundsUpdate {
                 index,
-                len: self.len(),
+                len: self.len().as_usize(),
             });
         }
 
         self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
-        if index == self.length {
-            self.length += 1;
+        if index == self.length.as_usize() {
+            *self.length.as_mut() += 1;
         }
         Ok(())
     }
