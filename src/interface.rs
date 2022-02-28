@@ -73,7 +73,7 @@ where
         }
     }
 
-    pub fn get_cow<'a, 'b>(&'a mut self, index: usize) -> Option<Cow<'a, T>> {
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
         match self.updates.entry(index) {
             Entry::Vacant(entry) => {
                 let value = self.backing.get(index)?;

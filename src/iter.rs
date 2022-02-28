@@ -88,12 +88,12 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
 
                 // Go left
                 if (self.index >> (depth + self.packing_depth)) & 1 == 0 {
-                    self.stack.push(&left);
+                    self.stack.push(left);
                     self.next()
                 }
                 // Go right
                 else {
-                    self.stack.push(&right);
+                    self.stack.push(right);
                     self.next()
                 }
             }

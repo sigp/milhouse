@@ -313,8 +313,8 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
                     let left_prefix = prefix;
                     let right_prefix = prefix | (1 << (new_depth + packing_depth));
 
-                    l1.diff(&l2, left_prefix, new_depth, diff)?;
-                    r1.diff(&r2, right_prefix, new_depth, diff)?;
+                    l1.diff(l2, left_prefix, new_depth, diff)?;
+                    r1.diff(r2, right_prefix, new_depth, diff)?;
                 }
                 Ok(())
             }

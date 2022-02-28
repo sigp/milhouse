@@ -6,6 +6,7 @@ use tree_hash::{Hash256, TreeHash, TreeHashType};
 pub struct Length(pub usize);
 
 impl Length {
+    #[allow(clippy::should_implement_trait)]
     pub fn as_mut(&mut self) -> &mut usize {
         &mut self.0
     }

@@ -57,7 +57,7 @@ impl<T: TreeHash + Clone> Builder<T> {
     }
 
     pub fn finish(mut self) -> Result<(Arc<Tree<T>>, usize, Length), Error> {
-        if self.stack.len() == 0 {
+        if self.stack.is_empty() {
             return Ok((Tree::zero(self.depth), self.depth, Length(0)));
         }
 

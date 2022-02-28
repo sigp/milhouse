@@ -1,3 +1,5 @@
+#![allow(clippy::comparison_chain)]
+
 pub mod builder;
 pub mod cow;
 pub mod diff;
