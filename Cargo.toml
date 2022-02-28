@@ -19,9 +19,12 @@ typenum = "1.14.0"
 
 [dev-dependencies]
 eth2_ssz_types = "0.2.1"
+proptest = "1.0.0"
+tree_hash_derive = "0.4.0"
 
 [patch.crates-io]
 tree_hash = { path = "../lighthouse/consensus/tree_hash" }
+tree_hash_derive = { path = "../lighthouse/consensus/tree_hash_derive" }
 eth2_ssz_types = { path = "../lighthouse/consensus/ssz_types" }
 eth2_serde_utils = { path = "../lighthouse/consensus/serde_utils" }
 eth2_ssz = { path = "../lighthouse/consensus/ssz" }

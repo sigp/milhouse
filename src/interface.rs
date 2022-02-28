@@ -27,7 +27,7 @@ pub trait MutList<T>: ImmList<T>
 where
     T: TreeHash + Clone,
 {
-    fn validate_push(&self) -> Result<(), Error>;
+    fn validate_push(current_len: usize) -> Result<(), Error>;
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
     fn update(
         &mut self,
@@ -86,9 +86,8 @@ where
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
-        self.backing.validate_push()?;
-
         let index = self.len();
+        B::validate_push(index)?;
         self.updates.insert(index, value);
 
         Ok(())

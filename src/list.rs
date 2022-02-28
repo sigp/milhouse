@@ -6,6 +6,7 @@ use crate::iter::Iter;
 use crate::serde::ListVisitor;
 use crate::utils::{int_log, max_btree_index, opt_packing_depth, updated_length, Length};
 use crate::{Arc, Error, Tree};
+use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
@@ -14,12 +15,14 @@ use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Derivative)]
+#[derivative(PartialEq(bound = "T: TreeHash + PartialEq + Clone, N: Unsigned"))]
 pub struct List<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) interface: Interface<T, ListInner<T, N>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Derivative)]
+#[derivative(PartialEq(bound = "T: TreeHash + PartialEq + Clone, N: Unsigned"))]
 pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) length: Length,
@@ -145,9 +148,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
 
     fn depth() -> Result<usize, Error> {
         if let Some(packing_bits) = opt_packing_depth::<T>() {
-            int_log(N::to_usize())
-                .checked_sub(packing_bits)
-                .ok_or(Error::Oops)
+            Ok(int_log(N::to_usize()).saturating_sub(packing_bits))
         } else {
             Ok(int_log(N::to_usize()))
         }
@@ -177,11 +178,9 @@ where
     T: TreeHash + Clone,
     N: Unsigned,
 {
-    fn validate_push(&self) -> Result<(), Error> {
-        if self.length.as_usize() == N::to_usize() {
-            Err(Error::ListFull {
-                len: self.length.as_usize(),
-            })
+    fn validate_push(current_len: usize) -> Result<(), Error> {
+        if current_len == N::to_usize() {
+            Err(Error::ListFull { len: current_len })
         } else {
             Ok(())
         }

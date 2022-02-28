@@ -4,6 +4,7 @@ use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
 use crate::utils::{max_btree_index, Length};
 use crate::{Arc, Error, List, Tree};
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
@@ -12,7 +13,8 @@ use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Derivative, Clone, Serialize, Deserialize)]
+#[derivative(PartialEq(bound = "T: TreeHash + Clone + PartialEq, N: Unsigned"))]
 #[serde(try_from = "List<T, N>")]
 #[serde(into = "List<T, N>")]
 #[serde(bound(serialize = "T: TreeHash + Clone + Serialize, N: Unsigned"))]
@@ -21,7 +23,8 @@ pub struct Vector<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) interface: Interface<T, VectorInner<T, N>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Derivative, Clone)]
+#[derivative(PartialEq(bound = "T: TreeHash + Clone + PartialEq, N: Unsigned"))]
 pub struct VectorInner<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) depth: usize,
@@ -143,7 +146,7 @@ where
     T: TreeHash + Clone,
     N: Unsigned,
 {
-    fn validate_push(&self) -> Result<(), Error> {
+    fn validate_push(_current_len: usize) -> Result<(), Error> {
         Err(Error::PushNotSupported)
     }
 

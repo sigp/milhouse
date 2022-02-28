@@ -305,7 +305,7 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
                 let h1 = *h1.read();
                 let h2 = *h2.read();
 
-                if h1 != h2 {
+                if h1 != h2 || h1.is_zero() {
                     diff.hashes.insert((depth, prefix), h2);
 
                     let packing_depth = opt_packing_depth::<T>().unwrap_or(0);

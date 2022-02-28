@@ -10,7 +10,6 @@ pub mod list;
 pub mod packed_leaf;
 pub mod serde;
 pub mod ssz;
-#[cfg(test)]
 mod tests;
 pub mod tree;
 pub mod utils;
