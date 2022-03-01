@@ -165,7 +165,6 @@ impl<T: TreeHash + Clone> Tree<T> {
         match self {
             Self::Leaf(_) if depth == 0 => {
                 let index = prefix;
-                // FIXME(sproul): benchmark clone vs remove
                 let value = updates
                     .get(&index)
                     .cloned()
@@ -360,7 +359,14 @@ impl<T: TreeHash + Clone + Send + Sync> Tree<T> {
                 let read_lock = hash.read();
                 let existing_hash = *read_lock;
                 drop(read_lock);
-                // FIXME(sproul): re-consider 0 leaf case performance
+
+                // NOTE: We re-compute the hash whenever it is non-zero. Computed hashes may
+                // legitimately be zero, but this only occurs at the leaf level when the value is
+                // entirely zeroes (e.g. [0u64, 0, 0, 0]). In order to avoid storing an
+                // `Option<Hash256>` we choose to re-compute the hash in this case. In practice
+                // this is unlikely to provide any performance penalty except at very small list
+                // lengths (<= 32), because a node higher in the tree will cache a non-zero hash
+                // preventing its children from being visited more than once.
                 if !existing_hash.is_zero() {
                     existing_hash
                 } else {
