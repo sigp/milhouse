@@ -2,7 +2,7 @@
 name = "milhouse"
 version = "0.1.0"
 description = "Persistent binary merkle tree"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 derivative = "2.2.0"
