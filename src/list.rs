@@ -46,32 +46,29 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         }
     }
 
-    pub fn empty() -> Result<Self, Error> {
+    pub fn empty() -> Self {
         // If the leaves are packed then they reduce the depth
-        // FIXME(sproul): test really small lists that fit within a single packed leaf
-        let depth = Self::depth()?;
+        let depth = Self::depth();
         let tree = Tree::empty(depth);
-        Ok(Self::from_parts(tree, depth, Length(0)))
+        Self::from_parts(tree, depth, Length(0))
     }
 
     pub fn repeat(elem: T, n: usize) -> Result<Self, Error> {
         Self::try_from_iter(std::iter::repeat(elem).take(n))
     }
 
-    pub fn builder() -> Result<Builder<T>, Error> {
-        let depth = Self::depth()?;
-        Ok(Builder::new(depth))
+    pub fn builder() -> Builder<T> {
+        Builder::new(Self::depth())
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let mut builder = Self::builder()?;
+        let mut builder = Self::builder();
 
         for item in iter.into_iter() {
             builder.push(item)?;
         }
 
         let (tree, depth, length) = builder.finish()?;
-        assert_eq!(depth, Self::depth().unwrap());
 
         Ok(Self::from_parts(tree, depth, length))
     }
@@ -79,7 +76,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
     /// This method exists for testing purposes.
     #[doc(hidden)]
     pub fn try_from_iter_slow(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let mut list = Self::empty()?;
+        let mut list = Self::empty();
 
         for item in iter.into_iter() {
             list.push(item)?;
@@ -146,11 +143,11 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         self.interface.apply_updates()
     }
 
-    fn depth() -> Result<usize, Error> {
+    fn depth() -> usize {
         if let Some(packing_bits) = opt_packing_depth::<T>() {
-            Ok(int_log(N::to_usize()).saturating_sub(packing_bits))
+            int_log(N::to_usize()).saturating_sub(packing_bits)
         } else {
-            Ok(int_log(N::to_usize()))
+            int_log(N::to_usize())
         }
     }
 }
@@ -224,8 +221,7 @@ where
 
 impl<T: TreeHash + Clone, N: Unsigned> Default for List<T, N> {
     fn default() -> Self {
-        // FIXME: should probably remove this `Default` implementation
-        Self::empty().expect("invalid type and length")
+        Self::empty()
     }
 }
 
@@ -337,9 +333,7 @@ where
         let max_len = N::to_usize();
 
         if bytes.is_empty() {
-            List::empty().map_err(|e| {
-                ssz::DecodeError::BytesInvalid(format!("Invalid type and length: {:?}", e))
-            })
+            Ok(List::empty())
         } else if T::is_ssz_fixed_len() {
             let num_items = bytes
                 .len()

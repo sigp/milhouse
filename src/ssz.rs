@@ -11,13 +11,8 @@ use typenum::Unsigned;
 pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Unsigned>(
     bytes: &[u8],
 ) -> Result<List<T, N>, DecodeError> {
-    let empty_list = || {
-        List::empty()
-            .map_err(|e| DecodeError::BytesInvalid(format!("Invalid type and length: {:?}", e)))
-    };
-
     if bytes.is_empty() {
-        return empty_list();
+        return Ok(List::empty());
     }
 
     let first_offset = read_offset(bytes)?;
@@ -38,8 +33,7 @@ pub fn decode_list_of_variable_length_items<T: Decode + TreeHash + Clone, N: Uns
         )));
     }
 
-    let mut builder = List::<T, N>::builder()
-        .map_err(|e| DecodeError::BytesInvalid(format!("Invalid type and length: {:?}", e)))?;
+    let mut builder = List::<T, N>::builder();
 
     let mut offset = first_offset;
     for i in 1..=num_items {
