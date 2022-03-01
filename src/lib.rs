@@ -1,4 +1,5 @@
 #![allow(clippy::comparison_chain)]
+#![deny(clippy::unwrap_used)]
 
 pub mod builder;
 pub mod cow;

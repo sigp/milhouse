@@ -226,29 +226,7 @@ impl<T: TreeHash + Clone> Tree<T> {
                         .with_updated_leaves(updates, prefix, depth, hashes)
                 }
             }
-            // _ => Err(Error::UpdateLeavesError),
-            Self::Node { .. } => {
-                panic!(
-                    "UpdateLeavesError at node, depth: {}, prefix: {}",
-                    depth, prefix
-                )
-            }
-            Self::Leaf(_) => panic!(
-                "UpdateLeavesError at leaf, depth: {}, prefix: {}",
-                depth, prefix
-            ),
-            Self::PackedLeaf(_) => {
-                panic!(
-                    "UpdateLeavesError at pleaf, depth: {}, prefix: {}",
-                    depth, prefix
-                )
-            }
-            Self::Zero(x) => {
-                panic!(
-                    "UpdateLeavesError at zero({}), depth: {}, prefix: {}",
-                    x, depth, prefix
-                )
-            }
+            _ => Err(Error::UpdateLeavesError),
         }
     }
 }

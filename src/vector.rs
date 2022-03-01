@@ -36,13 +36,15 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
         if vec.len() == N::to_usize() {
             Self::try_from(List::new(vec)?)
         } else {
-            Err(Error::Oops)
+            Err(Error::WrongVectorLength {
+                len: vec.len(),
+                expected: N::to_usize(),
+            })
         }
     }
 
-    pub fn from_elem(elem: T) -> Self {
-        // FIXME(sproul): propagate Result
-        Self::try_from(List::repeat(elem, N::to_usize()).unwrap()).unwrap()
+    pub fn from_elem(elem: T) -> Result<Self, Error> {
+        Self::try_from(List::repeat(elem, N::to_usize())?)
     }
 
     pub fn to_vec(&self) -> Vec<T> {
@@ -108,7 +110,10 @@ impl<T: TreeHash + Clone, N: Unsigned> TryFrom<List<T, N>> for Vector<T, N> {
                 interface: Interface { updates, backing },
             })
         } else {
-            Err(Error::Oops)
+            Err(Error::WrongVectorLength {
+                len: list.len(),
+                expected: N::to_usize(),
+            })
         }
     }
 }
@@ -183,7 +188,13 @@ where
 
 impl<T: Default + TreeHash + Clone, N: Unsigned> Default for Vector<T, N> {
     fn default() -> Self {
-        Self::from_elem(T::default())
+        Self::from_elem(T::default()).unwrap_or_else(|e| {
+            panic!(
+                "Vector::default panicked for length {}: {:?}",
+                N::to_usize(),
+                e
+            )
+        })
     }
 }
 

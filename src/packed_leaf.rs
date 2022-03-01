@@ -102,7 +102,10 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         } else if sub_index < self.values.len() {
             self.values[sub_index] = value;
         } else {
-            return Err(Error::Oops);
+            return Err(Error::PackedLeafOutOfBounds {
+                sub_index,
+                len: self.values.len(),
+            });
         }
         Ok(())
     }

@@ -35,7 +35,7 @@ impl<T: TreeHash + Clone> Builder<T> {
                 leaf.push(value)?;
                 Tree::PackedLeaf(leaf)
             } else {
-                return Err(Error::Oops);
+                return Err(Error::BuilderExpectedLeaf);
             }
         } else {
             Tree::leaf_unboxed(value)
@@ -46,7 +46,7 @@ impl<T: TreeHash + Clone> Builder<T> {
             .saturating_sub(self.packing_depth as u32);
 
         for _ in 0..values_to_merge {
-            let left = self.stack.pop().ok_or(Error::Oops)?;
+            let left = self.stack.pop().ok_or(Error::BuilderStackEmptyMerge)?;
             new_stack_top = Tree::node_unboxed(Arc::new(left), Arc::new(new_stack_top));
         }
 
@@ -75,8 +75,8 @@ impl<T: TreeHash + Clone> Builder<T> {
                 // on up the tree.
                 for i in 0..self.depth {
                     if (next_index >> (i + self.packing_depth)) & 1 == 1 {
-                        let right = self.stack.pop().ok_or(Error::Oops)?;
-                        let left = self.stack.pop().ok_or(Error::Oops)?;
+                        let right = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeRight)?;
+                        let left = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeLeft)?;
                         self.stack
                             .push(Tree::node_unboxed(Arc::new(left), Arc::new(right)));
                     } else {
@@ -91,7 +91,7 @@ impl<T: TreeHash + Clone> Builder<T> {
             // Push a new zero padding node on the right of the top-most stack element.
             let depth = (next_index.trailing_zeros() as usize).saturating_sub(self.packing_depth);
 
-            let stack_top = self.stack.pop().ok_or(Error::Oops)?;
+            let stack_top = self.stack.pop().ok_or(Error::BuilderStackEmptyFinish)?;
             let new_stack_top = Tree::node_unboxed(Arc::new(stack_top), Tree::zero(depth));
 
             self.stack.push(new_stack_top);
@@ -99,8 +99,11 @@ impl<T: TreeHash + Clone> Builder<T> {
             // Merge up to `depth` nodes if they exist on the stack.
             for i in depth + 1..self.depth {
                 if (next_index >> (i + self.packing_depth)) & 1 == 1 {
-                    let right = self.stack.pop().ok_or(Error::Oops)?;
-                    let left = self.stack.pop().ok_or(Error::Oops)?;
+                    let right = self
+                        .stack
+                        .pop()
+                        .ok_or(Error::BuilderStackEmptyFinishRight)?;
+                    let left = self.stack.pop().ok_or(Error::BuilderStackEmptyFinishLeft)?;
                     self.stack
                         .push(Tree::node_unboxed(Arc::new(left), Arc::new(right)));
                 } else {
@@ -111,11 +114,12 @@ impl<T: TreeHash + Clone> Builder<T> {
             next_index += 2usize.pow((depth + self.packing_depth) as u32);
         }
 
-        if self.stack.len() != 1 {
-            return Err(Error::Oops);
+        let tree = Arc::new(self.stack.pop().ok_or(Error::BuilderStackEmptyFinalize)?);
+
+        if !self.stack.is_empty() {
+            return Err(Error::BuilderStackLeftover);
         }
 
-        let tree = Arc::new(self.stack.pop().ok_or(Error::Oops)?);
         Ok((tree, self.depth, self.length))
     }
 }

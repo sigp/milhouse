@@ -69,12 +69,11 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
 
                 // Reached end of chunk
                 if sub_index + 1 == self.packing_factor {
-                    // FIXME(sproul): unwrap
                     let to_pop = self
                         .index
                         .trailing_zeros()
                         .checked_sub(self.packing_depth as u32)
-                        .unwrap();
+                        .expect("index should have at least `packing_depth` trailing zeroes");
 
                     for _ in 0..=to_pop {
                         self.stack.pop();
