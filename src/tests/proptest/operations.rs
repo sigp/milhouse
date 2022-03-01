@@ -1,12 +1,10 @@
-use super::{arb_hash256, arb_index, arb_list, arb_vect};
+use super::{arb_hash256, arb_index, arb_large, arb_list, arb_vect, Large};
 use crate::{Diff, Error, List, ListDiff, Vector, VectorDiff};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
-use ssz_derive::{Decode, Encode};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
-use tree_hash_derive::TreeHash;
 use typenum::{Unsigned, U1, U1024, U2, U3, U32, U33, U4, U7, U8, U9};
 
 const OP_LIMIT: usize = 32;
@@ -278,29 +276,6 @@ macro_rules! vect_test {
             }
         }
     };
-}
-
-#[derive(Debug, Clone, PartialEq, Encode, Decode, TreeHash)]
-struct Large {
-    a: u64,
-    b: u8,
-    c: Hash256,
-    d: List<u64, U4>,
-}
-
-fn arb_large() -> impl Strategy<Value = Large> {
-    (
-        any::<u64>(),
-        any::<u8>(),
-        arb_hash256(),
-        arb_list::<_, U4, _>(any::<u64>()),
-    )
-        .prop_map(|(a, b, c, d)| Large {
-            a,
-            b,
-            c,
-            d: List::new(d).unwrap(),
-        })
 }
 
 mod list {
