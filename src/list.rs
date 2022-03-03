@@ -309,7 +309,10 @@ impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
                 item.ssz_append(buf);
             }
         } else {
-            let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
+            let fixed_len = self.len() * BYTES_PER_LENGTH_OFFSET;
+            // FIXME(sproul): this might be slow for lists of variable length items
+            let variable_len = self.ssz_bytes_len().saturating_sub(fixed_len);
+            let mut encoder = SszEncoder::container(buf, fixed_len, variable_len);
 
             for item in self {
                 encoder.append(item);
