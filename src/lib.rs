@@ -12,7 +12,6 @@ pub mod leaf;
 pub mod list;
 pub mod packed_leaf;
 pub mod serde;
-pub mod ssz;
 mod tests;
 pub mod tree;
 pub mod utils;

@@ -9,7 +9,7 @@ use crate::{Arc, Error, Tree};
 use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
-use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
+use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
@@ -320,6 +320,21 @@ impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
     }
 }
 
+impl<T, N> TryFromIter<T> for List<T, N>
+where
+    T: TreeHash + Clone,
+    N: Unsigned,
+{
+    type Error = Error;
+
+    fn try_from_iter<I>(iter: I) -> Result<Self, Self::Error>
+    where
+        I: IntoIterator<Item = T>,
+    {
+        List::try_from_iter(iter)
+    }
+}
+
 impl<T, N> Decode for List<T, N>
 where
     T: Decode + TreeHash + Clone,
@@ -356,7 +371,7 @@ where
                 },
             )?
         } else {
-            crate::ssz::decode_list_of_variable_length_items(bytes)
+            ssz::decode_list_of_variable_length_items(bytes, Some(max_len))
         }
     }
 }
