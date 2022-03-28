@@ -47,6 +47,10 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
         Self::try_from(List::repeat(elem, N::to_usize())?)
     }
 
+    pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
+        Self::try_from(List::try_from_iter(iter)?)
+    }
+
     pub fn to_vec(&self) -> Vec<T> {
         self.iter().cloned().collect()
     }
