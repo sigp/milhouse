@@ -1,9 +1,8 @@
-use crate::cow::Cow;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
-use crate::utils::{max_btree_index, Length};
-use crate::{Arc, Error, List, Tree};
+use crate::utils::Length;
+use crate::{Arc, Cow, Error, List, Tree, UpdateMap};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
@@ -14,13 +13,17 @@ use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 
 #[derive(Debug, Derivative, Clone, Serialize, Deserialize)]
-#[derivative(PartialEq(bound = "T: TreeHash + Clone + PartialEq, N: Unsigned"))]
-#[serde(try_from = "List<T, N>")]
-#[serde(into = "List<T, N>")]
-#[serde(bound(serialize = "T: TreeHash + Clone + Serialize, N: Unsigned"))]
-#[serde(bound(deserialize = "T: TreeHash + Clone + Deserialize<'de>, N: Unsigned"))]
-pub struct Vector<T: TreeHash + Clone, N: Unsigned> {
-    pub(crate) interface: Interface<T, VectorInner<T, N>>,
+#[derivative(PartialEq(
+    bound = "T: TreeHash + Clone + PartialEq, N: Unsigned, U: UpdateMap<T> + PartialEq"
+))]
+#[serde(try_from = "List<T, N, U>")]
+#[serde(into = "List<T, N, U>")]
+#[serde(bound(serialize = "T: TreeHash + Clone + Serialize, N: Unsigned, U: UpdateMap<T>"))]
+#[serde(bound(
+    deserialize = "T: TreeHash + Clone + Deserialize<'de>, N: Unsigned, U: UpdateMap<T>"
+))]
+pub struct Vector<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = BTreeMap<usize, T>> {
+    pub(crate) interface: Interface<T, VectorInner<T, N>, U>,
 }
 
 #[derive(Debug, Derivative, Clone)]
@@ -31,7 +34,7 @@ pub struct VectorInner<T: TreeHash + Clone, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         if vec.len() == N::to_usize() {
             Self::try_from(List::new(vec)?)
@@ -55,11 +58,11 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T> {
+    pub fn iter(&self) -> InterfaceIter<T, U> {
         self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T, U>, Error> {
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
                 index,
@@ -99,10 +102,10 @@ impl<T: TreeHash + Clone, N: Unsigned> Vector<T, N> {
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> TryFrom<List<T, N>> for Vector<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> TryFrom<List<T, N, U>> for Vector<T, N, U> {
     type Error = Error;
 
-    fn try_from(list: List<T, N>) -> Result<Self, Error> {
+    fn try_from(list: List<T, N, U>) -> Result<Self, Error> {
         if list.len() == N::to_usize() {
             let updates = list.interface.updates;
             let backing = VectorInner {
@@ -111,7 +114,11 @@ impl<T: TreeHash + Clone, N: Unsigned> TryFrom<List<T, N>> for Vector<T, N> {
                 _phantom: PhantomData,
             };
             Ok(Vector {
-                interface: Interface { updates, backing },
+                interface: Interface {
+                    updates,
+                    backing,
+                    _phantom: PhantomData,
+                },
             })
         } else {
             Err(Error::WrongVectorLength {
@@ -122,8 +129,8 @@ impl<T: TreeHash + Clone, N: Unsigned> TryFrom<List<T, N>> for Vector<T, N> {
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> From<Vector<T, N>> for List<T, N> {
-    fn from(vector: Vector<T, N>) -> Self {
+impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N, U> {
+    fn from(vector: Vector<T, N, U>) -> Self {
         List::from_parts(
             vector.interface.backing.tree,
             vector.interface.backing.depth,
@@ -170,12 +177,12 @@ where
         Ok(())
     }
 
-    fn update(
+    fn update<U: UpdateMap<T>>(
         &mut self,
-        updates: BTreeMap<usize, T>,
+        updates: U,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error> {
-        if let Some(max_index) = max_btree_index(&updates) {
+        if let Some(max_index) = updates.max_index() {
             if max_index >= self.len().as_usize() {
                 return Err(Error::InvalidVectorUpdate);
             }

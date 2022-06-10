@@ -1,17 +1,16 @@
-use crate::cow::Cow;
 use crate::iter::Iter;
-use std::collections::{btree_map::Entry, BTreeMap};
+use crate::{Cow, UpdateMap};
 use tree_hash::TreeHash;
 
 #[derive(Debug)]
-pub struct InterfaceIter<'a, T: TreeHash + Clone> {
+pub struct InterfaceIter<'a, T: TreeHash + Clone, U: UpdateMap<T>> {
     pub(crate) tree_iter: Iter<'a, T>,
-    pub(crate) updates: &'a BTreeMap<usize, T>,
+    pub(crate) updates: &'a U,
     pub(crate) index: usize,
     pub(crate) length: usize,
 }
 
-impl<'a, T: TreeHash + Clone> Iterator for InterfaceIter<'a, T> {
+impl<'a, T: TreeHash + Clone, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
@@ -22,7 +21,7 @@ impl<'a, T: TreeHash + Clone> Iterator for InterfaceIter<'a, T> {
         let backing_value = self.tree_iter.next();
 
         // Prioritise the value from the update map.
-        self.updates.get(&index).or(backing_value)
+        self.updates.get(index).or(backing_value)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -31,16 +30,16 @@ impl<'a, T: TreeHash + Clone> Iterator for InterfaceIter<'a, T> {
     }
 }
 
-impl<'a, T: TreeHash + Clone> ExactSizeIterator for InterfaceIter<'a, T> {}
+impl<'a, T: TreeHash + Clone, U: UpdateMap<T>> ExactSizeIterator for InterfaceIter<'a, T, U> {}
 
 #[derive(Debug)]
-pub struct InterfaceIterCow<'a, T: TreeHash + Clone> {
+pub struct InterfaceIterCow<'a, T: TreeHash + Clone, U: UpdateMap<T>> {
     pub(crate) tree_iter: Iter<'a, T>,
-    pub(crate) updates: &'a mut BTreeMap<usize, T>,
+    pub(crate) updates: &'a mut U,
     pub(crate) index: usize,
 }
 
-impl<'a, T: TreeHash + Clone> InterfaceIterCow<'a, T> {
+impl<'a, T: TreeHash + Clone, U: UpdateMap<T>> InterfaceIterCow<'a, T, U> {
     pub fn next_cow(&mut self) -> Option<(usize, Cow<T>)> {
         let index = self.index;
         self.index += 1;
@@ -50,15 +49,7 @@ impl<'a, T: TreeHash + Clone> InterfaceIterCow<'a, T> {
 
         // Construct a CoW pointer using the updated entry from the map, or the corresponding
         // vacant entry and the value from the backing iterator.
-        let cow = match self.updates.entry(index) {
-            Entry::Occupied(entry) => Cow::Mutable {
-                value: entry.into_mut(),
-            },
-            Entry::Vacant(entry) => Cow::Immutable {
-                value: backing_value?,
-                entry,
-            },
-        };
+        let cow = self.updates.get_cow_with(index, |_| backing_value)?;
         Some((index, cow))
     }
 }

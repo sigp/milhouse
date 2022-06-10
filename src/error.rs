@@ -29,6 +29,7 @@ pub enum Error {
     BuilderStackEmptyFinishRight,
     BuilderStackEmptyFinalize,
     BuilderStackLeftover,
+    BulkUpdateUnclean,
 }
 
 impl Display for Error {

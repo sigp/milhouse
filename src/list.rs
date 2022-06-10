@@ -1,11 +1,10 @@
 use crate::builder::Builder;
-use crate::cow::Cow;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
-use crate::utils::{int_log, max_btree_index, opt_packing_depth, updated_length, Length};
-use crate::{Arc, Error, Tree};
+use crate::utils::{int_log, opt_packing_depth, updated_length, Length};
+use crate::{Arc, Cow, Error, Tree, UpdateMap};
 use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
@@ -16,9 +15,11 @@ use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 
 #[derive(Debug, Clone, Derivative)]
-#[derivative(PartialEq(bound = "T: TreeHash + PartialEq + Clone, N: Unsigned"))]
-pub struct List<T: TreeHash + Clone, N: Unsigned> {
-    pub(crate) interface: Interface<T, ListInner<T, N>>,
+#[derivative(PartialEq(
+    bound = "T: TreeHash + PartialEq + Clone, N: Unsigned, U: UpdateMap<T> + PartialEq"
+))]
+pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = BTreeMap<usize, T>> {
+    pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
 #[derive(Debug, Clone, Derivative)]
@@ -30,7 +31,7 @@ pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
     }
@@ -91,11 +92,11 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T> {
+    pub fn iter(&self) -> InterfaceIter<T, U> {
         self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T, U>, Error> {
         // Return an empty iterator at index == length, just like slicing.
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
@@ -106,7 +107,7 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
         Ok(self.interface.iter_from(index))
     }
 
-    pub fn iter_cow(&mut self) -> InterfaceIterCow<T> {
+    pub fn iter_cow(&mut self) -> InterfaceIterCow<T, U> {
         self.interface.iter_cow()
     }
 
@@ -141,6 +142,10 @@ impl<T: TreeHash + Clone, N: Unsigned> List<T, N> {
 
     pub fn apply_updates(&mut self) -> Result<(), Error> {
         self.interface.apply_updates()
+    }
+
+    pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
+        self.interface.bulk_update(updates)
     }
 
     fn depth() -> usize {
@@ -198,12 +203,12 @@ where
         Ok(())
     }
 
-    fn update(
+    fn update<U: UpdateMap<T>>(
         &mut self,
-        updates: BTreeMap<usize, T>,
+        updates: U,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error> {
-        if let Some(max_index) = max_btree_index(&updates) {
+        if let Some(max_index) = updates.max_index() {
             if max_index >= N::to_usize() {
                 return Err(Error::InvalidListUpdate);
             }
@@ -247,16 +252,16 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
     }
 }
 
-impl<'a, T: TreeHash + Clone, N: Unsigned> IntoIterator for &'a List<T, N> {
+impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a List<T, N, U> {
     type Item = &'a T;
-    type IntoIter = InterfaceIter<'a, T>;
+    type IntoIter = InterfaceIter<'a, T, U>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl<'a, T: TreeHash + Clone, N: Unsigned> Serialize for List<T, N>
+impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
 where
     T: Serialize,
 {
@@ -272,10 +277,11 @@ where
     }
 }
 
-impl<'de, T, N> Deserialize<'de> for List<T, N>
+impl<'de, T, N, U> Deserialize<'de> for List<T, N, U>
 where
     T: Deserialize<'de> + TreeHash + Clone,
     N: Unsigned,
+    U: UpdateMap<T>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

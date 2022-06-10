@@ -1,15 +1,15 @@
-use crate::List;
+use crate::{List, UpdateMap};
 use itertools::process_results;
 use serde::Deserialize;
 use std::marker::PhantomData;
 use tree_hash::TreeHash;
 use typenum::Unsigned;
 
-pub struct ListVisitor<T, N> {
-    _phantom: PhantomData<(T, N)>,
+pub struct ListVisitor<T, N, U> {
+    _phantom: PhantomData<(T, N, U)>,
 }
 
-impl<T, N> Default for ListVisitor<T, N> {
+impl<T, N, U> Default for ListVisitor<T, N, U> {
     fn default() -> Self {
         Self {
             _phantom: PhantomData,
@@ -17,12 +17,13 @@ impl<T, N> Default for ListVisitor<T, N> {
     }
 }
 
-impl<'a, T, N> serde::de::Visitor<'a> for ListVisitor<T, N>
+impl<'a, T, N, U> serde::de::Visitor<'a> for ListVisitor<T, N, U>
 where
     T: Deserialize<'a> + TreeHash + Clone,
     N: Unsigned,
+    U: UpdateMap<T>,
 {
-    type Value = List<T, N>;
+    type Value = List<T, N, U>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(formatter, "a list of T")

@@ -1,11 +1,12 @@
-use crate::cow::Cow;
+use crate::update_map::UpdateMap;
 use crate::utils::{updated_length, Length};
 use crate::{
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
-    Error,
+    Cow, Error,
 };
-use std::collections::{btree_map::Entry, BTreeMap};
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
 
 pub trait ImmList<T>
@@ -29,60 +30,51 @@ where
 {
     fn validate_push(current_len: usize) -> Result<(), Error>;
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
-    fn update(
+    fn update<U: UpdateMap<T>>(
         &mut self,
-        updates: BTreeMap<usize, T>,
+        updates: U,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Interface<T, B>
+pub struct Interface<T, B, U>
 where
     T: TreeHash + Clone,
     B: MutList<T>,
+    U: UpdateMap<T>,
 {
     pub(crate) backing: B,
-    pub(crate) updates: BTreeMap<usize, T>,
+    pub(crate) updates: U,
+    pub(crate) _phantom: PhantomData<T>,
 }
 
-impl<T, B> Interface<T, B>
+impl<T, B, U> Interface<T, B, U>
 where
     T: TreeHash + Clone,
     B: MutList<T>,
+    U: UpdateMap<T>,
 {
     pub fn new(backing: B) -> Self {
         Self {
             backing,
-            updates: BTreeMap::new(),
+            updates: U::default(),
+            _phantom: PhantomData,
         }
     }
 
     pub fn get(&self, idx: usize) -> Option<&T> {
-        self.updates.get(&idx).or_else(|| self.backing.get(idx))
+        self.updates.get(idx).or_else(|| self.backing.get(idx))
     }
 
     pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
-        match self.updates.entry(idx) {
-            Entry::Vacant(entry) => {
-                // Copy on write.
-                let value = self.backing.get(idx)?.clone();
-                Some(entry.insert(value))
-            }
-            Entry::Occupied(entry) => Some(entry.into_mut()),
-        }
+        self.updates
+            .get_mut_with(idx, |idx| self.backing.get(idx).cloned())
     }
 
     pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
-        match self.updates.entry(index) {
-            Entry::Vacant(entry) => {
-                let value = self.backing.get(index)?;
-                Some(Cow::Immutable { value, entry })
-            }
-            Entry::Occupied(entry) => Some(Cow::Mutable {
-                value: entry.into_mut(),
-            }),
-        }
+        self.updates
+            .get_cow_with(index, |idx| self.backing.get(idx))
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
@@ -106,11 +98,11 @@ where
         !self.updates.is_empty()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T> {
+    pub fn iter(&self) -> InterfaceIter<T, U> {
         self.iter_from(0)
     }
 
-    pub fn iter_from(&self, index: usize) -> InterfaceIter<T> {
+    pub fn iter_from(&self, index: usize) -> InterfaceIter<T, U> {
         InterfaceIter {
             tree_iter: self.backing.iter_from(index),
             updates: &self.updates,
@@ -119,7 +111,7 @@ where
         }
     }
 
-    pub fn iter_cow(&mut self) -> InterfaceIterCow<T> {
+    pub fn iter_cow(&mut self) -> InterfaceIterCow<T, U> {
         let index = 0;
         InterfaceIterCow {
             tree_iter: self.backing.iter_from(index),
@@ -134,6 +126,14 @@ where
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
+        if !self.updates.is_empty() {
+            return Err(Error::BulkUpdateUnclean);
+        }
+        self.updates = updates;
+        Ok(())
     }
 }
 

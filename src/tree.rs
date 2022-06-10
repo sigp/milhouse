@@ -1,5 +1,5 @@
 use crate::utils::{opt_hash, opt_packing_depth, opt_packing_factor};
-use crate::{Arc, Error, Leaf, PackedLeaf};
+use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap};
 use derivative::Derivative;
 use eth2_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode};
 use ssz_derive::{Decode, Encode};
 use std::collections::BTreeMap;
+use std::ops::ControlFlow;
 use tree_hash::{Hash256, TreeHash};
 
 #[derive(Debug, Derivative)]
@@ -153,9 +154,9 @@ impl<T: TreeHash + Clone> Tree<T> {
         }
     }
 
-    pub fn with_updated_leaves(
+    pub fn with_updated_leaves<U: UpdateMap<T>>(
         &self,
-        updates: &BTreeMap<usize, T>,
+        updates: &U,
         prefix: usize,
         depth: usize,
         hashes: Option<&BTreeMap<(usize, usize), Hash256>>,
@@ -166,7 +167,7 @@ impl<T: TreeHash + Clone> Tree<T> {
             Self::Leaf(_) if depth == 0 => {
                 let index = prefix;
                 let value = updates
-                    .get(&index)
+                    .get(index)
                     .cloned()
                     .ok_or(Error::LeafUpdateMissing { index })?;
                 Ok(Self::leaf_with_hash(value, hash))
@@ -181,11 +182,16 @@ impl<T: TreeHash + Clone> Tree<T> {
                 let right_prefix = prefix | (1 << (new_depth + packing_depth));
                 let right_subtree_end = prefix + (1 << (depth + packing_depth));
 
-                let has_left_updates = updates.range(left_prefix..right_prefix).next().is_some();
-                let has_right_updates = updates
-                    .range(right_prefix..right_subtree_end)
-                    .next()
-                    .is_some();
+                let mut has_left_updates = false;
+                updates.for_each_range(left_prefix, right_prefix, |_, _| {
+                    has_left_updates = true;
+                    ControlFlow::Break(())
+                })?;
+                let mut has_right_updates = false;
+                updates.for_each_range(right_prefix, right_subtree_end, |_, _| {
+                    has_right_updates = true;
+                    ControlFlow::Break(())
+                })?;
 
                 // Must have some updates else this recursive branch is a complete waste of time.
                 if !has_left_updates && !has_right_updates {
@@ -213,7 +219,7 @@ impl<T: TreeHash + Clone> Tree<T> {
                     } else {
                         let index = prefix;
                         let value = updates
-                            .get(&index)
+                            .get(index)
                             .cloned()
                             .ok_or(Error::LeafUpdateMissing { index })?;
                         Ok(Self::leaf_with_hash(value, hash))

@@ -1,7 +1,7 @@
-use crate::Error;
+use crate::{Error, UpdateMap};
 use derivative::Derivative;
 use parking_lot::RwLock;
-use std::collections::BTreeMap;
+use std::ops::ControlFlow;
 use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 
 #[derive(Debug, Derivative)]
@@ -73,11 +73,11 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         Ok(updated)
     }
 
-    pub fn update(
+    pub fn update<U: UpdateMap<T>>(
         &self,
         prefix: usize,
         hash: Hash256,
-        updates: &BTreeMap<usize, T>,
+        updates: &U,
     ) -> Result<Self, Error> {
         let mut updated = PackedLeaf {
             hash: RwLock::new(hash),
@@ -87,9 +87,9 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         let packing_factor = T::tree_hash_packing_factor();
         let start = prefix;
         let end = prefix + packing_factor;
-        for (index, value) in updates.range(start..end) {
-            updated.insert_mut(index % packing_factor, value.clone())?;
-        }
+        updates.for_each_range(start, end, |index, value| {
+            ControlFlow::Continue(updated.insert_mut(index % packing_factor, value.clone()))
+        })?;
         Ok(updated)
     }
 
