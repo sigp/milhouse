@@ -11,6 +11,7 @@ use std::convert::TryFrom;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
+use vec_map::VecMap;
 
 #[derive(Debug, Derivative, Clone, Serialize, Deserialize)]
 #[derivative(PartialEq(
@@ -22,7 +23,7 @@ use typenum::Unsigned;
 #[serde(bound(
     deserialize = "T: TreeHash + Clone + Deserialize<'de>, N: Unsigned, U: UpdateMap<T>"
 ))]
-pub struct Vector<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = BTreeMap<usize, T>> {
+pub struct Vector<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = VecMap<T>> {
     pub(crate) interface: Interface<T, VectorInner<T, N>, U>,
 }
 

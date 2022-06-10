@@ -1,7 +1,8 @@
-use crate::cow::{BTreeCow, Cow};
+use crate::cow::{BTreeCow, Cow, VecCow};
 use crate::utils::max_btree_index;
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::ops::ControlFlow;
+use vec_map::VecMap;
 
 /// Trait for map types which can be used to store intermediate updates before application
 /// to the tree.
@@ -91,5 +92,69 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
 
     fn len(&self) -> usize {
         BTreeMap::len(self)
+    }
+}
+
+impl<T: Clone> UpdateMap<T> for VecMap<T> {
+    fn get(&self, k: usize) -> Option<&T> {
+        VecMap::get(self, k)
+    }
+
+    fn get_mut_with<F>(&mut self, idx: usize, f: F) -> Option<&mut T>
+    where
+        F: FnOnce(usize) -> Option<T>,
+    {
+        match self.entry(idx) {
+            vec_map::Entry::Vacant(entry) => {
+                // Copy on write.
+                let value = f(idx)?;
+                Some(entry.insert(value))
+            }
+            vec_map::Entry::Occupied(entry) => Some(entry.into_mut()),
+        }
+    }
+
+    fn get_cow_with<'a, F>(&'a mut self, idx: usize, f: F) -> Option<Cow<'a, T>>
+    where
+        F: FnOnce(usize) -> Option<&'a T>,
+    {
+        let cow = match self.entry(idx) {
+            vec_map::Entry::Vacant(entry) => {
+                let value = f(idx)?;
+                VecCow::Immutable { value, entry }
+            }
+            vec_map::Entry::Occupied(entry) => VecCow::Mutable {
+                value: entry.into_mut(),
+            },
+        };
+        Some(Cow::Vec(cow))
+    }
+
+    fn insert(&mut self, idx: usize, value: T) -> Option<T> {
+        VecMap::insert(self, idx, value)
+    }
+
+    fn for_each_range<F, E>(&self, start: usize, end: usize, mut f: F) -> Result<(), E>
+    where
+        F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
+    {
+        for key in start..end {
+            if let Some(value) = self.get(key) {
+                match f(key, value) {
+                    ControlFlow::Continue(res) => res?,
+                    ControlFlow::Break(()) => break,
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn max_index(&self) -> Option<usize> {
+        // FIXME(sproul): this is slow, make a wrapper type that tracks the max index
+        self.keys().next_back()
+    }
+
+    fn len(&self) -> usize {
+        VecMap::len(self)
     }
 }

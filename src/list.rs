@@ -13,12 +13,13 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
+use vec_map::VecMap;
 
 #[derive(Debug, Clone, Derivative)]
 #[derivative(PartialEq(
     bound = "T: TreeHash + PartialEq + Clone, N: Unsigned, U: UpdateMap<T> + PartialEq"
 ))]
-pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = BTreeMap<usize, T>> {
+pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = VecMap<T>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
