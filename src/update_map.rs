@@ -139,6 +139,9 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
     {
         for key in start..end {
+            if key >= self.capacity() {
+                break;
+            }
             if let Some(value) = self.get(key) {
                 match f(key, value) {
                     ControlFlow::Continue(res) => res?,
@@ -156,5 +159,57 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
 
     fn len(&self) -> usize {
         VecMap::len(self)
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct MaxMap<M> {
+    inner: M,
+    max_key: usize,
+}
+
+impl<T, M> UpdateMap<T> for MaxMap<M>
+where
+    M: UpdateMap<T>,
+{
+    fn get(&self, k: usize) -> Option<&T> {
+        self.inner.get(k)
+    }
+
+    fn get_mut_with<F>(&mut self, k: usize, f: F) -> Option<&mut T>
+    where
+        F: FnOnce(usize) -> Option<T>,
+    {
+        self.inner.get_mut_with(k, f)
+    }
+
+    fn get_cow_with<'a, F>(&'a mut self, k: usize, f: F) -> Option<Cow<'a, T>>
+    where
+        F: FnOnce(usize) -> Option<&'a T>,
+        T: Clone + 'a,
+    {
+        self.inner.get_cow_with(k, f)
+    }
+
+    fn insert(&mut self, k: usize, value: T) -> Option<T> {
+        if k > self.max_key {
+            self.max_key = k;
+        }
+        self.inner.insert(k, value)
+    }
+
+    fn for_each_range<F, E>(&self, start: usize, end: usize, f: F) -> Result<(), E>
+    where
+        F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
+    {
+        self.inner.for_each_range(start, end, f)
+    }
+
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn max_index(&self) -> Option<usize> {
+        Some(self.max_key).filter(|_| !self.inner.is_empty())
     }
 }

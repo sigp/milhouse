@@ -1,6 +1,7 @@
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
+use crate::update_map::MaxMap;
 use crate::utils::Length;
 use crate::{Arc, Cow, Error, List, Tree, UpdateMap};
 use derivative::Derivative;
@@ -23,7 +24,7 @@ use vec_map::VecMap;
 #[serde(bound(
     deserialize = "T: TreeHash + Clone + Deserialize<'de>, N: Unsigned, U: UpdateMap<T>"
 ))]
-pub struct Vector<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = VecMap<T>> {
+pub struct Vector<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, VectorInner<T, N>, U>,
 }
 

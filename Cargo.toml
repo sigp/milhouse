@@ -30,3 +30,4 @@ eth2_ssz_types = { git = "https://github.com/sigp/lighthouse.git", branch = "tre
 eth2_serde_utils = { git = "https://github.com/sigp/lighthouse.git", branch = "tree-states" }
 eth2_ssz = { git = "https://github.com/sigp/lighthouse.git", branch = "tree-states" }
 eth2_ssz_derive = { git = "https://github.com/sigp/lighthouse.git", branch = "tree-states" }
+eth2_hashing = { git = "https://github.com/sigp/lighthouse.git", branch = "tree-states" }

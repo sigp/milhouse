@@ -3,6 +3,7 @@ use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
+use crate::update_map::MaxMap;
 use crate::utils::{int_log, opt_packing_depth, updated_length, Length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap};
 use derivative::Derivative;
@@ -19,7 +20,7 @@ use vec_map::VecMap;
 #[derivative(PartialEq(
     bound = "T: TreeHash + PartialEq + Clone, N: Unsigned, U: UpdateMap<T> + PartialEq"
 ))]
-pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = VecMap<T>> {
+pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
