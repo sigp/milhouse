@@ -57,6 +57,10 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn repeat(elem: T, n: usize) -> Result<Self, Error> {
+        crate::repeat::repeat_list(elem, n)
+    }
+
+    pub fn repeat_slow(elem: T, n: usize) -> Result<Self, Error> {
         Self::try_from_iter(std::iter::repeat(elem).take(n))
     }
 
@@ -150,7 +154,7 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.interface.bulk_update(updates)
     }
 
-    fn depth() -> usize {
+    pub(crate) fn depth() -> usize {
         if let Some(packing_bits) = opt_packing_depth::<T>() {
             int_log(N::to_usize()).saturating_sub(packing_bits)
         } else {

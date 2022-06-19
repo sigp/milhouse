@@ -63,6 +63,14 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         }
     }
 
+    pub fn repeat(value: T, n: usize) -> Self {
+        assert!(n <= T::tree_hash_packing_factor());
+        PackedLeaf {
+            hash: RwLock::new(Hash256::zero()),
+            values: vec![value; n],
+        }
+    }
+
     pub fn insert_at_index(&self, index: usize, value: T) -> Result<Self, Error> {
         let mut updated = PackedLeaf {
             hash: RwLock::new(Hash256::zero()),

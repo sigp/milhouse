@@ -11,6 +11,7 @@ pub mod iter;
 pub mod leaf;
 pub mod list;
 pub mod packed_leaf;
+mod repeat;
 pub mod serde;
 mod tests;
 pub mod tree;
