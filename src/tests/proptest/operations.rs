@@ -97,6 +97,8 @@ pub enum Op<T> {
     IterFrom(usize),
     /// Apply updates to the backing list.
     ApplyUpdates,
+    /// Compute the tree hash of the list, modifying its internal nodes.
+    TreeHash,
     /// Set the current state of the list as the checkpoint for the next diff.
     DiffCheckpoint,
     /// Compute a diff with respect to the most recent checkpoint and verify its correctness.
@@ -108,7 +110,10 @@ where
     T: Debug + Clone + 'a,
     S: Strategy<Value = T> + 'a,
 {
-    prop_oneof![
+    // The behaviour of `prop_oneof` changes to dynamic dispatch past 10 elements which
+    // breaks the borrowing pattern used in this function. Using two weighted substrategies
+    // prevents the boxing.
+    let a_block = prop_oneof![
         Just(Op::Len),
         arb_index(n).prop_map(Op::Get),
         (arb_index(n), strategy).prop_map(|(index, value)| Op::Set(index, value)),
@@ -117,8 +122,13 @@ where
         Just(Op::Iter),
         arb_index(n).prop_map(Op::IterFrom),
         Just(Op::ApplyUpdates),
+        Just(Op::TreeHash),
         Just(Op::DiffCheckpoint),
-        Just(Op::DiffCompute),
+    ];
+    let b_block = Just(Op::DiffCompute);
+    prop_oneof![
+        10 => a_block,
+        1 => b_block
     ]
 }
 
@@ -136,7 +146,7 @@ where
 
 fn apply_ops_list<T, N>(list: &mut List<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
-    T: TreeHash + PartialEq + Clone + Encode + Decode + Debug,
+    T: TreeHash + PartialEq + Clone + Encode + Decode + Debug + Send + Sync,
     N: Unsigned + Debug,
 {
     let mut diff_checkpoint = list.clone();
@@ -175,6 +185,10 @@ where
                 list.apply_updates().unwrap();
                 diff_checkpoint = list.clone();
             }
+            Op::TreeHash => {
+                list.apply_updates().unwrap();
+                list.tree_hash_root();
+            }
             Op::DiffCompute => {
                 list.apply_updates().unwrap();
                 let diff = ListDiff::compute_diff(&diff_checkpoint, list).unwrap();
@@ -188,7 +202,7 @@ where
 
 fn apply_ops_vect<T, N>(vect: &mut Vector<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
-    T: TreeHash + PartialEq + Clone + Encode + Decode + Debug,
+    T: TreeHash + PartialEq + Clone + Encode + Decode + Debug + Send + Sync,
     N: Unsigned + Debug,
 {
     let mut diff_checkpoint = vect.clone();
@@ -222,6 +236,10 @@ where
             },
             Op::ApplyUpdates => {
                 vect.apply_updates().unwrap();
+            }
+            Op::TreeHash => {
+                vect.apply_updates().unwrap();
+                vect.tree_hash_root();
             }
             Op::DiffCheckpoint => {
                 vect.apply_updates().unwrap();

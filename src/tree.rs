@@ -288,7 +288,22 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
                 let h1 = *h1.read();
                 let h2 = *h2.read();
 
-                if h1 != h2 || h1.is_zero() {
+                // Conditions for recursing:
+                // - Hashes are different. Implies different subtree data.
+                // - Left or right pointers are different. Implies subtree *could* contain
+                //   different data with the *same hash* (e.g. leaves equal to 0 value).
+                //
+                // The second condition is prone to misfiring on identical trees that have been
+                // built from scratch in different parts of memory. Wasting some effort
+                // in this case is considered an acceptable trade-off, because this should occur
+                // rarely in practice when performing copy-on-write updates to the same tree
+                // structure. There is no risk of leaving out differences because subtrees that
+                // contain different data must necessarily have different pointers.
+                //
+                // FIXME(sproul): consider alternatives + improvements:
+                // - check whether subtree diff did anything before adding node hash to diff
+                // - add subtree length to node (extra 8 bytes)
+                if h1 != h2 || !Arc::ptr_eq(l1, l2) || !Arc::ptr_eq(r1, r2) {
                     diff.hashes.insert((depth, prefix), h2);
 
                     let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
