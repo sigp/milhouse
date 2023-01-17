@@ -15,6 +15,7 @@ pub fn arb_index(n: usize) -> impl Strategy<Value = usize> {
 pub fn arb_list<T, N, S>(strategy: S) -> impl Strategy<Value = Vec<T>>
 where
     S: Strategy<Value = T>,
+    T: std::fmt::Debug,
     N: Unsigned + std::fmt::Debug,
 {
     proptest::collection::vec(strategy, 0..=N::to_usize())
@@ -23,6 +24,7 @@ where
 pub fn arb_vect<T, N, S>(strategy: S) -> impl Strategy<Value = Vec<T>>
 where
     S: Strategy<Value = T>,
+    T: std::fmt::Debug,
     N: Unsigned + std::fmt::Debug,
 {
     proptest::collection::vec(strategy, N::to_usize())

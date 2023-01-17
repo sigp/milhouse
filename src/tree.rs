@@ -1,7 +1,7 @@
 use crate::utils::{opt_hash, opt_packing_depth, opt_packing_factor};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap};
 use derivative::Derivative;
-use eth2_hashing::{hash32_concat, ZERO_HASHES};
+use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode};
