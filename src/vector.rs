@@ -6,7 +6,7 @@ use crate::utils::Length;
 use crate::{Arc, Cow, Error, List, Tree, UpdateMap};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
-use ssz::{Decode, Encode, SszEncoder, BYTES_PER_LENGTH_OFFSET};
+use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
@@ -228,6 +228,30 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vec
         // FIXME(sproul): remove assert
         assert!(!self.interface.has_pending_updates());
         self.interface.backing.tree.tree_hash()
+    }
+}
+
+impl<T, N> TryFromIter<T> for Vector<T, N>
+where
+    T: TreeHash + Clone,
+    N: Unsigned,
+{
+    type Error = Error;
+
+    fn try_from_iter<I>(iter: I) -> Result<Self, Self::Error>
+    where
+        I: IntoIterator<Item = T>,
+    {
+        Vector::try_from_iter(iter)
+    }
+}
+
+impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a Vector<T, N, U> {
+    type Item = &'a T;
+    type IntoIter = InterfaceIter<'a, T, U>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
