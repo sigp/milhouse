@@ -18,6 +18,8 @@ triomphe = "0.1.5"
 typenum = "1.14.0"
 vec_map = "0.8.2"
 smallvec = "1.8.0"
+arbitrary = { version = "1.2.3", features = ["derive"] }
+ethereum-types = { version = "0.14.1", features = ["arbitrary"] }
 
 [dev-dependencies]
 ssz_types = "0.5.0"

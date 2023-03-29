@@ -1,5 +1,6 @@
-use crate::utils::{opt_hash, opt_packing_depth, opt_packing_factor};
+use crate::utils::{arb_arc, arb_rwlock, opt_hash, opt_packing_depth, opt_packing_factor};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap};
+use arbitrary::Arbitrary;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
@@ -10,15 +11,18 @@ use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 use tree_hash::{Hash256, TreeHash};
 
-#[derive(Debug, Derivative)]
+#[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq, Hash)]
 pub enum Tree<T: TreeHash + Clone> {
     Leaf(Leaf<T>),
     PackedLeaf(PackedLeaf<T>),
     Node {
         #[derivative(PartialEq = "ignore", Hash = "ignore")]
+        #[arbitrary(with = arb_rwlock)]
         hash: RwLock<Hash256>,
+        #[arbitrary(with = arb_arc)]
         left: Arc<Self>,
+        #[arbitrary(with = arb_arc)]
         right: Arc<Self>,
     },
     Zero(usize),
