@@ -5,6 +5,7 @@ use crate::{
     iter::Iter,
     Cow, Error,
 };
+use arbitrary::Arbitrary;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
@@ -37,7 +38,7 @@ where
     ) -> Result<(), Error>;
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Arbitrary)]
 pub struct Interface<T, B, U>
 where
     T: TreeHash + Clone,

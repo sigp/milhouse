@@ -4,8 +4,9 @@ use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
 use crate::update_map::MaxMap;
-use crate::utils::{int_log, opt_packing_depth, updated_length, Length};
+use crate::utils::{arb_arc, int_log, opt_packing_depth, updated_length, Length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap};
+use arbitrary::Arbitrary;
 use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
@@ -16,20 +17,25 @@ use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
 
-#[derive(Debug, Clone, Derivative)]
+#[derive(Debug, Clone, Derivative, Arbitrary)]
 #[derivative(PartialEq(
     bound = "T: TreeHash + PartialEq + Clone, N: Unsigned, U: UpdateMap<T> + PartialEq"
 ))]
+#[arbitrary(bound = "T: Arbitrary<'arbitrary> + TreeHash + PartialEq + Clone")]
+#[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T> + PartialEq")]
 pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
-#[derive(Debug, Clone, Derivative)]
+#[derive(Debug, Clone, Derivative, Arbitrary)]
 #[derivative(PartialEq(bound = "T: TreeHash + PartialEq + Clone, N: Unsigned"))]
+#[arbitrary(bound = "T: Arbitrary<'arbitrary> + TreeHash + PartialEq + Clone, N: Unsigned")]
 pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
+    #[arbitrary(with = arb_arc)]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) length: Length,
     pub(crate) depth: usize,
+    #[arbitrary(default)]
     _phantom: PhantomData<N>,
 }
 

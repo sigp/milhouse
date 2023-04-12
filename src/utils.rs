@@ -1,9 +1,11 @@
-use crate::UpdateMap;
+use crate::{Arc, UpdateMap};
+use arbitrary::Arbitrary;
+use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash, TreeHashType};
 
 /// Length type, to avoid confusion with depth and other `usize` parameters.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Arbitrary)]
 pub struct Length(pub usize);
 
 impl Length {
@@ -59,4 +61,16 @@ pub fn opt_hash(
     prefix: usize,
 ) -> Option<Hash256> {
     hashes?.get(&(depth, prefix)).copied()
+}
+
+pub fn arb_arc<'a, T: Arbitrary<'a>>(
+    u: &mut arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<Arc<T>> {
+    T::arbitrary(u).map(Arc::new)
+}
+
+pub fn arb_rwlock<'a, T: Arbitrary<'a>>(
+    u: &mut arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<RwLock<T>> {
+    T::arbitrary(u).map(RwLock::new)
 }
