@@ -1,10 +1,13 @@
-use crate::{interface::MutList, tree::TreeDiff, Error, List, Vector};
+use crate::{
+    interface::MutList, tree::TreeDiff, update_map::MaxMap, Error, List, UpdateMap, Vector,
+};
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode};
 use ssz_derive::{Decode, Encode};
 use std::marker::PhantomData;
 use tree_hash::TreeHash;
 use typenum::Unsigned;
+use vec_map::VecMap;
 
 /// Trait for diffs that can be applied to a given `Target` type.
 pub trait Diff: Sized {
@@ -83,19 +86,24 @@ where
     deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
     serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
 ))]
-pub struct ListDiff<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned> {
+pub struct ListDiff<
+    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    N: Unsigned,
+    U: UpdateMap<T> = MaxMap<VecMap<T>>,
+> {
     tree_diff: TreeDiff<T>,
     #[serde(skip, default)]
     #[ssz(skip_serializing, skip_deserializing)]
-    _phantom: PhantomData<N>,
+    _phantom: PhantomData<(N, U)>,
 }
 
-impl<T, N> Diff for ListDiff<T, N>
+impl<T, N, U> Diff for ListDiff<T, N, U>
 where
     T: TreeHash + PartialEq + Clone + Decode + Encode,
     N: Unsigned,
+    U: UpdateMap<T>,
 {
-    type Target = List<T, N>;
+    type Target = List<T, N, U>;
     type Error = Error;
 
     fn compute_diff(orig: &Self::Target, other: &Self::Target) -> Result<Self, Error> {
@@ -173,18 +181,23 @@ where
     deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
     serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
 ))]
-pub struct VectorDiff<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned> {
+pub struct VectorDiff<
+    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    N: Unsigned,
+    U: UpdateMap<T> = MaxMap<VecMap<T>>,
+> {
     tree_diff: TreeDiff<T>,
     #[ssz(skip_serializing, skip_deserializing)]
-    _phantom: PhantomData<N>,
+    _phantom: PhantomData<(N, U)>,
 }
 
-impl<T, N> Diff for VectorDiff<T, N>
+impl<T, N, U> Diff for VectorDiff<T, N, U>
 where
     T: TreeHash + PartialEq + Clone + Decode + Encode,
     N: Unsigned,
+    U: UpdateMap<T>,
 {
-    type Target = Vector<T, N>;
+    type Target = Vector<T, N, U>;
     type Error = Error;
 
     fn compute_diff(orig: &Self::Target, other: &Self::Target) -> Result<Self, Error> {

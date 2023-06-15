@@ -1,3 +1,4 @@
+use crate::diff::{Diff, VectorDiff};
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
@@ -134,6 +135,21 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> TryFrom<List<T, N, U>> f
                 expected: N::to_usize(),
             })
         }
+    }
+}
+
+impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMap<T>>
+    Vector<T, N, U>
+{
+    pub fn rebase(&self, base: &Self) -> Result<Self, Error> {
+        // Diff self from base.
+        let diff = VectorDiff::compute_diff(base, self)?;
+
+        // Apply diff to base, yielding a new list rooted in base.
+        let mut new = base.clone();
+        diff.apply_diff(&mut new)?;
+
+        Ok(new)
     }
 }
 
