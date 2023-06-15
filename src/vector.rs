@@ -151,6 +151,12 @@ impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMa
 
         Ok(new)
     }
+
+    pub fn rebase_on(&mut self, base: &Self) -> Result<(), Error> {
+        let rebased = self.rebase(base)?;
+        *self = rebased;
+        Ok(())
+    }
 }
 
 impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N, U> {
