@@ -1,4 +1,5 @@
 use crate::builder::Builder;
+use crate::diff::{Diff, ListDiff};
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
@@ -232,6 +233,27 @@ where
         self.tree =
             self.tree
                 .with_updated_leaves(&updates, 0, self.depth, hash_updates.as_ref())?;
+        Ok(())
+    }
+}
+
+impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMap<T>>
+    List<T, N, U>
+{
+    pub fn rebase(&self, base: &Self) -> Result<Self, Error> {
+        // Diff self from base.
+        let diff = ListDiff::compute_diff(base, self)?;
+
+        // Apply diff to base, yielding a new list rooted in base.
+        let mut new = base.clone();
+        diff.apply_diff(&mut new)?;
+
+        Ok(new)
+    }
+
+    pub fn rebase_on(&mut self, base: &Self) -> Result<(), Error> {
+        let rebased = self.rebase(base)?;
+        *self = rebased;
         Ok(())
     }
 }

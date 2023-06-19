@@ -103,6 +103,10 @@ pub enum Op<T> {
     DiffCheckpoint,
     /// Compute a diff with respect to the most recent checkpoint and verify its correctness.
     DiffCompute,
+    /// Rebase the list on the most recent (diff) checkpoint.
+    Rebase,
+    /// Create a new list which shares no data with its ancestors.
+    Debase,
 }
 
 fn arb_op<'a, T, S>(strategy: &'a S, n: usize) -> impl Strategy<Value = Op<T>> + 'a
@@ -125,10 +129,10 @@ where
         Just(Op::TreeHash),
         Just(Op::DiffCheckpoint),
     ];
-    let b_block = Just(Op::DiffCompute);
+    let b_block = prop_oneof![Just(Op::DiffCompute), Just(Op::Rebase), Just(Op::Debase)];
     prop_oneof![
         10 => a_block,
-        1 => b_block
+        3 => b_block
     ]
 }
 
@@ -196,6 +200,18 @@ where
                 diff.apply_diff(&mut diffed_list).unwrap();
                 assert_eq!(diffed_list, *list);
             }
+            Op::Rebase => {
+                list.apply_updates().unwrap();
+                let new_list = list.rebase(&diff_checkpoint).unwrap();
+                assert_eq!(new_list, *list);
+            }
+            Op::Debase => {
+                list.apply_updates().unwrap();
+                let ssz_bytes = list.as_ssz_bytes();
+                let new_list = List::from_ssz_bytes(&ssz_bytes).unwrap();
+                assert_eq!(new_list, *list);
+                *list = new_list;
+            }
         }
     }
 }
@@ -251,6 +267,18 @@ where
                 let mut diffed_vect = diff_checkpoint.clone();
                 diff.apply_diff(&mut diffed_vect).unwrap();
                 assert_eq!(diffed_vect, *vect);
+            }
+            Op::Rebase => {
+                vect.apply_updates().unwrap();
+                let new_vect = vect.rebase(&diff_checkpoint).unwrap();
+                assert_eq!(new_vect, *vect);
+            }
+            Op::Debase => {
+                vect.apply_updates().unwrap();
+                let ssz_bytes = vect.as_ssz_bytes();
+                let new_vect = Vector::from_ssz_bytes(&ssz_bytes).unwrap();
+                assert_eq!(new_vect, *vect);
+                *vect = new_vect;
             }
         }
     }
