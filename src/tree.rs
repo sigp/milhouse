@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 use tree_hash::{Hash256, TreeHash};
 
+const HIGH_BIT_MASK: usize = 1 << 63;
+
 #[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq, Hash)]
 pub enum Tree<T: TreeHash + Clone> {
@@ -85,20 +87,25 @@ impl<T: TreeHash + Clone> Tree<T> {
     }
 
     pub fn get_recursive(&self, index: usize, depth: usize, packing_depth: usize) -> Option<&T> {
+        let bit_index = index << (64 - depth - packing_depth);
+        self.get_recursive_nasty(index, bit_index)
+    }
+
+    pub fn get_recursive_nasty(&self, orig_index: usize, bit_index: usize) -> Option<&T> {
         match self {
-            Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(value),
-            Self::PackedLeaf(PackedLeaf { values, .. }) if depth == 0 => {
-                values.get(index % T::tree_hash_packing_factor())
+            Self::Leaf(Leaf { value, .. }) => Some(value),
+            Self::PackedLeaf(PackedLeaf { values, .. }) => {
+                values.get(orig_index % T::tree_hash_packing_factor())
             }
-            Self::Node { left, right, .. } if depth > 0 => {
-                let new_depth = depth - 1;
+            Self::Node { left, right, .. } => {
+                let new_bit_index = bit_index << 1;
                 // Left
-                if (index >> (new_depth + packing_depth)) & 1 == 0 {
-                    left.get_recursive(index, new_depth, packing_depth)
+                if bit_index & HIGH_BIT_MASK == 0 {
+                    left.get_recursive_nasty(orig_index, new_bit_index)
                 }
                 // Right
                 else {
-                    right.get_recursive(index, new_depth, packing_depth)
+                    right.get_recursive_nasty(orig_index, new_bit_index)
                 }
             }
             _ => None,
