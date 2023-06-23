@@ -14,6 +14,7 @@ impl Length {
         &mut self.0
     }
 
+    #[inline(always)]
     pub fn as_usize(&self) -> usize {
         self.0
     }

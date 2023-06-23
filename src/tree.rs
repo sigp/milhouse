@@ -84,22 +84,21 @@ impl<T: TreeHash + Clone> Tree<T> {
         Self::Leaf(Leaf::new(value))
     }
 
-    pub fn get(&self, index: usize, depth: usize) -> Option<&T> {
+    pub fn get_recursive(&self, index: usize, depth: usize, packing_depth: usize) -> Option<&T> {
         match self {
             Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(value),
             Self::PackedLeaf(PackedLeaf { values, .. }) if depth == 0 => {
                 values.get(index % T::tree_hash_packing_factor())
             }
             Self::Node { left, right, .. } if depth > 0 => {
-                let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
                 let new_depth = depth - 1;
                 // Left
                 if (index >> (new_depth + packing_depth)) & 1 == 0 {
-                    left.get(index, new_depth)
+                    left.get_recursive(index, new_depth, packing_depth)
                 }
                 // Right
                 else {
-                    right.get(index, new_depth)
+                    right.get_recursive(index, new_depth, packing_depth)
                 }
             }
             _ => None,
