@@ -39,6 +39,7 @@ pub struct VectorInner<T: TreeHash + Clone, N: Unsigned> {
     #[arbitrary(with = arb_arc)]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) depth: usize,
+    packing_depth: usize,
     #[arbitrary(default)]
     _phantom: PhantomData<N>,
 }
@@ -120,6 +121,7 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> TryFrom<List<T, N, U>> f
             let backing = VectorInner {
                 tree: list.interface.backing.tree,
                 depth: list.interface.backing.depth,
+                packing_depth: list.interface.backing.packing_depth,
                 _phantom: PhantomData,
             };
             Ok(Vector {
@@ -172,7 +174,7 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> fo
 impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for VectorInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
-            self.tree.get(index, self.depth)
+            self.tree.get_recursive(index, self.depth, self.packing_depth)
         } else {
             None
         }
