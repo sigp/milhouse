@@ -36,6 +36,7 @@ pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) length: Length,
     pub(crate) depth: usize,
+    pub(crate) packing_depth: usize,
     #[arbitrary(default)]
     _phantom: PhantomData<N>,
 }
@@ -46,11 +47,13 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub(crate) fn from_parts(tree: Arc<Tree<T>>, depth: usize, length: Length) -> Self {
+        let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         Self {
             interface: Interface::new(ListInner {
                 tree,
                 length,
                 depth,
+                packing_depth,
                 _phantom: PhantomData,
             }),
         }
@@ -173,7 +176,7 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
-            self.tree.get(index, self.depth)
+            self.tree.get_recursive(index, self.depth, self.packing_depth)
         } else {
             None
         }
