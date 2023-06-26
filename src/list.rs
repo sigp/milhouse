@@ -15,23 +15,25 @@ use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
-use typenum::Unsigned;
+use typenum::{NonZero, Unsigned};
 use vec_map::VecMap;
 
 #[derive(Debug, Clone, Derivative, Arbitrary)]
 #[derivative(PartialEq(
-    bound = "T: TreeHash + PartialEq + Clone, N: Unsigned, U: UpdateMap<T> + PartialEq"
+    bound = "T: TreeHash + PartialEq + Clone, N: Unsigned + NonZero, U: UpdateMap<T> + PartialEq"
 ))]
 #[arbitrary(bound = "T: Arbitrary<'arbitrary> + TreeHash + PartialEq + Clone")]
-#[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T> + PartialEq")]
-pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
+#[arbitrary(bound = "N: Unsigned + NonZero, U: Arbitrary<'arbitrary> + UpdateMap<T> + PartialEq")]
+pub struct List<T: TreeHash + Clone, N: Unsigned + NonZero, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
 #[derive(Debug, Clone, Derivative, Arbitrary)]
-#[derivative(PartialEq(bound = "T: TreeHash + PartialEq + Clone, N: Unsigned"))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + TreeHash + PartialEq + Clone, N: Unsigned")]
-pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
+#[derivative(PartialEq(bound = "T: TreeHash + PartialEq + Clone, N: Unsigned + NonZero"))]
+#[arbitrary(
+    bound = "T: Arbitrary<'arbitrary> + TreeHash + PartialEq + Clone, N: Unsigned + NonZero"
+)]
+pub struct ListInner<T: TreeHash + Clone, N: Unsigned + NonZero> {
     #[arbitrary(with = arb_arc)]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) length: Length,
@@ -41,7 +43,7 @@ pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
-impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
+impl<T: TreeHash + Clone, N: Unsigned + NonZero, U: UpdateMap<T>> List<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
     }
@@ -173,10 +175,11 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned + NonZero> ImmList<T> for ListInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
-            self.tree.get_recursive(index, self.depth, self.packing_depth)
+            self.tree
+                .get_recursive(index, self.depth, self.packing_depth)
         } else {
             None
         }
@@ -194,7 +197,7 @@ impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
 impl<T, N> MutList<T> for ListInner<T, N>
 where
     T: TreeHash + Clone,
-    N: Unsigned,
+    N: Unsigned + NonZero,
 {
     fn validate_push(current_len: usize) -> Result<(), Error> {
         if current_len == N::to_usize() {
@@ -240,7 +243,7 @@ where
     }
 }
 
-impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMap<T>>
+impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned + NonZero, U: UpdateMap<T>>
     List<T, N, U>
 {
     pub fn rebase(&self, base: &Self) -> Result<Self, Error> {
@@ -261,13 +264,13 @@ impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMa
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> Default for List<T, N> {
+impl<T: TreeHash + Clone, N: Unsigned + NonZero> Default for List<T, N> {
     fn default() -> Self {
         Self::empty()
     }
 }
 
-impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
+impl<T: TreeHash + Clone + Send + Sync, N: Unsigned + NonZero> TreeHash for List<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::List
     }
@@ -289,7 +292,9 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
     }
 }
 
-impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a List<T, N, U> {
+impl<'a, T: TreeHash + Clone, N: Unsigned + NonZero, U: UpdateMap<T>> IntoIterator
+    for &'a List<T, N, U>
+{
     type Item = &'a T;
     type IntoIter = InterfaceIter<'a, T, U>;
 
@@ -298,7 +303,7 @@ impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a
     }
 }
 
-impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
+impl<'a, T: TreeHash + Clone, N: Unsigned + NonZero, U: UpdateMap<T>> Serialize for List<T, N, U>
 where
     T: Serialize,
 {
@@ -317,7 +322,7 @@ where
 impl<'de, T, N, U> Deserialize<'de> for List<T, N, U>
 where
     T: Deserialize<'de> + TreeHash + Clone,
-    N: Unsigned,
+    N: Unsigned + NonZero,
     U: UpdateMap<T>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -329,7 +334,7 @@ where
 }
 
 // FIXME: duplicated from `ssz::encode::impl_for_vec`
-impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
+impl<T: Encode + TreeHash + Clone, N: Unsigned + NonZero> Encode for List<T, N> {
     fn is_ssz_fixed_len() -> bool {
         false
     }
@@ -366,7 +371,7 @@ impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
 impl<T, N> TryFromIter<T> for List<T, N>
 where
     T: TreeHash + Clone,
-    N: Unsigned,
+    N: Unsigned + NonZero,
 {
     type Error = Error;
 
@@ -381,7 +386,7 @@ where
 impl<T, N> Decode for List<T, N>
 where
     T: Decode + TreeHash + Clone,
-    N: Unsigned,
+    N: Unsigned + NonZero,
 {
     fn is_ssz_fixed_len() -> bool {
         false

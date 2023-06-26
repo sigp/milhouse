@@ -5,19 +5,19 @@ use ssz::{Decode, Encode};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
-use typenum::{Unsigned, U1, U1024, U2, U3, U32, U33, U4, U7, U8, U9};
+use typenum::{NonZero, Unsigned, U1, U1024, U2, U3, U32, U33, U4, U7, U8, U9};
 
 const OP_LIMIT: usize = 32;
 
 /// Simple specification for `List` and `Vector` behaviour.
 #[derive(Debug, Clone)]
-pub struct Spec<T, N: Unsigned> {
+pub struct Spec<T, N: Unsigned + NonZero> {
     values: Vec<T>,
     allow_push: bool,
     _phantom: PhantomData<N>,
 }
 
-impl<T, N: Unsigned> Spec<T, N> {
+impl<T, N: Unsigned + NonZero> Spec<T, N> {
     pub fn list(values: Vec<T>) -> Self {
         assert!(values.len() <= N::to_usize());
         Self {
@@ -151,7 +151,7 @@ where
 fn apply_ops_list<T, N>(list: &mut List<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
     T: TreeHash + PartialEq + Clone + Encode + Decode + Debug + Send + Sync,
-    N: Unsigned + Debug,
+    N: Unsigned + NonZero + Debug,
 {
     let mut diff_checkpoint = list.clone();
 
@@ -219,7 +219,7 @@ where
 fn apply_ops_vect<T, N>(vect: &mut Vector<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
     T: TreeHash + PartialEq + Clone + Encode + Decode + Debug + Send + Sync,
-    N: Unsigned + Debug,
+    N: Unsigned + NonZero + Debug,
 {
     let mut diff_checkpoint = vect.clone();
 

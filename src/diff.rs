@@ -6,7 +6,7 @@ use ssz::{Decode, Encode};
 use ssz_derive::{Decode, Encode};
 use std::marker::PhantomData;
 use tree_hash::TreeHash;
-use typenum::Unsigned;
+use typenum::{NonZero, Unsigned};
 use vec_map::VecMap;
 
 /// Trait for diffs that can be applied to a given `Target` type.
@@ -88,7 +88,7 @@ where
 ))]
 pub struct ListDiff<
     T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
+    N: Unsigned + NonZero,
     U: UpdateMap<T> = MaxMap<VecMap<T>>,
 > {
     tree_diff: TreeDiff<T>,
@@ -100,7 +100,7 @@ pub struct ListDiff<
 impl<T, N, U> Diff for ListDiff<T, N, U>
 where
     T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
+    N: Unsigned + NonZero,
     U: UpdateMap<T>,
 {
     type Target = List<T, N, U>;
@@ -144,7 +144,7 @@ where
 pub enum ResetListDiff<T, N>
 where
     T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
+    N: Unsigned + NonZero,
 {
     Reset(CloneDiff<List<T, N>>),
     Update(ListDiff<T, N>),
@@ -153,7 +153,7 @@ where
 impl<T, N> Diff for ResetListDiff<T, N>
 where
     T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
+    N: Unsigned + NonZero,
 {
     type Target = List<T, N>;
     type Error = Error;
@@ -183,7 +183,7 @@ where
 ))]
 pub struct VectorDiff<
     T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
+    N: Unsigned + NonZero,
     U: UpdateMap<T> = MaxMap<VecMap<T>>,
 > {
     tree_diff: TreeDiff<T>,
@@ -194,7 +194,7 @@ pub struct VectorDiff<
 impl<T, N, U> Diff for VectorDiff<T, N, U>
 where
     T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
+    N: Unsigned + NonZero,
     U: UpdateMap<T>,
 {
     type Target = Vector<T, N, U>;
