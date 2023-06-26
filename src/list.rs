@@ -46,9 +46,14 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         Self::try_from_iter(vec)
     }
 
-    pub(crate) fn from_parts(tree: Arc<Tree<T>>, depth: usize, length: Length) -> Self {
+    pub(crate) fn from_parts(
+        tree: Arc<Tree<T>>,
+        depth: usize,
+        length: Length,
+    ) -> Result<Self, Error> {
+        Self::validate_n()?;
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
-        Self {
+        Ok(Self {
             interface: Interface::new(ListInner {
                 tree,
                 length,
@@ -56,21 +61,24 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
                 packing_depth,
                 _phantom: PhantomData,
             }),
-        }
+        })
     }
 
-    pub fn empty() -> Self {
+    pub fn empty() -> Result<Self, Error> {
         // If the leaves are packed then they reduce the depth
+        Self::validate_n()?;
         let depth = Self::depth();
         let tree = Tree::empty(depth);
         Self::from_parts(tree, depth, Length(0))
     }
 
     pub fn repeat(elem: T, n: usize) -> Result<Self, Error> {
+        Self::validate_n()?;
         crate::repeat::repeat_list(elem, n)
     }
 
     pub fn repeat_slow(elem: T, n: usize) -> Result<Self, Error> {
+        Self::validate_n()?;
         Self::try_from_iter(std::iter::repeat(elem).take(n))
     }
 
@@ -87,13 +95,13 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
         let (tree, depth, length) = builder.finish()?;
 
-        Ok(Self::from_parts(tree, depth, length))
+        Self::from_parts(tree, depth, length)
     }
 
     /// This method exists for testing purposes.
     #[doc(hidden)]
     pub fn try_from_iter_slow(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let mut list = Self::empty();
+        let mut list = Self::empty()?;
 
         for item in iter.into_iter() {
             list.push(item)?;
@@ -102,6 +110,14 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         list.apply_updates()?;
 
         Ok(list)
+    }
+
+    pub fn validate_n() -> Result<(), Error> {
+        if N::to_usize() == 0 {
+            Err(Error::InvalidZeroLength)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn to_vec(&self) -> Vec<T> {
@@ -176,7 +192,8 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
-            self.tree.get_recursive(index, self.depth, self.packing_depth)
+            self.tree
+                .get_recursive(index, self.depth, self.packing_depth)
         } else {
             None
         }
@@ -263,7 +280,7 @@ impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMa
 
 impl<T: TreeHash + Clone, N: Unsigned> Default for List<T, N> {
     fn default() -> Self {
-        Self::empty()
+        Self::empty().expect("list capacity is non-zero")
     }
 }
 
@@ -391,7 +408,7 @@ where
         let max_len = N::to_usize();
 
         if bytes.is_empty() {
-            Ok(List::empty())
+            List::empty().map_err(|e| ssz::DecodeError::BytesInvalid(format!("{e:?}")))
         } else if T::is_ssz_fixed_len() {
             let num_items = bytes
                 .len()

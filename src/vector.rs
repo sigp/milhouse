@@ -168,13 +168,15 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> fo
             vector.interface.backing.depth,
             Length(N::to_usize()),
         )
+        .expect("capacity is non-zero")
     }
 }
 
 impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for VectorInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
-            self.tree.get_recursive(index, self.depth, self.packing_depth)
+            self.tree
+                .get_recursive(index, self.depth, self.packing_depth)
         } else {
             None
         }

@@ -30,6 +30,7 @@ pub enum Error {
     BuilderStackEmptyFinalize,
     BuilderStackLeftover,
     BulkUpdateUnclean,
+    InvalidZeroLength,
 }
 
 impl Display for Error {

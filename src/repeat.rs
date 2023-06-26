@@ -12,7 +12,7 @@ where
     U: UpdateMap<T>,
 {
     if n == 0 {
-        return Ok(List::empty());
+        return List::empty();
     }
 
     // Keep a list of nodes at the current level and their multiplicity.
@@ -108,5 +108,5 @@ where
         return Err(Error::BuilderStackLeftover);
     }
 
-    Ok(List::from_parts(root, tree_depth, Length(n)))
+    List::from_parts(root, tree_depth, Length(n))
 }
