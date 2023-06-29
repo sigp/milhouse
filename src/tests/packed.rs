@@ -49,7 +49,7 @@ fn u64_packed_vector_tree_hash() {
     let len = 16;
     let vec = (0..len).map(|i| 2 * i).collect::<Vec<u64>>();
     let vector = Vector::<u64, U16>::new(vec.clone()).unwrap();
-    let fixed_vector = FixedVector::<u64, U16>::new(vec.clone()).unwrap();
+    let fixed_vector = FixedVector::<u64, U16>::new(vec).unwrap();
 
     assert_eq!(vector.tree_hash_root(), fixed_vector.tree_hash_root());
 }
