@@ -299,7 +299,7 @@ impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a
     }
 }
 
-impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
+impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
 where
     T: Serialize,
 {

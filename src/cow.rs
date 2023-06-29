@@ -27,6 +27,7 @@ impl<'a, T: Clone> Cow<'a, T> {
 }
 
 pub trait CowTrait<'a, T: Clone>: Deref<Target = T> {
+    #[allow(clippy::wrong_self_convention)]
     fn to_mut(self) -> &'a mut T;
 }
 
