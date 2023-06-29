@@ -176,7 +176,8 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
-            self.tree.get_recursive(index, self.depth, self.packing_depth)
+            self.tree
+                .get_recursive(index, self.depth, self.packing_depth)
         } else {
             None
         }
@@ -298,7 +299,7 @@ impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a
     }
 }
 
-impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
+impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
 where
     T: Serialize,
 {
