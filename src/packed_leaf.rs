@@ -23,14 +23,6 @@ where
 
 impl<T: TreeHash + Clone> PackedLeaf<T> {
     pub fn tree_hash(&self) -> Hash256 {
-        //let read_lock = self.hash.read();
-        //let mut hash = *read_lock;
-        //drop(read_lock);
-
-        //if !hash.is_zero() {
-        //    return hash;
-        //}
-
         let mut hash = Hash256::zero();
 
         let hash_bytes = hash.as_bytes_mut();
@@ -88,10 +80,6 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
     }
 
     pub fn insert_mut(&mut self, sub_index: usize, value: T) -> Result<(), Error> {
-        // Ensure hash is 0.
-        //*self.hash.get_mut() = Hash256::zero();
-        // TODO(mac) might need another check here
-
         if sub_index == self.values.len() {
             self.values.push(value);
         } else if sub_index < self.values.len() {

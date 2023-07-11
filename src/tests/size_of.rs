@@ -28,10 +28,7 @@ fn size_of_u8() {
     assert_eq!(size_of::<Tree<u8>>(), 64);
     assert_eq!(size_of::<Leaf<u8>>(), 48);
     assert_eq!(size_of::<PackedLeaf<u8>>(), 24);
-    assert_eq!(
-        size_of::<PackedLeaf<u8>>(),
-        size_of::<Vec<u8>>()
-    );
+    assert_eq!(size_of::<PackedLeaf<u8>>(), size_of::<Vec<u8>>());
 
     let rw_lock_size = size_of::<RwLock<u8>>();
     assert_eq!(rw_lock_size, 16);
