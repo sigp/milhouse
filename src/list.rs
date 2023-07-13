@@ -353,7 +353,7 @@ impl<T: Value, N: Unsigned> Encode for List<T, N> {
             let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
 
             for item in self {
-                encoder.append(&item.into_owned());
+                encoder.append(item.as_ref());
             }
 
             encoder.finalize();

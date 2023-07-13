@@ -159,7 +159,7 @@ impl<T: Value> PackedLeaf<T> {
             return Err(Error::PackedLeafFull { len: self.length() });
         }
 
-        self.insert_mut(self.length(), value.clone())?;
+        self.insert_mut(self.length(), value)?;
 
         Ok(())
     }

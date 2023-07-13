@@ -316,7 +316,7 @@ impl<T: Value, N: Unsigned> Encode for Vector<T, N> {
             let mut encoder = SszEncoder::container(buf, self.len() * ssz::BYTES_PER_LENGTH_OFFSET);
 
             for item in self.iter() {
-                encoder.append(&item.into_owned());
+                encoder.append(item.as_ref());
             }
 
             encoder.finalize();
