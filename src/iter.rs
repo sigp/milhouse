@@ -1,11 +1,11 @@
 use crate::{
     utils::{opt_packing_depth, opt_packing_factor, Length},
-    Leaf, PackedLeaf, Tree,
+    Leaf, Tree, Value,
 };
-use tree_hash::TreeHash;
+use std::borrow::Cow as StdCow;
 
 #[derive(Debug)]
-pub struct Iter<'a, T: TreeHash + Clone> {
+pub struct Iter<'a, T: Value> {
     /// Stack of tree nodes corresponding to the current position.
     stack: Vec<&'a Tree<T>>,
     /// The list index corresponding to the current position (next element to be yielded).
@@ -22,7 +22,7 @@ pub struct Iter<'a, T: TreeHash + Clone> {
     length: Length,
 }
 
-impl<'a, T: TreeHash + Clone> Iter<'a, T> {
+impl<'a, T: Value> Iter<'a, T> {
     pub fn from_index(index: usize, root: &'a Tree<T>, depth: usize, length: Length) -> Self {
         let mut stack = Vec::with_capacity(depth);
         stack.push(root);
@@ -38,8 +38,8 @@ impl<'a, T: TreeHash + Clone> Iter<'a, T> {
     }
 }
 
-impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
-    type Item = &'a T;
+impl<'a, T: Value> Iterator for Iter<'a, T> {
+    type Item = StdCow<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.length.as_usize() {
@@ -58,12 +58,12 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
                     self.stack.pop();
                 }
 
-                result
+                result.map(|res| StdCow::Borrowed(res))
             }
-            Some(Tree::PackedLeaf(PackedLeaf { values, .. })) => {
+            Some(Tree::PackedLeaf(packed_leaf)) => {
                 let sub_index = self.index % self.packing_factor;
 
-                let result = values.get(sub_index);
+                let result = packed_leaf.get(sub_index);
 
                 self.index += 1;
 
@@ -80,7 +80,7 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
                     }
                 }
 
-                result
+                result.map(|res| StdCow::Owned(res))
             }
             Some(Tree::Node { left, right, .. }) => {
                 let depth = self.full_depth - self.stack.len();
@@ -105,4 +105,4 @@ impl<'a, T: TreeHash + Clone> Iterator for Iter<'a, T> {
     }
 }
 
-impl<'a, T: TreeHash + Clone> ExactSizeIterator for Iter<'a, T> {}
+impl<'a, T: Value> ExactSizeIterator for Iter<'a, T> {}

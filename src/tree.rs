@@ -1,19 +1,19 @@
 use crate::utils::{arb_arc, arb_rwlock, opt_hash, opt_packing_depth, opt_packing_factor};
-use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap};
+use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use ssz::{Decode, Encode};
 use ssz_derive::{Decode, Encode};
+use std::borrow::Cow as StdCow;
 use std::collections::BTreeMap;
 use std::ops::ControlFlow;
-use tree_hash::{Hash256, TreeHash};
+use tree_hash::Hash256;
 
 #[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq, Hash)]
-pub enum Tree<T: TreeHash + Clone> {
+pub enum Tree<T: Value> {
     Leaf(Leaf<T>),
     PackedLeaf(PackedLeaf<T>),
     Node {
@@ -28,7 +28,7 @@ pub enum Tree<T: TreeHash + Clone> {
     Zero(usize),
 }
 
-impl<T: TreeHash + Clone> Clone for Tree<T> {
+impl<T: Value> Clone for Tree<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Node { hash, left, right } => Self::Node {
@@ -43,7 +43,7 @@ impl<T: TreeHash + Clone> Clone for Tree<T> {
     }
 }
 
-impl<T: TreeHash + Clone> Tree<T> {
+impl<T: Value> Tree<T> {
     pub fn empty(depth: usize) -> Arc<Self> {
         Self::zero(depth)
     }
@@ -84,12 +84,17 @@ impl<T: TreeHash + Clone> Tree<T> {
         Self::Leaf(Leaf::new(value))
     }
 
-    pub fn get_recursive(&self, index: usize, depth: usize, packing_depth: usize) -> Option<&T> {
+    pub fn get_recursive(
+        &self,
+        index: usize,
+        depth: usize,
+        packing_depth: usize,
+    ) -> Option<StdCow<T>> {
         match self {
-            Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(value),
-            Self::PackedLeaf(PackedLeaf { values, .. }) if depth == 0 => {
-                values.get(index % T::tree_hash_packing_factor())
-            }
+            Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(StdCow::Borrowed(value)),
+            Self::PackedLeaf(packed_leaf) if depth == 0 => packed_leaf
+                .get(index % T::tree_hash_packing_factor())
+                .map(|res| StdCow::Owned(res)),
             Self::Node { left, right, .. } if depth > 0 => {
                 let new_depth = depth - 1;
                 // Left
@@ -171,7 +176,7 @@ impl<T: TreeHash + Clone> Tree<T> {
                 let index = prefix;
                 let value = updates
                     .get(index)
-                    .cloned()
+                    .map(|res| res.into_owned())
                     .ok_or(Error::LeafUpdateMissing { index })?;
                 Ok(Self::leaf_with_hash(value, hash))
             }
@@ -223,7 +228,7 @@ impl<T: TreeHash + Clone> Tree<T> {
                         let index = prefix;
                         let value = updates
                             .get(index)
-                            .cloned()
+                            .map(|res| res.into_owned())
                             .ok_or(Error::LeafUpdateMissing { index })?;
                         Ok(Self::leaf_with_hash(value, hash))
                     }
@@ -239,7 +244,7 @@ impl<T: TreeHash + Clone> Tree<T> {
     }
 }
 
-impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
+impl<T: Value> Tree<T> {
     pub fn diff(
         &self,
         other: &Self,
@@ -258,9 +263,9 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) if depth == 0 => {
                 let mut equal = true;
-                for i in 0..l2.values.len() {
-                    let v2 = &l2.values[i];
-                    match l1.values.get(i) {
+                for i in 0..l2.values().len() {
+                    let v2 = &l2.values()[i];
+                    match l1.values().get(i) {
                         Some(v1) if v1 == v2 => continue,
                         _ => {
                             equal = false;
@@ -344,7 +349,7 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
             Self::PackedLeaf(packed_leaf) if depth == 0 => {
                 diff.hashes
                     .insert((depth, prefix), *packed_leaf.hash.read());
-                for (i, value) in packed_leaf.values.iter().enumerate() {
+                for (i, value) in packed_leaf.values().iter().enumerate() {
                     diff.leaves.insert(prefix | i, value.clone());
                 }
                 Ok(())
@@ -368,14 +373,14 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
 }
 
 #[derive(Debug, PartialEq, Encode, Decode, Deserialize, Serialize, Derivative)]
-#[derivative(Default(bound = "T: TreeHash + Clone"))]
-pub struct TreeDiff<T: TreeHash + Clone + Encode + Decode> {
+#[derivative(Default(bound = "T: Value"))]
+pub struct TreeDiff<T: Value> {
     pub leaves: BTreeMap<usize, T>,
     /// Map from `(depth, prefix)` to node hash.
     pub hashes: BTreeMap<(usize, usize), Hash256>,
 }
 
-impl<T: TreeHash + Clone + Send + Sync> Tree<T> {
+impl<T: Value + Send + Sync> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {

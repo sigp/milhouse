@@ -1,8 +1,7 @@
-use crate::{List, UpdateMap};
+use crate::{List, UpdateMap, Value};
 use itertools::process_results;
 use serde::Deserialize;
 use std::marker::PhantomData;
-use tree_hash::TreeHash;
 use typenum::Unsigned;
 
 pub struct ListVisitor<T, N, U> {
@@ -19,7 +18,7 @@ impl<T, N, U> Default for ListVisitor<T, N, U> {
 
 impl<'a, T, N, U> serde::de::Visitor<'a> for ListVisitor<T, N, U>
 where
-    T: Deserialize<'a> + TreeHash + Clone,
+    T: Deserialize<'a> + Value,
     N: Unsigned,
     U: UpdateMap<T>,
 {

@@ -2,6 +2,7 @@ use super::{arb_hash256, arb_index, arb_large, arb_list, arb_vect, Large};
 use crate::{Diff, Error, List, ListDiff, Vector, VectorDiff};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
+use std::borrow::Cow as StdCow;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
@@ -17,7 +18,7 @@ pub struct Spec<T, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
-impl<T, N: Unsigned> Spec<T, N> {
+impl<T: Clone, N: Unsigned> Spec<T, N> {
     pub fn list(values: Vec<T>) -> Self {
         assert!(values.len() <= N::to_usize());
         Self {
@@ -40,13 +41,15 @@ impl<T, N: Unsigned> Spec<T, N> {
         self.values.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.values.iter()
+    pub fn iter(&self) -> impl Iterator<Item = StdCow<T>> {
+        self.values.iter().map(|item| StdCow::Borrowed(item))
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<impl Iterator<Item = &T>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<impl Iterator<Item = StdCow<T>>, Error> {
         if index <= self.len() {
-            Ok(self.values[index..].iter())
+            Ok(self.values[index..]
+                .iter()
+                .map(|item| StdCow::Borrowed(item)))
         } else {
             Err(Error::OutOfBoundsIterFrom {
                 index,
@@ -55,8 +58,8 @@ impl<T, N: Unsigned> Spec<T, N> {
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<&T> {
-        self.values.get(index)
+    pub fn get(&self, index: usize) -> Option<StdCow<T>> {
+        self.values.get(index).map(|val| StdCow::Borrowed(val))
     }
 
     pub fn set(&mut self, index: usize, value: T) -> Option<()> {

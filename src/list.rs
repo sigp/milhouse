@@ -6,12 +6,13 @@ use crate::iter::Iter;
 use crate::serde::ListVisitor;
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, int_log, opt_packing_depth, updated_length, Length};
-use crate::{Arc, Cow, Error, Tree, UpdateMap};
+use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
+use std::borrow::Cow as StdCow;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
@@ -19,19 +20,17 @@ use typenum::Unsigned;
 use vec_map::VecMap;
 
 #[derive(Debug, Clone, Derivative, Arbitrary)]
-#[derivative(PartialEq(
-    bound = "T: TreeHash + PartialEq + Clone, N: Unsigned, U: UpdateMap<T> + PartialEq"
-))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + TreeHash + PartialEq + Clone")]
+#[derivative(PartialEq(bound = "T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq"))]
+#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value")]
 #[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T> + PartialEq")]
-pub struct List<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
+pub struct List<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
 #[derive(Debug, Clone, Derivative, Arbitrary)]
-#[derivative(PartialEq(bound = "T: TreeHash + PartialEq + Clone, N: Unsigned"))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + TreeHash + PartialEq + Clone, N: Unsigned")]
-pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
+#[derivative(PartialEq(bound = "T: Value, N: Unsigned"))]
+#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
+pub struct ListInner<T: Value, N: Unsigned> {
     #[arbitrary(with = arb_arc)]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) length: Length,
@@ -41,7 +40,7 @@ pub struct ListInner<T: TreeHash + Clone, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
-impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
     }
@@ -105,7 +104,7 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().cloned().collect()
+        self.iter().map(|res| res.into_owned()).collect()
     }
 
     pub fn iter(&self) -> InterfaceIter<T, U> {
@@ -128,7 +127,7 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<StdCow<T>> {
         self.interface.get(index)
     }
 
@@ -173,8 +172,8 @@ impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
-    fn get(&self, index: usize) -> Option<&T> {
+impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
+    fn get(&self, index: usize) -> Option<StdCow<T>> {
         if index < self.len().as_usize() {
             self.tree
                 .get_recursive(index, self.depth, self.packing_depth)
@@ -194,7 +193,7 @@ impl<T: TreeHash + Clone, N: Unsigned> ImmList<T> for ListInner<T, N> {
 
 impl<T, N> MutList<T> for ListInner<T, N>
 where
-    T: TreeHash + Clone,
+    T: Value,
     N: Unsigned,
 {
     fn validate_push(current_len: usize) -> Result<(), Error> {
@@ -241,9 +240,7 @@ where
     }
 }
 
-impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMap<T>>
-    List<T, N, U>
-{
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn rebase(&self, base: &Self) -> Result<Self, Error> {
         // Diff self from base.
         let diff = ListDiff::compute_diff(base, self)?;
@@ -262,13 +259,13 @@ impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMa
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned> Default for List<T, N> {
+impl<T: Value, N: Unsigned> Default for List<T, N> {
     fn default() -> Self {
         Self::empty()
     }
 }
 
-impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
+impl<T: Value + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::List
     }
@@ -290,8 +287,8 @@ impl<T: TreeHash + Clone + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
     }
 }
 
-impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a List<T, N, U> {
-    type Item = &'a T;
+impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a List<T, N, U> {
+    type Item = StdCow<'a, T>;
     type IntoIter = InterfaceIter<'a, T, U>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -299,7 +296,7 @@ impl<'a, T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a
     }
 }
 
-impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> Serialize for List<T, N, U>
 where
     T: Serialize,
 {
@@ -309,7 +306,7 @@ where
     {
         let mut seq = serializer.serialize_seq(Some(self.len()))?;
         for e in self {
-            seq.serialize_element(e)?;
+            seq.serialize_element(&e)?;
         }
         seq.end()
     }
@@ -317,7 +314,7 @@ where
 
 impl<'de, T, N, U> Deserialize<'de> for List<T, N, U>
 where
-    T: Deserialize<'de> + TreeHash + Clone,
+    T: Deserialize<'de> + Value,
     N: Unsigned,
     U: UpdateMap<T>,
 {
@@ -330,7 +327,7 @@ where
 }
 
 // FIXME: duplicated from `ssz::encode::impl_for_vec`
-impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
+impl<T: Value, N: Unsigned> Encode for List<T, N> {
     fn is_ssz_fixed_len() -> bool {
         false
     }
@@ -346,8 +343,8 @@ impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
     }
 
     fn ssz_append(&self, buf: &mut Vec<u8>) {
-        if T::is_ssz_fixed_len() {
-            buf.reserve(T::ssz_fixed_len() * self.len());
+        if <T as Encode>::is_ssz_fixed_len() {
+            buf.reserve(<T as Encode>::ssz_fixed_len() * self.len());
 
             for item in self {
                 item.ssz_append(buf);
@@ -356,7 +353,7 @@ impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
             let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
 
             for item in self {
-                encoder.append(item);
+                encoder.append(&item.into_owned());
             }
 
             encoder.finalize();
@@ -366,7 +363,7 @@ impl<T: Encode + TreeHash + Clone, N: Unsigned> Encode for List<T, N> {
 
 impl<T, N> TryFromIter<T> for List<T, N>
 where
-    T: TreeHash + Clone,
+    T: Value,
     N: Unsigned,
 {
     type Error = Error;
@@ -381,7 +378,7 @@ where
 
 impl<T, N> Decode for List<T, N>
 where
-    T: Decode + TreeHash + Clone,
+    T: Value,
     N: Unsigned,
 {
     fn is_ssz_fixed_len() -> bool {
@@ -393,10 +390,10 @@ where
 
         if bytes.is_empty() {
             Ok(List::empty())
-        } else if T::is_ssz_fixed_len() {
+        } else if <T as Decode>::is_ssz_fixed_len() {
             let num_items = bytes
                 .len()
-                .checked_div(T::ssz_fixed_len())
+                .checked_div(<T as Decode>::ssz_fixed_len())
                 .ok_or(ssz::DecodeError::ZeroLengthItem)?;
 
             if num_items > max_len {
@@ -407,7 +404,9 @@ where
             }
 
             process_results(
-                bytes.chunks(T::ssz_fixed_len()).map(T::from_ssz_bytes),
+                bytes
+                    .chunks(<T as Decode>::ssz_fixed_len())
+                    .map(T::from_ssz_bytes),
                 |iter| {
                     List::try_from_iter(iter).map_err(|e| {
                         ssz::DecodeError::BytesInvalid(format!("Error building ssz List: {:?}", e))

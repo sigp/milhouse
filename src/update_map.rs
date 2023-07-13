@@ -1,14 +1,15 @@
 use crate::cow::{BTreeCow, Cow, VecCow};
 use crate::utils::max_btree_index;
 use arbitrary::Arbitrary;
+use std::borrow::Cow as StdCow;
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::ops::ControlFlow;
 use vec_map::VecMap;
 
 /// Trait for map types which can be used to store intermediate updates before application
 /// to the tree.
-pub trait UpdateMap<T>: Default + Clone {
-    fn get(&self, k: usize) -> Option<&T>;
+pub trait UpdateMap<T: Clone>: Default + Clone {
+    fn get(&self, k: usize) -> Option<StdCow<T>>;
 
     fn get_mut_with<F>(&mut self, k: usize, f: F) -> Option<&mut T>
     where
@@ -16,7 +17,7 @@ pub trait UpdateMap<T>: Default + Clone {
 
     fn get_cow_with<'a, F>(&'a mut self, k: usize, f: F) -> Option<Cow<'a, T>>
     where
-        F: FnOnce(usize) -> Option<&'a T>,
+        F: FnOnce(usize) -> Option<StdCow<'a, T>>,
         T: Clone + 'a;
 
     fn insert(&mut self, k: usize, value: T) -> Option<T>;
@@ -36,8 +37,8 @@ pub trait UpdateMap<T>: Default + Clone {
 }
 
 impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
-    fn get(&self, k: usize) -> Option<&T> {
-        BTreeMap::get(self, &k)
+    fn get(&self, k: usize) -> Option<StdCow<T>> {
+        BTreeMap::get(self, &k).map(|res| StdCow::Borrowed(res))
     }
 
     fn get_mut_with<F>(&mut self, idx: usize, f: F) -> Option<&mut T>
@@ -56,7 +57,7 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
 
     fn get_cow_with<'a, F>(&'a mut self, idx: usize, f: F) -> Option<Cow<'a, T>>
     where
-        F: FnOnce(usize) -> Option<&'a T>,
+        F: FnOnce(usize) -> Option<StdCow<'a, T>>,
     {
         let cow = match self.entry(idx) {
             Entry::Vacant(entry) => {
@@ -97,8 +98,8 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
 }
 
 impl<T: Clone> UpdateMap<T> for VecMap<T> {
-    fn get(&self, k: usize) -> Option<&T> {
-        VecMap::get(self, k)
+    fn get(&self, k: usize) -> Option<StdCow<T>> {
+        VecMap::get(self, k).map(|res| StdCow::Borrowed(res))
     }
 
     fn get_mut_with<F>(&mut self, idx: usize, f: F) -> Option<&mut T>
@@ -117,7 +118,7 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
 
     fn get_cow_with<'a, F>(&'a mut self, idx: usize, f: F) -> Option<Cow<'a, T>>
     where
-        F: FnOnce(usize) -> Option<&'a T>,
+        F: FnOnce(usize) -> Option<StdCow<'a, T>>,
     {
         let cow = match self.entry(idx) {
             vec_map::Entry::Vacant(entry) => {
@@ -171,11 +172,11 @@ pub struct MaxMap<M> {
     max_key: usize,
 }
 
-impl<T, M> UpdateMap<T> for MaxMap<M>
+impl<T: Clone, M> UpdateMap<T> for MaxMap<M>
 where
     M: UpdateMap<T>,
 {
-    fn get(&self, k: usize) -> Option<&T> {
+    fn get(&self, k: usize) -> Option<StdCow<T>> {
         self.inner.get(k)
     }
 
@@ -188,7 +189,7 @@ where
 
     fn get_cow_with<'a, F>(&'a mut self, k: usize, f: F) -> Option<Cow<'a, T>>
     where
-        F: FnOnce(usize) -> Option<&'a T>,
+        F: FnOnce(usize) -> Option<StdCow<'a, T>>,
         T: Clone + 'a,
     {
         self.inner.get_cow_with(k, f)
