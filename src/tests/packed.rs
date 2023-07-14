@@ -9,11 +9,11 @@ fn u64_packed_list_build_and_iter() {
         let vec = (0..len).map(|i| 2 * i).collect::<Vec<u64>>();
         let list = List::<u64, U16>::new(vec.clone()).unwrap();
 
-        let from_iter = list.iter().map(|res| res.into_owned()).collect::<Vec<_>>();
+        let from_iter = list.iter().cloned().collect::<Vec<_>>();
         assert_eq!(vec, from_iter);
 
         for i in 0..len as usize {
-            assert_eq!(list.get(i).map(|res| res.into_owned()).as_ref(), vec.get(i));
+            assert_eq!(list.get(i).cloned().as_ref(), vec.get(i));
         }
     }
 }
@@ -36,17 +36,11 @@ fn u64_packed_vector_build_and_iter() {
     let vec = (0..len).map(|i| 2 * i).collect::<Vec<u64>>();
     let vector = Vector::<u64, U16>::new(vec.clone()).unwrap();
 
-    let from_iter = vector
-        .iter()
-        .map(|res| res.into_owned())
-        .collect::<Vec<_>>();
+    let from_iter = vector.iter().cloned().collect::<Vec<_>>();
     assert_eq!(vec, from_iter);
 
     for i in 0..len as usize {
-        assert_eq!(
-            vector.get(i).map(|res| res.into_owned()).as_ref(),
-            vec.get(i)
-        );
+        assert_eq!(vector.get(i).cloned().as_ref(), vec.get(i));
     }
 }
 
@@ -80,11 +74,11 @@ fn out_of_order_mutations() {
     for (i, v) in mutations {
         *list.get_mut(i).unwrap() = v;
         vec[i] = v;
-        assert_eq!(list.get(i).map(|res| res.into_owned()), Some(v));
+        assert_eq!(list.get(i).cloned(), Some(v));
 
         list.apply_updates().unwrap();
 
-        assert_eq!(list.get(i).map(|res| res.into_owned()), Some(v));
+        assert_eq!(list.get(i).cloned(), Some(v));
     }
 
     assert_eq!(list.to_vec(), vec);

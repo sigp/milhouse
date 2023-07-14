@@ -2,7 +2,6 @@ use crate::{
     utils::{opt_packing_depth, opt_packing_factor, Length},
     Leaf, Tree, Value,
 };
-use std::borrow::Cow as StdCow;
 
 #[derive(Debug)]
 pub struct Iter<'a, T: Value> {
@@ -39,7 +38,7 @@ impl<'a, T: Value> Iter<'a, T> {
 }
 
 impl<'a, T: Value> Iterator for Iter<'a, T> {
-    type Item = StdCow<'a, T>;
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.length.as_usize() {
@@ -58,7 +57,7 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
                     self.stack.pop();
                 }
 
-                result.map(|res| StdCow::Borrowed(res))
+                result
             }
             Some(Tree::PackedLeaf(packed_leaf)) => {
                 let sub_index = self.index % self.packing_factor;
@@ -80,7 +79,7 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
                     }
                 }
 
-                result.map(|res| StdCow::Owned(res))
+                result
             }
             Some(Tree::Node { left, right, .. }) => {
                 let depth = self.full_depth - self.stack.len();

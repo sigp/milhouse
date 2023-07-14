@@ -6,13 +6,12 @@ use crate::{
     Cow, Error, Value,
 };
 use arbitrary::Arbitrary;
-use std::borrow::Cow as StdCow;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::Hash256;
 
 pub trait ImmList<T: Value> {
-    fn get(&self, idx: usize) -> Option<StdCow<T>>;
+    fn get(&self, idx: usize) -> Option<&T>;
 
     fn len(&self) -> Length;
 
@@ -59,13 +58,13 @@ where
         }
     }
 
-    pub fn get(&self, idx: usize) -> Option<StdCow<T>> {
+    pub fn get(&self, idx: usize) -> Option<&T> {
         self.updates.get(idx).or_else(|| self.backing.get(idx))
     }
 
     pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
         self.updates
-            .get_mut_with(idx, |idx| self.backing.get(idx).map(|res| res.into_owned()))
+            .get_mut_with(idx, |idx| self.backing.get(idx).cloned())
     }
 
     pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
@@ -175,10 +174,7 @@ mod test {
         *c2.to_mut() = 11;
         assert_eq!(*list.get(0).unwrap(), 11);
 
-        assert_eq!(
-            list.iter().map(|res| res.into_owned()).collect::<Vec<_>>(),
-            vec![11, 2, 3]
-        );
+        assert_eq!(list.iter().copied().collect::<Vec<_>>(), vec![11, 2, 3]);
     }
 
     #[test]

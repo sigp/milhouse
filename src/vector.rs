@@ -9,7 +9,6 @@ use arbitrary::Arbitrary;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
-use std::borrow::Cow as StdCow;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
@@ -62,7 +61,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().map(|res| res.into_owned()).collect()
+        self.iter().cloned().collect()
     }
 
     pub fn iter(&self) -> InterfaceIter<T, U> {
@@ -80,7 +79,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<StdCow<T>> {
+    pub fn get(&self, index: usize) -> Option<&T> {
         self.interface.get(index)
     }
 
@@ -167,7 +166,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N
 }
 
 impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
-    fn get(&self, index: usize) -> Option<StdCow<T>> {
+    fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
             self.tree
                 .get_recursive(index, self.depth, self.packing_depth)
@@ -273,7 +272,7 @@ where
 }
 
 impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a Vector<T, N, U> {
-    type Item = StdCow<'a, T>;
+    type Item = &'a T;
     type IntoIter = InterfaceIter<'a, T, U>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -316,7 +315,7 @@ impl<T: Value, N: Unsigned> Encode for Vector<T, N> {
             let mut encoder = SszEncoder::container(buf, self.len() * ssz::BYTES_PER_LENGTH_OFFSET);
 
             for item in self.iter() {
-                encoder.append(item.as_ref());
+                encoder.append(item);
             }
 
             encoder.finalize();
