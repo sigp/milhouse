@@ -41,7 +41,7 @@ impl<T: Value> PackedLeaf<T> {
         }
         let hash_base_ptr: *const Hash256 = &self.hash;
         let base_ptr: *const T = hash_base_ptr as *const T;
-        let elem_ptr: *const T = unsafe { base_ptr.offset(index as isize) };
+        let elem_ptr: *const T = unsafe { base_ptr.add(index) };
         Some(unsafe { &*elem_ptr })
     }
 
