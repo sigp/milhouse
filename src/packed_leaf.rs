@@ -1,17 +1,14 @@
-use crate::{utils::arb_rwlock, Error, UpdateMap, Value};
+use crate::{Error, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use core::marker::PhantomData;
 use derivative::Derivative;
-use parking_lot::RwLock;
 use std::ops::ControlFlow;
 use tree_hash::{Hash256, BYTES_PER_CHUNK};
 
 #[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq, Hash)]
 pub struct PackedLeaf<T: Value> {
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    #[arbitrary(with = arb_rwlock)]
-    pub hash: RwLock<Hash256>,
+    pub hash: Hash256,
     pub length: u8,
     _phantom: PhantomData<T>,
 }
@@ -22,7 +19,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hash: RwLock::new(*self.hash.read()),
+            hash: self.hash,
             length: self.length,
             _phantom: PhantomData,
         }
@@ -30,35 +27,31 @@ where
 }
 
 impl<T: Value> PackedLeaf<T> {
-    fn length(&self) -> usize {
+    pub fn length(&self) -> usize {
         self.length as usize
     }
 
-    fn value_len(_value: &T) -> usize {
+    fn value_len() -> usize {
         BYTES_PER_CHUNK / T::tree_hash_packing_factor()
     }
 
-    pub fn values(&self) -> Vec<T> {
-        self.hash
-            .read()
-            .as_bytes()
-            .chunks_exact(BYTES_PER_CHUNK / T::tree_hash_packing_factor())
-            .take(self.length())
-            .map(|bytes| T::from_ssz_bytes(bytes).expect("Should always deserialize"))
-            .collect::<Vec<T>>()
-    }
-
-    pub fn get(&self, index: usize) -> Option<T> {
-        self.values().get(index).cloned()
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.length() {
+            return None;
+        }
+        let hash_base_ptr: *const Hash256 = &self.hash;
+        let base_ptr: *const T = hash_base_ptr as *const T;
+        let elem_ptr: *const T = unsafe { base_ptr.offset(index as isize) };
+        Some(unsafe { &*elem_ptr })
     }
 
     pub fn tree_hash(&self) -> Hash256 {
-        *self.hash.read()
+        self.hash
     }
 
     pub fn empty() -> Self {
         PackedLeaf {
-            hash: RwLock::new(Hash256::zero()),
+            hash: Hash256::zero(),
             length: 0,
             _phantom: PhantomData,
         }
@@ -68,11 +61,11 @@ impl<T: Value> PackedLeaf<T> {
         let mut hash = Hash256::zero();
         let hash_bytes = hash.as_bytes_mut();
 
-        let value_len = Self::value_len(&value);
+        let value_len = Self::value_len();
         hash_bytes[0..value_len].copy_from_slice(&value.as_ssz_bytes());
 
         PackedLeaf {
-            hash: RwLock::new(hash),
+            hash,
             length: 1,
             _phantom: PhantomData,
         }
@@ -84,14 +77,14 @@ impl<T: Value> PackedLeaf<T> {
         let mut hash = Hash256::zero();
         let hash_bytes = hash.as_bytes_mut();
 
-        let value_len = Self::value_len(&value);
+        let value_len = Self::value_len();
 
         for (i, value) in vec![value; n].iter().enumerate() {
             hash_bytes[i * value_len..(i + 1) * value_len].copy_from_slice(&value.as_ssz_bytes());
         }
 
         PackedLeaf {
-            hash: RwLock::new(hash),
+            hash,
             length: n as u8,
             _phantom: PhantomData,
         }
@@ -105,6 +98,7 @@ impl<T: Value> PackedLeaf<T> {
         Ok(updated)
     }
 
+    // FIXME: remove _hash/work out what's going on
     pub fn update<U: UpdateMap<T>>(
         &self,
         prefix: usize,
@@ -126,7 +120,7 @@ impl<T: Value> PackedLeaf<T> {
 
     pub fn insert_mut(&mut self, index: usize, value: T) -> Result<(), Error> {
         // Convert the index to the index of the underlying bytes.
-        let sub_index = index * Self::value_len(&value);
+        let sub_index = index * Self::value_len();
 
         if sub_index >= BYTES_PER_CHUNK {
             return Err(Error::PackedLeafOutOfBounds {
@@ -135,14 +129,14 @@ impl<T: Value> PackedLeaf<T> {
             });
         }
 
-        let value_len = Self::value_len(&value);
+        let value_len = Self::value_len();
 
-        let mut hash = *self.hash.read();
+        let mut hash = self.hash;
         let hash_bytes = hash.as_bytes_mut();
 
         hash_bytes[sub_index..sub_index + value_len].copy_from_slice(&value.as_ssz_bytes());
 
-        *self.hash.write() = hash;
+        self.hash = hash;
 
         if index == self.length() {
             self.length += 1;

@@ -1,4 +1,3 @@
-use std::borrow::Cow as StdCow;
 use std::collections::btree_map::VacantEntry;
 use std::ops::Deref;
 
@@ -34,7 +33,7 @@ pub trait CowTrait<'a, T: Clone>: Deref<Target = T> {
 
 pub enum BTreeCow<'a, T: Clone> {
     Immutable {
-        value: StdCow<'a, T>,
+        value: &'a T,
         entry: VacantEntry<'a, usize, T>,
     },
     Mutable {
@@ -45,7 +44,7 @@ pub enum BTreeCow<'a, T: Clone> {
 impl<'a, T: Clone> CowTrait<'a, T> for BTreeCow<'a, T> {
     fn to_mut(self) -> &'a mut T {
         match self {
-            Self::Immutable { value, entry } => entry.insert(value.into_owned()),
+            Self::Immutable { value, entry } => entry.insert(value.clone()),
             Self::Mutable { value } => value,
         }
     }
@@ -64,7 +63,7 @@ impl<'a, T: Clone> Deref for BTreeCow<'a, T> {
 
 pub enum VecCow<'a, T: Clone> {
     Immutable {
-        value: StdCow<'a, T>,
+        value: &'a T,
         entry: vec_map::VacantEntry<'a, T>,
     },
     Mutable {
@@ -75,7 +74,7 @@ pub enum VecCow<'a, T: Clone> {
 impl<'a, T: Clone> CowTrait<'a, T> for VecCow<'a, T> {
     fn to_mut(self) -> &'a mut T {
         match self {
-            Self::Immutable { value, entry } => entry.insert(value.into_owned()),
+            Self::Immutable { value, entry } => entry.insert(value.clone()),
             Self::Mutable { value } => value,
         }
     }

@@ -1,6 +1,5 @@
 use crate::iter::Iter;
 use crate::{Cow, UpdateMap, Value};
-use std::borrow::Cow as StdCow;
 
 #[derive(Debug)]
 pub struct InterfaceIter<'a, T: Value, U: UpdateMap<T>> {
@@ -11,9 +10,9 @@ pub struct InterfaceIter<'a, T: Value, U: UpdateMap<T>> {
 }
 
 impl<'a, T: Value, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
-    type Item = StdCow<'a, T>;
+    type Item = &'a T;
 
-    fn next(&mut self) -> Option<StdCow<'a, T>> {
+    fn next(&mut self) -> Option<&'a T> {
         let index = self.index;
         self.index += 1;
 

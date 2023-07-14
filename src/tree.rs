@@ -6,7 +6,6 @@ use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
-use std::borrow::Cow as StdCow;
 use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
@@ -84,17 +83,12 @@ impl<T: Value> Tree<T> {
         Self::Leaf(Leaf::new(value))
     }
 
-    pub fn get_recursive(
-        &self,
-        index: usize,
-        depth: usize,
-        packing_depth: usize,
-    ) -> Option<StdCow<T>> {
+    pub fn get_recursive(&self, index: usize, depth: usize, packing_depth: usize) -> Option<&T> {
         match self {
-            Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(StdCow::Borrowed(value)),
-            Self::PackedLeaf(packed_leaf) if depth == 0 => packed_leaf
-                .get(index % T::tree_hash_packing_factor())
-                .map(|res| StdCow::Owned(res)),
+            Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(value),
+            Self::PackedLeaf(packed_leaf) if depth == 0 => {
+                packed_leaf.get(index % T::tree_hash_packing_factor())
+            }
             Self::Node { left, right, .. } if depth > 0 => {
                 let new_depth = depth - 1;
                 // Left
@@ -176,7 +170,7 @@ impl<T: Value> Tree<T> {
                 let index = prefix;
                 let value = updates
                     .get(index)
-                    .map(|res| res.into_owned())
+                    .cloned()
                     .ok_or(Error::LeafUpdateMissing { index })?;
                 Ok(Self::leaf_with_hash(value, hash))
             }
@@ -228,7 +222,7 @@ impl<T: Value> Tree<T> {
                         let index = prefix;
                         let value = updates
                             .get(index)
-                            .map(|res| res.into_owned())
+                            .cloned()
                             .ok_or(Error::LeafUpdateMissing { index })?;
                         Ok(Self::leaf_with_hash(value, hash))
                     }
@@ -263,9 +257,9 @@ impl<T: Value> Tree<T> {
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) if depth == 0 => {
                 let mut equal = true;
-                for i in 0..l2.values().len() {
-                    let v2 = &l2.values()[i];
-                    match l1.values().get(i) {
+                for i in 0..l2.length() {
+                    let v2 = l2.get(i).unwrap(); // FIXME
+                    match l1.get(i) {
                         Some(v1) if v1 == v2 => continue,
                         _ => {
                             equal = false;
@@ -275,7 +269,7 @@ impl<T: Value> Tree<T> {
                     }
                 }
                 if !equal {
-                    let hash = *l2.hash.read();
+                    let hash = l2.hash;
                     diff.hashes.insert((depth, prefix), hash);
                 }
                 Ok(())
@@ -347,9 +341,9 @@ impl<T: Value> Tree<T> {
                 Ok(())
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => {
-                diff.hashes
-                    .insert((depth, prefix), *packed_leaf.hash.read());
-                for (i, value) in packed_leaf.values().iter().enumerate() {
+                diff.hashes.insert((depth, prefix), packed_leaf.hash);
+                for i in 0..packed_leaf.length() {
+                    let value = packed_leaf.get(i).unwrap();
                     diff.leaves.insert(prefix | i, value.clone());
                 }
                 Ok(())

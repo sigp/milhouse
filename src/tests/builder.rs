@@ -17,13 +17,7 @@ fn build_partial_hash256_list() {
         let slow_list = List::<Hash256, N>::try_from_iter_slow(sub_vec.clone()).unwrap();
 
         assert_eq!(fast_list, slow_list);
-        assert_eq!(
-            fast_list
-                .iter()
-                .map(|item| item.into_owned())
-                .collect::<Vec<_>>(),
-            sub_vec
-        );
+        assert_eq!(fast_list.iter().cloned().collect::<Vec<_>>(), sub_vec);
     }
 }
 
@@ -40,12 +34,6 @@ fn build_packed_u64_list() {
         let slow_list = List::<u64, N>::try_from_iter(sub_vec.clone()).unwrap();
 
         assert_eq!(fast_list, slow_list);
-        assert_eq!(
-            fast_list
-                .iter()
-                .map(|item| item.into_owned())
-                .collect::<Vec<_>>(),
-            sub_vec
-        );
+        assert_eq!(fast_list.iter().cloned().collect::<Vec<_>>(), sub_vec);
     }
 }

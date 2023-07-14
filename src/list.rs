@@ -12,7 +12,6 @@ use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
-use std::borrow::Cow as StdCow;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
@@ -104,7 +103,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().map(|res| res.into_owned()).collect()
+        self.iter().cloned().collect()
     }
 
     pub fn iter(&self) -> InterfaceIter<T, U> {
@@ -127,7 +126,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<StdCow<T>> {
+    pub fn get(&self, index: usize) -> Option<&T> {
         self.interface.get(index)
     }
 
@@ -173,7 +172,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 }
 
 impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
-    fn get(&self, index: usize) -> Option<StdCow<T>> {
+    fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
             self.tree
                 .get_recursive(index, self.depth, self.packing_depth)
@@ -288,7 +287,7 @@ impl<T: Value + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
 }
 
 impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a List<T, N, U> {
-    type Item = StdCow<'a, T>;
+    type Item = &'a T;
     type IntoIter = InterfaceIter<'a, T, U>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -353,7 +352,7 @@ impl<T: Value, N: Unsigned> Encode for List<T, N> {
             let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
 
             for item in self {
-                encoder.append(item.as_ref());
+                encoder.append(item);
             }
 
             encoder.finalize();
