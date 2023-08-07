@@ -107,6 +107,8 @@ pub enum Op<T> {
     Rebase,
     /// Create a new list which shares no data with its ancestors.
     Debase,
+    /// Roundtrip via a list/vect using the TryFrom/From implementations.
+    FromIntoRoundtrip,
 }
 
 fn arb_op<'a, T, S>(strategy: &'a S, n: usize) -> impl Strategy<Value = Op<T>> + 'a
@@ -129,10 +131,15 @@ where
         Just(Op::TreeHash),
         Just(Op::DiffCheckpoint),
     ];
-    let b_block = prop_oneof![Just(Op::DiffCompute), Just(Op::Rebase), Just(Op::Debase)];
+    let b_block = prop_oneof![
+        Just(Op::DiffCompute),
+        Just(Op::Rebase),
+        Just(Op::Debase),
+        Just(Op::FromIntoRoundtrip)
+    ];
     prop_oneof![
         10 => a_block,
-        3 => b_block
+        4 => b_block
     ]
 }
 
@@ -212,6 +219,15 @@ where
                 assert_eq!(new_list, *list);
                 *list = new_list;
             }
+            Op::FromIntoRoundtrip => {
+                if let Ok(vect) = Vector::try_from(list.clone()) {
+                    let re_list = List::from(vect);
+                    // NOTE: we can't assert deep equality here at the moment because vectors and
+                    // lists store their lengths differently, and this shows up in the roundtrip
+                    // process when there are pending updates.
+                    assert!(list.iter().eq(re_list.iter()));
+                }
+            }
         }
     }
 }
@@ -279,6 +295,12 @@ where
                 let new_vect = Vector::from_ssz_bytes(&ssz_bytes).unwrap();
                 assert_eq!(new_vect, *vect);
                 *vect = new_vect;
+            }
+            Op::FromIntoRoundtrip => {
+                let list = List::from(vect.clone());
+                if let Ok(re_vect) = Vector::try_from(list) {
+                    assert!(vect.iter().eq(re_vect.iter()));
+                }
             }
         }
     }
