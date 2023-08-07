@@ -178,13 +178,15 @@ where
                 assert_eq!(res, spec.set(index, value));
             }
             Op::SetCowWithToMut(index, value) => {
-                let res = list.get_cow(index).map(|cow| *cow.to_mut() = value.clone());
+                let res = list
+                    .get_cow(index)
+                    .map(|cow| *cow.to_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::SetCowWithMakeMut(index, value) => {
                 let res = list
                     .get_cow(index)
-                    .map(|mut cow| *cow.make_mut() = value.clone());
+                    .map(|mut cow| *cow.make_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::Push(value) => {
@@ -261,13 +263,15 @@ where
                 assert_eq!(res, spec.set(index, value));
             }
             Op::SetCowWithToMut(index, value) => {
-                let res = vect.get_cow(index).map(|cow| *cow.to_mut() = value.clone());
+                let res = vect
+                    .get_cow(index)
+                    .map(|cow| *cow.to_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::SetCowWithMakeMut(index, value) => {
                 let res = vect
                     .get_cow(index)
-                    .map(|mut cow| *cow.make_mut() = value.clone());
+                    .map(|mut cow| *cow.make_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::Push(_) => {

@@ -1,3 +1,4 @@
+use crate::Error;
 use std::collections::btree_map::VacantEntry;
 use std::ops::Deref;
 
@@ -18,14 +19,14 @@ impl<'a, T: Clone> Deref for Cow<'a, T> {
 }
 
 impl<'a, T: Clone> Cow<'a, T> {
-    pub fn to_mut(self) -> &'a mut T {
+    pub fn to_mut(self) -> Result<&'a mut T, Error> {
         match self {
             Self::BTree(cow) => cow.to_mut(),
             Self::Vec(cow) => cow.to_mut(),
         }
     }
 
-    pub fn make_mut(&mut self) -> &mut T {
+    pub fn make_mut(&mut self) -> Result<&mut T, Error> {
         match self {
             Self::BTree(cow) => cow.make_mut(),
             Self::Vec(cow) => cow.make_mut(),
@@ -35,9 +36,9 @@ impl<'a, T: Clone> Cow<'a, T> {
 
 pub trait CowTrait<'a, T: Clone>: Deref<Target = T> {
     #[allow(clippy::wrong_self_convention)]
-    fn to_mut(self) -> &'a mut T;
+    fn to_mut(self) -> Result<&'a mut T, Error>;
 
-    fn make_mut(&mut self) -> &mut T;
+    fn make_mut(&mut self) -> Result<&mut T, Error>;
 }
 
 pub enum BTreeCow<'a, T: Clone> {
@@ -51,22 +52,22 @@ pub enum BTreeCow<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> CowTrait<'a, T> for BTreeCow<'a, T> {
-    fn to_mut(self) -> &'a mut T {
+    fn to_mut(self) -> Result<&'a mut T, Error> {
         match self {
-            Self::Immutable { value, entry } => {
-                entry.expect("Cow entry must be Some").insert(value.clone())
-            }
-            Self::Mutable { value } => value,
+            Self::Immutable { value, entry } => entry
+                .ok_or(Error::CowMissingEntry)
+                .map(|e| e.insert(value.clone())),
+            Self::Mutable { value } => Ok(value),
         }
     }
 
-    fn make_mut(&mut self) -> &mut T {
+    fn make_mut(&mut self) -> Result<&mut T, Error> {
         match self {
-            Self::Mutable { value } => value,
+            Self::Mutable { value } => Ok(value),
             Self::Immutable { entry, value } => {
                 let value_mut_ref = entry
                     .take()
-                    .expect("Cow entry must be Some")
+                    .ok_or(Error::CowMissingEntry)?
                     .insert(value.clone());
                 *self = Self::Mutable {
                     value: value_mut_ref,
@@ -99,22 +100,22 @@ pub enum VecCow<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> CowTrait<'a, T> for VecCow<'a, T> {
-    fn to_mut(self) -> &'a mut T {
+    fn to_mut(self) -> Result<&'a mut T, Error> {
         match self {
-            Self::Immutable { value, entry } => {
-                entry.expect("Cow entry must be Some").insert(value.clone())
-            }
-            Self::Mutable { value } => value,
+            Self::Immutable { value, entry } => entry
+                .ok_or(Error::CowMissingEntry)
+                .map(|e| e.insert(value.clone())),
+            Self::Mutable { value } => Ok(value),
         }
     }
 
-    fn make_mut(&mut self) -> &mut T {
+    fn make_mut(&mut self) -> Result<&mut T, Error> {
         match self {
-            Self::Mutable { value } => value,
+            Self::Mutable { value } => Ok(value),
             Self::Immutable { entry, value } => {
                 let value_mut_ref = entry
                     .take()
-                    .expect("Cow entry must be Some")
+                    .ok_or(Error::CowMissingEntry)?
                     .insert(value.clone());
                 *self = Self::Mutable {
                     value: value_mut_ref,
