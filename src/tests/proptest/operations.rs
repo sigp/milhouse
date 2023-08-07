@@ -87,8 +87,10 @@ pub enum Op<T> {
     Get(usize),
     /// Use `get_mut` to set an element at a given index.
     Set(usize, T),
-    /// Use `get_cow` to set an element at a given index.
-    SetCow(usize, T),
+    /// Use `get_cow` and `into_mut` to set an element at a given index.
+    SetCowWithIntoMut(usize, T),
+    /// Use `get_cow` and `make_mut` to set an element at a given index.
+    SetCowWithMakeMut(usize, T),
     /// Use `push` to try to add a new element to the list.
     Push(T),
     /// Check the `iter` method.
@@ -107,6 +109,8 @@ pub enum Op<T> {
     Rebase,
     /// Create a new list which shares no data with its ancestors.
     Debase,
+    /// Roundtrip via a list/vect using the TryFrom/From implementations.
+    FromIntoRoundtrip,
 }
 
 fn arb_op<'a, T, S>(strategy: &'a S, n: usize) -> impl Strategy<Value = Op<T>> + 'a
@@ -121,18 +125,24 @@ where
         Just(Op::Len),
         arb_index(n).prop_map(Op::Get),
         (arb_index(n), strategy).prop_map(|(index, value)| Op::Set(index, value)),
-        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCow(index, value)),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithIntoMut(index, value)),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithMakeMut(index, value)),
         strategy.prop_map(Op::Push),
         Just(Op::Iter),
         arb_index(n).prop_map(Op::IterFrom),
         Just(Op::ApplyUpdates),
         Just(Op::TreeHash),
-        Just(Op::DiffCheckpoint),
     ];
-    let b_block = prop_oneof![Just(Op::DiffCompute), Just(Op::Rebase), Just(Op::Debase)];
+    let b_block = prop_oneof![
+        Just(Op::DiffCheckpoint),
+        Just(Op::DiffCompute),
+        Just(Op::Rebase),
+        Just(Op::Debase),
+        Just(Op::FromIntoRoundtrip)
+    ];
     prop_oneof![
         10 => a_block,
-        3 => b_block
+        5 => b_block
     ]
 }
 
@@ -167,8 +177,16 @@ where
                 let res = list.get_mut(index).map(|elem| *elem = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
-            Op::SetCow(index, value) => {
-                let res = list.get_cow(index).map(|cow| *cow.to_mut() = value.clone());
+            Op::SetCowWithIntoMut(index, value) => {
+                let res = list
+                    .get_cow(index)
+                    .map(|cow| *cow.into_mut().unwrap() = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithMakeMut(index, value) => {
+                let res = list
+                    .get_cow(index)
+                    .map(|mut cow| *cow.make_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::Push(value) => {
@@ -212,6 +230,15 @@ where
                 assert_eq!(new_list, *list);
                 *list = new_list;
             }
+            Op::FromIntoRoundtrip => {
+                if let Ok(vect) = Vector::try_from(list.clone()) {
+                    let re_list = List::from(vect);
+                    // NOTE: we can't assert deep equality here at the moment because vectors and
+                    // lists store their lengths differently, and this shows up in the roundtrip
+                    // process when there are pending updates.
+                    assert!(list.iter().eq(re_list.iter()));
+                }
+            }
         }
     }
 }
@@ -235,8 +262,16 @@ where
                 let res = vect.get_mut(index).map(|elem| *elem = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
-            Op::SetCow(index, value) => {
-                let res = vect.get_cow(index).map(|cow| *cow.to_mut() = value.clone());
+            Op::SetCowWithIntoMut(index, value) => {
+                let res = vect
+                    .get_cow(index)
+                    .map(|cow| *cow.into_mut().unwrap() = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithMakeMut(index, value) => {
+                let res = vect
+                    .get_cow(index)
+                    .map(|mut cow| *cow.make_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::Push(_) => {
@@ -279,6 +314,12 @@ where
                 let new_vect = Vector::from_ssz_bytes(&ssz_bytes).unwrap();
                 assert_eq!(new_vect, *vect);
                 *vect = new_vect;
+            }
+            Op::FromIntoRoundtrip => {
+                let list = List::from(vect.clone());
+                if let Ok(re_vect) = Vector::try_from(list) {
+                    assert!(vect.iter().eq(re_vect.iter()));
+                }
             }
         }
     }
