@@ -1,3 +1,4 @@
+use crate::Error;
 use std::collections::btree_map::VacantEntry;
 use std::ops::Deref;
 
@@ -18,23 +19,31 @@ impl<'a, T: Clone> Deref for Cow<'a, T> {
 }
 
 impl<'a, T: Clone> Cow<'a, T> {
-    pub fn to_mut(self) -> &'a mut T {
+    pub fn into_mut(self) -> Result<&'a mut T, Error> {
         match self {
-            Self::BTree(cow) => cow.to_mut(),
-            Self::Vec(cow) => cow.to_mut(),
+            Self::BTree(cow) => cow.into_mut(),
+            Self::Vec(cow) => cow.into_mut(),
+        }
+    }
+
+    pub fn make_mut(&mut self) -> Result<&mut T, Error> {
+        match self {
+            Self::BTree(cow) => cow.make_mut(),
+            Self::Vec(cow) => cow.make_mut(),
         }
     }
 }
 
 pub trait CowTrait<'a, T: Clone>: Deref<Target = T> {
-    #[allow(clippy::wrong_self_convention)]
-    fn to_mut(self) -> &'a mut T;
+    fn into_mut(self) -> Result<&'a mut T, Error>;
+
+    fn make_mut(&mut self) -> Result<&mut T, Error>;
 }
 
 pub enum BTreeCow<'a, T: Clone> {
     Immutable {
         value: &'a T,
-        entry: VacantEntry<'a, usize, T>,
+        entry: Option<VacantEntry<'a, usize, T>>,
     },
     Mutable {
         value: &'a mut T,
@@ -42,10 +51,28 @@ pub enum BTreeCow<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> CowTrait<'a, T> for BTreeCow<'a, T> {
-    fn to_mut(self) -> &'a mut T {
+    fn into_mut(self) -> Result<&'a mut T, Error> {
         match self {
-            Self::Immutable { value, entry } => entry.insert(value.clone()),
-            Self::Mutable { value } => value,
+            Self::Immutable { value, entry } => entry
+                .ok_or(Error::CowMissingEntry)
+                .map(|e| e.insert(value.clone())),
+            Self::Mutable { value } => Ok(value),
+        }
+    }
+
+    fn make_mut(&mut self) -> Result<&mut T, Error> {
+        match self {
+            Self::Mutable { value } => Ok(value),
+            Self::Immutable { entry, value } => {
+                let value_mut_ref = entry
+                    .take()
+                    .ok_or(Error::CowMissingEntry)?
+                    .insert(value.clone());
+                *self = Self::Mutable {
+                    value: value_mut_ref,
+                };
+                self.make_mut()
+            }
         }
     }
 }
@@ -64,7 +91,7 @@ impl<'a, T: Clone> Deref for BTreeCow<'a, T> {
 pub enum VecCow<'a, T: Clone> {
     Immutable {
         value: &'a T,
-        entry: vec_map::VacantEntry<'a, T>,
+        entry: Option<vec_map::VacantEntry<'a, T>>,
     },
     Mutable {
         value: &'a mut T,
@@ -72,10 +99,28 @@ pub enum VecCow<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> CowTrait<'a, T> for VecCow<'a, T> {
-    fn to_mut(self) -> &'a mut T {
+    fn into_mut(self) -> Result<&'a mut T, Error> {
         match self {
-            Self::Immutable { value, entry } => entry.insert(value.clone()),
-            Self::Mutable { value } => value,
+            Self::Immutable { value, entry } => entry
+                .ok_or(Error::CowMissingEntry)
+                .map(|e| e.insert(value.clone())),
+            Self::Mutable { value } => Ok(value),
+        }
+    }
+
+    fn make_mut(&mut self) -> Result<&mut T, Error> {
+        match self {
+            Self::Mutable { value } => Ok(value),
+            Self::Immutable { entry, value } => {
+                let value_mut_ref = entry
+                    .take()
+                    .ok_or(Error::CowMissingEntry)?
+                    .insert(value.clone());
+                *self = Self::Mutable {
+                    value: value_mut_ref,
+                };
+                self.make_mut()
+            }
         }
     }
 }

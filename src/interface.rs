@@ -165,13 +165,13 @@ mod test {
 
         let c1 = list.get_cow(0).unwrap();
         assert_eq!(*c1, 1);
-        *c1.to_mut() = 10;
+        *c1.into_mut().unwrap() = 10;
 
         assert_eq!(*list.get(0).unwrap(), 10);
 
         let c2 = list.get_cow(0).unwrap();
         assert_eq!(*c2, 10);
-        *c2.to_mut() = 11;
+        *c2.into_mut().unwrap() = 11;
         assert_eq!(*list.get(0).unwrap(), 11);
 
         assert_eq!(list.iter().copied().collect::<Vec<_>>(), vec![11, 2, 3]);
@@ -183,7 +183,7 @@ mod test {
 
         let mut iter = list.iter_cow();
         while let Some((index, v)) = iter.next_cow() {
-            *v.to_mut() = index as u64;
+            *v.into_mut().unwrap() = index as u64;
         }
 
         assert_eq!(list.to_vec(), vec![0, 1, 2]);

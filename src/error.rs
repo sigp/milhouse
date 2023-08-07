@@ -30,6 +30,7 @@ pub enum Error {
     BuilderStackEmptyFinalize,
     BuilderStackLeftover,
     BulkUpdateUnclean,
+    CowMissingEntry,
 }
 
 impl Display for Error {

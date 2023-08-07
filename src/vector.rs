@@ -157,11 +157,13 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
 
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N, U> {
     fn from(vector: Vector<T, N, U>) -> Self {
-        List::from_parts(
+        let mut list = List::from_parts(
             vector.interface.backing.tree,
             vector.interface.backing.depth,
             Length(N::to_usize()),
-        )
+        );
+        list.interface.updates = vector.interface.updates;
+        list
     }
 }
 
