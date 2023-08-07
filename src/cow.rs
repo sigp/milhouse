@@ -19,10 +19,10 @@ impl<'a, T: Clone> Deref for Cow<'a, T> {
 }
 
 impl<'a, T: Clone> Cow<'a, T> {
-    pub fn to_mut(self) -> Result<&'a mut T, Error> {
+    pub fn into_mut(self) -> Result<&'a mut T, Error> {
         match self {
-            Self::BTree(cow) => cow.to_mut(),
-            Self::Vec(cow) => cow.to_mut(),
+            Self::BTree(cow) => cow.into_mut(),
+            Self::Vec(cow) => cow.into_mut(),
         }
     }
 
@@ -35,8 +35,7 @@ impl<'a, T: Clone> Cow<'a, T> {
 }
 
 pub trait CowTrait<'a, T: Clone>: Deref<Target = T> {
-    #[allow(clippy::wrong_self_convention)]
-    fn to_mut(self) -> Result<&'a mut T, Error>;
+    fn into_mut(self) -> Result<&'a mut T, Error>;
 
     fn make_mut(&mut self) -> Result<&mut T, Error>;
 }
@@ -52,7 +51,7 @@ pub enum BTreeCow<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> CowTrait<'a, T> for BTreeCow<'a, T> {
-    fn to_mut(self) -> Result<&'a mut T, Error> {
+    fn into_mut(self) -> Result<&'a mut T, Error> {
         match self {
             Self::Immutable { value, entry } => entry
                 .ok_or(Error::CowMissingEntry)
@@ -100,7 +99,7 @@ pub enum VecCow<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> CowTrait<'a, T> for VecCow<'a, T> {
-    fn to_mut(self) -> Result<&'a mut T, Error> {
+    fn into_mut(self) -> Result<&'a mut T, Error> {
         match self {
             Self::Immutable { value, entry } => entry
                 .ok_or(Error::CowMissingEntry)
