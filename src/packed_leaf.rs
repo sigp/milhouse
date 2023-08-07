@@ -166,3 +166,13 @@ impl<T: Value> PackedLeaf<T> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn align_of_aligned_hash256() {
+        assert_eq!(std::mem::align_of::<AlignedHash256>(), 16);
+    }
+}
