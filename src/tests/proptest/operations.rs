@@ -87,8 +87,8 @@ pub enum Op<T> {
     Get(usize),
     /// Use `get_mut` to set an element at a given index.
     Set(usize, T),
-    /// Use `get_cow` and `to_mut` to set an element at a given index.
-    SetCowWithToMut(usize, T),
+    /// Use `get_cow` and `into_mut` to set an element at a given index.
+    SetCowWithIntoMut(usize, T),
     /// Use `get_cow` and `make_mut` to set an element at a given index.
     SetCowWithMakeMut(usize, T),
     /// Use `push` to try to add a new element to the list.
@@ -125,7 +125,7 @@ where
         Just(Op::Len),
         arb_index(n).prop_map(Op::Get),
         (arb_index(n), strategy).prop_map(|(index, value)| Op::Set(index, value)),
-        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithToMut(index, value)),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithIntoMut(index, value)),
         (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithMakeMut(index, value)),
         strategy.prop_map(Op::Push),
         Just(Op::Iter),
@@ -177,10 +177,10 @@ where
                 let res = list.get_mut(index).map(|elem| *elem = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
-            Op::SetCowWithToMut(index, value) => {
+            Op::SetCowWithIntoMut(index, value) => {
                 let res = list
                     .get_cow(index)
-                    .map(|cow| *cow.to_mut().unwrap() = value.clone());
+                    .map(|cow| *cow.into_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::SetCowWithMakeMut(index, value) => {
@@ -262,10 +262,10 @@ where
                 let res = vect.get_mut(index).map(|elem| *elem = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
-            Op::SetCowWithToMut(index, value) => {
+            Op::SetCowWithIntoMut(index, value) => {
                 let res = vect
                     .get_cow(index)
-                    .map(|cow| *cow.to_mut().unwrap() = value.clone());
+                    .map(|cow| *cow.into_mut().unwrap() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::SetCowWithMakeMut(index, value) => {
