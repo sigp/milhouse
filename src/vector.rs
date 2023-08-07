@@ -163,11 +163,13 @@ impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMa
 
 impl<T: TreeHash + Clone, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N, U> {
     fn from(vector: Vector<T, N, U>) -> Self {
-        List::from_parts(
+        let mut list = List::from_parts(
             vector.interface.backing.tree,
             vector.interface.backing.depth,
             Length(N::to_usize()),
-        )
+        );
+        list.interface.updates = vector.interface.updates;
+        list
     }
 }
 
