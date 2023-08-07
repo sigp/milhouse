@@ -90,7 +90,7 @@ impl<T: Value> PackedLeaf<T> {
 
         let value_len = Self::value_len();
 
-        for (i, value) in vec![value; n].iter().enumerate() {
+        for (i, value) in std::iter::repeat(value).take(n).enumerate() {
             hash_bytes[i * value_len..(i + 1) * value_len].copy_from_slice(&value.as_ssz_bytes());
         }
 
