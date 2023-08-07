@@ -5,10 +5,21 @@ use derivative::Derivative;
 use std::ops::ControlFlow;
 use tree_hash::{Hash256, BYTES_PER_CHUNK};
 
+/// `Hash256` type which is aligned to a 16-byte boundary.
+///
+/// This allows pointers to types with alignment 1, 2, 4, 8, 16 to be constructed pointing
+/// *into* an `AlignedHash256`.
+///
+/// In future this could be aligned to a 32-byte boundary, although that would blow out the size
+/// of `PackedLeaf` and `Tree`.
+#[derive(Clone, Copy, Debug, PartialEq, Hash, Arbitrary)]
+#[repr(align(16))]
+pub struct AlignedHash256(Hash256);
+
 #[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq, Hash)]
 pub struct PackedLeaf<T: Value> {
-    pub hash: Hash256,
+    pub hash: AlignedHash256,
     pub length: u8,
     _phantom: PhantomData<T>,
 }
@@ -39,19 +50,19 @@ impl<T: Value> PackedLeaf<T> {
         if index >= self.length() {
             return None;
         }
-        let hash_base_ptr: *const Hash256 = &self.hash;
+        let hash_base_ptr: *const AlignedHash256 = &self.hash;
         let base_ptr: *const T = hash_base_ptr as *const T;
         let elem_ptr: *const T = unsafe { base_ptr.add(index) };
         Some(unsafe { &*elem_ptr })
     }
 
     pub fn tree_hash(&self) -> Hash256 {
-        self.hash
+        self.hash.0
     }
 
     pub fn empty() -> Self {
         PackedLeaf {
-            hash: Hash256::zero(),
+            hash: AlignedHash256(Hash256::zero()),
             length: 0,
             _phantom: PhantomData,
         }
@@ -65,7 +76,7 @@ impl<T: Value> PackedLeaf<T> {
         hash_bytes[0..value_len].copy_from_slice(&value.as_ssz_bytes());
 
         PackedLeaf {
-            hash,
+            hash: AlignedHash256(hash),
             length: 1,
             _phantom: PhantomData,
         }
@@ -84,7 +95,7 @@ impl<T: Value> PackedLeaf<T> {
         }
 
         PackedLeaf {
-            hash,
+            hash: AlignedHash256(hash),
             length: n as u8,
             _phantom: PhantomData,
         }
@@ -126,7 +137,7 @@ impl<T: Value> PackedLeaf<T> {
         let value_len = Self::value_len();
 
         let mut hash = self.hash;
-        let hash_bytes = hash.as_bytes_mut();
+        let hash_bytes = hash.0.as_bytes_mut();
 
         hash_bytes[sub_index..sub_index + value_len].copy_from_slice(&value.as_ssz_bytes());
 

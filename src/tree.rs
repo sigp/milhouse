@@ -256,21 +256,15 @@ impl<T: Value> Tree<T> {
                 Ok(())
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) if depth == 0 => {
-                let mut equal = true;
                 for i in 0..l2.length() {
                     let v2 = l2.get(i).expect("Is always in-bounds"); // FIXME
                     match l1.get(i) {
                         Some(v1) if v1 == v2 => continue,
                         _ => {
-                            equal = false;
                             let index = prefix | i;
                             diff.leaves.insert(index, v2.clone());
                         }
                     }
-                }
-                if !equal {
-                    let hash = l2.hash;
-                    diff.hashes.insert((depth, prefix), hash);
                 }
                 Ok(())
             }
@@ -341,7 +335,6 @@ impl<T: Value> Tree<T> {
                 Ok(())
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => {
-                diff.hashes.insert((depth, prefix), packed_leaf.hash);
                 for i in 0..packed_leaf.length() {
                     let value = packed_leaf.get(i).expect("Is always in-bounds"); // FIXME
                     diff.leaves.insert(prefix | i, value.clone());
