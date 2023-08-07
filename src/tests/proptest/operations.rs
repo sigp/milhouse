@@ -87,8 +87,10 @@ pub enum Op<T> {
     Get(usize),
     /// Use `get_mut` to set an element at a given index.
     Set(usize, T),
-    /// Use `get_cow` to set an element at a given index.
-    SetCow(usize, T),
+    /// Use `get_cow` and `to_mut` to set an element at a given index.
+    SetCowWithToMut(usize, T),
+    /// Use `get_cow` and `make_mut` to set an element at a given index.
+    SetCowWithMakeMut(usize, T),
     /// Use `push` to try to add a new element to the list.
     Push(T),
     /// Check the `iter` method.
@@ -123,15 +125,16 @@ where
         Just(Op::Len),
         arb_index(n).prop_map(Op::Get),
         (arb_index(n), strategy).prop_map(|(index, value)| Op::Set(index, value)),
-        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCow(index, value)),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithToMut(index, value)),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithMakeMut(index, value)),
         strategy.prop_map(Op::Push),
         Just(Op::Iter),
         arb_index(n).prop_map(Op::IterFrom),
         Just(Op::ApplyUpdates),
         Just(Op::TreeHash),
-        Just(Op::DiffCheckpoint),
     ];
     let b_block = prop_oneof![
+        Just(Op::DiffCheckpoint),
         Just(Op::DiffCompute),
         Just(Op::Rebase),
         Just(Op::Debase),
@@ -139,7 +142,7 @@ where
     ];
     prop_oneof![
         10 => a_block,
-        4 => b_block
+        5 => b_block
     ]
 }
 
@@ -174,8 +177,14 @@ where
                 let res = list.get_mut(index).map(|elem| *elem = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
-            Op::SetCow(index, value) => {
+            Op::SetCowWithToMut(index, value) => {
                 let res = list.get_cow(index).map(|cow| *cow.to_mut() = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithMakeMut(index, value) => {
+                let res = list
+                    .get_cow(index)
+                    .map(|mut cow| *cow.make_mut() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::Push(value) => {
@@ -251,8 +260,14 @@ where
                 let res = vect.get_mut(index).map(|elem| *elem = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
-            Op::SetCow(index, value) => {
+            Op::SetCowWithToMut(index, value) => {
                 let res = vect.get_cow(index).map(|cow| *cow.to_mut() = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithMakeMut(index, value) => {
+                let res = vect
+                    .get_cow(index)
+                    .map(|mut cow| *cow.make_mut() = value.clone());
                 assert_eq!(res, spec.set(index, value));
             }
             Op::Push(_) => {

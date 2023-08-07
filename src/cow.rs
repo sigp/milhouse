@@ -24,17 +24,26 @@ impl<'a, T: Clone> Cow<'a, T> {
             Self::Vec(cow) => cow.to_mut(),
         }
     }
+
+    pub fn make_mut(&mut self) -> &mut T {
+        match self {
+            Self::BTree(cow) => cow.make_mut(),
+            Self::Vec(cow) => cow.make_mut(),
+        }
+    }
 }
 
 pub trait CowTrait<'a, T: Clone>: Deref<Target = T> {
     #[allow(clippy::wrong_self_convention)]
     fn to_mut(self) -> &'a mut T;
+
+    fn make_mut(&mut self) -> &mut T;
 }
 
 pub enum BTreeCow<'a, T: Clone> {
     Immutable {
         value: &'a T,
-        entry: VacantEntry<'a, usize, T>,
+        entry: Option<VacantEntry<'a, usize, T>>,
     },
     Mutable {
         value: &'a mut T,
@@ -44,8 +53,26 @@ pub enum BTreeCow<'a, T: Clone> {
 impl<'a, T: Clone> CowTrait<'a, T> for BTreeCow<'a, T> {
     fn to_mut(self) -> &'a mut T {
         match self {
-            Self::Immutable { value, entry } => entry.insert(value.clone()),
+            Self::Immutable { value, entry } => {
+                entry.expect("Cow entry must be Some").insert(value.clone())
+            }
             Self::Mutable { value } => value,
+        }
+    }
+
+    fn make_mut(&mut self) -> &mut T {
+        match self {
+            Self::Mutable { value } => value,
+            Self::Immutable { entry, value } => {
+                let value_mut_ref = entry
+                    .take()
+                    .expect("Cow entry must be Some")
+                    .insert(value.clone());
+                *self = Self::Mutable {
+                    value: value_mut_ref,
+                };
+                self.make_mut()
+            }
         }
     }
 }
@@ -64,7 +91,7 @@ impl<'a, T: Clone> Deref for BTreeCow<'a, T> {
 pub enum VecCow<'a, T: Clone> {
     Immutable {
         value: &'a T,
-        entry: vec_map::VacantEntry<'a, T>,
+        entry: Option<vec_map::VacantEntry<'a, T>>,
     },
     Mutable {
         value: &'a mut T,
@@ -74,8 +101,26 @@ pub enum VecCow<'a, T: Clone> {
 impl<'a, T: Clone> CowTrait<'a, T> for VecCow<'a, T> {
     fn to_mut(self) -> &'a mut T {
         match self {
-            Self::Immutable { value, entry } => entry.insert(value.clone()),
+            Self::Immutable { value, entry } => {
+                entry.expect("Cow entry must be Some").insert(value.clone())
+            }
             Self::Mutable { value } => value,
+        }
+    }
+
+    fn make_mut(&mut self) -> &mut T {
+        match self {
+            Self::Mutable { value } => value,
+            Self::Immutable { entry, value } => {
+                let value_mut_ref = entry
+                    .take()
+                    .expect("Cow entry must be Some")
+                    .insert(value.clone());
+                *self = Self::Mutable {
+                    value: value_mut_ref,
+                };
+                self.make_mut()
+            }
         }
     }
 }
