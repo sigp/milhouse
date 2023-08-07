@@ -257,7 +257,10 @@ impl<T: Value> Tree<T> {
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) if depth == 0 => {
                 for i in 0..l2.length() {
-                    let v2 = l2.get(i).expect("Is always in-bounds"); // FIXME
+                    let v2 = l2.get(i).ok_or(Error::PackedLeafOutOfBounds {
+                        sub_index: i,
+                        len: l2.length(),
+                    })?;
                     match l1.get(i) {
                         Some(v1) if v1 == v2 => continue,
                         _ => {
@@ -336,7 +339,10 @@ impl<T: Value> Tree<T> {
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => {
                 for i in 0..packed_leaf.length() {
-                    let value = packed_leaf.get(i).expect("Is always in-bounds"); // FIXME
+                    let value = packed_leaf.get(i).ok_or(Error::PackedLeafOutOfBounds {
+                        sub_index: i,
+                        len: packed_leaf.length(),
+                    })?;
                     diff.leaves.insert(prefix | i, value.clone());
                 }
                 Ok(())
