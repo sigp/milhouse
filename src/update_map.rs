@@ -61,7 +61,10 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
         let cow = match self.entry(idx) {
             Entry::Vacant(entry) => {
                 let value = f(idx)?;
-                BTreeCow::Immutable { value, entry }
+                BTreeCow::Immutable {
+                    value,
+                    entry: Some(entry),
+                }
             }
             Entry::Occupied(entry) => BTreeCow::Mutable {
                 value: entry.into_mut(),
@@ -122,7 +125,10 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
         let cow = match self.entry(idx) {
             vec_map::Entry::Vacant(entry) => {
                 let value = f(idx)?;
-                VecCow::Immutable { value, entry }
+                VecCow::Immutable {
+                    value,
+                    entry: Some(entry),
+                }
             }
             vec_map::Entry::Occupied(entry) => VecCow::Mutable {
                 value: entry.into_mut(),
