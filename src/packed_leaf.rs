@@ -98,13 +98,7 @@ impl<T: Value> PackedLeaf<T> {
         Ok(updated)
     }
 
-    // FIXME: remove _hash/work out what's going on
-    pub fn update<U: UpdateMap<T>>(
-        &self,
-        prefix: usize,
-        _hash: Hash256,
-        updates: &U,
-    ) -> Result<Self, Error> {
+    pub fn update<U: UpdateMap<T>>(&self, prefix: usize, updates: &U) -> Result<Self, Error> {
         let packing_factor = T::tree_hash_packing_factor();
         let start = prefix;
         let end = prefix + packing_factor;
@@ -141,7 +135,10 @@ impl<T: Value> PackedLeaf<T> {
         if index == self.length() {
             self.length += 1;
         } else if index > self.length() {
-            panic!("This is bad");
+            return Err(Error::PackedLeafOutOfBounds {
+                sub_index,
+                len: self.length(),
+            });
         }
 
         Ok(())
