@@ -17,31 +17,20 @@ use tree_hash::{Hash256, BYTES_PER_CHUNK};
 pub struct AlignedHash256(Hash256);
 
 #[derive(Debug, Derivative, Arbitrary)]
-#[derivative(PartialEq, Hash)]
+#[derivative(Clone, Copy, PartialEq, Hash)]
 pub struct PackedLeaf<T: Value> {
     pub hash: AlignedHash256,
-    pub length: u8,
+    pub length: usize,
     _phantom: PhantomData<T>,
 }
 
-impl<T> Clone for PackedLeaf<T>
-where
-    T: Value,
-{
-    fn clone(&self) -> Self {
-        Self {
-            hash: self.hash,
-            length: self.length,
-            _phantom: PhantomData,
-        }
-    }
-}
-
 impl<T: Value> PackedLeaf<T> {
+    #[inline(always)]
     pub fn length(&self) -> usize {
-        self.length as usize
+        self.length
     }
 
+    #[inline(always)]
     fn value_len() -> usize {
         BYTES_PER_CHUNK / T::tree_hash_packing_factor()
     }
@@ -56,6 +45,7 @@ impl<T: Value> PackedLeaf<T> {
         Some(unsafe { &*elem_ptr })
     }
 
+    #[inline]
     pub fn tree_hash(&self) -> Hash256 {
         self.hash.0
     }
@@ -89,20 +79,21 @@ impl<T: Value> PackedLeaf<T> {
         let hash_bytes = hash.as_bytes_mut();
 
         let value_len = Self::value_len();
+        let value_bytes = value.as_ssz_bytes();
 
-        for (i, value) in std::iter::repeat(value).take(n).enumerate() {
-            hash_bytes[i * value_len..(i + 1) * value_len].copy_from_slice(&value.as_ssz_bytes());
+        for i in 0..n {
+            hash_bytes[i * value_len..(i + 1) * value_len].copy_from_slice(&value_bytes);
         }
 
         PackedLeaf {
             hash: AlignedHash256(hash),
-            length: n as u8,
+            length: n,
             _phantom: PhantomData,
         }
     }
 
     pub fn insert_at_index(&self, index: usize, value: T) -> Result<Self, Error> {
-        let mut updated = self.clone();
+        let mut updated = *self;
 
         updated.insert_mut(index, value)?;
 
@@ -114,7 +105,7 @@ impl<T: Value> PackedLeaf<T> {
         let start = prefix;
         let end = prefix + packing_factor;
 
-        let mut updated = self.clone();
+        let mut updated = *self;
 
         updates.for_each_range(start, end, |index, value| {
             ControlFlow::Continue(updated.insert_mut(index % packing_factor, value.clone()))
