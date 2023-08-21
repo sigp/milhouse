@@ -1,4 +1,4 @@
-use crate::utils::{arb_arc, arb_rwlock, opt_hash, opt_packing_depth, opt_packing_factor};
+use crate::utils::{arb_arc, arb_rwlock, opt_hash, opt_packing_depth, opt_packing_factor, Length};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
@@ -378,44 +378,79 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
     }
 
     pub fn rebase_on<'a>(
-        new: &'a Arc<Self>,
-        other: &'a Arc<Self>,
+        orig: &'a Arc<Self>,
+        base: &'a Arc<Self>,
+        lengths: Option<(Length, Length)>,
+        full_depth: usize,
     ) -> Result<RebaseAction<'a, Self>, Error> {
-        if Arc::ptr_eq(new, other) {
+        if Arc::ptr_eq(orig, base) {
             return Ok(RebaseAction::EqualNoop);
         }
-        match (&**new, &**other) {
+        match (&**orig, &**base) {
             (Self::Leaf(l1), Self::Leaf(l2)) => {
                 if l1.value == l2.value {
-                    Ok(RebaseAction::EqualReplace(other))
+                    Ok(RebaseAction::EqualReplace(base))
                 } else {
                     Ok(RebaseAction::NotEqualNoop)
                 }
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) => {
                 if l1.values == l2.values {
-                    Ok(RebaseAction::EqualReplace(other))
+                    Ok(RebaseAction::EqualReplace(base))
                 } else {
                     Ok(RebaseAction::NotEqualNoop)
                 }
             }
-            (Self::Zero(z1), Self::Zero(z2)) if z1 == z2 => Ok(RebaseAction::EqualReplace(other)),
+            (Self::Zero(z1), Self::Zero(z2)) if z1 == z2 => Ok(RebaseAction::EqualReplace(base)),
             (
                 Self::Node {
-                    hash: h1,
+                    hash: orig_hash_lock,
                     left: ref l1,
                     right: ref r1,
                 },
                 Self::Node {
-                    hash: _,
+                    hash: base_hash_lock,
                     left: ref l2,
                     right: ref r2,
                 },
             ) => {
                 use RebaseAction::*;
 
-                let left_action = Tree::rebase_on(l1, l2)?;
-                let right_action = Tree::rebase_on(r1, r2)?;
+                let orig_hash = *orig_hash_lock.read();
+                let base_hash = *base_hash_lock.read();
+
+                // If hashes *and* lengths are equal then we can short-cut the recursion
+                // and immediately replace `orig` by the `base` node. If `lengths` are `None`
+                // then we know they are already equal (e.g. we're in a vector).
+                if !orig_hash.is_zero()
+                    && orig_hash == base_hash
+                    && lengths.map_or(true, |(orig_length, base_length)| {
+                        orig_length == base_length
+                    })
+                {
+                    return Ok(EqualReplace(base));
+                }
+
+                let new_full_depth = full_depth - 1;
+                let (left_lengths, right_lengths) = lengths
+                    .map(|(orig_length, base_length)| {
+                        let max_left_length = Length(1 << new_full_depth);
+                        let orig_left_length = std::cmp::min(orig_length, max_left_length);
+                        let orig_right_length =
+                            Length(orig_length.as_usize() - orig_left_length.as_usize());
+
+                        let base_left_length = std::cmp::min(base_length, max_left_length);
+                        let base_right_length =
+                            Length(base_length.as_usize() - base_left_length.as_usize());
+                        (
+                            (orig_left_length, base_left_length),
+                            (orig_right_length, base_right_length),
+                        )
+                    })
+                    .unzip();
+
+                let left_action = Tree::rebase_on(l1, l2, left_lengths, new_full_depth)?;
+                let right_action = Tree::rebase_on(r1, r2, right_lengths, new_full_depth)?;
 
                 match (left_action, right_action) {
                     (NotEqualNoop, NotEqualNoop | EqualNoop) | (EqualNoop, NotEqualNoop) => {
@@ -424,55 +459,55 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
                     (EqualNoop, EqualNoop) => Ok(EqualNoop),
                     (NotEqualNoop | EqualNoop, NotEqualReplace(new_right)) => {
                         Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(*h1.read()),
+                            hash: RwLock::new(orig_hash),
                             left: l1.clone(),
                             right: new_right,
                         })))
                     }
                     (NotEqualNoop | EqualNoop, EqualReplace(new_right)) => {
                         Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(*h1.read()),
+                            hash: RwLock::new(orig_hash),
                             left: l1.clone(),
                             right: new_right.clone(),
                         })))
                     }
                     (NotEqualReplace(new_left), NotEqualNoop | EqualNoop) => {
                         Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(*h1.read()),
+                            hash: RwLock::new(orig_hash),
                             left: new_left,
                             right: r1.clone(),
                         })))
                     }
                     (NotEqualReplace(new_left), NotEqualReplace(new_right)) => {
                         Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(*h1.read()),
+                            hash: RwLock::new(orig_hash),
                             left: new_left,
                             right: new_right,
                         })))
                     }
                     (NotEqualReplace(new_left), EqualReplace(new_right)) => {
                         Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(*h1.read()),
+                            hash: RwLock::new(orig_hash),
                             left: new_left,
                             right: new_right.clone(),
                         })))
                     }
                     (EqualReplace(new_left), NotEqualNoop) => {
                         Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(*h1.read()),
+                            hash: RwLock::new(orig_hash),
                             left: new_left.clone(),
                             right: r1.clone(),
                         })))
                     }
                     (EqualReplace(new_left), NotEqualReplace(new_right)) => {
                         Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(*h1.read()),
+                            hash: RwLock::new(orig_hash),
                             left: new_left.clone(),
                             right: new_right,
                         })))
                     }
                     (EqualReplace(_), EqualReplace(_)) | (EqualReplace(_), EqualNoop) => {
-                        Ok(EqualReplace(other))
+                        Ok(EqualReplace(base))
                     }
                 }
             }

@@ -252,7 +252,12 @@ impl<T: TreeHash + PartialEq + Clone + Decode + Encode, N: Unsigned, U: UpdateMa
     }
 
     pub fn rebase_on(&mut self, base: &Self) -> Result<(), Error> {
-        match Tree::rebase_on(&self.interface.backing.tree, &base.interface.backing.tree)? {
+        match Tree::rebase_on(
+            &self.interface.backing.tree,
+            &base.interface.backing.tree,
+            Some((self.interface.backing.length, base.interface.backing.length)),
+            self.interface.backing.depth + self.interface.backing.packing_depth,
+        )? {
             RebaseAction::EqualReplace(replacement) => {
                 self.interface.backing.tree = replacement.clone();
             }
