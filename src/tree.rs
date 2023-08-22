@@ -413,7 +413,7 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
                     left: ref l2,
                     right: ref r2,
                 },
-            ) => {
+            ) if full_depth > 0 => {
                 use RebaseAction::*;
 
                 let orig_hash = *orig_hash_lock.read();
@@ -511,10 +511,10 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
                     }
                 }
             }
-            (Self::Zero(_), _) => Ok(RebaseAction::NotEqualNoop),
-            (_, Self::Zero(_)) => Ok(RebaseAction::NotEqualNoop),
+            (Self::Zero(_), _) | (_, Self::Zero(_)) => Ok(RebaseAction::NotEqualNoop),
+            (Self::Node { .. }, Self::Node { .. }) => Err(Error::InvalidRebaseNode),
             (Self::Leaf(_) | Self::PackedLeaf(_), _) | (_, Self::Leaf(_) | Self::PackedLeaf(_)) => {
-                Err(Error::InvalidDiffLeaf)
+                Err(Error::InvalidRebaseLeaf)
             }
         }
     }

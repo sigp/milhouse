@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
 use typenum::{Unsigned, U1, U1024, U2, U3, U32, U33, U4, U7, U8, U9};
 
-const OP_LIMIT: usize = 32;
+const OP_LIMIT: usize = 128;
 
 /// Simple specification for `List` and `Vector` behaviour.
 #[derive(Debug, Clone)]

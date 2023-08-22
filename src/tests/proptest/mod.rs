@@ -6,6 +6,7 @@ use tree_hash_derive::TreeHash;
 use typenum::{Unsigned, U4};
 
 mod operations;
+mod rebase;
 mod tree_hash_and_ssz;
 
 pub fn arb_index(n: usize) -> impl Strategy<Value = usize> {
