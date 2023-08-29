@@ -1,4 +1,4 @@
-use crate::{Diff, Error, List, ListDiff};
+use crate::{Diff, Error, List, ListDiff, Value};
 use std::fmt::Debug;
 use tree_hash::TreeHash;
 use typenum::{Unsigned, U16};
@@ -45,7 +45,7 @@ where
 
 fn with_updated_index<T, N>(list: &List<T, N>, index: usize, value: T) -> List<T, N>
 where
-    T: TreeHash + Send + Sync + Clone,
+    T: Value + Send + Sync,
     N: Unsigned,
 {
     let mut updated = list.clone();
@@ -58,7 +58,7 @@ where
 
 fn extended<T, N>(list: &List<T, N>, values: Vec<T>) -> List<T, N>
 where
-    T: TreeHash + Send + Sync + Clone,
+    T: Value + Send + Sync,
     N: Unsigned,
 {
     let mut updated = list.clone();

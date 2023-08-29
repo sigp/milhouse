@@ -1,11 +1,10 @@
 use crate::{
-    interface::MutList, tree::TreeDiff, update_map::MaxMap, Error, List, UpdateMap, Vector,
+    interface::MutList, tree::TreeDiff, update_map::MaxMap, Error, List, UpdateMap, Value, Vector,
 };
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode};
 use ssz_derive::{Decode, Encode};
 use std::marker::PhantomData;
-use tree_hash::TreeHash;
 use typenum::Unsigned;
 use vec_map::VecMap;
 
@@ -83,14 +82,10 @@ where
 /// Newtype for List diffs.
 #[derive(Debug, PartialEq, Decode, Encode, Deserialize, Serialize)]
 #[serde(bound(
-    deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
-    serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
+    deserialize = "T: Value + Deserialize<'de>",
+    serialize = "T: Value + Serialize"
 ))]
-pub struct ListDiff<
-    T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
-    U: UpdateMap<T> = MaxMap<VecMap<T>>,
-> {
+pub struct ListDiff<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     tree_diff: TreeDiff<T>,
     #[serde(skip, default)]
     #[ssz(skip_serializing, skip_deserializing)]
@@ -99,7 +94,7 @@ pub struct ListDiff<
 
 impl<T, N, U> Diff for ListDiff<T, N, U>
 where
-    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    T: Value,
     N: Unsigned,
     U: UpdateMap<T>,
 {
@@ -137,13 +132,13 @@ where
 /// more space-efficient.
 #[derive(Debug, PartialEq, Decode, Encode, Deserialize, Serialize)]
 #[serde(bound(
-    deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
-    serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
+    deserialize = "T: Value + Deserialize<'de>",
+    serialize = "T: Value + Serialize"
 ))]
 #[ssz(enum_behaviour = "union")]
 pub enum ResetListDiff<T, N>
 where
-    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    T: Value,
     N: Unsigned,
 {
     Reset(CloneDiff<List<T, N>>),
@@ -152,7 +147,7 @@ where
 
 impl<T, N> Diff for ResetListDiff<T, N>
 where
-    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    T: Value,
     N: Unsigned,
 {
     type Target = List<T, N>;
@@ -178,14 +173,10 @@ where
 /// Newtype for Vector diffs.
 #[derive(Debug, PartialEq, Decode, Encode, Deserialize, Serialize)]
 #[serde(bound(
-    deserialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Deserialize<'de>",
-    serialize = "T: TreeHash + PartialEq + Clone + Decode + Encode + Serialize"
+    deserialize = "T: Value + Deserialize<'de>",
+    serialize = "T: Value + Serialize"
 ))]
-pub struct VectorDiff<
-    T: TreeHash + PartialEq + Clone + Decode + Encode,
-    N: Unsigned,
-    U: UpdateMap<T> = MaxMap<VecMap<T>>,
-> {
+pub struct VectorDiff<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     tree_diff: TreeDiff<T>,
     #[ssz(skip_serializing, skip_deserializing)]
     _phantom: PhantomData<(N, U)>,
@@ -193,7 +184,7 @@ pub struct VectorDiff<
 
 impl<T, N, U> Diff for VectorDiff<T, N, U>
 where
-    T: TreeHash + PartialEq + Clone + Decode + Encode,
+    T: Value,
     N: Unsigned,
     U: UpdateMap<T>,
 {

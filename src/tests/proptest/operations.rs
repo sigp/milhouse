@@ -1,5 +1,5 @@
 use super::{arb_hash256, arb_index, arb_large, arb_list, arb_vect, Large};
-use crate::{Diff, Error, List, ListDiff, Vector, VectorDiff};
+use crate::{Diff, Error, List, ListDiff, Value, Vector, VectorDiff};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
@@ -160,7 +160,7 @@ where
 
 fn apply_ops_list<T, N>(list: &mut List<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
-    T: TreeHash + PartialEq + Clone + Encode + Decode + Debug + Send + Sync,
+    T: Value + Debug + Send + Sync,
     N: Unsigned + Debug,
 {
     let mut diff_checkpoint = list.clone();
@@ -245,7 +245,7 @@ where
 
 fn apply_ops_vect<T, N>(vect: &mut Vector<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
-    T: TreeHash + PartialEq + Clone + Encode + Decode + Debug + Send + Sync,
+    T: Value + Debug + Send + Sync,
     N: Unsigned + Debug,
 {
     let mut diff_checkpoint = vect.clone();
