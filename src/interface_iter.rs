@@ -1,16 +1,15 @@
 use crate::iter::Iter;
-use crate::{Cow, UpdateMap};
-use tree_hash::TreeHash;
+use crate::{Cow, UpdateMap, Value};
 
 #[derive(Debug)]
-pub struct InterfaceIter<'a, T: TreeHash + Clone, U: UpdateMap<T>> {
+pub struct InterfaceIter<'a, T: Value, U: UpdateMap<T>> {
     pub(crate) tree_iter: Iter<'a, T>,
     pub(crate) updates: &'a U,
     pub(crate) index: usize,
     pub(crate) length: usize,
 }
 
-impl<'a, T: TreeHash + Clone, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
+impl<'a, T: Value, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
@@ -30,16 +29,16 @@ impl<'a, T: TreeHash + Clone, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T,
     }
 }
 
-impl<'a, T: TreeHash + Clone, U: UpdateMap<T>> ExactSizeIterator for InterfaceIter<'a, T, U> {}
+impl<'a, T: Value, U: UpdateMap<T>> ExactSizeIterator for InterfaceIter<'a, T, U> {}
 
 #[derive(Debug)]
-pub struct InterfaceIterCow<'a, T: TreeHash + Clone, U: UpdateMap<T>> {
+pub struct InterfaceIterCow<'a, T: Value, U: UpdateMap<T>> {
     pub(crate) tree_iter: Iter<'a, T>,
     pub(crate) updates: &'a mut U,
     pub(crate) index: usize,
 }
 
-impl<'a, T: TreeHash + Clone, U: UpdateMap<T>> InterfaceIterCow<'a, T, U> {
+impl<'a, T: Value, U: UpdateMap<T>> InterfaceIterCow<'a, T, U> {
     pub fn next_cow(&mut self) -> Option<(usize, Cow<T>)> {
         let index = self.index;
         self.index += 1;

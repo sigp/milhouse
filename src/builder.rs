@@ -1,8 +1,7 @@
 use crate::utils::{opt_packing_depth, opt_packing_factor, Length};
-use crate::{Arc, Error, PackedLeaf, Tree};
-use tree_hash::TreeHash;
+use crate::{Arc, Error, PackedLeaf, Tree, Value};
 
-pub struct Builder<T: TreeHash + Clone> {
+pub struct Builder<T: Value> {
     stack: Vec<Tree<T>>,
     depth: usize,
     length: Length,
@@ -12,7 +11,7 @@ pub struct Builder<T: TreeHash + Clone> {
     packing_depth: usize,
 }
 
-impl<T: TreeHash + Clone> Builder<T> {
+impl<T: Value> Builder<T> {
     pub fn new(depth: usize) -> Self {
         Self {
             stack: Vec::with_capacity(depth),

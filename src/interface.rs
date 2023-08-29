@@ -3,17 +3,14 @@ use crate::utils::{updated_length, Length};
 use crate::{
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
-    Cow, Error,
+    Cow, Error, Value,
 };
 use arbitrary::Arbitrary;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use tree_hash::{Hash256, TreeHash};
+use tree_hash::Hash256;
 
-pub trait ImmList<T>
-where
-    T: TreeHash + Clone,
-{
+pub trait ImmList<T: Value> {
     fn get(&self, idx: usize) -> Option<&T>;
 
     fn len(&self) -> Length;
@@ -25,10 +22,7 @@ where
     fn iter_from(&self, index: usize) -> Iter<T>;
 }
 
-pub trait MutList<T>: ImmList<T>
-where
-    T: TreeHash + Clone,
-{
+pub trait MutList<T: Value>: ImmList<T> {
     fn validate_push(current_len: usize) -> Result<(), Error>;
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
     fn update<U: UpdateMap<T>>(
@@ -41,7 +35,7 @@ where
 #[derive(Debug, PartialEq, Clone, Arbitrary)]
 pub struct Interface<T, B, U>
 where
-    T: TreeHash + Clone,
+    T: Value,
     B: MutList<T>,
     U: UpdateMap<T>,
 {
@@ -52,7 +46,7 @@ where
 
 impl<T, B, U> Interface<T, B, U>
 where
-    T: TreeHash + Clone,
+    T: Value,
     B: MutList<T>,
     U: UpdateMap<T>,
 {
