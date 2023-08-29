@@ -4,6 +4,7 @@ use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::serde::ListVisitor;
+use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, int_log, opt_packing_depth, updated_length, Length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
@@ -241,6 +242,30 @@ where
 
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn rebase(&self, base: &Self) -> Result<Self, Error> {
+        let mut rebased = self.clone();
+        rebased.rebase_on(base)?;
+        Ok(rebased)
+    }
+
+    pub fn rebase_on(&mut self, base: &Self) -> Result<(), Error> {
+        match Tree::rebase_on(
+            &self.interface.backing.tree,
+            &base.interface.backing.tree,
+            Some((self.interface.backing.length, base.interface.backing.length)),
+            self.interface.backing.depth + self.interface.backing.packing_depth,
+        )? {
+            RebaseAction::EqualReplace(replacement) => {
+                self.interface.backing.tree = replacement.clone();
+            }
+            RebaseAction::NotEqualReplace(replacement) => {
+                self.interface.backing.tree = replacement;
+            }
+            _ => (),
+        }
+        Ok(())
+    }
+
+    pub fn rebase_via_diff(&self, base: &Self) -> Result<Self, Error> {
         // Diff self from base.
         let diff = ListDiff::compute_diff(base, self)?;
 
@@ -249,12 +274,6 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         diff.apply_diff(&mut new)?;
 
         Ok(new)
-    }
-
-    pub fn rebase_on(&mut self, base: &Self) -> Result<(), Error> {
-        let rebased = self.rebase(base)?;
-        *self = rebased;
-        Ok(())
     }
 }
 
