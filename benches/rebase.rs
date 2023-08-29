@@ -1,17 +1,12 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use milhouse::List;
-use ssz::{Decode, Encode};
-use tree_hash::TreeHash;
+use milhouse::{List, Value};
 use typenum::Unsigned;
 
 type C = typenum::U1099511627776;
 const N: u64 = 800_000;
 
 #[inline]
-fn rebase<T: Encode + Decode + TreeHash + PartialEq + Clone, N: Unsigned>(
-    l1: &List<T, N>,
-    l2: &List<T, N>,
-) -> List<T, N> {
+fn rebase<T: Value, N: Unsigned>(l1: &List<T, N>, l2: &List<T, N>) -> List<T, N> {
     let mut l1_rebased = l1.clone();
     l1_rebased.rebase_on(l2).unwrap();
     l1_rebased
