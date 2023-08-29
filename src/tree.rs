@@ -1,19 +1,18 @@
 use crate::utils::{arb_arc, arb_rwlock, opt_hash, opt_packing_depth, opt_packing_factor};
-use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap};
+use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use ssz::{Decode, Encode};
 use ssz_derive::{Decode, Encode};
 use std::collections::BTreeMap;
 use std::ops::ControlFlow;
-use tree_hash::{Hash256, TreeHash};
+use tree_hash::Hash256;
 
 #[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq, Hash)]
-pub enum Tree<T: TreeHash + Clone> {
+pub enum Tree<T: Value> {
     Leaf(Leaf<T>),
     PackedLeaf(PackedLeaf<T>),
     Node {
@@ -28,7 +27,7 @@ pub enum Tree<T: TreeHash + Clone> {
     Zero(usize),
 }
 
-impl<T: TreeHash + Clone> Clone for Tree<T> {
+impl<T: Value> Clone for Tree<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Node { hash, left, right } => Self::Node {
@@ -43,7 +42,7 @@ impl<T: TreeHash + Clone> Clone for Tree<T> {
     }
 }
 
-impl<T: TreeHash + Clone> Tree<T> {
+impl<T: Value> Tree<T> {
     pub fn empty(depth: usize) -> Arc<Self> {
         Self::zero(depth)
     }
@@ -239,7 +238,7 @@ impl<T: TreeHash + Clone> Tree<T> {
     }
 }
 
-impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
+impl<T: Value> Tree<T> {
     pub fn diff(
         &self,
         other: &Self,
@@ -368,14 +367,14 @@ impl<T: PartialEq + TreeHash + Clone + Encode + Decode> Tree<T> {
 }
 
 #[derive(Debug, PartialEq, Encode, Decode, Deserialize, Serialize, Derivative)]
-#[derivative(Default(bound = "T: TreeHash + Clone"))]
-pub struct TreeDiff<T: TreeHash + Clone + Encode + Decode> {
+#[derivative(Default(bound = "T: Value"))]
+pub struct TreeDiff<T: Value> {
     pub leaves: BTreeMap<usize, T>,
     /// Map from `(depth, prefix)` to node hash.
     pub hashes: BTreeMap<(usize, usize), Hash256>,
 }
 
-impl<T: TreeHash + Clone + Send + Sync> Tree<T> {
+impl<T: Value + Send + Sync> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {

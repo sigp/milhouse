@@ -30,3 +30,10 @@ pub use tree::Tree;
 pub use triomphe::Arc;
 pub use update_map::UpdateMap;
 pub use vector::Vector;
+
+use ssz::{Decode, Encode};
+use tree_hash::TreeHash;
+
+pub trait Value: Encode + Decode + TreeHash + PartialEq + Clone {}
+
+impl<T> Value for T where T: Encode + Decode + TreeHash + PartialEq + Clone {}

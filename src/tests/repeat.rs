@@ -1,9 +1,9 @@
-use crate::List;
+use crate::{List, Value};
 use std::fmt::Debug;
 use tree_hash::TreeHash;
 use typenum::{Unsigned, U1024, U64, U8};
 
-fn list_test<T: TreeHash + PartialEq + Clone + Send + Sync + Debug, N: Unsigned + Debug>(val: T) {
+fn list_test<T: Value + Send + Sync + Debug, N: Unsigned + Debug>(val: T) {
     for n in 96..=N::to_usize() {
         let fast = List::<T, N>::repeat(val.clone(), n).unwrap();
         let slow = List::<T, N>::repeat_slow(val.clone(), n).unwrap();
