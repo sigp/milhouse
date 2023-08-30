@@ -50,7 +50,7 @@ pub fn tree_hash_root(c: &mut Criterion) {
         |b, &size| {
             b.iter(|| {
                 let l1 = List::<u64, C>::try_from_iter(0..size).unwrap();
-                let mut l2 = List::<u64, C>::try_from_iter(0..size).unwrap();
+                let mut l2 = l1.clone();
                 l2.push(99).unwrap();
                 l2.apply_updates().unwrap();
 
