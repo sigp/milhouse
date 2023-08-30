@@ -36,8 +36,8 @@ pub fn tree_hash_root(c: &mut Criterion) {
     c.bench_with_input(
         BenchmarkId::new("tree_hash_root_vector", vector_size),
         &(vector_1),
-        |b, l1| {
-            b.iter(|| tree_hash_root_vector(l1));
+        |b, v1| {
+            b.iter(|| tree_hash_root_vector(v1));
         },
     );
 }
