@@ -25,3 +25,12 @@ ethereum-types = { version = "0.14.1", features = ["arbitrary"] }
 ssz_types = "0.5.0"
 proptest = "1.0.0"
 tree_hash_derive = "0.5.0"
+criterion = "0.3"
+
+[[bench]]
+name = "rebase"
+harness = false
+
+[[bench]]
+name = "tree_hash_root"
+harness = false

@@ -19,6 +19,8 @@ pub enum Error {
     InvalidDiffLeaf,
     InvalidDiffNode,
     InvalidDiffPendingUpdates,
+    InvalidRebaseNode,
+    InvalidRebaseLeaf,
     AddToDiffError,
     BuilderExpectedLeaf,
     BuilderStackEmptyMerge,
