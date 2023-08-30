@@ -30,3 +30,7 @@ criterion = "0.3"
 [[bench]]
 name = "rebase"
 harness = false
+
+[[bench]]
+name = "tree_hash_root"
+harness = false
