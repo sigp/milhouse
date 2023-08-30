@@ -393,7 +393,7 @@ impl<T: Value> Tree<T> {
                 }
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) => {
-                if l1.values == l2.values {
+                if l1 == l2 {
                     Ok(RebaseAction::EqualReplace(base))
                 } else {
                     Ok(RebaseAction::NotEqualNoop)
