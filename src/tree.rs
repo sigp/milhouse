@@ -175,7 +175,7 @@ impl<T: Value> Tree<T> {
                 Ok(Self::leaf_with_hash(value, hash))
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
-                packed_leaf.update(prefix, hash, updates)?,
+                packed_leaf.update(prefix, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
@@ -216,7 +216,7 @@ impl<T: Value> Tree<T> {
             Self::Zero(zero_depth) if *zero_depth == depth => {
                 if depth == 0 {
                     if opt_packing_factor::<T>().is_some() {
-                        let packed_leaf = PackedLeaf::empty().update(prefix, hash, updates)?;
+                        let packed_leaf = PackedLeaf::empty().update(prefix, updates)?;
                         Ok(Arc::new(Self::PackedLeaf(packed_leaf)))
                     } else {
                         let index = prefix;
@@ -280,8 +280,7 @@ impl<T: Value> Tree<T> {
                     }
                 }
                 if !equal {
-                    let hash = *l2.hash.read();
-                    diff.hashes.insert((depth, prefix), hash);
+                    diff.hashes.insert((depth, prefix), l2.tree_hash());
                 }
                 Ok(())
             }
@@ -352,8 +351,7 @@ impl<T: Value> Tree<T> {
                 Ok(())
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => {
-                diff.hashes
-                    .insert((depth, prefix), *packed_leaf.hash.read());
+                diff.hashes.insert((depth, prefix), packed_leaf.tree_hash());
                 for (i, value) in packed_leaf.values.iter().enumerate() {
                     diff.leaves.insert(prefix | i, value.clone());
                 }
