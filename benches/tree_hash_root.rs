@@ -54,12 +54,15 @@ pub fn tree_hash_root(c: &mut Criterion) {
                 l2.push(99).unwrap();
                 l2.apply_updates().unwrap();
 
-                let handle = std::thread::spawn(move || {
+                let handle_1 = std::thread::spawn(move || {
                     l1.tree_hash_root();
+                });
+                let handle_2 = std::thread::spawn(move || {
                     l2.tree_hash_root();
                 });
 
-                handle.join().unwrap();
+                handle_1.join().unwrap();
+                handle_2.join().unwrap();
             });
         },
     );
