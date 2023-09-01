@@ -34,7 +34,7 @@ pub fn tree_hash_root(c: &mut Criterion) {
 
     // Test `VariableList` as a point of comparison.
     c.bench_with_input(
-        BenchmarkId::new("tree_hash_root_ssz_types_list", size),
+        BenchmarkId::new("tree_hash_root_variable_list", size),
         &size,
         |b, &size| {
             b.iter(|| {
