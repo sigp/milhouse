@@ -531,10 +531,8 @@ impl<T: Value + Send + Sync> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {
-                // FIXME(sproul): upgradeable RwLock?
-                let read_lock = hash.read();
-                let existing_hash = *read_lock;
-                drop(read_lock);
+                let mut write_lock = hash.write();
+                let existing_hash = *write_lock;
 
                 // NOTE: We re-compute the hash whenever it is non-zero. Computed hashes may
                 // legitimately be zero, but this only occurs at the leaf level when the value is
@@ -547,26 +545,31 @@ impl<T: Value + Send + Sync> Tree<T> {
                     existing_hash
                 } else {
                     let tree_hash = value.tree_hash_root();
-                    *hash.write() = tree_hash;
+                    *write_lock = tree_hash;
                     tree_hash
                 }
             }
             Self::PackedLeaf(leaf) => leaf.tree_hash(),
             Self::Zero(depth) => Hash256::from_slice(&ZERO_HASHES[*depth]),
             Self::Node { hash, left, right } => {
-                let read_lock = hash.read();
-                let existing_hash = *read_lock;
-                drop(read_lock);
+                fn node_tree_hash<T: Value + Send + Sync>(
+                    left: &Arc<Tree<T>>,
+                    right: &Arc<Tree<T>>,
+                ) -> Hash256 {
+                    let (left_hash, right_hash) =
+                        rayon::join(|| left.tree_hash(), || right.tree_hash());
+                    Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()))
+                }
+
+                let mut write_lock = hash.write();
+                let existing_hash = *write_lock;
 
                 if !existing_hash.is_zero() {
                     existing_hash
                 } else {
-                    // Parallelism goes brrrr.
-                    let (left_hash, right_hash) =
-                        rayon::join(|| left.tree_hash(), || right.tree_hash());
-                    let tree_hash =
-                        Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()));
-                    *hash.write() = tree_hash;
+                    let tree_hash = node_tree_hash(left, right);
+
+                    *write_lock = tree_hash;
                     tree_hash
                 }
             }
