@@ -34,3 +34,7 @@ harness = false
 [[bench]]
 name = "tree_hash_root"
 harness = false
+
+[[bench]]
+name = "ssz"
+harness = false
