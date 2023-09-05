@@ -66,6 +66,17 @@ pub fn tree_hash_root(c: &mut Criterion) {
             });
         },
     );
+
+    c.bench_with_input(
+        BenchmarkId::new("tree_hash_root_repeat_list_parallel", size),
+        &size,
+        |b, &size| {
+            b.iter(|| {
+                let l1 = List::<u64, C>::repeat(size, 0xff).unwrap();
+                l1.tree_hash_root();
+            });
+        },
+    );
 }
 
 criterion_group!(benches, tree_hash_root);
