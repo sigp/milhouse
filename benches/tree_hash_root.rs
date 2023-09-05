@@ -43,6 +43,29 @@ pub fn tree_hash_root(c: &mut Criterion) {
             })
         },
     );
+
+    c.bench_with_input(
+        BenchmarkId::new("tree_hash_root_list_parallel", size),
+        &size,
+        |b, &size| {
+            b.iter(|| {
+                let l1 = List::<u64, C>::try_from_iter(0..size).unwrap();
+                let mut l2 = l1.clone();
+                l2.push(99).unwrap();
+                l2.apply_updates().unwrap();
+
+                let handle_1 = std::thread::spawn(move || {
+                    l1.tree_hash_root();
+                });
+                let handle_2 = std::thread::spawn(move || {
+                    l2.tree_hash_root();
+                });
+
+                handle_1.join().unwrap();
+                handle_2.join().unwrap();
+            });
+        },
+    );
 }
 
 criterion_group!(benches, tree_hash_root);
