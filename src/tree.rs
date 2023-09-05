@@ -3,7 +3,7 @@ use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
-use parking_lot::{RwLock, RwLockUpgradableReadGuard};
+use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
 use std::collections::BTreeMap;
@@ -591,19 +591,38 @@ impl<T: Value + Send + Sync> Tree<T> {
                     existing_hash
                 } else {
                     match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
-                        Ok(mut write_lock) => {
-                            // If we successfully acquire the lock we are guaranteed to be the first and
-                            // only thread attempting to write the hash.
+                        Ok(write_lock) => {
+                            // If we successfully acquire the lock we are guaranteed to be the
+                            // first and only thread attempting to write the hash.
+                            // Downgrade the lock temporarily while we hash.
+                            let mut read_lock =
+                                RwLockWriteGuard::downgrade_to_upgradable(write_lock);
                             let tree_hash = node_tree_hash(left, right);
 
-                            *write_lock = tree_hash;
+                            loop {
+                                match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
+                                    Ok(mut write_lock) => {
+                                        *write_lock = tree_hash;
+                                        break;
+                                    }
+                                    Err(rejected_lock) => {
+                                        if *rejected_lock == tree_hash {
+                                            break;
+                                        } else {
+                                            RwLockUpgradableReadGuard::unlock_fair(rejected_lock);
+                                            read_lock = hash.upgradable_read();
+                                        }
+                                    }
+                                }
+                            }
+
                             tree_hash
                         }
                         Err(lock) => {
                             // Another thread is holding a lock. Drop the lock and attempt to
                             // acquire a new one. This will avoid a deadlock.
                             RwLockUpgradableReadGuard::unlock_fair(lock);
-                            let mut write_lock = hash.write();
+                            let write_lock = hash.write();
 
                             // Since we just acquired the write lock normally, another thread may have
                             // just finished computing the hash. If so, return it.
@@ -612,9 +631,29 @@ impl<T: Value + Send + Sync> Tree<T> {
                                 return existing_hash;
                             }
 
+                            // Downgrade dance.
+                            let mut read_lock =
+                                RwLockWriteGuard::downgrade_to_upgradable(write_lock);
+
                             let tree_hash = node_tree_hash(left, right);
 
-                            *write_lock = tree_hash;
+                            loop {
+                                match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
+                                    Ok(mut write_lock) => {
+                                        *write_lock = tree_hash;
+                                        break;
+                                    }
+                                    Err(rejected_lock) => {
+                                        if *rejected_lock == tree_hash {
+                                            break;
+                                        } else {
+                                            RwLockUpgradableReadGuard::unlock_fair(rejected_lock);
+                                            read_lock = hash.upgradable_read();
+                                        }
+                                    }
+                                }
+                            }
+
                             tree_hash
                         }
                     }
