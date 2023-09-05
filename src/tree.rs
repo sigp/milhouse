@@ -584,38 +584,34 @@ impl<T: Value + Send + Sync> Tree<T> {
                     Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()))
                 }
 
-                let read_lock = hash.upgradable_read();
-                let existing_hash = *read_lock;
+                let mut computed_tree_hash = None;
+                loop {
+                    let read_lock = hash.upgradable_read();
+                    let existing_hash = *read_lock;
 
-                if !existing_hash.is_zero() {
-                    existing_hash
-                } else {
+                    if !existing_hash.is_zero()
+                    // && computed_tree_hash.map_or(true, |computed| computed == existing_hash)
+                    {
+                        return existing_hash;
+                    }
+
                     match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
                         Ok(mut write_lock) => {
-                            // If we successfully acquire the lock we are guaranteed to be the first and
-                            // only thread attempting to write the hash.
-                            let tree_hash = node_tree_hash(left, right);
-
-                            *write_lock = tree_hash;
-                            tree_hash
-                        }
-                        Err(lock) => {
-                            // Another thread is holding a lock. Drop the lock and attempt to
-                            // acquire a new one. This will avoid a deadlock.
-                            RwLockUpgradableReadGuard::unlock_fair(lock);
-                            let mut write_lock = hash.write();
-
-                            // Since we just acquired the write lock normally, another thread may have
-                            // just finished computing the hash. If so, return it.
-                            let existing_hash = *write_lock;
-                            if !existing_hash.is_zero() {
-                                return existing_hash;
+                            if let Some(tree_hash) = computed_tree_hash {
+                                // Hash already computed on a previous iteration, store it.
+                                *write_lock = tree_hash;
+                                return tree_hash;
+                            } else {
+                                // Hash not known, but we can't hold the write lock while computing
+                                // it because of Rayon's work stealing. We risk some duplicated
+                                // work by dropping it, but that's OK.
+                                drop(write_lock);
+                                computed_tree_hash = Some(node_tree_hash(left, right));
                             }
-
-                            let tree_hash = node_tree_hash(left, right);
-
-                            *write_lock = tree_hash;
-                            tree_hash
+                        }
+                        Err(read_lock) => {
+                            // Allow another thread to try writing, if it is waiting.
+                            RwLockUpgradableReadGuard::unlock_fair(read_lock);
                         }
                     }
                 }
