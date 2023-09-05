@@ -3,12 +3,14 @@ use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
-use parking_lot::{RwLock, RwLockUpgradableReadGuard};
+use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
 use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
+
+const IN_PROGRESS: Hash256 = Hash256::repeat_byte(0xff);
 
 #[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq, Hash)]
@@ -589,29 +591,39 @@ impl<T: Value + Send + Sync> Tree<T> {
                     let read_lock = hash.upgradable_read();
                     let existing_hash = *read_lock;
 
-                    if !existing_hash.is_zero()
-                    // && computed_tree_hash.map_or(true, |computed| computed == existing_hash)
-                    {
+                    if existing_hash == IN_PROGRESS && computed_tree_hash.is_none() {
+                        // Someone else is computing the hash, wait more.
+                        RwLockUpgradableReadGuard::unlock_fair(read_lock);
+                        continue;
+                    }
+
+                    if !existing_hash.is_zero() && existing_hash != IN_PROGRESS {
                         return existing_hash;
                     }
 
                     match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
                         Ok(mut write_lock) => {
                             if let Some(tree_hash) = computed_tree_hash {
+                                assert_eq!(*write_lock, IN_PROGRESS);
                                 // Hash already computed on a previous iteration, store it.
                                 *write_lock = tree_hash;
                                 return tree_hash;
                             } else {
-                                // Hash not known, but we can't hold the write lock while computing
-                                // it because of Rayon's work stealing. We risk some duplicated
-                                // work by dropping it, but that's OK.
-                                drop(write_lock);
-                                computed_tree_hash = Some(node_tree_hash(left, right));
+                                if *write_lock == IN_PROGRESS {
+                                    // Someone else's problem. Go around again.
+                                    RwLockWriteGuard::unlock_fair(write_lock);
+                                } else {
+                                    // Mark the hashing as in-progress
+                                    *write_lock = IN_PROGRESS;
+                                    // Drop lock, but not fairly. Ideally we want to get it
+                                    // again in this thread.
+                                    drop(write_lock);
+                                    computed_tree_hash = Some(node_tree_hash(left, right));
+                                }
                             }
                         }
                         Err(read_lock) => {
-                            // Allow another thread to try writing, if it is waiting.
-                            RwLockUpgradableReadGuard::unlock_fair(read_lock);
+                            drop(read_lock);
                         }
                     }
                 }
