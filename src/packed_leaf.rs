@@ -1,7 +1,7 @@
 use crate::{utils::arb_rwlock, Error, UpdateMap};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockUpgradableReadGuard};
 use std::ops::ControlFlow;
 use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 
@@ -27,25 +27,52 @@ where
 }
 
 impl<T: TreeHash + Clone> PackedLeaf<T> {
-    pub fn tree_hash(&self) -> Hash256 {
-        let read_lock = self.hash.read();
-        let mut hash = *read_lock;
-        drop(read_lock);
-
-        if !hash.is_zero() {
-            return hash;
-        }
-
+    fn compute_hash(&self, mut hash: Hash256) -> Hash256 {
         let hash_bytes = hash.as_bytes_mut();
-
         let value_len = BYTES_PER_CHUNK / T::tree_hash_packing_factor();
         for (i, value) in self.values.iter().enumerate() {
             hash_bytes[i * value_len..(i + 1) * value_len]
                 .copy_from_slice(&value.tree_hash_packed_encoding());
         }
-
-        *self.hash.write() = hash;
         hash
+    }
+
+    pub fn tree_hash(&self) -> Hash256 {
+        let read_lock = self.hash.upgradable_read();
+        let hash = *read_lock;
+
+        if !hash.is_zero() {
+            hash
+        } else {
+            match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
+                Ok(mut write_lock) => {
+                    // If we successfully acquire the lock we are guaranteed to be the first and
+                    // only thread attempting to write the hash.
+                    let tree_hash = self.compute_hash(hash);
+
+                    *write_lock = tree_hash;
+                    tree_hash
+                }
+                Err(lock) => {
+                    // Another thread is holding a lock. Drop the lock and attempt to
+                    // acquire a new one. This will avoid a deadlock.
+                    RwLockUpgradableReadGuard::unlock_fair(lock);
+                    let mut write_lock = self.hash.write();
+
+                    // Since we just acquired the write lock normally, another thread may have
+                    // just finished computing the hash. If so, return it.
+                    let existing_hash = *write_lock;
+                    if !existing_hash.is_zero() {
+                        return existing_hash;
+                    }
+
+                    let tree_hash = self.compute_hash(hash);
+
+                    *write_lock = tree_hash;
+                    tree_hash
+                }
+            }
+        }
     }
 
     pub fn empty() -> Self {

@@ -3,7 +3,7 @@ use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockUpgradableReadGuard};
 use serde::{Deserialize, Serialize};
 use ssz_derive::{Decode, Encode};
 use std::collections::BTreeMap;
@@ -531,10 +531,8 @@ impl<T: Value + Send + Sync> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {
-                // FIXME(sproul): upgradeable RwLock?
-                let read_lock = hash.read();
+                let read_lock = hash.upgradable_read();
                 let existing_hash = *read_lock;
-                drop(read_lock);
 
                 // NOTE: We re-compute the hash whenever it is non-zero. Computed hashes may
                 // legitimately be zero, but this only occurs at the leaf level when the value is
@@ -546,28 +544,80 @@ impl<T: Value + Send + Sync> Tree<T> {
                 if !existing_hash.is_zero() {
                     existing_hash
                 } else {
-                    let tree_hash = value.tree_hash_root();
-                    *hash.write() = tree_hash;
-                    tree_hash
+                    match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
+                        Ok(mut write_lock) => {
+                            // If we successfully acquire the lock we are guaranteed to be the first and
+                            // only thread attempting to write the hash.
+                            let tree_hash = value.tree_hash_root();
+                            *write_lock = tree_hash;
+                            tree_hash
+                        }
+                        Err(lock) => {
+                            // Another thread is holding a lock. Drop the lock and attempt to
+                            // acquire a new one. This will avoid a deadlock.
+                            RwLockUpgradableReadGuard::unlock_fair(lock);
+                            let mut write_lock = hash.write();
+
+                            // Since we just acquired the write lock normally, another thread may have
+                            // just finished computing the hash. If so, return it.
+                            let existing_hash = *write_lock;
+                            if !existing_hash.is_zero() {
+                                return existing_hash;
+                            }
+
+                            let tree_hash = value.tree_hash_root();
+                            *write_lock = tree_hash;
+                            tree_hash
+                        }
+                    }
                 }
             }
             Self::PackedLeaf(leaf) => leaf.tree_hash(),
             Self::Zero(depth) => Hash256::from_slice(&ZERO_HASHES[*depth]),
             Self::Node { hash, left, right } => {
-                let read_lock = hash.read();
+                fn node_tree_hash<T: Value + Send + Sync>(
+                    left: &Arc<Tree<T>>,
+                    right: &Arc<Tree<T>>,
+                ) -> Hash256 {
+                    let (left_hash, right_hash) =
+                        rayon::join(|| left.tree_hash(), || right.tree_hash());
+                    Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()))
+                }
+
+                let read_lock = hash.upgradable_read();
                 let existing_hash = *read_lock;
-                drop(read_lock);
 
                 if !existing_hash.is_zero() {
                     existing_hash
                 } else {
-                    // Parallelism goes brrrr.
-                    let (left_hash, right_hash) =
-                        rayon::join(|| left.tree_hash(), || right.tree_hash());
-                    let tree_hash =
-                        Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()));
-                    *hash.write() = tree_hash;
-                    tree_hash
+                    match RwLockUpgradableReadGuard::try_upgrade(read_lock) {
+                        Ok(mut write_lock) => {
+                            // If we successfully acquire the lock we are guaranteed to be the first and
+                            // only thread attempting to write the hash.
+                            let tree_hash = node_tree_hash(left, right);
+
+                            *write_lock = tree_hash;
+                            tree_hash
+                        }
+                        Err(lock) => {
+                            // Another thread is holding a lock. Drop the lock and attempt to
+                            // acquire a new one. This will avoid a deadlock.
+                            RwLockUpgradableReadGuard::unlock_fair(lock);
+                            let mut write_lock = hash.write();
+
+                            // Since we just acquired the write lock normally, another thread may have
+                            // just finished computing the hash. If so, return it.
+                            let existing_hash = *write_lock;
+                            if !existing_hash.is_zero() {
+                                return existing_hash;
+                            }
+
+                            let tree_hash = node_tree_hash(left, right);
+
+                            *write_lock = tree_hash;
+                            tree_hash
+                        }
+                    }
                 }
             }
         }
