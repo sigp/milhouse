@@ -49,7 +49,7 @@ pub fn max_btree_index<T>(map: &BTreeMap<usize, T>) -> Option<usize> {
 }
 
 /// Compute the length a data structure will have after applying `updates`.
-pub fn updated_length<U: UpdateMap<T>, T>(prev_len: Length, updates: &U) -> Length {
+pub fn updated_length<U: UpdateMap<T>, T: Clone>(prev_len: Length, updates: &U) -> Length {
     updates.max_index().map_or(prev_len, |max_idx| {
         Length(std::cmp::max(max_idx + 1, prev_len.as_usize()))
     })

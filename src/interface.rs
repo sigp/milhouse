@@ -174,7 +174,7 @@ mod test {
         *c2.into_mut().unwrap() = 11;
         assert_eq!(*list.get(0).unwrap(), 11);
 
-        assert_eq!(list.iter().cloned().collect::<Vec<_>>(), vec![11, 2, 3]);
+        assert_eq!(list.iter().copied().collect::<Vec<_>>(), vec![11, 2, 3]);
     }
 
     #[test]

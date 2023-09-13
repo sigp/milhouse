@@ -7,7 +7,7 @@ use vec_map::VecMap;
 
 /// Trait for map types which can be used to store intermediate updates before application
 /// to the tree.
-pub trait UpdateMap<T>: Default + Clone {
+pub trait UpdateMap<T: Clone>: Default + Clone {
     fn get(&self, k: usize) -> Option<&T>;
 
     fn get_mut_with<F>(&mut self, k: usize, f: F) -> Option<&mut T>
@@ -177,7 +177,7 @@ pub struct MaxMap<M> {
     max_key: usize,
 }
 
-impl<T, M> UpdateMap<T> for MaxMap<M>
+impl<T: Clone, M> UpdateMap<T> for MaxMap<M>
 where
     M: UpdateMap<T>,
 {

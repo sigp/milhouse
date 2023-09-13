@@ -17,7 +17,7 @@ pub struct Spec<T, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
-impl<T, N: Unsigned> Spec<T, N> {
+impl<T: Clone, N: Unsigned> Spec<T, N> {
     pub fn list(values: Vec<T>) -> Self {
         assert!(values.len() <= N::to_usize());
         Self {

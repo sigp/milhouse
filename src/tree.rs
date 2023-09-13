@@ -86,8 +86,8 @@ impl<T: Value> Tree<T> {
     pub fn get_recursive(&self, index: usize, depth: usize, packing_depth: usize) -> Option<&T> {
         match self {
             Self::Leaf(Leaf { value, .. }) if depth == 0 => Some(value),
-            Self::PackedLeaf(PackedLeaf { values, .. }) if depth == 0 => {
-                values.get(index % T::tree_hash_packing_factor())
+            Self::PackedLeaf(packed_leaf) if depth == 0 => {
+                packed_leaf.get(index % T::tree_hash_packing_factor())
             }
             Self::Node { left, right, .. } if depth > 0 => {
                 let new_depth = depth - 1;
@@ -175,7 +175,7 @@ impl<T: Value> Tree<T> {
                 Ok(Self::leaf_with_hash(value, hash))
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
-                packed_leaf.update(prefix, hash, updates)?,
+                packed_leaf.update(prefix, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
@@ -216,7 +216,7 @@ impl<T: Value> Tree<T> {
             Self::Zero(zero_depth) if *zero_depth == depth => {
                 if depth == 0 {
                     if opt_packing_factor::<T>().is_some() {
-                        let packed_leaf = PackedLeaf::empty().update(prefix, hash, updates)?;
+                        let packed_leaf = PackedLeaf::empty().update(prefix, updates)?;
                         Ok(Arc::new(Self::PackedLeaf(packed_leaf)))
                     } else {
                         let index = prefix;
@@ -267,21 +267,18 @@ impl<T: Value> Tree<T> {
                 Ok(())
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) if depth == 0 => {
-                let mut equal = true;
-                for i in 0..l2.values.len() {
-                    let v2 = &l2.values[i];
-                    match l1.values.get(i) {
+                for i in 0..l2.length() {
+                    let v2 = l2.get(i).ok_or(Error::PackedLeafOutOfBounds {
+                        sub_index: i,
+                        len: l2.length(),
+                    })?;
+                    match l1.get(i) {
                         Some(v1) if v1 == v2 => continue,
                         _ => {
-                            equal = false;
                             let index = prefix | i;
                             diff.leaves.insert(index, v2.clone());
                         }
                     }
-                }
-                if !equal {
-                    let hash = *l2.hash.read();
-                    diff.hashes.insert((depth, prefix), hash);
                 }
                 Ok(())
             }
@@ -352,9 +349,11 @@ impl<T: Value> Tree<T> {
                 Ok(())
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => {
-                diff.hashes
-                    .insert((depth, prefix), *packed_leaf.hash.read());
-                for (i, value) in packed_leaf.values.iter().enumerate() {
+                for i in 0..packed_leaf.length() {
+                    let value = packed_leaf.get(i).ok_or(Error::PackedLeafOutOfBounds {
+                        sub_index: i,
+                        len: packed_leaf.length(),
+                    })?;
                     diff.leaves.insert(prefix | i, value.clone());
                 }
                 Ok(())
@@ -394,7 +393,7 @@ impl<T: Value> Tree<T> {
                 }
             }
             (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) => {
-                if l1.values == l2.values {
+                if l1 == l2 {
                     Ok(RebaseAction::EqualReplace(base))
                 } else {
                     Ok(RebaseAction::NotEqualNoop)
