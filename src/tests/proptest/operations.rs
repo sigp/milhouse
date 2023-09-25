@@ -1,5 +1,5 @@
 use super::{arb_hash256, arb_index, arb_large, arb_list, arb_vect, Large};
-use crate::{Diff, Error, List, ListDiff, Value, Vector, VectorDiff};
+use crate::{Error, List, Value, Vector};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
@@ -101,11 +101,9 @@ pub enum Op<T> {
     ApplyUpdates,
     /// Compute the tree hash of the list, modifying its internal nodes.
     TreeHash,
-    /// Set the current state of the list as the checkpoint for the next diff.
-    DiffCheckpoint,
-    /// Compute a diff with respect to the most recent checkpoint and verify its correctness.
-    DiffCompute,
-    /// Rebase the list on the most recent (diff) checkpoint.
+    /// Set the current state of the list as the checkpoint for the next rebase.
+    Checkpoint,
+    /// Rebase the list on the most recent checkpoint.
     Rebase,
     /// Create a new list which shares no data with its ancestors.
     Debase,
@@ -134,15 +132,14 @@ where
         Just(Op::TreeHash),
     ];
     let b_block = prop_oneof![
-        Just(Op::DiffCheckpoint),
-        Just(Op::DiffCompute),
+        Just(Op::Checkpoint),
         Just(Op::Rebase),
         Just(Op::Debase),
         Just(Op::FromIntoRoundtrip)
     ];
     prop_oneof![
         10 => a_block,
-        5 => b_block
+        4 => b_block
     ]
 }
 
@@ -163,7 +160,7 @@ where
     T: Value + Debug + Send + Sync,
     N: Unsigned + Debug,
 {
-    let mut diff_checkpoint = list.clone();
+    let mut checkpoint = list.clone();
 
     for op in ops {
         match op {
@@ -203,24 +200,17 @@ where
             Op::ApplyUpdates => {
                 list.apply_updates().unwrap();
             }
-            Op::DiffCheckpoint => {
+            Op::Checkpoint => {
                 list.apply_updates().unwrap();
-                diff_checkpoint = list.clone();
+                checkpoint = list.clone();
             }
             Op::TreeHash => {
                 list.apply_updates().unwrap();
                 list.tree_hash_root();
             }
-            Op::DiffCompute => {
-                list.apply_updates().unwrap();
-                let diff = ListDiff::compute_diff(&diff_checkpoint, list).unwrap();
-                let mut diffed_list = diff_checkpoint.clone();
-                diff.apply_diff(&mut diffed_list).unwrap();
-                assert_eq!(diffed_list, *list);
-            }
             Op::Rebase => {
                 list.apply_updates().unwrap();
-                let new_list = list.rebase(&diff_checkpoint).unwrap();
+                let new_list = list.rebase(&checkpoint).unwrap();
                 assert_eq!(new_list, *list);
             }
             Op::Debase => {
@@ -248,7 +238,7 @@ where
     T: Value + Debug + Send + Sync,
     N: Unsigned + Debug,
 {
-    let mut diff_checkpoint = vect.clone();
+    let mut checkpoint = vect.clone();
 
     for op in ops {
         match op {
@@ -292,20 +282,13 @@ where
                 vect.apply_updates().unwrap();
                 vect.tree_hash_root();
             }
-            Op::DiffCheckpoint => {
+            Op::Checkpoint => {
                 vect.apply_updates().unwrap();
-                diff_checkpoint = vect.clone();
-            }
-            Op::DiffCompute => {
-                vect.apply_updates().unwrap();
-                let diff = VectorDiff::compute_diff(&diff_checkpoint, vect).unwrap();
-                let mut diffed_vect = diff_checkpoint.clone();
-                diff.apply_diff(&mut diffed_vect).unwrap();
-                assert_eq!(diffed_vect, *vect);
+                checkpoint = vect.clone();
             }
             Op::Rebase => {
                 vect.apply_updates().unwrap();
-                let new_vect = vect.rebase(&diff_checkpoint).unwrap();
+                let new_vect = vect.rebase(&checkpoint).unwrap();
                 assert_eq!(new_vect, *vect);
             }
             Op::Debase => {

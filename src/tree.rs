@@ -4,8 +4,6 @@ use arbitrary::Arbitrary;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
-use ssz_derive::{Decode, Encode};
 use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
@@ -250,132 +248,6 @@ pub enum RebaseAction<'a, T> {
 }
 
 impl<T: Value> Tree<T> {
-    pub fn diff(
-        &self,
-        other: &Self,
-        prefix: usize,
-        depth: usize,
-        diff: &mut TreeDiff<T>,
-    ) -> Result<(), Error> {
-        match (self, other) {
-            (Self::Leaf(l1), Self::Leaf(l2)) if depth == 0 => {
-                if l1.value != l2.value {
-                    let hash = *l2.hash.read();
-                    diff.hashes.insert((depth, prefix), hash);
-                    diff.leaves.insert(prefix, (*l2.value).clone());
-                }
-                Ok(())
-            }
-            (Self::PackedLeaf(l1), Self::PackedLeaf(l2)) if depth == 0 => {
-                let mut equal = true;
-                for i in 0..l2.values.len() {
-                    let v2 = &l2.values[i];
-                    match l1.values.get(i) {
-                        Some(v1) if v1 == v2 => continue,
-                        _ => {
-                            equal = false;
-                            let index = prefix | i;
-                            diff.leaves.insert(index, v2.clone());
-                        }
-                    }
-                }
-                if !equal {
-                    let hash = *l2.hash.read();
-                    diff.hashes.insert((depth, prefix), hash);
-                }
-                Ok(())
-            }
-            (Self::Zero(z1), Self::Zero(z2)) if z1 == z2 && *z1 == depth => Ok(()),
-            (
-                Self::Node {
-                    hash: h1,
-                    left: l1,
-                    right: r1,
-                },
-                Self::Node {
-                    hash: h2,
-                    left: l2,
-                    right: r2,
-                },
-            ) if depth > 0 => {
-                let h1 = *h1.read();
-                let h2 = *h2.read();
-
-                // Conditions for recursing:
-                // - Hashes are different. Implies different subtree data.
-                // - Left or right pointers are different. Implies subtree *could* contain
-                //   different data with the *same hash* (e.g. leaves equal to 0 value).
-                //
-                // The second condition is prone to misfiring on identical trees that have been
-                // built from scratch in different parts of memory. Wasting some effort
-                // in this case is considered an acceptable trade-off, because this should occur
-                // rarely in practice when performing copy-on-write updates to the same tree
-                // structure. There is no risk of leaving out differences because subtrees that
-                // contain different data must necessarily have different pointers.
-                //
-                // FIXME(sproul): consider alternatives + improvements:
-                // - check whether subtree diff did anything before adding node hash to diff
-                // - add subtree length to node (extra 8 bytes)
-                if h1 != h2 || !Arc::ptr_eq(l1, l2) || !Arc::ptr_eq(r1, r2) {
-                    diff.hashes.insert((depth, prefix), h2);
-
-                    let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
-                    let new_depth = depth - 1;
-                    let left_prefix = prefix;
-                    let right_prefix = prefix | (1 << (new_depth + packing_depth));
-
-                    l1.diff(l2, left_prefix, new_depth, diff)?;
-                    r1.diff(r2, right_prefix, new_depth, diff)?;
-                }
-                Ok(())
-            }
-            (Self::Zero(_), rhs) => rhs.add_to_diff(prefix, depth, diff),
-            (_, Self::Zero(_)) => Err(Error::InvalidDiffDeleteNotSupported),
-            (Self::Leaf(_) | Self::PackedLeaf(_), _) | (_, Self::Leaf(_) | Self::PackedLeaf(_)) => {
-                Err(Error::InvalidDiffLeaf)
-            }
-            (Self::Node { .. }, Self::Node { .. }) => Err(Error::InvalidDiffNode),
-        }
-    }
-
-    /// Add every node in this subtree to the diff.
-    fn add_to_diff(
-        &self,
-        prefix: usize,
-        depth: usize,
-        diff: &mut TreeDiff<T>,
-    ) -> Result<(), Error> {
-        match self {
-            Self::Leaf(leaf) if depth == 0 => {
-                diff.hashes.insert((depth, prefix), *leaf.hash.read());
-                diff.leaves.insert(prefix, (*leaf.value).clone());
-                Ok(())
-            }
-            Self::PackedLeaf(packed_leaf) if depth == 0 => {
-                diff.hashes
-                    .insert((depth, prefix), *packed_leaf.hash.read());
-                for (i, value) in packed_leaf.values.iter().enumerate() {
-                    diff.leaves.insert(prefix | i, value.clone());
-                }
-                Ok(())
-            }
-            Self::Node { hash, left, right } if depth > 0 => {
-                diff.hashes.insert((depth, prefix), *hash.read());
-
-                let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
-                let new_depth = depth - 1;
-                let left_prefix = prefix;
-                let right_prefix = prefix | (1 << (new_depth + packing_depth));
-
-                left.add_to_diff(left_prefix, new_depth, diff)?;
-                right.add_to_diff(right_prefix, new_depth, diff)?;
-                Ok(())
-            }
-            Self::Zero(_) => Ok(()),
-            _ => Err(Error::AddToDiffError),
-        }
-    }
-
     pub fn rebase_on<'a>(
         orig: &'a Arc<Self>,
         base: &'a Arc<Self>,
@@ -517,14 +389,6 @@ impl<T: Value> Tree<T> {
             }
         }
     }
-}
-
-#[derive(Debug, PartialEq, Encode, Decode, Deserialize, Serialize, Derivative)]
-#[derivative(Default(bound = "T: Value"))]
-pub struct TreeDiff<T: Value> {
-    pub leaves: BTreeMap<usize, T>,
-    /// Map from `(depth, prefix)` to node hash.
-    pub hashes: BTreeMap<(usize, usize), Hash256>,
 }
 
 impl<T: Value + Send + Sync> Tree<T> {
