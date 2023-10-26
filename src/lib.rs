@@ -3,7 +3,6 @@
 
 pub mod builder;
 pub mod cow;
-pub mod diff;
 pub mod error;
 pub mod interface;
 pub mod interface_iter;
@@ -20,7 +19,6 @@ pub mod utils;
 pub mod vector;
 
 pub use cow::Cow;
-pub use diff::{CloneDiff, Diff, ListDiff, ResetListDiff, VectorDiff};
 pub use error::Error;
 pub use interface::ImmList;
 pub use leaf::Leaf;
