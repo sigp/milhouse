@@ -271,7 +271,7 @@ impl<T: Value, N: Unsigned> Default for List<T, N> {
     }
 }
 
-impl<T: Value + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
+impl<T: Value + Send + Sync + 'static, N: Unsigned> TreeHash for List<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::List
     }

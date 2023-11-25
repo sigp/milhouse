@@ -4,7 +4,7 @@ use crate::{
 };
 use arbitrary::Arbitrary;
 use derivative::Derivative;
-use parking_lot::RwLock;
+use tokio::sync::RwLock;
 use tree_hash::Hash256;
 
 #[derive(Debug, Derivative, Arbitrary)]
@@ -23,7 +23,8 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hash: RwLock::new(*self.hash.read()),
+            // FIXME(sproul): this is really annoying
+            hash: RwLock::new(Hash256::zero()),
             value: self.value.clone(),
         }
     }

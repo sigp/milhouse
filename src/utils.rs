@@ -1,7 +1,7 @@
 use crate::{Arc, UpdateMap};
 use arbitrary::Arbitrary;
-use parking_lot::RwLock;
 use std::collections::BTreeMap;
+use tokio::sync::RwLock;
 use tree_hash::{Hash256, TreeHash, TreeHashType};
 
 /// Length type, to avoid confusion with depth and other `usize` parameters.
