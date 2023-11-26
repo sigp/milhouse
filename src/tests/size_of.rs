@@ -1,6 +1,6 @@
 use crate::{Arc, Leaf, PackedLeaf, Tree};
-use parking_lot::RwLock;
 use std::mem::size_of;
+use tokio::sync::RwLock;
 use tree_hash::Hash256;
 
 /// It's important that the Tree nodes have a predictable size.

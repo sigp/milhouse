@@ -157,7 +157,7 @@ where
 
 fn apply_ops_list<T, N>(list: &mut List<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
-    T: Value + Debug + Send + Sync,
+    T: Value + Debug + Send + Sync + 'static,
     N: Unsigned + Debug,
 {
     let mut checkpoint = list.clone();
@@ -235,7 +235,7 @@ where
 
 fn apply_ops_vect<T, N>(vect: &mut Vector<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
-    T: Value + Debug + Send + Sync,
+    T: Value + Debug + Send + Sync + 'static,
     N: Unsigned + Debug,
 {
     let mut checkpoint = vect.clone();
