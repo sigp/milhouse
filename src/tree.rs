@@ -26,26 +26,6 @@ pub enum Tree<T: Value> {
     Zero(usize),
 }
 
-impl<T: Value> Clone for Tree<T> {
-    fn clone(&self) -> Self {
-        match self {
-            // FIXME(sproul): noooooooo
-            Self::Node {
-                hash: _,
-                left,
-                right,
-            } => Self::Node {
-                hash: RwLock::new(Hash256::zero()),
-                left: left.clone(),
-                right: right.clone(),
-            },
-            Self::Leaf(leaf) => Self::Leaf(leaf.clone()),
-            Self::PackedLeaf(leaf) => Self::PackedLeaf(leaf.clone()),
-            Self::Zero(depth) => Self::Zero(*depth),
-        }
-    }
-}
-
 impl<T: Value> Tree<T> {
     pub fn empty(depth: usize) -> Arc<Self> {
         Self::zero(depth)
@@ -487,15 +467,14 @@ impl<T: Value + Send + Sync + 'static> Tree<T> {
                         .max()
                         .unwrap();
 
-                    let left_clone = left.clone();
-                    let right_clone = right.clone();
                     let (left_res, right_res) = futures::future::join(
                         async {
                             if max_queue_depth >= MAX_QUEUE_DEPTH {
                                 // Runtime is busy, use the current thread.
-                                Ok(left_clone.async_tree_hash().await)
+                                Ok(left.async_tree_hash().await)
                             } else {
                                 // Runtime has some spare capacity, use new task.
+                                let left_clone = left.clone();
                                 tokio::task::spawn(
                                     async move { left_clone.async_tree_hash().await },
                                 )
@@ -505,9 +484,10 @@ impl<T: Value + Send + Sync + 'static> Tree<T> {
                         async {
                             if max_queue_depth >= MAX_QUEUE_DEPTH {
                                 // Runtime is busy, use the current thread.
-                                Ok(right_clone.async_tree_hash().await)
+                                Ok(right.async_tree_hash().await)
                             } else {
                                 // Runtime has some spare capacity, use new task.
+                                let right_clone = right.clone();
                                 tokio::task::spawn(
                                     async move { right_clone.async_tree_hash().await },
                                 )

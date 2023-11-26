@@ -17,19 +17,6 @@ pub struct Leaf<T> {
     pub value: Arc<T>,
 }
 
-impl<T> Clone for Leaf<T>
-where
-    T: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            // FIXME(sproul): this is really annoying
-            hash: RwLock::new(Hash256::zero()),
-            value: self.value.clone(),
-        }
-    }
-}
-
 impl<T> Leaf<T> {
     pub fn new(value: T) -> Self {
         Self::with_hash(value, Hash256::zero())

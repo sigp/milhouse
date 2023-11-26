@@ -14,19 +14,6 @@ pub struct PackedLeaf<T: TreeHash + Clone> {
     pub(crate) values: Vec<T>,
 }
 
-impl<T> Clone for PackedLeaf<T>
-where
-    T: TreeHash + Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            // FIXME(sproul): perf implications of this might be bad
-            hash: RwLock::new(Hash256::zero()),
-            values: self.values.clone(),
-        }
-    }
-}
-
 impl<T: TreeHash + Clone> PackedLeaf<T> {
     pub fn tree_hash(&self) -> Hash256 {
         let read_lock = self.hash.blocking_read();
