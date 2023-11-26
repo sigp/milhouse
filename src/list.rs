@@ -293,6 +293,16 @@ impl<T: Value + Send + Sync + 'static, N: Unsigned> TreeHash for List<T, N> {
     }
 }
 
+impl<T: Value + Send + Sync + 'static, N: Unsigned> List<T, N> {
+    pub async fn async_tree_hash_root(&self) -> Hash256 {
+        // FIXME(sproul): remove assert
+        assert!(!self.interface.has_pending_updates());
+
+        let root = self.interface.backing.tree.async_tree_hash().await;
+        tree_hash::mix_in_length(&root, self.len())
+    }
+}
+
 impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a List<T, N, U> {
     type Item = &'a T;
     type IntoIter = InterfaceIter<'a, T, U>;

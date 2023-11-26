@@ -20,7 +20,7 @@ vec_map = "0.8.2"
 smallvec = "1.8.0"
 arbitrary = { version = "1.2.3", features = ["derive"] }
 ethereum-types = { version = "0.14.1", features = ["arbitrary"] }
-tokio = { version = "1", features = ["sync", "rt"] }
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread"] }
 futures = "0.3.29"
 async-recursion = "1.0.0"
 

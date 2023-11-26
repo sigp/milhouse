@@ -6,7 +6,7 @@ use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use std::collections::BTreeMap;
 use std::ops::ControlFlow;
-use tokio::sync::RwLock;
+use tokio::{runtime::Handle, sync::RwLock};
 use tree_hash::Hash256;
 
 #[derive(Debug, Derivative, Arbitrary)]
@@ -467,9 +467,11 @@ impl<T: Value + Send + Sync + 'static> Tree<T> {
                     tree_hash
                 }
             }
-            Self::PackedLeaf(leaf) => leaf.tree_hash(),
+            Self::PackedLeaf(leaf) => leaf.async_tree_hash().await,
             Self::Zero(depth) => Hash256::from_slice(&ZERO_HASHES[*depth]),
             Self::Node { hash, left, right } => {
+                const MAX_QUEUE_DEPTH: usize = 4;
+
                 let read_lock = hash.read().await;
                 let existing_hash = *read_lock;
                 drop(read_lock);
@@ -478,16 +480,39 @@ impl<T: Value + Send + Sync + 'static> Tree<T> {
                     existing_hash
                 } else {
                     // Parallelism goes brrrr.
+                    let rt_metrics = Handle::current().metrics();
+                    let num_workers = rt_metrics.num_workers();
+                    let max_queue_depth = (0..num_workers)
+                        .map(|i| rt_metrics.worker_local_queue_depth(i))
+                        .max()
+                        .unwrap();
+
                     let left_clone = left.clone();
                     let right_clone = right.clone();
                     let (left_res, right_res) = futures::future::join(
-                        async move {
-                            tokio::task::spawn(async move { left_clone.async_tree_hash().await })
+                        async {
+                            if max_queue_depth >= MAX_QUEUE_DEPTH {
+                                // Runtime is busy, use the current thread.
+                                Ok(left_clone.async_tree_hash().await)
+                            } else {
+                                // Runtime has some spare capacity, use new task.
+                                tokio::task::spawn(
+                                    async move { left_clone.async_tree_hash().await },
+                                )
                                 .await
+                            }
                         },
-                        async move {
-                            tokio::task::spawn(async move { right_clone.async_tree_hash().await })
+                        async {
+                            if max_queue_depth >= MAX_QUEUE_DEPTH {
+                                // Runtime is busy, use the current thread.
+                                Ok(right_clone.async_tree_hash().await)
+                            } else {
+                                // Runtime has some spare capacity, use new task.
+                                tokio::task::spawn(
+                                    async move { right_clone.async_tree_hash().await },
+                                )
                                 .await
+                            }
                         },
                     )
                     .await;
