@@ -4,7 +4,7 @@ use crate::iter::Iter;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, Length};
-use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
+use crate::{Arc, Cow, Error, List, PendingUpdates, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -38,6 +38,12 @@ pub struct VectorInner<T: Value, N: Unsigned> {
     packing_depth: usize,
     #[arbitrary(default)]
     _phantom: PhantomData<N>,
+}
+
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> PendingUpdates for Vector<T, N, U> {
+    fn apply(&mut self) -> Result<(), Error> {
+        self.interface.apply_updates()
+    }
 }
 
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {

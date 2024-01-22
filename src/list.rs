@@ -6,7 +6,7 @@ use crate::serde::ListVisitor;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, int_log, opt_packing_depth, updated_length, Length};
-use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
+use crate::{Arc, Cow, Error, PendingUpdates, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use itertools::process_results;
@@ -37,6 +37,12 @@ pub struct ListInner<T: Value, N: Unsigned> {
     pub(crate) packing_depth: usize,
     #[arbitrary(default)]
     _phantom: PhantomData<N>,
+}
+
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> PendingUpdates for List<T, N, U> {
+    fn apply(&mut self) -> Result<(), Error> {
+        self.interface.apply_updates()
+    }
 }
 
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {

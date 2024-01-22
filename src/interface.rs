@@ -80,8 +80,13 @@ where
         Ok(())
     }
 
+    pub fn apply_recursive_updates(&mut self) -> Result<(), Error> {
+        self.updates.for_each_mut(|item| item.apply())
+    }
+
     pub fn apply_updates(&mut self) -> Result<(), Error> {
         if !self.updates.is_empty() {
+            self.apply_recursive_updates()?;
             let updates = std::mem::take(&mut self.updates);
             self.backing.update(updates, None)
         } else {

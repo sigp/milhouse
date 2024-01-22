@@ -25,6 +25,8 @@ pub trait UpdateMap<T>: Default + Clone {
     where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>;
 
+    fn for_each_mut<E, F: FnMut(&mut T) -> Result<(), E>>(&mut self, f: F) -> Result<(), E>;
+
     fn max_index(&self) -> Option<usize>;
 
     fn len(&self) -> usize;
@@ -86,6 +88,13 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
                 ControlFlow::Continue(res) => res?,
                 ControlFlow::Break(()) => break,
             }
+        }
+        Ok(())
+    }
+
+    fn for_each_mut<E, F: FnMut(&mut T) -> Result<(), E>>(&mut self, mut f: F) -> Result<(), E> {
+        for (_, item) in self.iter_mut() {
+            f(item)?;
         }
         Ok(())
     }
@@ -159,6 +168,13 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
         Ok(())
     }
 
+    fn for_each_mut<E, F: FnMut(&mut T) -> Result<(), E>>(&mut self, mut f: F) -> Result<(), E> {
+        for (_, item) in self.iter_mut() {
+            f(item)?;
+        }
+        Ok(())
+    }
+
     fn max_index(&self) -> Option<usize> {
         // FIXME(sproul): this is slow, make a wrapper type that tracks the max index
         self.keys().next_back()
@@ -212,6 +228,10 @@ where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
     {
         self.inner.for_each_range(start, end, f)
+    }
+
+    fn for_each_mut<E, F: FnMut(&mut T) -> Result<(), E>>(&mut self, f: F) -> Result<(), E> {
+        self.inner.for_each_mut(f)
     }
 
     fn len(&self) -> usize {
