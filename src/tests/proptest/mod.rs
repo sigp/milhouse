@@ -1,4 +1,4 @@
-use crate::List;
+use crate::{List, PendingUpdates};
 use proptest::prelude::*;
 use ssz_derive::{Decode, Encode};
 use tree_hash::Hash256;
@@ -42,6 +42,14 @@ pub struct Large {
     b: u8,
     c: Hash256,
     d: List<u64, U4>,
+}
+
+impl PendingUpdates for Large {
+    fn apply(&mut self) -> Result<(), crate::Error> {
+        // TODO use macro derive
+        self.d.apply()?;
+        Ok(())
+    }
 }
 
 pub fn arb_large() -> impl Strategy<Value = Large> {

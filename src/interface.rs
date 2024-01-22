@@ -8,7 +8,7 @@ use crate::{
 use arbitrary::Arbitrary;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use tree_hash::Hash256;
+use tree_hash::{Hash256, TreeHashType};
 
 pub trait ImmList<T: Value> {
     fn get(&self, idx: usize) -> Option<&T>;
@@ -80,8 +80,22 @@ where
         Ok(())
     }
 
+    pub fn apply_recursive_updates(&mut self) -> Result<(), Error> {
+        let is_recursive = match T::tree_hash_type() {
+            TreeHashType::Basic => false,
+            TreeHashType::Container | TreeHashType::List | TreeHashType::Vector => true,
+        };
+
+        if is_recursive {
+            self.updates.for_each_mut(|item| item.apply())
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn apply_updates(&mut self) -> Result<(), Error> {
         if !self.updates.is_empty() {
+            self.apply_recursive_updates()?;
             let updates = std::mem::take(&mut self.updates);
             self.backing.update(updates, None)
         } else {

@@ -32,6 +32,20 @@ pub use vector::Vector;
 use ssz::{Decode, Encode};
 use tree_hash::TreeHash;
 
-pub trait Value: Encode + Decode + TreeHash + PartialEq + Clone {}
+pub trait PendingUpdates {
+    fn apply(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+}
 
-impl<T> Value for T where T: Encode + Decode + TreeHash + PartialEq + Clone {}
+pub trait Value: Encode + Decode + TreeHash + PartialEq + Clone + PendingUpdates {}
+
+impl<T> Value for T where T: Encode + Decode + TreeHash + PartialEq + Clone + PendingUpdates {}
+
+// Default impls for known types
+impl PendingUpdates for u8 {}
+impl PendingUpdates for u16 {}
+impl PendingUpdates for u32 {}
+impl PendingUpdates for u64 {}
+impl PendingUpdates for u128 {}
+impl PendingUpdates for tree_hash::Hash256 {}
