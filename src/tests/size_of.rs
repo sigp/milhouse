@@ -6,7 +6,7 @@ use tree_hash::Hash256;
 /// It's important that the Tree nodes have a predictable size.
 #[test]
 fn size_of_hash256() {
-    assert_eq!(size_of::<Tree<Hash256>>(), 72);
+    assert_eq!(size_of::<Tree<Hash256>>(), 64);
     assert_eq!(size_of::<Leaf<Hash256>>(), 48);
     assert_eq!(size_of::<PackedLeaf<Hash256>>(), 64);
 
@@ -16,16 +16,13 @@ fn size_of_hash256() {
     let arc_size = size_of::<Arc<Tree<Hash256>>>();
     assert_eq!(arc_size, 8);
 
-    assert_eq!(
-        size_of::<Tree<Hash256>>(),
-        size_of::<PackedLeaf<Hash256>>() + 8
-    );
+    assert_eq!(size_of::<Tree<Hash256>>(), size_of::<PackedLeaf<Hash256>>());
 }
 
 /// It's important that the Tree nodes have a predictable size.
 #[test]
 fn size_of_u8() {
-    assert_eq!(size_of::<Tree<u8>>(), 72);
+    assert_eq!(size_of::<Tree<u8>>(), 64);
     assert_eq!(size_of::<Leaf<u8>>(), 48);
     assert_eq!(size_of::<PackedLeaf<u8>>(), 64);
     assert_eq!(
@@ -39,5 +36,5 @@ fn size_of_u8() {
     let arc_size = size_of::<Arc<Tree<u8>>>();
     assert_eq!(arc_size, 8);
 
-    assert_eq!(size_of::<Tree<u8>>(), size_of::<PackedLeaf<u8>>() + 8);
+    assert_eq!(size_of::<Tree<u8>>(), size_of::<PackedLeaf<u8>>());
 }
