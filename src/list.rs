@@ -2,6 +2,7 @@ use crate::builder::Builder;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
+use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
@@ -121,6 +122,18 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         Ok(self.interface.iter_from(index))
     }
 
+    /// Iterate all internal nodes on the same level as `index`.
+    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<T>, Error> {
+        // Return an empty iterator at index == length, just like slicing.
+        if index > self.len() {
+            return Err(Error::OutOfBoundsIterFrom {
+                index,
+                len: self.len(),
+            });
+        }
+        self.interface.level_iter_from(index)
+    }
+
     pub fn iter_cow(&mut self) -> InterfaceIterCow<T, U> {
         self.interface.iter_cow()
     }
@@ -169,6 +182,48 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             int_log(N::to_usize())
         }
     }
+
+    /// Remove `n` elements from the front of `self`.
+    ///
+    /// Errors if `n > self.len()`.
+    pub fn pop_front_slow(&mut self, n: usize) -> Result<(), Error> {
+        *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
+        Ok(())
+    }
+
+    /// Remove `n` elements from the front of `self`.
+    ///
+    /// Errors if `n > self.len()`.
+    pub fn pop_front(&mut self, n: usize) -> Result<(), Error> {
+        self.apply_updates()?;
+
+        let mut builder = Self::builder();
+        let mut level_iter = self.level_iter_from(n)?.peekable();
+        let level = n.trailing_zeros() as usize;
+
+        while let Some(item) = level_iter.next() {
+            match item {
+                LevelNode::Internal(node) => {
+                    let last = level_iter.peek().is_none();
+                    let subtree_len = if !last {
+                        1 << level
+                    } else {
+                        // Slower, but we only need to do this once.
+                        node.compute_len()
+                    };
+                    builder.push_node(node.clone(), subtree_len)?;
+                }
+                LevelNode::PackedLeaf(value) => {
+                    builder.push(value.clone())?;
+                }
+            }
+        }
+
+        let (tree, depth, length) = builder.finish()?;
+        *self = Self::from_parts(tree, depth, length);
+
+        Ok(())
+    }
 }
 
 impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
@@ -187,6 +242,10 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
 
     fn iter_from(&self, index: usize) -> Iter<T> {
         Iter::from_index(index, &self.tree, self.depth, self.length)
+    }
+
+    fn level_iter_from(&self, index: usize) -> LevelIter<T> {
+        LevelIter::from_index(index, &self.tree, self.depth, self.length)
     }
 }
 

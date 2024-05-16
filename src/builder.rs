@@ -1,8 +1,8 @@
-use crate::utils::{opt_packing_depth, opt_packing_factor, Length};
+use crate::utils::{opt_packing_depth, opt_packing_factor, Length, MaybeArced};
 use crate::{Arc, Error, PackedLeaf, Tree, Value};
 
 pub struct Builder<T: Value> {
-    stack: Vec<Tree<T>>,
+    stack: Vec<MaybeArced<Tree<T>>>,
     depth: usize,
     length: Length,
     /// Cached value of `opt_packing_factor`.
@@ -29,15 +29,15 @@ impl<T: Value> Builder<T> {
         // Fold the nodes on the left of this node into it, and then push that node to the stack.
         let mut new_stack_top = if let Some(packing_factor) = self.packing_factor {
             if index % packing_factor == 0 {
-                Tree::PackedLeaf(PackedLeaf::single(value))
-            } else if let Some(Tree::PackedLeaf(mut leaf)) = self.stack.pop() {
+                MaybeArced::Unarced(Tree::PackedLeaf(PackedLeaf::single(value)))
+            } else if let Some(MaybeArced::Unarced(Tree::PackedLeaf(mut leaf))) = self.stack.pop() {
                 leaf.push(value)?;
-                Tree::PackedLeaf(leaf)
+                MaybeArced::Unarced(Tree::PackedLeaf(leaf))
             } else {
                 return Err(Error::BuilderExpectedLeaf);
             }
         } else {
-            Tree::leaf_unboxed(value)
+            MaybeArced::Unarced(Tree::leaf_unboxed(value))
         };
 
         let values_to_merge = next_index
@@ -46,11 +46,35 @@ impl<T: Value> Builder<T> {
 
         for _ in 0..values_to_merge {
             let left = self.stack.pop().ok_or(Error::BuilderStackEmptyMerge)?;
-            new_stack_top = Tree::node_unboxed(Arc::new(left), Arc::new(new_stack_top));
+            new_stack_top =
+                MaybeArced::Unarced(Tree::node_unboxed(left.arced(), new_stack_top.arced()));
         }
 
         self.stack.push(new_stack_top);
         *self.length.as_mut() += 1;
+
+        Ok(())
+    }
+
+    pub fn push_node(&mut self, node: Arc<Tree<T>>, len: usize) -> Result<(), Error> {
+        let index = self.length.as_usize();
+        let next_index = index + len;
+
+        let mut new_stack_top = MaybeArced::Arced(node);
+
+        let values_to_merge = next_index
+            .trailing_zeros()
+            .saturating_sub(self.packing_depth as u32);
+
+        for _ in 0..values_to_merge {
+            if let Some(left) = self.stack.pop() {
+                new_stack_top =
+                    MaybeArced::Unarced(Tree::node_unboxed(left.arced(), new_stack_top.arced()));
+            }
+        }
+
+        self.stack.push(new_stack_top);
+        *self.length.as_mut() += len;
 
         Ok(())
     }
@@ -76,8 +100,10 @@ impl<T: Value> Builder<T> {
                     if (next_index >> (i + self.packing_depth)) & 1 == 1 {
                         let right = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeRight)?;
                         let left = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeLeft)?;
-                        self.stack
-                            .push(Tree::node_unboxed(Arc::new(left), Arc::new(right)));
+                        self.stack.push(MaybeArced::Unarced(Tree::node_unboxed(
+                            left.arced(),
+                            right.arced(),
+                        )));
                     } else {
                         break;
                     }
@@ -91,7 +117,8 @@ impl<T: Value> Builder<T> {
             let depth = (next_index.trailing_zeros() as usize).saturating_sub(self.packing_depth);
 
             let stack_top = self.stack.pop().ok_or(Error::BuilderStackEmptyFinish)?;
-            let new_stack_top = Tree::node_unboxed(Arc::new(stack_top), Tree::zero(depth));
+            let new_stack_top =
+                MaybeArced::Unarced(Tree::node_unboxed(stack_top.arced(), Tree::zero(depth)));
 
             self.stack.push(new_stack_top);
 
@@ -103,8 +130,10 @@ impl<T: Value> Builder<T> {
                         .pop()
                         .ok_or(Error::BuilderStackEmptyFinishRight)?;
                     let left = self.stack.pop().ok_or(Error::BuilderStackEmptyFinishLeft)?;
-                    self.stack
-                        .push(Tree::node_unboxed(Arc::new(left), Arc::new(right)));
+                    self.stack.push(MaybeArced::Unarced(Tree::node_unboxed(
+                        left.arced(),
+                        right.arced(),
+                    )));
                 } else {
                     break;
                 }
@@ -113,7 +142,11 @@ impl<T: Value> Builder<T> {
             next_index += 2usize.pow((depth + self.packing_depth) as u32);
         }
 
-        let tree = Arc::new(self.stack.pop().ok_or(Error::BuilderStackEmptyFinalize)?);
+        let tree = self
+            .stack
+            .pop()
+            .ok_or(Error::BuilderStackEmptyFinalize)?
+            .arced();
 
         if !self.stack.is_empty() {
             return Err(Error::BuilderStackLeftover);

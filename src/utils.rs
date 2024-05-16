@@ -4,6 +4,21 @@ use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash, TreeHashType};
 
+/// Type to abstract over whether `T` is wrapped in an `Arc` or not.
+pub enum MaybeArced<T> {
+    Arced(Arc<T>),
+    Unarced(T),
+}
+
+impl<T> MaybeArced<T> {
+    pub fn arced(self) -> Arc<T> {
+        match self {
+            Self::Arced(arc) => arc,
+            Self::Unarced(value) => Arc::new(value),
+        }
+    }
+}
+
 /// Length type, to avoid confusion with depth and other `usize` parameters.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Arbitrary)]
 pub struct Length(pub usize);
