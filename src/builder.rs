@@ -4,6 +4,7 @@ use crate::{Arc, Error, PackedLeaf, Tree, Value};
 pub struct Builder<T: Value> {
     stack: Vec<MaybeArced<Tree<T>>>,
     depth: usize,
+    level: usize,
     length: Length,
     /// Cached value of `opt_packing_factor`.
     packing_factor: Option<usize>,
@@ -12,10 +13,11 @@ pub struct Builder<T: Value> {
 }
 
 impl<T: Value> Builder<T> {
-    pub fn new(depth: usize) -> Self {
+    pub fn new(depth: usize, level: usize) -> Self {
         Self {
             stack: Vec::with_capacity(depth),
             depth,
+            level,
             length: Length(0),
             packing_factor: opt_packing_factor::<T>(),
             packing_depth: opt_packing_depth::<T>().unwrap_or(0),
@@ -62,8 +64,12 @@ impl<T: Value> Builder<T> {
 
         let mut new_stack_top = MaybeArced::Arced(node);
 
+        assert_eq!(index % (1 << self.level), 0);
+
         let values_to_merge = next_index
             .trailing_zeros()
+            .saturating_add(1)
+            .saturating_sub(self.level as u32)
             .saturating_sub(self.packing_depth as u32);
 
         for _ in 0..values_to_merge {
@@ -114,7 +120,9 @@ impl<T: Value> Builder<T> {
 
         while next_index != capacity {
             // Push a new zero padding node on the right of the top-most stack element.
-            let depth = (next_index.trailing_zeros() as usize).saturating_sub(self.packing_depth);
+            let depth = (next_index.trailing_zeros() as usize)
+                .saturating_sub(self.level)
+                .saturating_sub(self.packing_depth);
 
             let stack_top = self.stack.pop().ok_or(Error::BuilderStackEmptyFinish)?;
             let new_stack_top =
@@ -124,6 +132,7 @@ impl<T: Value> Builder<T> {
 
             // Merge up to `depth` nodes if they exist on the stack.
             for i in depth + 1..self.depth {
+                println!("{:?}", self.stack);
                 if (next_index >> (i + self.packing_depth)) & 1 == 1 {
                     let right = self
                         .stack

@@ -41,15 +41,22 @@ impl<'a, T: Value> LevelIter<'a, T> {
         let mut stack = Vec::with_capacity(depth);
         stack.push(root);
 
-        let level = index.trailing_zeros() as usize;
+        let packing_factor = opt_packing_factor::<T>().unwrap_or(0);
+        let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
+
+        let level = if index == 0 {
+            depth + packing_depth
+        } else {
+            index.trailing_zeros() as usize
+        };
 
         LevelIter {
             stack,
             index,
             level,
             full_depth: depth,
-            packing_factor: opt_packing_factor::<T>().unwrap_or(0),
-            packing_depth: opt_packing_depth::<T>().unwrap_or(0),
+            packing_factor,
+            packing_depth,
             length,
         }
     }
@@ -106,9 +113,19 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                 result
             }
             Tree::Node { left, right, .. } => {
-                let depth = self.full_depth - self.stack.len();
+                let depth = self.full_depth + self.packing_depth - self.stack.len();
 
-                if depth + self.packing_depth == self.level {
+                /*
+                println!(
+                    "depth = {} + {} - {} = {} vs {}",
+                    self.full_depth,
+                    self.packing_depth,
+                    self.stack.len(),
+                    depth,
+                    self.level,
+                );
+                */
+                if depth + 1 == self.level {
                     let result = Some(LevelNode::Internal(node));
 
                     // Jump to the next index on the same level.
@@ -124,7 +141,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                     }
 
                     result
-                } else if (self.index >> (depth + self.packing_depth)) & 1 == 0 {
+                } else if (self.index >> depth) & 1 == 0 {
                     // Go left
                     self.stack.push(left);
                     self.next()

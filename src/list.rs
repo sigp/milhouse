@@ -6,7 +6,7 @@ use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
-use crate::utils::{arb_arc, int_log, opt_packing_depth, updated_length, Length};
+use crate::utils::{arb_arc, compute_level, int_log, opt_packing_depth, updated_length, Length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
@@ -74,7 +74,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn builder() -> Builder<T> {
-        Builder::new(Self::depth())
+        Builder::new(Self::depth(), 0)
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
@@ -197,9 +197,20 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn pop_front(&mut self, n: usize) -> Result<(), Error> {
         self.apply_updates()?;
 
-        let mut builder = Self::builder();
+        if n == 0 {
+            return Ok(());
+        }
+
+        /*
+        if 2 + 2 == 4 {
+            return self.pop_front_slow(n);
+        }
+        */
+        let depth = Self::depth();
+        let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
+        let level = compute_level(n, depth, packing_depth);
+        let mut builder = Builder::new(Self::depth(), level);
         let mut level_iter = self.level_iter_from(n)?.peekable();
-        let level = n.trailing_zeros() as usize;
 
         while let Some(item) = level_iter.next() {
             match item {

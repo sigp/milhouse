@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash, TreeHashType};
 
 /// Type to abstract over whether `T` is wrapped in an `Arc` or not.
+#[derive(Debug)]
 pub enum MaybeArced<T> {
     Arced(Arc<T>),
     Unarced(T),
@@ -15,6 +16,13 @@ impl<T> MaybeArced<T> {
         match self {
             Self::Arced(arc) => arc,
             Self::Unarced(value) => Arc::new(value),
+        }
+    }
+
+    pub fn as_ref(&self) -> &T {
+        match self {
+            Self::Arced(arc) => &*arc,
+            Self::Unarced(value) => &value,
         }
     }
 }
@@ -42,6 +50,14 @@ pub fn int_log(n: usize) -> usize {
     match n.checked_next_power_of_two() {
         Some(x) => x.trailing_zeros() as usize,
         None => 8 * std::mem::size_of::<usize>(),
+    }
+}
+
+pub fn compute_level(index: usize, depth: usize, packing_depth: usize) -> usize {
+    if index == 0 {
+        depth + packing_depth
+    } else {
+        index.trailing_zeros() as usize
     }
 }
 
