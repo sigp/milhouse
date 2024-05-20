@@ -1,5 +1,5 @@
 use crate::{
-    utils::{opt_packing_depth, opt_packing_factor, Length},
+    utils::{compute_level, opt_packing_depth, opt_packing_factor, Length},
     Arc, PackedLeaf, Tree, Value,
 };
 
@@ -44,11 +44,7 @@ impl<'a, T: Value> LevelIter<'a, T> {
         let packing_factor = opt_packing_factor::<T>().unwrap_or(0);
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
 
-        let level = if index == 0 {
-            depth + packing_depth
-        } else {
-            index.trailing_zeros() as usize
-        };
+        let level = compute_level(index, depth, packing_depth);
 
         LevelIter {
             stack,
@@ -92,9 +88,8 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
 
                 let result = values.get(sub_index).map(LevelNode::PackedLeaf);
 
-                // If we are iterating leaves then the level must be less than or equal to the
-                // packing depth.
-                assert!(self.level <= self.packing_depth);
+                // If we are iterating leaves then the level must be 0.
+                assert_eq!(self.level, 0);
                 self.index += 1;
 
                 // Reached end of chunk
@@ -113,19 +108,10 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                 result
             }
             Tree::Node { left, right, .. } => {
-                let depth = self.full_depth + self.packing_depth - self.stack.len();
+                let child_depth = self.full_depth + self.packing_depth - self.stack.len();
+                let node_depth = child_depth + 1;
 
-                /*
-                println!(
-                    "depth = {} + {} - {} = {} vs {}",
-                    self.full_depth,
-                    self.packing_depth,
-                    self.stack.len(),
-                    depth,
-                    self.level,
-                );
-                */
-                if depth + 1 == self.level {
+                if node_depth == self.level {
                     let result = Some(LevelNode::Internal(node));
 
                     // Jump to the next index on the same level.
@@ -133,7 +119,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
 
                     let trailing_zeros = self.index.trailing_zeros() as usize;
                     assert!(trailing_zeros >= self.level);
-                    let to_pop = trailing_zeros - self.level;
+                    let to_pop = trailing_zeros.saturating_add(1).saturating_sub(self.level);
 
                     // Backtrack to the parent node of the next subtree
                     for _ in 0..to_pop {
@@ -141,7 +127,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                     }
 
                     result
-                } else if (self.index >> depth) & 1 == 0 {
+                } else if (self.index >> child_depth) & 1 == 0 {
                     // Go left
                     self.stack.push(left);
                     self.next()

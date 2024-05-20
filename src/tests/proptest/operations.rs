@@ -213,7 +213,10 @@ where
                 (Err(e), _) | (_, Err(e)) => panic!("iter_from mismatch: {}", e),
             },
             Op::PopFront(index) => match (list.pop_front(index), spec.pop_front(index)) {
-                (Ok(()), Ok(())) => assert!(list.iter().eq(spec.iter())),
+                (Ok(()), Ok(())) => {
+                    assert_eq!(list.len(), spec.len());
+                    assert!(list.iter().eq(spec.iter()))
+                }
                 (Err(e1), Err(e2)) => assert_eq!(e1, e2),
                 (Err(e), _) | (_, Err(e)) => panic!("pop_front mismatch: {}", e),
             },

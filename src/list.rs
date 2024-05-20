@@ -201,11 +201,6 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             return Ok(());
         }
 
-        /*
-        if 2 + 2 == 4 {
-            return self.pop_front_slow(n);
-        }
-        */
         let depth = Self::depth();
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         let level = compute_level(n, depth, packing_depth);

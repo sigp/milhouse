@@ -32,6 +32,36 @@ fn level_iter_pop_front_basic_packed() {
 }
 
 #[test]
+fn level_iter_pop_front_basic_packed_17() {
+    let vec = vec![
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 0, 0, 0, 0, 0, 666,
+    ];
+    let list = List::<u64, U32>::new(vec.clone()).unwrap();
+    assert_eq!(list.len(), 17);
+
+    for from in 0..vec.len() {
+        let mut list = list.clone();
+        for (i, level) in list.level_iter_from(from).unwrap().enumerate() {
+            match level {
+                LevelNode::PackedLeaf(leaf) => {
+                    assert!(from.trailing_zeros() <= 2);
+                    assert_eq!(*leaf, vec[i + from]);
+                }
+                LevelNode::Internal(node) => {
+                    let level = if from == 0 { 5 } else { from.trailing_zeros() };
+                    assert!(level > 2);
+                    assert!(node.compute_len() <= 1 << level);
+                }
+            }
+        }
+
+        list.pop_front(from).unwrap();
+        assert_eq!(list.len(), vec.len() - from);
+        assert_eq!(list.to_vec().as_slice(), &vec[from..]);
+    }
+}
+
+#[test]
 fn level_iter_pop_front_basic_large() {
     let vec = (0..7u8)
         .map(|i| Large {
@@ -45,7 +75,6 @@ fn level_iter_pop_front_basic_large() {
     assert_eq!(list.len(), 7);
 
     for from in 0..vec.len() {
-        println!("from = {from}");
         let mut list = list.clone();
         list.pop_front(from).unwrap();
         assert_eq!(list.len(), vec.len() - from);
