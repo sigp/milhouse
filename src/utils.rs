@@ -18,13 +18,6 @@ impl<T> MaybeArced<T> {
             Self::Unarced(value) => Arc::new(value),
         }
     }
-
-    pub fn as_ref(&self) -> &T {
-        match self {
-            Self::Arced(arc) => &*arc,
-            Self::Unarced(value) => &value,
-        }
-    }
 }
 
 /// Length type, to avoid confusion with depth and other `usize` parameters.

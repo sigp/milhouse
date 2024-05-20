@@ -33,6 +33,7 @@ pub use vector::Vector;
 use ssz::{Decode, Encode};
 use tree_hash::TreeHash;
 
+// FIXME(sproul): remove Debug
 pub trait Value: Encode + Decode + TreeHash + PartialEq + Clone + std::fmt::Debug {}
 
 impl<T> Value for T where T: Encode + Decode + TreeHash + PartialEq + Clone + std::fmt::Debug {}
