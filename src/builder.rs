@@ -64,6 +64,9 @@ impl<T: Value> Builder<T> {
 
         let mut new_stack_top = MaybeArced::Arced(node);
 
+        // Subtract the packing depth if we are on level 0, in which case `next_index` includes
+        // `packing_depth` trailing bits which don't correspond to stack entries and should not be
+        // popped.
         let values_to_merge = if self.level == 0 {
             next_index
                 .trailing_zeros()

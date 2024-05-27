@@ -3,7 +3,6 @@ use crate::{
     Arc, PackedLeaf, Tree, Value,
 };
 
-// FIXME(sproul): clean up and simplify
 /// Iterator over the internal nodes at a given `depth` (level) in a tree.
 #[derive(Debug)]
 pub struct LevelIter<'a, T: Value> {
@@ -21,7 +20,7 @@ pub struct LevelIter<'a, T: Value> {
     packing_factor: usize,
     /// Cached packing depth to avoid re-calculating `opt_packing_depth`.
     packing_depth: usize,
-    /// Number of items that will be yielded by the iterator.
+    /// Number of elements in the list being iterated.
     length: Length,
 }
 
@@ -73,7 +72,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                 let result = Some(LevelNode::Internal(node));
 
                 // If we are iterating leaves then the level must be 0.
-                assert_eq!(self.level, 0);
+                debug_assert_eq!(self.level, 0);
                 self.index += 1;
 
                 // Backtrack to the parent node of the next subtree
@@ -93,7 +92,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                     self.index += 1 << self.level;
 
                     let trailing_zeros = self.index.trailing_zeros() as usize;
-                    assert!(trailing_zeros >= self.level);
+                    debug_assert!(trailing_zeros >= self.level);
                     let to_pop = trailing_zeros.saturating_add(1).saturating_sub(self.level);
 
                     // Backtrack to the parent node of the next subtree
@@ -108,7 +107,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                 let result = values.get(sub_index).map(LevelNode::PackedLeaf);
 
                 // If we are iterating leaves then the level must be 0.
-                assert_eq!(self.level, 0);
+                debug_assert_eq!(self.level, 0);
                 self.index += 1;
 
                 // Reached end of chunk
@@ -137,7 +136,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                     self.index += 1 << self.level;
 
                     let trailing_zeros = self.index.trailing_zeros() as usize;
-                    assert!(trailing_zeros >= self.level);
+                    debug_assert!(trailing_zeros >= self.level);
                     let to_pop = trailing_zeros.saturating_add(1).saturating_sub(self.level);
 
                     // Backtrack to the parent node of the next subtree

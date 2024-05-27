@@ -33,6 +33,9 @@ proptest = "1.0.0"
 tree_hash_derive = "0.6.0"
 criterion = "0.5"
 
+[features]
+debug = []
+
 [[bench]]
 name = "rebase"
 harness = false
