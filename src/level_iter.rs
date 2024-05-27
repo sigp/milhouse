@@ -9,6 +9,8 @@ pub struct LevelIter<'a, T: Value> {
     /// Stack of tree nodes corresponding to the current position.
     stack: Vec<&'a Arc<Tree<T>>>,
     /// The list index corresponding to the current position (next element to be yielded).
+    ///
+    /// This is the index of the leaf/element at the bottom of the subtree.
     index: usize,
     /// The level of the tree being iterated.
     level: usize,

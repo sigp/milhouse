@@ -59,8 +59,8 @@ impl<T: Value> Builder<T> {
     }
 
     pub fn push_node(&mut self, node: Arc<Tree<T>>, len: usize) -> Result<(), Error> {
-        let index = self.length.as_usize() >> self.level;
-        let next_index = index + 1;
+        let index_on_level = self.length.as_usize() >> self.level;
+        let next_index_on_level = index_on_level + 1;
 
         let mut new_stack_top = MaybeArced::Arced(node);
 
@@ -68,11 +68,11 @@ impl<T: Value> Builder<T> {
         // `packing_depth` trailing bits which don't correspond to stack entries and should not be
         // popped.
         let values_to_merge = if self.level == 0 {
-            next_index
+            next_index_on_level
                 .trailing_zeros()
                 .saturating_sub(self.packing_depth as u32)
         } else {
-            next_index.trailing_zeros()
+            next_index_on_level.trailing_zeros()
         };
 
         for _ in 0..values_to_merge {
