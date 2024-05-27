@@ -64,12 +64,12 @@ impl<T: Value> Builder<T> {
 
         let mut new_stack_top = MaybeArced::Arced(node);
 
-        let values_to_merge = if self.level > self.packing_depth {
-            next_index.trailing_zeros()
-        } else {
+        let values_to_merge = if self.level == 0 {
             next_index
                 .trailing_zeros()
                 .saturating_sub(self.packing_depth as u32)
+        } else {
+            next_index.trailing_zeros()
         };
 
         for _ in 0..values_to_merge {

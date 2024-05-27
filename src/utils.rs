@@ -52,7 +52,7 @@ pub fn compute_level(index: usize, depth: usize, packing_depth: usize) -> usize 
     } else {
         index.trailing_zeros() as usize
     };
-    if raw_level <= packing_depth {
+    if raw_level < packing_depth {
         0
     } else {
         raw_level

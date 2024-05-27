@@ -31,7 +31,7 @@ ethereum-types = { version = "0.14.1", features = ["arbitrary"] }
 ssz_types = "0.6.0"
 proptest = "1.0.0"
 tree_hash_derive = "0.6.0"
-criterion = "0.3"
+criterion = "0.5"
 
 [[bench]]
 name = "rebase"
@@ -43,4 +43,8 @@ harness = false
 
 [[bench]]
 name = "ssz"
+harness = false
+
+[[bench]]
+name = "pop_front"
 harness = false

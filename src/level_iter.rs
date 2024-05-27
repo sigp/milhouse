@@ -84,8 +84,27 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                 result
             }
             Tree::PackedLeaf(PackedLeaf { values, .. }) => {
-                let sub_index = self.index % self.packing_factor;
+                let node_depth = self.full_depth + self.packing_depth - self.stack.len() + 1;
 
+                if node_depth == self.level {
+                    let result = Some(LevelNode::Internal(node));
+
+                    // Jump to the next index on the same level.
+                    self.index += 1 << self.level;
+
+                    let trailing_zeros = self.index.trailing_zeros() as usize;
+                    assert!(trailing_zeros >= self.level);
+                    let to_pop = trailing_zeros.saturating_add(1).saturating_sub(self.level);
+
+                    // Backtrack to the parent node of the next subtree
+                    for _ in 0..to_pop {
+                        self.stack.pop();
+                    }
+
+                    return result;
+                }
+
+                let sub_index = self.index % self.packing_factor;
                 let result = values.get(sub_index).map(LevelNode::PackedLeaf);
 
                 // If we are iterating leaves then the level must be 0.
