@@ -1,6 +1,7 @@
 use crate::utils::{opt_packing_depth, opt_packing_factor, Length};
-use crate::{Arc, Error, PackedLeaf, Tree, Value};
+use crate::{Arc, Error, PackedLeaf, Tree, Value, MAX_TREE_DEPTH};
 
+#[derive(Debug)]
 pub struct Builder<T: Value> {
     stack: Vec<Tree<T>>,
     depth: usize,
@@ -12,13 +13,18 @@ pub struct Builder<T: Value> {
 }
 
 impl<T: Value> Builder<T> {
-    pub fn new(depth: usize) -> Self {
-        Self {
-            stack: Vec::with_capacity(depth),
-            depth,
-            length: Length(0),
-            packing_factor: opt_packing_factor::<T>(),
-            packing_depth: opt_packing_depth::<T>().unwrap_or(0),
+    pub fn new(depth: usize) -> Result<Self, Error> {
+        let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
+        if depth.saturating_add(packing_depth) > MAX_TREE_DEPTH {
+            Err(Error::BuilderInvalidDepth { depth })
+        } else {
+            Ok(Self {
+                stack: Vec::with_capacity(depth),
+                depth,
+                length: Length(0),
+                packing_factor: opt_packing_factor::<T>(),
+                packing_depth,
+            })
         }
     }
 
@@ -120,5 +126,19 @@ impl<T: Value> Builder<T> {
         }
 
         Ok((tree, self.depth, self.length))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn depth_upper_limit() {
+        assert_eq!(
+            Builder::<u64>::new(62).unwrap_err(),
+            Error::BuilderInvalidDepth { depth: 62 }
+        );
+        assert_eq!(Builder::<u64>::new(61).unwrap().depth, 61);
     }
 }

@@ -17,6 +17,7 @@ pub enum Error {
     UpdateLeavesError,
     InvalidRebaseNode,
     InvalidRebaseLeaf,
+    BuilderInvalidDepth { depth: usize },
     BuilderExpectedLeaf,
     BuilderStackEmptyMerge,
     BuilderStackEmptyMergeLeft,
