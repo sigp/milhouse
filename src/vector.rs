@@ -1,6 +1,7 @@
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
+use crate::level_iter::LevelIter;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, Length};
@@ -190,6 +191,10 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
 
     fn iter_from(&self, index: usize) -> Iter<T> {
         Iter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
+    }
+
+    fn level_iter_from(&self, index: usize) -> LevelIter<T> {
+        LevelIter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
 }
 

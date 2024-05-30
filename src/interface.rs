@@ -1,3 +1,4 @@
+use crate::level_iter::LevelIter;
 use crate::update_map::UpdateMap;
 use crate::utils::{updated_length, Length};
 use crate::{
@@ -20,6 +21,8 @@ pub trait ImmList<T: Value> {
     }
 
     fn iter_from(&self, index: usize) -> Iter<T>;
+
+    fn level_iter_from(&self, index: usize) -> LevelIter<T>;
 }
 
 pub trait MutList<T: Value>: ImmList<T> {
@@ -112,6 +115,14 @@ where
             tree_iter: self.backing.iter_from(index),
             updates: &mut self.updates,
             index,
+        }
+    }
+
+    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<T>, Error> {
+        if self.has_pending_updates() {
+            Err(Error::LevelIterPendingUpdates)
+        } else {
+            Ok(self.backing.level_iter_from(index))
         }
     }
 

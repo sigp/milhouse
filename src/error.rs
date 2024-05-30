@@ -28,6 +28,7 @@ pub enum Error {
     BuilderStackLeftover,
     BulkUpdateUnclean,
     CowMissingEntry,
+    LevelIterPendingUpdates,
 }
 
 impl Display for Error {

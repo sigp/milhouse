@@ -234,6 +234,19 @@ impl<T: Value> Tree<T> {
             _ => Err(Error::UpdateLeavesError),
         }
     }
+
+    /// Compute the number of elements stored in this subtree.
+    ///
+    /// This method should be avoided if possible. Prefer to read the length cached in a `List` or
+    /// similar.
+    pub fn compute_len(&self) -> usize {
+        match self {
+            Self::Leaf(_) => 1,
+            Self::PackedLeaf(leaf) => leaf.values.len(),
+            Self::Node { left, right, .. } => left.compute_len() + right.compute_len(),
+            Self::Zero(_) => 0,
+        }
+    }
 }
 
 pub enum RebaseAction<'a, T> {

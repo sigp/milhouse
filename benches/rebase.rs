@@ -24,28 +24,28 @@ pub fn rebase_list(c: &mut Criterion) {
     c.bench_with_input(
         BenchmarkId::new("rebase_identical", size),
         &(identical.clone(), base_list.clone()),
-        |b, &(ref l1, ref l2)| {
+        |b, (l1, l2)| {
             b.iter(|| rebase(l1, l2));
         },
     );
     c.bench_with_input(
         BenchmarkId::new("rebase_push_1_back", size),
         &(push_1_back.clone(), base_list.clone()),
-        |b, &(ref l1, ref l2)| {
+        |b, (l1, l2)| {
             b.iter(|| rebase(l1, l2));
         },
     );
     c.bench_with_input(
         BenchmarkId::new("rebase_mutate0", size),
         &(mutate_0.clone(), base_list.clone()),
-        |b, &(ref l1, ref l2)| {
+        |b, (l1, l2)| {
             b.iter(|| rebase(l1, l2));
         },
     );
     c.bench_with_input(
         BenchmarkId::new("rebase_completely_different", size),
         &(completely_different.clone(), base_list.clone()),
-        |b, &(ref l1, ref l2)| {
+        |b, (l1, l2)| {
             b.iter(|| rebase(l1, l2));
         },
     );

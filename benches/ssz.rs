@@ -16,8 +16,8 @@ fn encode_list<T: Value, N: Unsigned>(l1: &List<T, N>) -> Vec<u8> {
 #[inline]
 fn encode_decode_list<T: Value, N: Unsigned>(l1: &List<T, N>) -> List<T, N> {
     let bytes = l1.as_ssz_bytes();
-    let l2 = List::from_ssz_bytes(&bytes).unwrap();
-    l2
+
+    List::from_ssz_bytes(&bytes).unwrap()
 }
 
 #[inline]
@@ -28,8 +28,8 @@ fn encode_vector<T: Value, N: Unsigned>(v1: &Vector<T, N>) -> Vec<u8> {
 #[inline]
 fn encode_decode_vector<T: Value, N: Unsigned>(v1: &Vector<T, N>) -> Vector<T, N> {
     let bytes = v1.as_ssz_bytes();
-    let v2 = Vector::from_ssz_bytes(&bytes).unwrap();
-    v2
+
+    Vector::from_ssz_bytes(&bytes).unwrap()
 }
 
 #[inline]
@@ -42,8 +42,8 @@ fn encode_decode_variable_list<T: Value, N: Unsigned>(
     l1: &VariableList<T, N>,
 ) -> VariableList<T, N> {
     let bytes = l1.as_ssz_bytes();
-    let l2 = VariableList::from_ssz_bytes(&bytes).unwrap();
-    l2
+
+    VariableList::from_ssz_bytes(&bytes).unwrap()
 }
 
 pub fn ssz(c: &mut Criterion) {
@@ -54,14 +54,14 @@ pub fn ssz(c: &mut Criterion) {
     let variable_list = VariableList::<u64, C>::new((0..size).collect()).unwrap();
 
     c.bench_with_input(BenchmarkId::new("ssz_encode_list", size), &list, |b, l1| {
-        b.iter(|| encode_list(&l1));
+        b.iter(|| encode_list(l1));
     });
 
     c.bench_with_input(
         BenchmarkId::new("ssz_encode_decode_list", size),
         &list,
         |b, l1| {
-            b.iter(|| encode_decode_list(&l1));
+            b.iter(|| encode_decode_list(l1));
         },
     );
 
@@ -69,7 +69,7 @@ pub fn ssz(c: &mut Criterion) {
         BenchmarkId::new("ssz_encode_vector", size),
         &vector,
         |b, v1| {
-            b.iter(|| encode_vector(&v1));
+            b.iter(|| encode_vector(v1));
         },
     );
 
@@ -77,7 +77,7 @@ pub fn ssz(c: &mut Criterion) {
         BenchmarkId::new("ssz_encode_decode_vector", size),
         &vector,
         |b, v1| {
-            b.iter(|| encode_decode_vector(&v1));
+            b.iter(|| encode_decode_vector(v1));
         },
     );
 
@@ -86,7 +86,7 @@ pub fn ssz(c: &mut Criterion) {
         BenchmarkId::new("ssz_encode_variable_list", size),
         &variable_list,
         |b, l1| {
-            b.iter(|| encode_variable_list(&l1));
+            b.iter(|| encode_variable_list(l1));
         },
     );
 
@@ -95,7 +95,7 @@ pub fn ssz(c: &mut Criterion) {
         BenchmarkId::new("ssz_encode_decode_variable_list", size),
         &variable_list,
         |b, l1| {
-            b.iter(|| encode_decode_variable_list(&l1));
+            b.iter(|| encode_decode_variable_list(l1));
         },
     );
 }

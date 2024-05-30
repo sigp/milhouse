@@ -38,10 +38,10 @@ pub fn arb_hash256() -> impl Strategy<Value = Hash256> {
 /// Struct with multiple fields shared by multiple proptests.
 #[derive(Debug, Clone, PartialEq, Encode, Decode, TreeHash)]
 pub struct Large {
-    a: u64,
-    b: u8,
-    c: Hash256,
-    d: List<u64, U4>,
+    pub a: u64,
+    pub b: u8,
+    pub c: Hash256,
+    pub d: List<u64, U4>,
 }
 
 pub fn arb_large() -> impl Strategy<Value = Large> {

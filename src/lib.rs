@@ -8,6 +8,7 @@ pub mod interface;
 pub mod interface_iter;
 pub mod iter;
 pub mod leaf;
+pub mod level_iter;
 pub mod list;
 pub mod packed_leaf;
 mod repeat;
@@ -32,6 +33,14 @@ pub use vector::Vector;
 use ssz::{Decode, Encode};
 use tree_hash::TreeHash;
 
+#[cfg(feature = "debug")]
+pub trait Value: Encode + Decode + TreeHash + PartialEq + Clone + std::fmt::Debug {}
+
+#[cfg(feature = "debug")]
+impl<T> Value for T where T: Encode + Decode + TreeHash + PartialEq + Clone + std::fmt::Debug {}
+
+#[cfg(not(feature = "debug"))]
 pub trait Value: Encode + Decode + TreeHash + PartialEq + Clone {}
 
+#[cfg(not(feature = "debug"))]
 impl<T> Value for T where T: Encode + Decode + TreeHash + PartialEq + Clone {}
