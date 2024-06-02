@@ -27,25 +27,27 @@ where
 }
 
 impl<T: TreeHash + Clone> PackedLeaf<T> {
-    pub fn tree_hash(&self) -> Hash256 {
-        let read_lock = self.hash.read();
-        let mut hash = *read_lock;
-        drop(read_lock);
-
-        if !hash.is_zero() {
-            return hash;
-        }
-
+    fn compute_hash(&self, mut hash: Hash256) -> Hash256 {
         let hash_bytes = hash.as_bytes_mut();
-
         let value_len = BYTES_PER_CHUNK / T::tree_hash_packing_factor();
         for (i, value) in self.values.iter().enumerate() {
             hash_bytes[i * value_len..(i + 1) * value_len]
                 .copy_from_slice(&value.tree_hash_packed_encoding());
         }
-
-        *self.hash.write() = hash;
         hash
+    }
+
+    pub fn tree_hash(&self) -> Hash256 {
+        let mut write_lock = self.hash.write();
+        let hash = *write_lock;
+
+        if !hash.is_zero() {
+            hash
+        } else {
+            let tree_hash = self.compute_hash(hash);
+            *write_lock = tree_hash;
+            tree_hash
+        }
     }
 
     pub fn empty() -> Self {
