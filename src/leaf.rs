@@ -4,7 +4,7 @@ use crate::{
 };
 use arbitrary::Arbitrary;
 use derivative::Derivative;
-use parking_lot::RwLock;
+use tokio::sync::RwLock;
 use tree_hash::Hash256;
 
 #[derive(Debug, Derivative, Arbitrary)]
@@ -15,18 +15,6 @@ pub struct Leaf<T> {
     pub hash: RwLock<Hash256>,
     #[arbitrary(with = arb_arc)]
     pub value: Arc<T>,
-}
-
-impl<T> Clone for Leaf<T>
-where
-    T: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            hash: RwLock::new(*self.hash.read()),
-            value: self.value.clone(),
-        }
-    }
 }
 
 impl<T> Leaf<T> {
