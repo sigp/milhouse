@@ -1,0 +1,29 @@
+[package]
+name = "milhouse-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+typenum = "1.17.0"
+
+[dependencies.milhouse]
+path = ".."
+
+[[bin]]
+name = "builder"
+path = "fuzz_targets/builder.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "list"
+path = "fuzz_targets/list.rs"
+test = false
+doc = false
+bench = false
