@@ -32,9 +32,6 @@ pub use vector::Vector;
 
 use ssz::{Decode, Encode};
 use tree_hash::TreeHash;
-use typenum::{
-    assert_type_eq, generic_const_mappings::U, IsLessOrEqual, Unsigned, B1, U9223372036854775808,
-};
 
 /// Maximum depth for a tree.
 ///
@@ -42,16 +39,6 @@ use typenum::{
 pub const MAX_TREE_DEPTH: usize = u64::BITS as usize - 1;
 
 pub const MAX_TREE_LENGTH: usize = 1 << MAX_TREE_DEPTH;
-
-/// Maximum length of lists and vectors.
-pub type MaxTreeLength = U9223372036854775808;
-
-// Consistency check on `MAX_TREE_LENGTH` and `MaxTreeLength`.
-assert_type_eq!(MaxTreeLength, U<MAX_TREE_LENGTH>);
-
-/// Trait to assert the bounds on list and vector lengths
-pub trait ValidN: Unsigned + IsLessOrEqual<MaxTreeLength, Output = B1> {}
-impl<N: Unsigned + IsLessOrEqual<MaxTreeLength, Output = B1>> ValidN for N {}
 
 #[cfg(feature = "debug")]
 pub trait Value: Encode + Decode + TreeHash + PartialEq + Clone + std::fmt::Debug {}
