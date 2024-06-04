@@ -1,5 +1,5 @@
 use super::{arb_hash256, arb_index, arb_large, arb_list, arb_vect, Large};
-use crate::{Error, List, Value, Vector};
+use crate::{Error, List, ValidN, Value, Vector};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
@@ -11,13 +11,13 @@ const OP_LIMIT: usize = 128;
 
 /// Simple specification for `List` and `Vector` behaviour.
 #[derive(Debug, Clone)]
-pub struct Spec<T, N: Unsigned> {
+pub struct Spec<T, N: ValidN> {
     values: Vec<T>,
     allow_push: bool,
     _phantom: PhantomData<N>,
 }
 
-impl<T: Value, N: Unsigned> Spec<T, N> {
+impl<T: Value, N: ValidN> Spec<T, N> {
     pub fn list(values: Vec<T>) -> Self {
         assert!(values.len() <= N::to_usize());
         Self {
@@ -173,7 +173,7 @@ where
 fn apply_ops_list<T, N>(list: &mut List<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
     T: Value + Debug + Send + Sync,
-    N: Unsigned + Debug,
+    N: ValidN + Debug,
 {
     let mut checkpoint = list.clone();
 
@@ -259,7 +259,7 @@ where
 fn apply_ops_vect<T, N>(vect: &mut Vector<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
     T: Value + Debug + Send + Sync,
-    N: Unsigned + Debug,
+    N: ValidN + Debug,
 {
     let mut checkpoint = vect.clone();
 

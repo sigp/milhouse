@@ -5,7 +5,7 @@ use crate::level_iter::LevelIter;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, Length};
-use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
+use crate::{Arc, Cow, Error, List, Tree, UpdateMap, ValidN, Value};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -14,25 +14,24 @@ use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding};
-use typenum::Unsigned;
 use vec_map::VecMap;
 
 #[derive(Debug, Derivative, Clone, Serialize, Deserialize, Arbitrary)]
-#[derivative(PartialEq(bound = "T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq"))]
+#[derivative(PartialEq(bound = "T: Value, N: ValidN, U: UpdateMap<T> + PartialEq"))]
 #[serde(try_from = "List<T, N, U>")]
 #[serde(into = "List<T, N, U>")]
-#[serde(bound(serialize = "T: Value + Serialize, N: Unsigned, U: UpdateMap<T>"))]
-#[serde(bound(deserialize = "T: Value + Deserialize<'de>, N: Unsigned, U: UpdateMap<T>"))]
+#[serde(bound(serialize = "T: Value + Serialize, N: ValidN, U: UpdateMap<T>"))]
+#[serde(bound(deserialize = "T: Value + Deserialize<'de>, N: ValidN, U: UpdateMap<T>"))]
 #[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value")]
-#[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T>")]
-pub struct Vector<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
+#[arbitrary(bound = "N: ValidN, U: Arbitrary<'arbitrary> + UpdateMap<T>")]
+pub struct Vector<T: Value, N: ValidN, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, VectorInner<T, N>, U>,
 }
 
 #[derive(Debug, Derivative, Clone, Arbitrary)]
-#[derivative(PartialEq(bound = "T: Value, N: Unsigned"))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
-pub struct VectorInner<T: Value, N: Unsigned> {
+#[derivative(PartialEq(bound = "T: Value, N: ValidN"))]
+#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: ValidN")]
+pub struct VectorInner<T: Value, N: ValidN> {
     #[arbitrary(with = arb_arc)]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) depth: usize,
@@ -41,7 +40,7 @@ pub struct VectorInner<T: Value, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
-impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
+impl<T: Value, N: ValidN, U: UpdateMap<T>> Vector<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         if vec.len() == N::to_usize() {
             Self::try_from(List::new(vec)?)
@@ -109,7 +108,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 }
 
-impl<T: Value, N: Unsigned, U: UpdateMap<T>> TryFrom<List<T, N, U>> for Vector<T, N, U> {
+impl<T: Value, N: ValidN, U: UpdateMap<T>> TryFrom<List<T, N, U>> for Vector<T, N, U> {
     type Error = Error;
 
     fn try_from(list: List<T, N, U>) -> Result<Self, Error> {
@@ -137,7 +136,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> TryFrom<List<T, N, U>> for Vector<T
     }
 }
 
-impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
+impl<T: Value, N: ValidN, U: UpdateMap<T>> Vector<T, N, U> {
     pub fn rebase(&self, base: &Self) -> Result<Self, Error> {
         let mut rebased = self.clone();
         rebased.rebase_on(base)?;
@@ -163,7 +162,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 }
 
-impl<T: Value, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N, U> {
+impl<T: Value, N: ValidN, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N, U> {
     fn from(vector: Vector<T, N, U>) -> Self {
         let mut list = List::from_parts(
             vector.interface.backing.tree,
@@ -175,7 +174,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N
     }
 }
 
-impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
+impl<T: Value, N: ValidN> ImmList<T> for VectorInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
         if index < self.len().as_usize() {
             self.tree
@@ -201,7 +200,7 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
 impl<T, N> MutList<T> for VectorInner<T, N>
 where
     T: Value,
-    N: Unsigned,
+    N: ValidN,
 {
     fn validate_push(_current_len: usize) -> Result<(), Error> {
         Err(Error::PushNotSupported)
@@ -238,7 +237,7 @@ where
     }
 }
 
-impl<T: Default + Value, N: Unsigned> Default for Vector<T, N> {
+impl<T: Default + Value, N: ValidN> Default for Vector<T, N> {
     fn default() -> Self {
         Self::from_elem(T::default()).unwrap_or_else(|e| {
             panic!(
@@ -250,7 +249,7 @@ impl<T: Default + Value, N: Unsigned> Default for Vector<T, N> {
     }
 }
 
-impl<T: Value + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
+impl<T: Value + Send + Sync, N: ValidN> tree_hash::TreeHash for Vector<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::Vector
     }
@@ -273,7 +272,7 @@ impl<T: Value + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
 impl<T, N> TryFromIter<T> for Vector<T, N>
 where
     T: Value,
-    N: Unsigned,
+    N: ValidN,
 {
     type Error = Error;
 
@@ -285,7 +284,7 @@ where
     }
 }
 
-impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a Vector<T, N, U> {
+impl<'a, T: Value, N: ValidN, U: UpdateMap<T>> IntoIterator for &'a Vector<T, N, U> {
     type Item = &'a T;
     type IntoIter = InterfaceIter<'a, T, U>;
 
@@ -295,7 +294,7 @@ impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a Vector<T, 
 }
 
 // FIXME: duplicated from `ssz::encode::impl_for_vec`
-impl<T: Value, N: Unsigned> Encode for Vector<T, N> {
+impl<T: Value, N: ValidN> Encode for Vector<T, N> {
     fn is_ssz_fixed_len() -> bool {
         <T as Encode>::is_ssz_fixed_len()
     }
@@ -337,7 +336,7 @@ impl<T: Value, N: Unsigned> Encode for Vector<T, N> {
     }
 }
 
-impl<T: Value, N: Unsigned> Decode for Vector<T, N> {
+impl<T: Value, N: ValidN> Decode for Vector<T, N> {
     fn is_ssz_fixed_len() -> bool {
         <T as Decode>::is_ssz_fixed_len()
     }

@@ -21,7 +21,7 @@ rayon = "1.5.1"
 serde = { version = "1.0.0", features = ["derive"] }
 tree_hash = "0.6.0"
 triomphe = "0.1.5"
-typenum = "1.14.0"
+typenum = { version = "1.17.0", features = ["const-generics"] }
 vec_map = "0.8.2"
 smallvec = "1.8.0"
 arbitrary = { version = "1.2.3", features = ["derive"] }

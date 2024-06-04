@@ -1,14 +1,13 @@
 use crate::utils::{opt_packing_factor, Length};
-use crate::{Arc, Error, Leaf, List, PackedLeaf, Tree, UpdateMap, Value};
+use crate::{Arc, Error, Leaf, List, PackedLeaf, Tree, UpdateMap, ValidN, Value};
 use smallvec::{smallvec, SmallVec};
 use tree_hash::Hash256;
-use typenum::Unsigned;
 
 /// Efficiently construct a list from `n` copies of `elem`.
 pub fn repeat_list<T, N, U>(elem: T, n: usize) -> Result<List<T, N, U>, Error>
 where
     T: Value,
-    N: Unsigned,
+    N: ValidN,
     U: UpdateMap<T>,
 {
     if n == 0 {
