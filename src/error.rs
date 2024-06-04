@@ -27,6 +27,7 @@ pub enum Error {
     BuilderStackEmptyFinishRight,
     BuilderStackEmptyFinalize,
     BuilderStackLeftover,
+    BuilderFull,
     BulkUpdateUnclean,
     CowMissingEntry,
     LevelIterPendingUpdates,

@@ -4,13 +4,17 @@ use crate::{Arc, Error, PackedLeaf, Tree, Value, MAX_TREE_DEPTH};
 #[derive(Debug)]
 pub struct Builder<T: Value> {
     stack: Vec<MaybeArced<Tree<T>>>,
+    /// The depth of the tree excluding the packing depth.
     depth: usize,
+    /// The level (depth) in the tree at which nodes
     level: usize,
     length: Length,
     /// Cached value of `opt_packing_factor`.
     packing_factor: Option<usize>,
     /// Cached value of `opt_packing_depth`.
     packing_depth: usize,
+    /// Cached value of capacity: 2^(depth + packing_depth).
+    capacity: usize,
 }
 
 impl<T: Value> Builder<T> {
@@ -19,6 +23,7 @@ impl<T: Value> Builder<T> {
         if depth.saturating_add(packing_depth) > MAX_TREE_DEPTH {
             Err(Error::BuilderInvalidDepth { depth })
         } else {
+            let capacity = 1 << depth + packing_depth;
             Ok(Self {
                 stack: Vec::with_capacity(depth),
                 depth,
@@ -26,11 +31,15 @@ impl<T: Value> Builder<T> {
                 length: Length(0),
                 packing_factor: opt_packing_factor::<T>(),
                 packing_depth,
+                capacity,
             })
         }
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
+        if self.length.as_usize() == self.capacity {
+            return Err(Error::BuilderFull);
+        }
         let index = self.length.as_usize();
         let next_index = index + 1;
 
@@ -65,6 +74,10 @@ impl<T: Value> Builder<T> {
     }
 
     pub fn push_node(&mut self, node: Arc<Tree<T>>, len: usize) -> Result<(), Error> {
+        if self.length.as_usize() == self.capacity {
+            return Err(Error::BuilderFull);
+        }
+
         let index_on_level = self.length.as_usize() >> self.level;
         let next_index_on_level = index_on_level + 1;
 
@@ -99,7 +112,6 @@ impl<T: Value> Builder<T> {
             return Ok((Tree::zero(self.depth), self.depth, Length(0)));
         }
 
-        let capacity = 2usize.pow((self.depth + self.packing_depth) as u32);
         let length = self.length.as_usize();
         let level_capacity = 1 << self.level;
         let mut next_index_on_level = (length + level_capacity - 1) / level_capacity;
@@ -129,7 +141,7 @@ impl<T: Value> Builder<T> {
             }
         }
 
-        while next_index_on_level << self.level != capacity {
+        while next_index_on_level << self.level != self.capacity {
             // Push a new zero padding node on the right of the top-most stack element.
             let depth = (next_index_on_level.trailing_zeros() as usize)
                 .saturating_add(self.level)
