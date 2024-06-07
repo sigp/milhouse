@@ -73,12 +73,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         Self::try_from_iter(std::iter::repeat(elem).take(n))
     }
 
-    pub fn builder() -> Builder<T> {
+    pub fn builder() -> Result<Builder<T>, Error> {
         Builder::new(Self::depth(), 0)
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let mut builder = Self::builder();
+        let mut builder = Self::builder()?;
 
         for item in iter.into_iter() {
             builder.push(item)?;
@@ -204,7 +204,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         let depth = Self::depth();
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         let level = compute_level(n, depth, packing_depth);
-        let mut builder = Builder::new(Self::depth(), level);
+        let mut builder = Builder::new(Self::depth(), level)?;
         let mut level_iter = self.level_iter_from(n)?.peekable();
 
         while let Some(item) = level_iter.next() {
