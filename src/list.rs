@@ -86,6 +86,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
         let (tree, depth, length) = builder.finish()?;
 
+        // Check the length to cover the case where the capacity implied by packing_depth is
+        // greater than N. E.g. the builder might pack up to 32 u8s, even if N is < 32.
+        if length.as_usize() > N::to_usize() {
+            return Err(Error::BuilderFull);
+        }
+
         Ok(Self::from_parts(tree, depth, length))
     }
 
