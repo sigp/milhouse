@@ -23,7 +23,7 @@ impl<T: Value> Builder<T> {
         if depth.saturating_add(packing_depth) > MAX_TREE_DEPTH {
             Err(Error::BuilderInvalidDepth { depth })
         } else {
-            let capacity = 1 << depth + packing_depth;
+            let capacity = 1 << (depth + packing_depth);
             Ok(Self {
                 stack: Vec::with_capacity(depth),
                 depth,
