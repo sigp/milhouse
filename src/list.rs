@@ -6,15 +6,20 @@ use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
-use crate::utils::{arb_arc, compute_level, int_log, opt_packing_depth, updated_length, Length};
-use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
+use crate::utils::{
+    arb_arc, arb_arc_swap, compute_level, int_log, opt_packing_depth, partial_eq_arc_swap,
+    updated_length, Length,
+};
+use crate::{Arc, Cow, Error, Tree, UpdateMap, Value, ValueRef};
 use arbitrary::Arbitrary;
+use arc_swap::ArcSwap;
 use derivative::Derivative;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
+use std::sync::Arc as StdArc;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
@@ -27,17 +32,30 @@ pub struct List<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
-#[derive(Debug, Clone, Derivative, Arbitrary)]
+#[derive(Debug, Derivative, Arbitrary)]
 #[derivative(PartialEq(bound = "T: Value, N: Unsigned"))]
 #[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
 pub struct ListInner<T: Value, N: Unsigned> {
-    #[arbitrary(with = arb_arc)]
-    pub(crate) tree: Arc<Tree<T>>,
+    #[derivative(PartialEq(compare_with = "partial_eq_arc_swap"))]
+    #[arbitrary(with = arb_arc_swap)]
+    pub(crate) tree: ArcSwap<Tree<T>>,
     pub(crate) length: Length,
     pub(crate) depth: usize,
     pub(crate) packing_depth: usize,
     #[arbitrary(default)]
     _phantom: PhantomData<N>,
+}
+
+impl<T: Value, N: Unsigned> Clone for ListInner<T, N> {
+    fn clone(&self) -> Self {
+        Self {
+            tree: ArcSwap::new(self.tree.load_full()),
+            length: self.length,
+            depth: self.depth,
+            packing_depth: self.packing_depth,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
@@ -49,7 +67,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         Self {
             interface: Interface::new(ListInner {
-                tree,
+                tree: ArcSwap::new(tree),
                 length,
                 depth,
                 packing_depth,
@@ -113,11 +131,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T, U> {
+    pub fn iter(&self) -> InterfaceIter<T> {
         self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T, U>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T>, Error> {
         // Return an empty iterator at index == length, just like slicing.
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
@@ -145,7 +163,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<ValueRef<T>> {
         self.interface.get(index)
     }
 
@@ -177,6 +195,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.interface.apply_updates()
     }
 
+    pub fn apply_updates_immutable(&mut self) -> Result<(), Error> {
+        self.interface.apply_updates()
+    }
+
     pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
         self.interface.bulk_update(updates)
     }
@@ -193,7 +215,8 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     ///
     /// Errors if `n > self.len()`.
     pub fn pop_front_slow(&mut self, n: usize) -> Result<(), Error> {
-        *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
+        let updated = Self::try_from_iter(self.iter_from(n)?.cloned())?;
+        *self = updated;
         Ok(())
     }
 
@@ -240,9 +263,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
 impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn get(&self, index: usize) -> Option<&T> {
+        // FIXME(sproul): this is fucked unfortunately
         if index < self.len().as_usize() {
-            self.tree
-                .get_recursive(index, self.depth, self.packing_depth)
+            ArcSwap::map(&self.tree, |tree: &Arc<Tree<T>>| {
+                tree.get_recursive(index, self.depth, self.packing_depth)
+            })
         } else {
             None
         }
@@ -253,11 +278,11 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
     }
 
     fn iter_from(&self, index: usize) -> Iter<T> {
-        Iter::from_index(index, &self.tree, self.depth, self.length)
+        Iter::from_index(index, &self.tree.load_full(), self.depth, self.length)
     }
 
     fn level_iter_from(&self, index: usize) -> LevelIter<T> {
-        LevelIter::from_index(index, &self.tree, self.depth, self.length)
+        LevelIter::from_index(index, &self.tree.load_full(), self.depth, self.length)
     }
 }
 
@@ -282,7 +307,11 @@ where
             });
         }
 
-        self.tree = self.tree.with_updated_leaf(index, value, self.depth)?;
+        let new_tree = self
+            .tree
+            .load()
+            .with_updated_leaf(index, value, self.depth)?;
+        self.tree.store(new_tree);
         if index == self.length.as_usize() {
             *self.length.as_mut() += 1;
         }
@@ -290,7 +319,7 @@ where
     }
 
     fn update<U: UpdateMap<T>>(
-        &mut self,
+        &self,
         updates: U,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error> {
@@ -303,9 +332,11 @@ where
             return Ok(());
         }
         self.length = updated_length(self.length, &updates);
-        self.tree =
+        let updated =
             self.tree
+                .load()
                 .with_updated_leaves(&updates, 0, self.depth, hash_updates.as_ref())?;
+        self.tree.store(updated);
         Ok(())
     }
 }
@@ -319,16 +350,16 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
     pub fn rebase_on(&mut self, base: &Self) -> Result<(), Error> {
         match Tree::rebase_on(
-            &self.interface.backing.tree,
-            &base.interface.backing.tree,
+            &self.interface.backing.tree.load_full(),
+            &base.interface.backing.tree.load_full(),
             Some((self.interface.backing.length, base.interface.backing.length)),
             self.interface.backing.depth + self.interface.backing.packing_depth,
         )? {
             RebaseAction::EqualReplace(replacement) => {
-                self.interface.backing.tree = replacement.clone();
+                self.interface.backing.tree.store(replacement.clone());
             }
             RebaseAction::NotEqualReplace(replacement) => {
-                self.interface.backing.tree = replacement;
+                self.interface.backing.tree.store(replacement);
             }
             _ => (),
         }
@@ -356,17 +387,16 @@ impl<T: Value + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        // FIXME(sproul): remove assert
-        assert!(!self.interface.has_pending_updates());
-
-        let root = self.interface.backing.tree.tree_hash();
+        self.apply_updates_immutable()
+            .expect("updates should apply");
+        let root = self.interface.backing.tree.load().tree_hash();
         tree_hash::mix_in_length(&root, self.len())
     }
 }
 
 impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a List<T, N, U> {
     type Item = &'a T;
-    type IntoIter = InterfaceIter<'a, T, U>;
+    type IntoIter = InterfaceIter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

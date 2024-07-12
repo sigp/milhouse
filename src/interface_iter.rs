@@ -1,15 +1,17 @@
 use crate::iter::Iter;
 use crate::{Cow, UpdateMap, Value};
+use parking_lot::RwLockWriteGuard;
 
 #[derive(Debug)]
-pub struct InterfaceIter<'a, T: Value, U: UpdateMap<T>> {
+pub struct InterfaceIter<'a, T: Value> {
     pub(crate) tree_iter: Iter<'a, T>,
-    pub(crate) updates: &'a U,
+    // FIXME(sproul): remove write guard and flush updates prior to iteration?
+    // pub(crate) updates: RwLockWriteGuard<'a, U>,
     pub(crate) index: usize,
     pub(crate) length: usize,
 }
 
-impl<'a, T: Value, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
+impl<'a, T: Value> Iterator for InterfaceIter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
@@ -20,7 +22,8 @@ impl<'a, T: Value, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
         let backing_value = self.tree_iter.next();
 
         // Prioritise the value from the update map.
-        self.updates.get(index).or(backing_value)
+        // self.updates.get_mut().get(index).or(backing_value)
+        backing_value
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -29,7 +32,7 @@ impl<'a, T: Value, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
     }
 }
 
-impl<'a, T: Value, U: UpdateMap<T>> ExactSizeIterator for InterfaceIter<'a, T, U> {}
+impl<'a, T: Value> ExactSizeIterator for InterfaceIter<'a, T> {}
 
 #[derive(Debug)]
 pub struct InterfaceIterCow<'a, T: Value, U: UpdateMap<T>> {

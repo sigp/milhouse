@@ -13,7 +13,7 @@ fn u64_packed_list_build_and_iter() {
         assert_eq!(vec, from_iter);
 
         for i in 0..len as usize {
-            assert_eq!(list.get(i), vec.get(i));
+            assert_eq!(list.get(i).as_deref(), vec.get(i));
         }
     }
 }
@@ -40,7 +40,7 @@ fn u64_packed_vector_build_and_iter() {
     assert_eq!(vec, from_iter);
 
     for i in 0..len as usize {
-        assert_eq!(vector.get(i), vec.get(i));
+        assert_eq!(vector.get(i).as_deref(), vec.get(i));
     }
 }
 
@@ -74,11 +74,11 @@ fn out_of_order_mutations() {
     for (i, v) in mutations {
         *list.get_mut(i).unwrap() = v;
         vec[i] = v;
-        assert_eq!(list.get(i), Some(&v));
+        assert_eq!(list.get(i).as_deref(), Some(&v));
 
         list.apply_updates().unwrap();
 
-        assert_eq!(list.get(i), Some(&v));
+        assert_eq!(list.get(i).as_deref(), Some(&v));
     }
 
     assert_eq!(list.to_vec(), vec);

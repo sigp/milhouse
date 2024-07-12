@@ -183,7 +183,7 @@ where
                 assert_eq!(list.len(), spec.len())
             }
             Op::Get(index) => {
-                assert_eq!(list.get(index), spec.get(index));
+                assert_eq!(list.get(index).as_deref(), spec.get(index));
             }
             Op::Set(index, value) => {
                 let res = list.get_mut(index).map(|elem| *elem = value.clone());
@@ -269,7 +269,7 @@ where
                 assert_eq!(vect.len(), spec.len())
             }
             Op::Get(index) => {
-                assert_eq!(vect.get(index), spec.get(index));
+                assert_eq!(vect.get(index).as_deref(), spec.get(index));
             }
             Op::Set(index, value) => {
                 let res = vect.get_mut(index).map(|elem| *elem = value.clone());

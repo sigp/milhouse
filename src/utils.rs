@@ -1,5 +1,6 @@
 use crate::{Arc, UpdateMap};
 use arbitrary::Arbitrary;
+use arc_swap::ArcSwap;
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash, TreeHashType};
@@ -108,6 +109,26 @@ pub fn arb_rwlock<'a, T: Arbitrary<'a>>(
     u: &mut arbitrary::Unstructured<'a>,
 ) -> arbitrary::Result<RwLock<T>> {
     T::arbitrary(u).map(RwLock::new)
+}
+
+pub fn arb_arc_rwlock<'a, T: Arbitrary<'a>>(
+    u: &mut arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<std::sync::Arc<RwLock<T>>> {
+    T::arbitrary(u).map(RwLock::new).map(std::sync::Arc::new)
+}
+
+pub fn arb_arc_swap<'a, T: Arbitrary<'a>>(
+    u: &mut arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<ArcSwap<T>> {
+    T::arbitrary(u).map(std::sync::Arc::new).map(ArcSwap::new)
+}
+
+pub fn partial_eq_rwlock<'a, T: PartialEq>(x: &RwLock<T>, y: &RwLock<T>) -> bool {
+    *x.read() == *y.read()
+}
+
+pub fn partial_eq_arc_swap<'a, T: PartialEq>(x: &ArcSwap<T>, y: &ArcSwap<T>) -> bool {
+    *x.load() == *y.load()
 }
 
 #[cfg(test)]

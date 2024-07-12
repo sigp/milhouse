@@ -17,6 +17,7 @@ mod tests;
 pub mod tree;
 pub mod update_map;
 pub mod utils;
+pub mod value_ref;
 pub mod vector;
 
 pub use cow::Cow;
@@ -26,8 +27,10 @@ pub use leaf::Leaf;
 pub use list::List;
 pub use packed_leaf::PackedLeaf;
 pub use tree::Tree;
-pub use triomphe::Arc;
+// pub use triomphe::Arc;
+pub use std::sync::Arc; // FIXME(sproul)
 pub use update_map::UpdateMap;
+pub use value_ref::ValueRef;
 pub use vector::Vector;
 
 use ssz::{Decode, Encode};

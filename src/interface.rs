@@ -1,12 +1,14 @@
 use crate::level_iter::LevelIter;
 use crate::update_map::UpdateMap;
-use crate::utils::{updated_length, Length};
+use crate::utils::{arb_rwlock, partial_eq_rwlock, updated_length, Length};
 use crate::{
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
-    Cow, Error, Value,
+    Cow, Error, Value, ValueRef,
 };
 use arbitrary::Arbitrary;
+use derivative::Derivative;
+use parking_lot::{RwLock, RwLockReadGuard};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::Hash256;
@@ -29,13 +31,14 @@ pub trait MutList<T: Value>: ImmList<T> {
     fn validate_push(current_len: usize) -> Result<(), Error>;
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
     fn update<U: UpdateMap<T>>(
-        &mut self,
+        &self,
         updates: U,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error>;
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary)]
+#[derive(Debug, Derivative, Arbitrary)]
+#[derivative(PartialEq)]
 pub struct Interface<T, B, U>
 where
     T: Value,
@@ -43,8 +46,25 @@ where
     U: UpdateMap<T>,
 {
     pub(crate) backing: B,
-    pub(crate) updates: U,
+    #[derivative(PartialEq(compare_with = "partial_eq_rwlock"))]
+    #[arbitrary(with = arb_rwlock)]
+    pub(crate) updates: RwLock<U>,
     pub(crate) _phantom: PhantomData<T>,
+}
+
+impl<T, B, U> Clone for Interface<T, B, U>
+where
+    T: Value,
+    B: MutList<T> + Clone,
+    U: UpdateMap<T>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            backing: self.backing.clone(),
+            updates: RwLock::new(self.updates.read().clone()),
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<T, B, U> Interface<T, B, U>
@@ -56,54 +76,60 @@ where
     pub fn new(backing: B) -> Self {
         Self {
             backing,
-            updates: U::default(),
+            updates: RwLock::new(U::default()),
             _phantom: PhantomData,
         }
     }
 
-    pub fn get(&self, idx: usize) -> Option<&T> {
-        self.updates.get(idx).or_else(|| self.backing.get(idx))
+    pub fn get(&self, idx: usize) -> Option<ValueRef<'_, T>> {
+        RwLockReadGuard::try_map(self.updates.read(), |updates| updates.get(idx))
+            .ok()
+            .map(ValueRef::Pending)
+            .or_else(|| self.backing.get(idx).map(ValueRef::Applied))
     }
 
     pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
         self.updates
+            .get_mut()
             .get_mut_with(idx, |idx| self.backing.get(idx).cloned())
     }
 
     pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
         self.updates
+            .get_mut()
             .get_cow_with(index, |idx| self.backing.get(idx))
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
         let index = self.len();
         B::validate_push(index)?;
-        self.updates.insert(index, value);
+        self.updates.get_mut().insert(index, value);
 
         Ok(())
     }
 
-    pub fn apply_updates(&mut self) -> Result<(), Error> {
-        if !self.updates.is_empty() {
-            let updates = std::mem::take(&mut self.updates);
-            self.backing.update(updates, None)
+    pub fn apply_updates(&self) -> Result<(), Error> {
+        let mut updates = self.updates.write();
+        if !updates.is_empty() {
+            self.backing.update(std::mem::take(&mut *updates), None)?;
+            drop(updates);
+            Ok(())
         } else {
             Ok(())
         }
     }
 
     pub fn has_pending_updates(&self) -> bool {
-        !self.updates.is_empty()
+        !self.updates.read().is_empty()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T, U> {
+    pub fn iter(&self) -> InterfaceIter<T> {
         self.iter_from(0)
     }
 
-    pub fn iter_from(&self, index: usize) -> InterfaceIter<T, U> {
+    pub fn iter_from(&self, index: usize) -> InterfaceIter<T> {
         InterfaceIter {
             tree_iter: self.backing.iter_from(index),
-            updates: &self.updates,
             index,
             length: self.len(),
         }
@@ -113,7 +139,7 @@ where
         let index = 0;
         InterfaceIterCow {
             tree_iter: self.backing.iter_from(index),
-            updates: &mut self.updates,
+            updates: self.updates.get_mut(),
             index,
         }
     }
@@ -127,7 +153,7 @@ where
     }
 
     pub fn len(&self) -> usize {
-        updated_length(self.backing.len(), &self.updates).as_usize()
+        updated_length(self.backing.len(), &*self.updates.read()).as_usize()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -135,10 +161,11 @@ where
     }
 
     pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
-        if !self.updates.is_empty() {
+        let self_updates = self.updates.get_mut();
+        if !self_updates.is_empty() {
             return Err(Error::BulkUpdateUnclean);
         }
-        self.updates = updates;
+        *self_updates = updates;
         Ok(())
     }
 }
