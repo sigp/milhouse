@@ -12,7 +12,7 @@ categories = ["data-structures", "cryptography::cryptocurrencies", ]
 
 [dependencies]
 derivative = "2.2.0"
-ethereum_hashing = "0.6.0"
+ethereum_hashing = "0.7.0"
 ethereum_ssz = "0.5.0"
 ethereum_ssz_derive = "0.5.0"
 itertools = "0.10.3"
