@@ -429,7 +429,7 @@ impl<T: Value + Send + Sync> Tree<T> {
                 }
             }
             Self::PackedLeaf(leaf) => leaf.tree_hash(),
-            Self::Zero(depth) => Hash256::from_slice(&ZERO_HASHES[*depth]),
+            Self::Zero(depth) => Hash256::from(ZERO_HASHES[*depth]),
             Self::Node { hash, left, right } => {
                 let read_lock = hash.read();
                 let existing_hash = *read_lock;
