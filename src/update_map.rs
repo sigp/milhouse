@@ -160,7 +160,6 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
     }
 
     fn max_index(&self) -> Option<usize> {
-        // FIXME(sproul): this is slow, make a wrapper type that tracks the max index
         self.keys().next_back()
     }
 
