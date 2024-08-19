@@ -250,7 +250,7 @@ impl<T: Default + Value, N: Unsigned> Default for Vector<T, N> {
     }
 }
 
-impl<T: Value + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
+impl<T: Value + Send + Sync + 'static, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::Vector
     }

@@ -1,6 +1,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use milhouse::{List, Vector};
 use ssz_types::VariableList;
+use tokio::runtime::Builder;
 use tree_hash::TreeHash;
 
 type C = typenum::U1099511627776;
@@ -17,6 +18,23 @@ pub fn tree_hash_root(c: &mut Criterion) {
             b.iter(|| {
                 let l1 = List::<u64, C>::try_from_iter(0..size).unwrap();
                 l1.tree_hash_root()
+            });
+        },
+    );
+
+    // Tweaking the intervals doesn't really make much difference (a few percent).
+    let rt = Builder::new_multi_thread()
+        .global_queue_interval(1_000_000)
+        .event_interval(1_000_000)
+        .build()
+        .unwrap();
+    c.bench_with_input(
+        BenchmarkId::new("async_tree_hash_root_list", size),
+        &(&rt, size),
+        |b, &(rt, size)| {
+            b.iter(|| {
+                let l1 = List::<u64, C>::try_from_iter(0..size).unwrap();
+                rt.block_on(l1.async_tree_hash_root())
             });
         },
     );

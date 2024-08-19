@@ -1,11 +1,12 @@
 use crate::utils::{arb_arc, arb_rwlock, opt_hash, opt_packing_depth, opt_packing_factor, Length};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use arbitrary::Arbitrary;
+use async_recursion::async_recursion;
 use derivative::Derivative;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
-use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::ops::ControlFlow;
+use tokio::{runtime::Handle, sync::RwLock};
 use tree_hash::Hash256;
 
 #[derive(Debug, Derivative, Arbitrary)]
@@ -23,21 +24,6 @@ pub enum Tree<T: Value> {
         right: Arc<Self>,
     },
     Zero(usize),
-}
-
-impl<T: Value> Clone for Tree<T> {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Node { hash, left, right } => Self::Node {
-                hash: RwLock::new(*hash.read()),
-                left: left.clone(),
-                right: right.clone(),
-            },
-            Self::Leaf(leaf) => Self::Leaf(leaf.clone()),
-            Self::PackedLeaf(leaf) => Self::PackedLeaf(leaf.clone()),
-            Self::Zero(depth) => Self::Zero(*depth),
-        }
-    }
 }
 
 impl<T: Value> Tree<T> {
@@ -300,8 +286,8 @@ impl<T: Value> Tree<T> {
             ) if full_depth > 0 => {
                 use RebaseAction::*;
 
-                let orig_hash = *orig_hash_lock.read();
-                let base_hash = *base_hash_lock.read();
+                let orig_hash = *orig_hash_lock.blocking_read();
+                let base_hash = *base_hash_lock.blocking_read();
 
                 // If hashes *and* lengths are equal then we can short-cut the recursion
                 // and immediately replace `orig` by the `base` node. If `lengths` are `None`
@@ -404,12 +390,12 @@ impl<T: Value> Tree<T> {
     }
 }
 
-impl<T: Value + Send + Sync> Tree<T> {
+impl<T: Value + Send + Sync + 'static> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {
                 // FIXME(sproul): upgradeable RwLock?
-                let read_lock = hash.read();
+                let read_lock = hash.blocking_read();
                 let existing_hash = *read_lock;
                 drop(read_lock);
 
@@ -424,14 +410,14 @@ impl<T: Value + Send + Sync> Tree<T> {
                     existing_hash
                 } else {
                     let tree_hash = value.tree_hash_root();
-                    *hash.write() = tree_hash;
+                    *hash.blocking_write() = tree_hash;
                     tree_hash
                 }
             }
             Self::PackedLeaf(leaf) => leaf.tree_hash(),
             Self::Zero(depth) => Hash256::from(ZERO_HASHES[*depth]),
             Self::Node { hash, left, right } => {
-                let read_lock = hash.read();
+                let read_lock = hash.blocking_read();
                 let existing_hash = *read_lock;
                 drop(read_lock);
 
@@ -443,7 +429,91 @@ impl<T: Value + Send + Sync> Tree<T> {
                         rayon::join(|| left.tree_hash(), || right.tree_hash());
                     let tree_hash =
                         Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()));
-                    *hash.write() = tree_hash;
+                    *hash.blocking_write() = tree_hash;
+                    tree_hash
+                }
+            }
+        }
+    }
+
+    #[async_recursion]
+    pub async fn async_tree_hash(&self) -> Hash256 {
+        match self {
+            Self::Leaf(Leaf { hash, value }) => {
+                // FIXME(sproul): upgradeable RwLock?
+                let read_lock = hash.read().await;
+                let existing_hash = *read_lock;
+                drop(read_lock);
+
+                // NOTE: We re-compute the hash whenever it is non-zero. Computed hashes may
+                // legitimately be zero, but this only occurs at the leaf level when the value is
+                // entirely zeroes (e.g. [0u64, 0, 0, 0]). In order to avoid storing an
+                // `Option<Hash256>` we choose to re-compute the hash in this case. In practice
+                // this is unlikely to provide any performance penalty except at very small list
+                // lengths (<= 32), because a node higher in the tree will cache a non-zero hash
+                // preventing its children from being visited more than once.
+                if !existing_hash.is_zero() {
+                    existing_hash
+                } else {
+                    let tree_hash = value.tree_hash_root();
+                    *hash.write().await = tree_hash;
+                    tree_hash
+                }
+            }
+            Self::PackedLeaf(leaf) => leaf.async_tree_hash().await,
+            Self::Zero(depth) => Hash256::from_slice(&ZERO_HASHES[*depth]),
+            Self::Node { hash, left, right } => {
+                const MAX_QUEUE_DEPTH: usize = 4;
+
+                let read_lock = hash.read().await;
+                let existing_hash = *read_lock;
+                drop(read_lock);
+
+                if !existing_hash.is_zero() {
+                    existing_hash
+                } else {
+                    // Parallelism goes brrrr.
+                    let rt_metrics = Handle::current().metrics();
+                    let num_workers = rt_metrics.num_workers();
+                    let max_queue_depth = (0..num_workers)
+                        .map(|i| rt_metrics.worker_local_queue_depth(i))
+                        .max()
+                        .unwrap();
+
+                    let (left_res, right_res) = futures::future::join(
+                        async {
+                            if max_queue_depth >= MAX_QUEUE_DEPTH {
+                                // Runtime is busy, use the current thread.
+                                Ok(left.async_tree_hash().await)
+                            } else {
+                                // Runtime has some spare capacity, use new task.
+                                let left_clone = left.clone();
+                                tokio::task::spawn(
+                                    async move { left_clone.async_tree_hash().await },
+                                )
+                                .await
+                            }
+                        },
+                        async {
+                            if max_queue_depth >= MAX_QUEUE_DEPTH {
+                                // Runtime is busy, use the current thread.
+                                Ok(right.async_tree_hash().await)
+                            } else {
+                                // Runtime has some spare capacity, use new task.
+                                let right_clone = right.clone();
+                                tokio::task::spawn(
+                                    async move { right_clone.async_tree_hash().await },
+                                )
+                                .await
+                            }
+                        },
+                    )
+                    .await;
+                    let left_hash = left_res.unwrap();
+                    let right_hash = right_res.unwrap();
+                    let tree_hash =
+                        Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()));
+                    *hash.write().await = tree_hash;
                     tree_hash
                 }
             }

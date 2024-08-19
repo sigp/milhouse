@@ -342,7 +342,7 @@ impl<T: Value, N: Unsigned> Default for List<T, N> {
     }
 }
 
-impl<T: Value + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
+impl<T: Value + Send + Sync + 'static, N: Unsigned> TreeHash for List<T, N> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::List
     }
@@ -360,6 +360,16 @@ impl<T: Value + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
         assert!(!self.interface.has_pending_updates());
 
         let root = self.interface.backing.tree.tree_hash();
+        tree_hash::mix_in_length(&root, self.len())
+    }
+}
+
+impl<T: Value + Send + Sync + 'static, N: Unsigned> List<T, N> {
+    pub async fn async_tree_hash_root(&self) -> Hash256 {
+        // FIXME(sproul): remove assert
+        assert!(!self.interface.has_pending_updates());
+
+        let root = self.interface.backing.tree.async_tree_hash().await;
         tree_hash::mix_in_length(&root, self.len())
     }
 }

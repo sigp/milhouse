@@ -1,8 +1,8 @@
 use crate::{utils::arb_rwlock, Error, UpdateMap};
 use arbitrary::Arbitrary;
 use derivative::Derivative;
-use parking_lot::RwLock;
 use std::ops::ControlFlow;
+use tokio::sync::RwLock;
 use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 
 #[derive(Debug, Derivative, Arbitrary)]
@@ -14,21 +14,9 @@ pub struct PackedLeaf<T: TreeHash + Clone> {
     pub(crate) values: Vec<T>,
 }
 
-impl<T> Clone for PackedLeaf<T>
-where
-    T: TreeHash + Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            hash: RwLock::new(*self.hash.read()),
-            values: self.values.clone(),
-        }
-    }
-}
-
 impl<T: TreeHash + Clone> PackedLeaf<T> {
     pub fn tree_hash(&self) -> Hash256 {
-        let read_lock = self.hash.read();
+        let read_lock = self.hash.blocking_read();
         let mut hash = *read_lock;
         drop(read_lock);
 
@@ -44,7 +32,28 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
                 .copy_from_slice(&value.tree_hash_packed_encoding());
         }
 
-        *self.hash.write() = hash;
+        *self.hash.blocking_write() = hash;
+        hash
+    }
+
+    pub async fn async_tree_hash(&self) -> Hash256 {
+        let read_lock = self.hash.read().await;
+        let mut hash = *read_lock;
+        drop(read_lock);
+
+        if !hash.is_zero() {
+            return hash;
+        }
+
+        let hash_bytes = hash.as_bytes_mut();
+
+        let value_len = BYTES_PER_CHUNK / T::tree_hash_packing_factor();
+        for (i, value) in self.values.iter().enumerate() {
+            hash_bytes[i * value_len..(i + 1) * value_len]
+                .copy_from_slice(&value.tree_hash_packed_encoding());
+        }
+
+        *self.hash.write().await = hash;
         hash
     }
 
