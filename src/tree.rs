@@ -67,7 +67,7 @@ impl<T: Value> Tree<T> {
 
     pub fn node_unboxed(left: Arc<Self>, right: Arc<Self>) -> Self {
         Self::Node {
-            hash: RwLock::new(Hash256::zero()),
+            hash: RwLock::new(Hash256::ZERO),
             left,
             right,
         }
@@ -124,14 +124,14 @@ impl<T: Value> Tree<T> {
                     Ok(Self::node(
                         left.with_updated_leaf(index, new_value, new_depth)?,
                         right.clone(),
-                        Hash256::zero(),
+                        Hash256::ZERO,
                     ))
                 } else {
                     // Index lies on the right, recurse right
                     Ok(Self::node(
                         left.clone(),
                         right.with_updated_leaf(index, new_value, new_depth)?,
-                        Hash256::zero(),
+                        Hash256::ZERO,
                     ))
                 }
             }
@@ -146,7 +146,7 @@ impl<T: Value> Tree<T> {
                     // Split zero node into a node with left and right, and recurse into
                     // the appropriate subtree
                     let new_zero = Self::zero(depth - 1);
-                    Self::node(new_zero.clone(), new_zero, Hash256::zero())
+                    Self::node(new_zero.clone(), new_zero, Hash256::ZERO)
                         .with_updated_leaf(index, new_value, depth)
                 }
             }
@@ -442,7 +442,7 @@ impl<T: Value + Send + Sync> Tree<T> {
                     let (left_hash, right_hash) =
                         rayon::join(|| left.tree_hash(), || right.tree_hash());
                     let tree_hash =
-                        Hash256::from(hash32_concat(left_hash.as_bytes(), right_hash.as_bytes()));
+                        Hash256::from(hash32_concat(left_hash.as_slice(), right_hash.as_slice()));
                     *hash.write() = tree_hash;
                     tree_hash
                 }
