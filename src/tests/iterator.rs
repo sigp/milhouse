@@ -6,7 +6,9 @@ use typenum::{Unsigned, U64};
 fn hash256_vec_iter() {
     type N = U64;
     let n = N::to_u64();
-    let vec = (0..n).map(|n| Hash256::from_slice(&n.to_le_bytes())).collect::<Vec<_>>();
+    let vec = (0..n)
+        .map(|n| Hash256::right_padding_from(&n.to_le_bytes()))
+        .collect::<Vec<_>>();
     let vector = Vector::<Hash256, N>::new(vec.clone()).unwrap();
 
     assert_eq!(vector.iter().cloned().collect::<Vec<_>>(), vec);
@@ -16,7 +18,9 @@ fn hash256_vec_iter() {
 fn hash256_list_iter() {
     type N = U64;
     let n = N::to_u64();
-    let vec = (0..n).map(|n| Hash256::from_slice(&n.to_le_bytes())).collect::<Vec<_>>();
+    let vec = (0..n)
+        .map(|n| Hash256::right_padding_from(&n.to_le_bytes()))
+        .collect::<Vec<_>>();
     let list = List::<Hash256, N>::new(vec.clone()).unwrap();
 
     assert_eq!(list.iter().cloned().collect::<Vec<_>>(), vec);
@@ -27,7 +31,7 @@ fn hash256_list_iter_from() {
     type N = U64;
     let n = N::to_usize();
     let vec = (0..n as u64)
-        .map(|n| Hash256::from_slice(&n.to_le_bytes()))
+        .map(|n| Hash256::right_padding_from(&n.to_le_bytes()))
         .collect::<Vec<_>>();
     let list = List::<Hash256, N>::new(vec.clone()).unwrap();
 
@@ -52,7 +56,7 @@ fn hash256_vector_iter_from() {
     type N = U64;
     let n = N::to_usize();
     let vec = (0..n as u64)
-        .map(|n| Hash256::from_slice(&n.to_le_bytes()))
+        .map(|n| Hash256::right_padding_from(&n.to_le_bytes()))
         .collect::<Vec<_>>();
     let vect = Vector::<Hash256, N>::new(vec.clone()).unwrap();
 
