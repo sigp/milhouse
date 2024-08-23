@@ -13,25 +13,25 @@ categories = ["data-structures", "cryptography::cryptocurrencies", ]
 [dependencies]
 derivative = "2.2.0"
 ethereum_hashing = "0.7.0"
-ethereum_ssz = "0.6.0"
-ethereum_ssz_derive = "0.6.0"
+ethereum_ssz = "0.7.0"
+ethereum_ssz_derive = "0.7.0"
 itertools = "0.13.0"
 parking_lot = "0.12.1"
 rayon = "1.5.1"
 serde = { version = "1.0.0", features = ["derive"] }
-tree_hash = "0.7.0"
+tree_hash = "0.8.0"
 triomphe = "0.1.5"
 typenum = "1.14.0"
 vec_map = "0.8.2"
 smallvec = "1.8.0"
 arbitrary = { version = "1.2.3", features = ["derive"] }
-alloy-primitives = { version = "0.7.7", features = ["arbitrary"] }
+alloy-primitives = { version = "0.8.0", features = ["arbitrary"] }
 
 
 [dev-dependencies]
-ssz_types = "0.7.0"
+ssz_types = "0.8.0"
 proptest = "1.0.0"
-tree_hash_derive = "0.7.0"
+tree_hash_derive = "0.8.0"
 criterion = "0.5"
 
 [features]
