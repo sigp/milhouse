@@ -1,11 +1,11 @@
-use crate::interface::{ImmList, Interface, MutList};
+use crate::interface::{GetResult, ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
 use crate::level_iter::LevelIter;
 use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc_swap, partial_eq_arc_swap, Length};
-use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value, ValueRef};
+use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use arc_swap::ArcSwap;
 use derivative::Derivative;
@@ -93,7 +93,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<ValueRef<T>> {
+    pub fn get(&self, index: usize) -> Option<GetResult<T>> {
         self.interface.get(index)
     }
 
@@ -193,7 +193,9 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N
 }
 
 impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
-    fn get(&self, index: usize) -> Option<&T> {
+    fn get(&self, index: usize) -> Option<GetResult<T>> {
+        None
+        /* FIXME(sproul)
         if index < self.len().as_usize() {
             self.tree
                 .load()
@@ -201,6 +203,7 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
         } else {
             None
         }
+        */
     }
 
     fn len(&self) -> Length {

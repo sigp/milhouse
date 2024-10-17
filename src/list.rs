@@ -1,5 +1,5 @@
 use crate::builder::Builder;
-use crate::interface::{ImmList, Interface, MutList};
+use crate::interface::{GetResult, ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::level_iter::{LevelIter, LevelNode};
@@ -261,13 +261,19 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 }
 
+use arc_swap::access::Access;
+
 impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
-    fn get(&self, index: usize) -> Option<&T> {
+    fn get(&self, index: usize) -> Option<GetResult<T>> {
         // FIXME(sproul): this is fucked unfortunately
         if index < self.len().as_usize() {
-            ArcSwap::map(&self.tree, |tree: &Arc<Tree<T>>| {
-                tree.get_recursive(index, self.depth, self.packing_depth)
-            })
+            Some(
+                &*ArcSwap::map(&self.tree, move |tree: &Arc<Tree<T>>| {
+                    tree.get_recursive(index, self.depth, self.packing_depth)
+                        .unwrap()
+                })
+                .load(),
+            )
         } else {
             None
         }

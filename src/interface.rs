@@ -1,20 +1,28 @@
 use crate::level_iter::LevelIter;
 use crate::update_map::UpdateMap;
-use crate::utils::{arb_rwlock, partial_eq_rwlock, updated_length, Length};
+use crate::utils::{arb_arc_swap, partial_eq_arc_swap, updated_length, Length};
 use crate::{
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
-    Cow, Error, Value, ValueRef,
+    Cow, Error, Tree, Value, ValueRef,
 };
 use arbitrary::Arbitrary;
+use arc_swap::ArcSwap;
 use derivative::Derivative;
-use parking_lot::{RwLock, RwLockReadGuard};
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use tree_hash::Hash256;
 
+pub type GetResult<'a, T> = arc_swap::access::MapGuard<
+    &'a ArcSwap<Arc<T>>,
+    (),
+    fn(&'a Arc<Tree<T>>, usize, usize, usize) -> &'a T,
+    &'a T,
+>;
+
 pub trait ImmList<T: Value> {
-    fn get(&self, idx: usize) -> Option<&T>;
+    fn get(&self, idx: usize) -> Option<GetResult<T>>;
 
     fn len(&self) -> Length;
 
@@ -46,9 +54,9 @@ where
     U: UpdateMap<T>,
 {
     pub(crate) backing: B,
-    #[derivative(PartialEq(compare_with = "partial_eq_rwlock"))]
-    #[arbitrary(with = arb_rwlock)]
-    pub(crate) updates: RwLock<U>,
+    #[derivative(PartialEq(compare_with = "partial_eq_arc_swap"))]
+    #[arbitrary(with = arb_arc_swap)]
+    pub(crate) updates: ArcSwap<Arc<U>>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -61,7 +69,7 @@ where
     fn clone(&self) -> Self {
         Self {
             backing: self.backing.clone(),
-            updates: RwLock::new(self.updates.read().clone()),
+            updates: ArcSwap::new(self.updates.load_full()),
             _phantom: PhantomData,
         }
     }
@@ -76,16 +84,21 @@ where
     pub fn new(backing: B) -> Self {
         Self {
             backing,
-            updates: RwLock::new(U::default()),
+            updates: ArcSwap::new(U::default()),
             _phantom: PhantomData,
         }
     }
 
-    pub fn get(&self, idx: usize) -> Option<ValueRef<'_, T>> {
+    pub fn get(&self, idx: usize) -> Option<GetResult<T>> {
+        panic!()
+
+        // let values_in_updates = ArcSwap::map(&self.updates, || )
+        /*
         RwLockReadGuard::try_map(self.updates.read(), |updates| updates.get(idx))
             .ok()
             .map(ValueRef::Pending)
             .or_else(|| self.backing.get(idx).map(ValueRef::Applied))
+        */
     }
 
     pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
