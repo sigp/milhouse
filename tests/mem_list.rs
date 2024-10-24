@@ -22,8 +22,8 @@ fn memory_tracker_accuracy() {
     let stats = mem_tracker.track_item(&*list);
     drop(mem_tracker);
 
-    // Calculate total size according to DHAT by subtracting allocations from the startup snapshot
-    // from the the current amount allocated.
+    // Calculate total size according to DHAT by subtracting the starting allocations from the
+    // current amount allocated.
     let post_stats = dhat::HeapStats::get();
     let dhat_total_size = post_stats.curr_bytes - pre_stats.curr_bytes;
 
