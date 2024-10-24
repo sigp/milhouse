@@ -18,6 +18,7 @@ pub trait MemorySize {
 pub struct MemoryTracker {
     // Map from pointer to size of subtree referenced by that pointer.
     subtree_sizes: HashMap<usize, usize>,
+    total_size: usize,
 }
 
 #[derive(Debug)]
@@ -55,11 +56,16 @@ impl MemoryTracker {
         }
 
         self.subtree_sizes.insert(ptr, total_size);
+        self.total_size += differential_size;
 
         ItemStats {
             total_size,
             differential_size,
         }
+    }
+
+    pub fn total_size(&self) -> usize {
+        self.total_size
     }
 }
 
