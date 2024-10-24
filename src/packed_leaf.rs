@@ -129,4 +129,8 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         self.values.push(value);
         Ok(())
     }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
 }

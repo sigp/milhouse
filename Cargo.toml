@@ -33,6 +33,7 @@ ssz_types = "0.8.0"
 proptest = "1.0.0"
 tree_hash_derive = "0.8.0"
 criterion = "0.5"
+dhat = "0.3.3"
 
 [features]
 debug = []
@@ -52,3 +53,6 @@ harness = false
 [[bench]]
 name = "pop_front"
 harness = false
+
+[profile.bench]
+debug = true
