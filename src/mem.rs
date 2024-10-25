@@ -82,7 +82,7 @@ impl<T: Value> MemorySize for Arc<Tree<T>> {
             // This is the T allocated behind the Arc in `Leaf::value`.
             Tree::Leaf(_) => std::mem::size_of::<T>(),
             // This is the Vec<T> allocated inside `PackedLeaf::values`.
-            Tree::PackedLeaf(packed) => packed.len() * std::mem::size_of::<T>(),
+            Tree::PackedLeaf(packed) => packed.values.capacity() * std::mem::size_of::<T>(),
             Tree::Node { .. } | Tree::Zero(..) => 0,
         };
         std::mem::size_of::<Self>() + std::mem::size_of::<Tree<T>>() + leaf_size
