@@ -3,14 +3,14 @@ use crate::{
     Arc,
 };
 use arbitrary::Arbitrary;
-use derivative::Derivative;
+use educe::Educe;
 use parking_lot::RwLock;
 use tree_hash::Hash256;
 
-#[derive(Debug, Derivative, Arbitrary)]
-#[derivative(PartialEq, Hash)]
+#[derive(Debug, Educe, Arbitrary)]
+#[educe(PartialEq, Hash)]
 pub struct Leaf<T> {
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    #[educe(PartialEq(ignore), Hash(ignore))]
     #[arbitrary(with = arb_rwlock)]
     pub hash: RwLock<Hash256>,
     #[arbitrary(with = arb_arc)]

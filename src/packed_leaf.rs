@@ -1,14 +1,14 @@
 use crate::{utils::arb_rwlock, Error, UpdateMap};
 use arbitrary::Arbitrary;
-use derivative::Derivative;
+use educe::Educe;
 use parking_lot::RwLock;
 use std::ops::ControlFlow;
 use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
 
-#[derive(Debug, Derivative, Arbitrary)]
-#[derivative(PartialEq, Hash)]
+#[derive(Debug, Educe, Arbitrary)]
+#[educe(PartialEq, Hash)]
 pub struct PackedLeaf<T: TreeHash + Clone> {
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    #[educe(PartialEq(ignore), Hash(ignore))]
     #[arbitrary(with = arb_rwlock)]
     pub hash: RwLock<Hash256>,
     pub(crate) values: Vec<T>,
