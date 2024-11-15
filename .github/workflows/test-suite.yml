@@ -14,7 +14,7 @@ jobs:
     name: cargo-fmt
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Get latest version of stable Rust
       run: rustup update stable
     - name: Check formatting with cargo fmt
@@ -25,7 +25,7 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Get latest version of stable Rust
       run: rustup update stable
     - name: Lint code for quality and style with Clippy
@@ -37,7 +37,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: test-${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Get latest version of stable Rust
       run: rustup update stable
     - name: Get latest version of nightly Rust
@@ -47,4 +47,5 @@ jobs:
     - name: Check all examples, binaries, etc
       run: cargo check --all-targets
     - name: Check fuzzer targets
+      if: matrix.os != 'windows-latest'
       run: cargo +nightly check --manifest-path fuzz/Cargo.toml --all-targets
