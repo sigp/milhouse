@@ -9,7 +9,7 @@ use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, compute_level, int_log, opt_packing_depth, updated_length, Length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
-use derivative::Derivative;
+use educe::Educe;
 use itertools::process_results;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
@@ -19,16 +19,16 @@ use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
 
-#[derive(Debug, Clone, Derivative, Arbitrary)]
-#[derivative(PartialEq(bound = "T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq"))]
+#[derive(Debug, Clone, Educe, Arbitrary)]
+#[educe(PartialEq(bound(T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq)))]
 #[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value")]
 #[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T> + PartialEq")]
 pub struct List<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
-#[derive(Debug, Clone, Derivative, Arbitrary)]
-#[derivative(PartialEq(bound = "T: Value, N: Unsigned"))]
+#[derive(Debug, Clone, Educe, Arbitrary)]
+#[educe(PartialEq(bound(T: Value, N: Unsigned)))]
 #[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
 pub struct ListInner<T: Value, N: Unsigned> {
     #[arbitrary(with = arb_arc)]

@@ -11,7 +11,7 @@ keywords = ["ethereum", "functional"]
 categories = ["data-structures", "cryptography::cryptocurrencies", ]
 
 [dependencies]
-derivative = "2.2.0"
+educe = "0.6.0"
 ethereum_hashing = "0.7.0"
 ethereum_ssz = "0.7.0"
 ethereum_ssz_derive = "0.7.0"
