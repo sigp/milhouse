@@ -7,7 +7,7 @@ use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, Length};
 use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
-use derivative::Derivative;
+use educe::Educe;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
 use std::collections::BTreeMap;
@@ -17,8 +17,8 @@ use tree_hash::{Hash256, PackedEncoding};
 use typenum::Unsigned;
 use vec_map::VecMap;
 
-#[derive(Debug, Derivative, Clone, Serialize, Deserialize, Arbitrary)]
-#[derivative(PartialEq(bound = "T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq"))]
+#[derive(Debug, Educe, Clone, Serialize, Deserialize, Arbitrary)]
+#[educe(PartialEq(bound(T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq)))]
 #[serde(try_from = "List<T, N, U>")]
 #[serde(into = "List<T, N, U>")]
 #[serde(bound(serialize = "T: Value + Serialize, N: Unsigned, U: UpdateMap<T>"))]
@@ -29,8 +29,8 @@ pub struct Vector<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, VectorInner<T, N>, U>,
 }
 
-#[derive(Debug, Derivative, Clone, Arbitrary)]
-#[derivative(PartialEq(bound = "T: Value, N: Unsigned"))]
+#[derive(Debug, Educe, Clone, Arbitrary)]
+#[educe(PartialEq(bound(T: Value, N: Unsigned)))]
 #[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
 pub struct VectorInner<T: Value, N: Unsigned> {
     #[arbitrary(with = arb_arc)]
