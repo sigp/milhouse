@@ -20,6 +20,7 @@ fn memory_tracker_accuracy() {
     // consuming any heap space (which would interfere with our measurements).
     let mut mem_tracker = MemoryTracker::default();
     let stats = mem_tracker.track_item(&*list);
+    assert_eq!(stats.total_size, mem_tracker.total_size());
     drop(mem_tracker);
 
     // Calculate total size according to DHAT by subtracting the starting allocations from the

@@ -14,10 +14,12 @@ pub trait MemorySize {
 }
 
 /// Memory usage (RAM) analysis for Milhouse data structures.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MemoryTracker {
     // Map from pointer to size of subtree referenced by that pointer.
     subtree_sizes: HashMap<usize, usize>,
+    // Total size of all tracked items, accounting for de-duplication.
+    total_size: usize,
 }
 
 #[derive(Debug)]
@@ -55,11 +57,16 @@ impl MemoryTracker {
         }
 
         self.subtree_sizes.insert(ptr, total_size);
+        self.total_size += intrinsic_size;
 
         ItemStats {
             total_size,
             differential_size,
         }
+    }
+
+    pub fn total_size(&self) -> usize {
+        self.total_size
     }
 }
 
