@@ -8,13 +8,13 @@ readme = "README.md"
 repository = "https://github.com/sigp/milhouse"
 documentation = "https://docs.rs/milhouse"
 keywords = ["ethereum", "functional"]
-categories = ["data-structures", "cryptography::cryptocurrencies", ]
+categories = ["data-structures", "cryptography::cryptocurrencies"]
 
 [dependencies]
 educe = "0.6.0"
 ethereum_hashing = "0.7.0"
-ethereum_ssz = "0.7.0"
-ethereum_ssz_derive = "0.7.0"
+ethereum_ssz = "0.8.0"
+ethereum_ssz_derive = "0.8.0"
 itertools = "0.13.0"
 parking_lot = "0.12.1"
 rayon = "1.5.1"
