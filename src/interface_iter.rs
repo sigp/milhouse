@@ -29,7 +29,7 @@ impl<'a, T: Value, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
     }
 }
 
-impl<'a, T: Value, U: UpdateMap<T>> ExactSizeIterator for InterfaceIter<'a, T, U> {}
+impl<T: Value, U: UpdateMap<T>> ExactSizeIterator for InterfaceIter<'_, T, U> {}
 
 #[derive(Debug)]
 pub struct InterfaceIterCow<'a, T: Value, U: UpdateMap<T>> {
@@ -38,7 +38,7 @@ pub struct InterfaceIterCow<'a, T: Value, U: UpdateMap<T>> {
     pub(crate) index: usize,
 }
 
-impl<'a, T: Value, U: UpdateMap<T>> InterfaceIterCow<'a, T, U> {
+impl<T: Value, U: UpdateMap<T>> InterfaceIterCow<'_, T, U> {
     pub fn next_cow(&mut self) -> Option<(usize, Cow<T>)> {
         let index = self.index;
         self.index += 1;
