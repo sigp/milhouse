@@ -114,7 +114,7 @@ impl<T: Value> Builder<T> {
 
         let length = self.length.as_usize();
         let level_capacity = 1 << self.level;
-        let mut next_index_on_level = (length + level_capacity - 1) / level_capacity;
+        let mut next_index_on_level = length.div_ceil(level_capacity);
 
         // Finish any partially-filled packed leaf.
         if let Some(packing_factor) = self.packing_factor {
