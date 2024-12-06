@@ -238,7 +238,7 @@ where
     }
 }
 
-impl<T: Default + Value, N: Unsigned> Default for Vector<T, N> {
+impl<T: Default + Value, N: Unsigned, U: UpdateMap<T>> Default for Vector<T, N, U> {
     fn default() -> Self {
         Self::from_elem(T::default()).unwrap_or_else(|e| {
             panic!(
@@ -250,7 +250,7 @@ impl<T: Default + Value, N: Unsigned> Default for Vector<T, N> {
     }
 }
 
-impl<T: Value + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
+impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> tree_hash::TreeHash for Vector<T, N, U> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::Vector
     }
@@ -270,10 +270,11 @@ impl<T: Value + Send + Sync, N: Unsigned> tree_hash::TreeHash for Vector<T, N> {
     }
 }
 
-impl<T, N> TryFromIter<T> for Vector<T, N>
+impl<T, N, U> TryFromIter<T> for Vector<T, N, U>
 where
     T: Value,
     N: Unsigned,
+    U: UpdateMap<T>,
 {
     type Error = Error;
 
@@ -295,7 +296,7 @@ impl<'a, T: Value, N: Unsigned, U: UpdateMap<T>> IntoIterator for &'a Vector<T, 
 }
 
 // FIXME: duplicated from `ssz::encode::impl_for_vec`
-impl<T: Value, N: Unsigned> Encode for Vector<T, N> {
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> Encode for Vector<T, N, U> {
     fn is_ssz_fixed_len() -> bool {
         <T as Encode>::is_ssz_fixed_len()
     }
@@ -337,7 +338,7 @@ impl<T: Value, N: Unsigned> Encode for Vector<T, N> {
     }
 }
 
-impl<T: Value, N: Unsigned> Decode for Vector<T, N> {
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> Decode for Vector<T, N, U> {
     fn is_ssz_fixed_len() -> bool {
         <T as Decode>::is_ssz_fixed_len()
     }
