@@ -104,4 +104,4 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
     }
 }
 
-impl<'a, T: Value> ExactSizeIterator for Iter<'a, T> {}
+impl<T: Value> ExactSizeIterator for Iter<'_, T> {}

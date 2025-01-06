@@ -7,7 +7,7 @@ pub enum Cow<'a, T: Clone> {
     Vec(VecCow<'a, T>),
 }
 
-impl<'a, T: Clone> Deref for Cow<'a, T> {
+impl<T: Clone> Deref for Cow<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -77,7 +77,7 @@ impl<'a, T: Clone> CowTrait<'a, T> for BTreeCow<'a, T> {
     }
 }
 
-impl<'a, T: Clone> Deref for BTreeCow<'a, T> {
+impl<T: Clone> Deref for BTreeCow<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -125,7 +125,7 @@ impl<'a, T: Clone> CowTrait<'a, T> for VecCow<'a, T> {
     }
 }
 
-impl<'a, T: Clone> Deref for VecCow<'a, T> {
+impl<T: Clone> Deref for VecCow<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
