@@ -336,13 +336,13 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 }
 
-impl<T: Value, N: Unsigned> Default for List<T, N> {
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> Default for List<T, N, U> {
     fn default() -> Self {
         Self::empty()
     }
 }
 
-impl<T: Value + Send + Sync, N: Unsigned> TreeHash for List<T, N> {
+impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> TreeHash for List<T, N, U> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::List
     }
@@ -404,7 +404,7 @@ where
 }
 
 // FIXME: duplicated from `ssz::encode::impl_for_vec`
-impl<T: Value, N: Unsigned> Encode for List<T, N> {
+impl<T: Value, N: Unsigned, U: UpdateMap<T>> Encode for List<T, N, U> {
     fn is_ssz_fixed_len() -> bool {
         false
     }
@@ -438,10 +438,11 @@ impl<T: Value, N: Unsigned> Encode for List<T, N> {
     }
 }
 
-impl<T, N> TryFromIter<T> for List<T, N>
+impl<T, N, U> TryFromIter<T> for List<T, N, U>
 where
     T: Value,
     N: Unsigned,
+    U: UpdateMap<T>,
 {
     type Error = Error;
 
@@ -453,10 +454,11 @@ where
     }
 }
 
-impl<T, N> Decode for List<T, N>
+impl<T, N, U> Decode for List<T, N, U>
 where
     T: Value,
     N: Unsigned,
+    U: UpdateMap<T>,
 {
     fn is_ssz_fixed_len() -> bool {
         false
