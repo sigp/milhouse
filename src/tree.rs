@@ -308,9 +308,7 @@ impl<T: Value> Tree<T> {
                 // then we know they are already equal (e.g. we're in a vector).
                 if !orig_hash.is_zero()
                     && orig_hash == base_hash
-                    && lengths.map_or(true, |(orig_length, base_length)| {
-                        orig_length == base_length
-                    })
+                    && lengths.is_none_or(|(orig_length, base_length)| orig_length == base_length)
                 {
                     return Ok(EqualReplace(base));
                 }
