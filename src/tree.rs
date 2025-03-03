@@ -407,9 +407,29 @@ impl<T: Value> Tree<T> {
         }
     }
 
-    /// FIXME(sproul): descr
+    /// Exploit structural sharing between identical parts of the tree.
     ///
-    /// `known_subtrees`: map from `(depth, tree_hash_root)` to `Arc<Node>`.
+    /// This method traverses a fully-hashed tree and replaces identical subtrees with clones of
+    /// the first equal subtree. The result is a tree that shares memory for common subtrees, and
+    /// thus uses less memory overall.
+    ///
+    /// You MUST pass a fully-hashed tree to this function, or an `Error::IntraRebaseZeroHash`
+    /// error will be returned.
+    ///
+    /// Arguments are:
+    ///
+    /// - `orig`: The tree to rebase.
+    /// - `known_subtrees`: map from `(depth, tree_hash_root)` to `Arc<Node>`. This should be empty
+    ///    for the top-level call. The recursive calls fill it in. It can be discarded after the
+    ///    method returns.
+    /// - `current_depth`: The depth of the tree `orig`. This will be decremented as we recurse
+    ///    down the tree towards the leaves.
+    ///
+    /// Presently leaves are left untouched by this procedure, so it will only produce savings in
+    /// trees with equal internal nodes (i.e. equal subtrees with at least two leaves/packed leaves
+    /// under them).
+    ///
+    /// The input tree must be fully-hashed, and the result will also remain fully-hashed.
     pub fn intra_rebase(
         orig: &Arc<Self>,
         known_subtrees: &mut HashMap<(usize, Hash256), Arc<Self>>,
@@ -449,20 +469,21 @@ impl<T: Value> Tree<T> {
                 };
 
                 // Add the new version of this node to the known subtrees.
-                match &action {
-                    IntraRebaseAction::Noop => {
-                        let existing_entry =
-                            known_subtrees.insert((current_depth, hash), orig.clone());
-                        // FIXME(sproul): maybe remove this assert/error
-                        assert!(existing_entry.is_none());
-                    }
-                    IntraRebaseAction::Replace(new) => {
-                        let existing_entry =
-                            known_subtrees.insert((current_depth, hash), new.clone());
-                        // FIXME(sproul): maybe remove this assert/error
-                        assert!(existing_entry.is_none());
-                    }
+                let new_subtree = match &action {
+                    // `orig` has not been seen in this traversal and will not change, so we add it
+                    // to the map.
+                    IntraRebaseAction::Noop => orig.clone(),
+                    IntraRebaseAction::Replace(new) => new.clone(),
+                };
+                let existing_entry = known_subtrees.insert((current_depth, hash), new_subtree);
+
+                // We should not add any identical node to the `known_subtrees` more than once.
+                // This indicates an error in this method's implementation or the map passed in not
+                // being empty.
+                if existing_entry.is_some() {
+                    return Err(Error::IntraRebaseRepeatVisit);
                 }
+
                 Ok(action)
             }
             Self::Node { .. } => Err(Error::IntraRebaseZeroDepth),

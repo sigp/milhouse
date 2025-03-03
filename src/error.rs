@@ -33,6 +33,7 @@ pub enum Error {
     LevelIterPendingUpdates,
     IntraRebaseZeroHash,
     IntraRebaseZeroDepth,
+    IntraRebaseRepeatVisit,
 }
 
 impl Display for Error {
