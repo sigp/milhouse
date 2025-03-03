@@ -123,6 +123,8 @@ pub enum Op<T> {
     Debase,
     /// Roundtrip via a list/vect using the TryFrom/From implementations.
     FromIntoRoundtrip,
+    /// Rebase the list on itself to exploit self-sharing.
+    IntraRebase,
 }
 
 fn arb_op<'a, T, S>(strategy: &'a S, n: usize) -> impl Strategy<Value = Op<T>> + 'a
@@ -150,11 +152,12 @@ where
         Just(Op::Checkpoint),
         Just(Op::Rebase),
         Just(Op::Debase),
-        Just(Op::FromIntoRoundtrip)
+        Just(Op::FromIntoRoundtrip),
+        Just(Op::IntraRebase),
     ];
     prop_oneof![
         10 => a_block,
-        5 => b_block
+        6 => b_block
     ]
 }
 
@@ -252,6 +255,14 @@ where
                     assert!(list.iter().eq(re_list.iter()));
                 }
             }
+            Op::IntraRebase => {
+                list.apply_updates().unwrap();
+                list.tree_hash_root();
+                let mut new_list = list.clone();
+                new_list.intra_rebase().unwrap();
+                assert_eq!(new_list, *list);
+                *list = new_list;
+            }
         }
     }
 }
@@ -329,6 +340,14 @@ where
                 if let Ok(re_vect) = Vector::try_from(list) {
                     assert!(vect.iter().eq(re_vect.iter()));
                 }
+            }
+            Op::IntraRebase => {
+                vect.apply_updates().unwrap();
+                vect.tree_hash_root();
+                let mut new_vect = vect.clone();
+                new_vect.intra_rebase().unwrap();
+                assert_eq!(new_vect, *vect);
+                *vect = new_vect;
             }
         }
     }

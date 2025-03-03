@@ -5,6 +5,7 @@ use educe::Educe;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
 
@@ -260,6 +261,11 @@ pub enum RebaseAction<'a, T> {
     EqualReplace(&'a Arc<T>),
 }
 
+pub enum IntraRebaseAction<T> {
+    Noop,
+    Replace(Arc<T>),
+}
+
 impl<T: Value> Tree<T> {
     pub fn rebase_on<'a>(
         orig: &'a Arc<Self>,
@@ -398,6 +404,89 @@ impl<T: Value> Tree<T> {
             (Self::Leaf(_) | Self::PackedLeaf(_), _) | (_, Self::Leaf(_) | Self::PackedLeaf(_)) => {
                 Err(Error::InvalidRebaseLeaf)
             }
+        }
+    }
+
+    /// Exploit structural sharing between identical parts of the tree.
+    ///
+    /// This method traverses a fully-hashed tree and replaces identical subtrees with clones of
+    /// the first equal subtree. The result is a tree that shares memory for common subtrees, and
+    /// thus uses less memory overall.
+    ///
+    /// You MUST pass a fully-hashed tree to this function, or an `Error::IntraRebaseZeroHash`
+    /// error will be returned.
+    ///
+    /// Arguments are:
+    ///
+    /// - `orig`: The tree to rebase.
+    /// - `known_subtrees`: map from `(depth, tree_hash_root)` to `Arc<Node>`. This should be empty
+    ///    for the top-level call. The recursive calls fill it in. It can be discarded after the
+    ///    method returns.
+    /// - `current_depth`: The depth of the tree `orig`. This will be decremented as we recurse
+    ///    down the tree towards the leaves.
+    ///
+    /// Presently leaves are left untouched by this procedure, so it will only produce savings in
+    /// trees with equal internal nodes (i.e. equal subtrees with at least two leaves/packed leaves
+    /// under them).
+    ///
+    /// The input tree must be fully-hashed, and the result will also remain fully-hashed.
+    pub fn intra_rebase(
+        orig: &Arc<Self>,
+        known_subtrees: &mut HashMap<(usize, Hash256), Arc<Self>>,
+        current_depth: usize,
+    ) -> Result<IntraRebaseAction<Self>, Error> {
+        match &**orig {
+            Self::Leaf(_) | Self::PackedLeaf(_) | Self::Zero(_) => Ok(IntraRebaseAction::Noop),
+            Self::Node { hash, left, right } if current_depth > 0 => {
+                let hash = *hash.read();
+
+                // Tree must be fully hashed prior to intra-rebase.
+                if hash.is_zero() {
+                    return Err(Error::IntraRebaseZeroHash);
+                }
+
+                if let Some(known_subtree) = known_subtrees.get(&(current_depth, hash)) {
+                    // Node is already known from elsewhere in the tree. We can replace it without
+                    // looking at further subtrees.
+                    return Ok(IntraRebaseAction::Replace(known_subtree.clone()));
+                }
+
+                let left_action = Self::intra_rebase(left, known_subtrees, current_depth - 1)?;
+                let right_action = Self::intra_rebase(right, known_subtrees, current_depth - 1)?;
+
+                let action = match (left_action, right_action) {
+                    (IntraRebaseAction::Noop, IntraRebaseAction::Noop) => IntraRebaseAction::Noop,
+                    (IntraRebaseAction::Noop, IntraRebaseAction::Replace(new_right)) => {
+                        IntraRebaseAction::Replace(Self::node(left.clone(), new_right, hash))
+                    }
+                    (IntraRebaseAction::Replace(new_left), IntraRebaseAction::Noop) => {
+                        IntraRebaseAction::Replace(Self::node(new_left, right.clone(), hash))
+                    }
+                    (
+                        IntraRebaseAction::Replace(new_left),
+                        IntraRebaseAction::Replace(new_right),
+                    ) => IntraRebaseAction::Replace(Self::node(new_left, new_right, hash)),
+                };
+
+                // Add the new version of this node to the known subtrees.
+                let new_subtree = match &action {
+                    // `orig` has not been seen in this traversal and will not change, so we add it
+                    // to the map.
+                    IntraRebaseAction::Noop => orig.clone(),
+                    IntraRebaseAction::Replace(new) => new.clone(),
+                };
+                let existing_entry = known_subtrees.insert((current_depth, hash), new_subtree);
+
+                // We should not add any identical node to the `known_subtrees` more than once.
+                // This indicates an error in this method's implementation or the map passed in not
+                // being empty.
+                if existing_entry.is_some() {
+                    return Err(Error::IntraRebaseRepeatVisit);
+                }
+
+                Ok(action)
+            }
+            Self::Node { .. } => Err(Error::IntraRebaseZeroDepth),
         }
     }
 }
