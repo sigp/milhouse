@@ -31,6 +31,8 @@ pub enum Error {
     BulkUpdateUnclean,
     CowMissingEntry,
     LevelIterPendingUpdates,
+    IntraRebaseZeroHash,
+    IntraRebaseZeroDepth,
 }
 
 impl Display for Error {

@@ -5,6 +5,7 @@ use educe::Educe;
 use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
 
@@ -260,6 +261,11 @@ pub enum RebaseAction<'a, T> {
     EqualReplace(&'a Arc<T>),
 }
 
+pub enum IntraRebaseAction<T> {
+    Noop,
+    Replace(Arc<T>),
+}
+
 impl<T: Value> Tree<T> {
     pub fn rebase_on<'a>(
         orig: &'a Arc<Self>,
@@ -398,6 +404,68 @@ impl<T: Value> Tree<T> {
             (Self::Leaf(_) | Self::PackedLeaf(_), _) | (_, Self::Leaf(_) | Self::PackedLeaf(_)) => {
                 Err(Error::InvalidRebaseLeaf)
             }
+        }
+    }
+
+    /// FIXME(sproul): descr
+    ///
+    /// `known_subtrees`: map from `(depth, tree_hash_root)` to `Arc<Node>`.
+    pub fn intra_rebase(
+        orig: &Arc<Self>,
+        known_subtrees: &mut HashMap<(usize, Hash256), Arc<Self>>,
+        current_depth: usize,
+    ) -> Result<IntraRebaseAction<Self>, Error> {
+        match &**orig {
+            Self::Leaf(_) | Self::PackedLeaf(_) | Self::Zero(_) => Ok(IntraRebaseAction::Noop),
+            Self::Node { hash, left, right } if current_depth > 0 => {
+                let hash = *hash.read();
+
+                // Tree must be fully hashed prior to intra-rebase.
+                if hash.is_zero() {
+                    return Err(Error::IntraRebaseZeroHash);
+                }
+
+                if let Some(known_subtree) = known_subtrees.get(&(current_depth, hash)) {
+                    // Node is already known from elsewhere in the tree. We can replace it without
+                    // looking at further subtrees.
+                    return Ok(IntraRebaseAction::Replace(known_subtree.clone()));
+                }
+
+                let left_action = Self::intra_rebase(left, known_subtrees, current_depth - 1)?;
+                let right_action = Self::intra_rebase(right, known_subtrees, current_depth - 1)?;
+
+                let action = match (left_action, right_action) {
+                    (IntraRebaseAction::Noop, IntraRebaseAction::Noop) => IntraRebaseAction::Noop,
+                    (IntraRebaseAction::Noop, IntraRebaseAction::Replace(new_right)) => {
+                        IntraRebaseAction::Replace(Self::node(left.clone(), new_right, hash))
+                    }
+                    (IntraRebaseAction::Replace(new_left), IntraRebaseAction::Noop) => {
+                        IntraRebaseAction::Replace(Self::node(new_left, right.clone(), hash))
+                    }
+                    (
+                        IntraRebaseAction::Replace(new_left),
+                        IntraRebaseAction::Replace(new_right),
+                    ) => IntraRebaseAction::Replace(Self::node(new_left, new_right, hash)),
+                };
+
+                // Add the new version of this node to the known subtrees.
+                match &action {
+                    IntraRebaseAction::Noop => {
+                        let existing_entry =
+                            known_subtrees.insert((current_depth, hash), orig.clone());
+                        // FIXME(sproul): maybe remove this assert/error
+                        assert!(existing_entry.is_none());
+                    }
+                    IntraRebaseAction::Replace(new) => {
+                        let existing_entry =
+                            known_subtrees.insert((current_depth, hash), new.clone());
+                        // FIXME(sproul): maybe remove this assert/error
+                        assert!(existing_entry.is_none());
+                    }
+                }
+                Ok(action)
+            }
+            Self::Node { .. } => Err(Error::IntraRebaseZeroDepth),
         }
     }
 }
