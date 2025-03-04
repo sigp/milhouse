@@ -256,10 +256,12 @@ where
                 }
             }
             Op::IntraRebase => {
-                list.apply_updates().unwrap();
-                list.tree_hash_root();
                 let mut new_list = list.clone();
                 new_list.intra_rebase().unwrap();
+
+                list.apply_updates().unwrap();
+                list.tree_hash_root();
+
                 assert_eq!(new_list, *list);
                 *list = new_list;
             }
@@ -342,10 +344,12 @@ where
                 }
             }
             Op::IntraRebase => {
-                vect.apply_updates().unwrap();
-                vect.tree_hash_root();
                 let mut new_vect = vect.clone();
                 new_vect.intra_rebase().unwrap();
+
+                vect.apply_updates().unwrap();
+                vect.tree_hash_root();
+
                 assert_eq!(new_vect, *vect);
                 *vect = new_vect;
             }

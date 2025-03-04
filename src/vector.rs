@@ -13,7 +13,7 @@ use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
-use tree_hash::{Hash256, PackedEncoding};
+use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
 
@@ -161,8 +161,15 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
         }
         Ok(())
     }
+}
 
+impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     pub fn intra_rebase(&mut self) -> Result<(), Error> {
+        // We need to be fully hashed in order to intra-rebase. To avoid putting this burden on the
+        // caller, just do it here. If we're already fully-hashed this should be quick.
+        self.apply_updates()?;
+        self.tree_hash_root();
+
         let mut known_subtrees = HashMap::new();
         if let IntraRebaseAction::Replace(new_tree) = Tree::intra_rebase(
             &self.interface.backing.tree,
