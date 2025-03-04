@@ -334,8 +334,15 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         }
         Ok(())
     }
+}
 
+impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn intra_rebase(&mut self) -> Result<(), Error> {
+        // We need to be fully hashed in order to intra-rebase. To avoid putting this burden on the
+        // caller, just do it here. If we're already fully-hashed this should be quick.
+        self.apply_updates()?;
+        self.tree_hash_root();
+
         let mut known_subtrees = HashMap::new();
         if let IntraRebaseAction::Replace(new_tree) = Tree::intra_rebase(
             &self.interface.backing.tree,
