@@ -2,7 +2,7 @@ use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
 use crate::level_iter::LevelIter;
-use crate::tree::RebaseAction;
+use crate::tree::{IntraRebaseAction, RebaseAction};
 use crate::update_map::MaxMap;
 use crate::utils::{arb_arc, Length};
 use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
@@ -10,10 +10,10 @@ use arbitrary::Arbitrary;
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
-use tree_hash::{Hash256, PackedEncoding};
+use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
 
@@ -158,6 +158,25 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
                 self.interface.backing.tree = replacement;
             }
             _ => (),
+        }
+        Ok(())
+    }
+}
+
+impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
+    pub fn intra_rebase(&mut self) -> Result<(), Error> {
+        // We need to be fully hashed in order to intra-rebase. To avoid putting this burden on the
+        // caller, just do it here. If we're already fully-hashed this should be quick.
+        self.apply_updates()?;
+        self.tree_hash_root();
+
+        let mut known_subtrees = HashMap::new();
+        if let IntraRebaseAction::Replace(new_tree) = Tree::intra_rebase(
+            &self.interface.backing.tree,
+            &mut known_subtrees,
+            self.interface.backing.depth,
+        )? {
+            self.interface.backing.tree = new_tree;
         }
         Ok(())
     }
