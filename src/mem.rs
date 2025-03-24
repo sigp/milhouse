@@ -156,7 +156,7 @@ impl<T: Value + MemorySize, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<
 /// Implement `MemorySize` for a basic type with no nested allocations.
 #[macro_export]
 macro_rules! impl_memory_size_for_basic_type {
-    (t:$ty) => {
+    ($t:ty) => {
         impl MemorySize for $t {
             // TODO(memsize): Make this optional? This sort of impl doesn't really make sense.
             fn self_pointer(&self) -> usize {
