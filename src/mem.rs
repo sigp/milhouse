@@ -14,7 +14,7 @@ pub trait MemorySize {
 }
 
 /// Memory usage (RAM) analysis for Milhouse data structures.
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct MemoryTracker {
     // Map from pointer to size of subtree referenced by that pointer.
     subtree_sizes: HashMap<usize, usize>,
@@ -70,33 +70,57 @@ impl MemoryTracker {
     }
 }
 
-impl<T: Value> MemorySize for Arc<Tree<T>> {
+impl<T: MemorySize> MemorySize for Arc<T> {
     fn self_pointer(&self) -> usize {
         self.as_ptr() as usize
     }
 
     fn subtrees(&self) -> Vec<&dyn MemorySize> {
-        match &**self {
-            Tree::Leaf(_) | Tree::PackedLeaf(_) | Tree::Zero(_) => vec![],
+        let inner: &T = &*self;
+        vec![inner]
+    }
+
+    fn intrinsic_size(&self) -> usize {
+        // Just the size of the `Arc` itself. The `T` within will be counted separately.
+        std::mem::size_of::<Self>()
+    }
+}
+
+impl<T: Value + MemorySize> MemorySize for Tree<T> {
+    fn self_pointer(&self) -> usize {
+        self as *const _ as usize
+    }
+
+    fn subtrees(&self) -> Vec<&dyn MemorySize> {
+        match self {
+            // Recurse into left and right children.
             Tree::Node { left, right, .. } => {
                 vec![left, right]
             }
+            // To support nested size measurements we need to punch down into the leaves.
+            // Use a reference to the `Arc` for the leaf so that the `Arc`'s intrinsic size is
+            // counted.
+            Tree::Leaf(leaf) => {
+                vec![&leaf.value]
+            }
+            // Packed leaves and zero subtrees cannot contain any nested pointers.
+            Tree::PackedLeaf(_) | Tree::Zero(_) => vec![],
         }
     }
 
     fn intrinsic_size(&self) -> usize {
-        let leaf_size = match &**self {
-            // This is the T allocated behind the Arc in `Leaf::value`.
-            Tree::Leaf(_) => std::mem::size_of::<T>(),
+        let leaf_size = match self {
             // This is the Vec<T> allocated inside `PackedLeaf::values`.
             Tree::PackedLeaf(packed) => packed.values.capacity() * std::mem::size_of::<T>(),
-            Tree::Node { .. } | Tree::Zero(..) => 0,
+            // The leaves and inner nodes will be visited separately so we don't need to count
+            // their intrinsic size here.
+            Tree::Leaf(_) | Tree::Node { .. } | Tree::Zero(..) => 0,
         };
-        std::mem::size_of::<Self>() + std::mem::size_of::<Tree<T>>() + leaf_size
+        std::mem::size_of::<Self>() + leaf_size
     }
 }
 
-impl<T: Value, N: Unsigned, U: UpdateMap<T>> MemorySize for List<T, N, U> {
+impl<T: Value + MemorySize, N: Unsigned, U: UpdateMap<T>> MemorySize for List<T, N, U> {
     fn self_pointer(&self) -> usize {
         self as *const _ as usize
     }
@@ -113,7 +137,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> MemorySize for List<T, N, U> {
     }
 }
 
-impl<T: Value, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<T, N, U> {
+impl<T: Value + MemorySize, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<T, N, U> {
     fn self_pointer(&self) -> usize {
         self as *const _ as usize
     }
@@ -123,9 +147,34 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<T, N, U> {
     }
 
     fn intrinsic_size(&self) -> usize {
-        // This approximates the size of the UpdateMap, and assumes that `T` is not recursive.
-        // We could probably add a `T: MemorySize` bound? In most practical cases the update map
-        // should be empty anyway.
+        // TODO(memsize): This approximates the size of the UpdateMap, and assumes that `T` is not
+        // recursive. In most practical cases the update map should be empty anyway.
         std::mem::size_of::<Self>() + self.interface.updates.len() * std::mem::size_of::<T>()
     }
 }
+
+/// Implement `MemorySize` for a basic type with no nested allocations.
+#[macro_export]
+macro_rules! impl_memory_size_for_basic_type {
+    (t:$ty) => {
+        impl MemorySize for $t {
+            // TODO(memsize): Make this optional? This sort of impl doesn't really make sense.
+            fn self_pointer(&self) -> usize {
+                self as *const _ as usize
+            }
+
+            fn subtrees(&self) -> Vec<&dyn MemorySize> {
+                vec![]
+            }
+
+            fn intrinsic_size(&self) -> usize {
+                std::mem::size_of::<Self>()
+            }
+        }
+    };
+}
+impl_memory_size_for_basic_type!(u8);
+impl_memory_size_for_basic_type!(u16);
+impl_memory_size_for_basic_type!(u32);
+impl_memory_size_for_basic_type!(u64);
+impl_memory_size_for_basic_type!(usize);
