@@ -76,7 +76,9 @@ impl<T: MemorySize> MemorySize for Arc<T> {
     }
 
     fn subtrees(&self) -> Vec<&dyn MemorySize> {
-        let inner: &T = &*self;
+        // Recurse into the `MemorySize` impl for `T`. Note that the type coercion here is
+        // extremely important: we don't want to recurse infinitely into the `Arc<T>` impl.
+        let inner: &T = self;
         vec![inner]
     }
 
