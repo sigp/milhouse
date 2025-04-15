@@ -420,10 +420,10 @@ impl<T: Value> Tree<T> {
     ///
     /// - `orig`: The tree to rebase.
     /// - `known_subtrees`: map from `(depth, tree_hash_root)` to `Arc<Node>`. This should be empty
-    ///    for the top-level call. The recursive calls fill it in. It can be discarded after the
-    ///    method returns.
+    ///   for the top-level call. The recursive calls fill it in. It can be discarded after the
+    ///   method returns.
     /// - `current_depth`: The depth of the tree `orig`. This will be decremented as we recurse
-    ///    down the tree towards the leaves.
+    ///   down the tree towards the leaves.
     ///
     /// Presently leaves are left untouched by this procedure, so it will only produce savings in
     /// trees with equal internal nodes (i.e. equal subtrees with at least two leaves/packed leaves
