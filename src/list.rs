@@ -70,7 +70,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn repeat_slow(elem: T, n: usize) -> Result<Self, Error> {
-        Self::try_from_iter(std::iter::repeat(elem).take(n))
+        Self::try_from_iter(std::iter::repeat_n(elem, n))
     }
 
     pub fn builder() -> Result<Builder<T>, Error> {
