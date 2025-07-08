@@ -34,6 +34,7 @@ pub enum Error {
     IntraRebaseZeroHash,
     IntraRebaseZeroDepth,
     IntraRebaseRepeatVisit,
+    PackedLeavesNoArc,
 }
 
 impl Display for Error {
