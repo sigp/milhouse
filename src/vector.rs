@@ -4,8 +4,9 @@ use crate::iter::Iter;
 use crate::level_iter::LevelIter;
 use crate::tree::{IntraRebaseAction, RebaseAction};
 use crate::update_map::MaxMap;
-use crate::utils::{arb_arc, Length};
+use crate::utils::Length;
 use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
+#[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
 use educe::Educe;
 use serde::{Deserialize, Serialize};
@@ -17,27 +18,35 @@ use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
 
-#[derive(Debug, Educe, Clone, Serialize, Deserialize, Arbitrary)]
+#[derive(Debug, Educe, Clone, Serialize, Deserialize)]
 #[educe(PartialEq(bound(T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq)))]
 #[serde(try_from = "List<T, N, U>")]
 #[serde(into = "List<T, N, U>")]
 #[serde(bound(serialize = "T: Value + Serialize, N: Unsigned, U: UpdateMap<T>"))]
 #[serde(bound(deserialize = "T: Value + Deserialize<'de>, N: Unsigned, U: UpdateMap<T>"))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value")]
-#[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T>")]
+#[cfg_attr(
+    feature = "arbitrary",
+    derive(Arbitrary),
+    arbitrary(bound = "T: Arbitrary<'arbitrary> + Value"),
+    arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T>")
+)]
 pub struct Vector<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, VectorInner<T, N>, U>,
 }
 
-#[derive(Debug, Educe, Clone, Arbitrary)]
+#[derive(Debug, Educe, Clone)]
 #[educe(PartialEq(bound(T: Value, N: Unsigned)))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
+#[cfg_attr(
+    feature = "arbitrary",
+    derive(Arbitrary),
+    arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")
+)]
 pub struct VectorInner<T: Value, N: Unsigned> {
-    #[arbitrary(with = arb_arc)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) depth: usize,
     packing_depth: usize,
-    #[arbitrary(default)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(default))]
     _phantom: PhantomData<N>,
 }
 

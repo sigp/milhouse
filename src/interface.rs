@@ -6,7 +6,6 @@ use crate::{
     iter::Iter,
     Cow, Error, Value,
 };
-use arbitrary::Arbitrary;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::Hash256;
@@ -35,7 +34,8 @@ pub trait MutList<T: Value>: ImmList<T> {
     ) -> Result<(), Error>;
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary)]
+#[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Interface<T, B, U>
 where
     T: Value,

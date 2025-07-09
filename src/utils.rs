@@ -1,9 +1,8 @@
 use crate::{Arc, UpdateMap};
+#[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
-use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use tree_hash::{Hash256, TreeHash, TreeHashType};
-
 /// Type to abstract over whether `T` is wrapped in an `Arc` or not.
 #[derive(Debug)]
 pub enum MaybeArced<T> {
@@ -21,7 +20,8 @@ impl<T> MaybeArced<T> {
 }
 
 /// Length type, to avoid confusion with depth and other `usize` parameters.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Arbitrary)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 pub struct Length(pub usize);
 
 impl Length {
@@ -98,16 +98,18 @@ pub fn opt_hash(
     hashes?.get(&(depth, prefix)).copied()
 }
 
+#[cfg(feature = "arbitrary")]
 pub fn arb_arc<'a, T: Arbitrary<'a>>(
     u: &mut arbitrary::Unstructured<'a>,
 ) -> arbitrary::Result<Arc<T>> {
     T::arbitrary(u).map(Arc::new)
 }
 
+#[cfg(feature = "arbitrary")]
 pub fn arb_rwlock<'a, T: Arbitrary<'a>>(
     u: &mut arbitrary::Unstructured<'a>,
-) -> arbitrary::Result<RwLock<T>> {
-    T::arbitrary(u).map(RwLock::new)
+) -> arbitrary::Result<parking_lot::RwLock<T>> {
+    T::arbitrary(u).map(parking_lot::RwLock::new)
 }
 
 #[cfg(test)]
