@@ -45,7 +45,7 @@ impl<T: Value> Builder<T> {
 
         // Fold the nodes on the left of this node into it, and then push that node to the stack.
         let mut new_stack_top = if let Some(packing_factor) = self.packing_factor {
-            if index % packing_factor == 0 {
+            if index.is_multiple_of(packing_factor) {
                 MaybeArced::Unarced(Tree::PackedLeaf(PackedLeaf::single(value)))
             } else if let Some(MaybeArced::Unarced(Tree::PackedLeaf(mut leaf))) = self.stack.pop() {
                 leaf.push(value)?;

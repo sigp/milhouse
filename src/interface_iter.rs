@@ -39,7 +39,7 @@ pub struct InterfaceIterCow<'a, T: Value, U: UpdateMap<T>> {
 }
 
 impl<T: Value, U: UpdateMap<T>> InterfaceIterCow<'_, T, U> {
-    pub fn next_cow(&mut self) -> Option<(usize, Cow<T>)> {
+    pub fn next_cow(&mut self) -> Option<(usize, Cow<'_, T>)> {
         let index = self.index;
         self.index += 1;
 
