@@ -113,11 +113,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T, U> {
+    pub fn iter(&self) -> InterfaceIter<'_, T, U> {
         self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T, U>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<'_, T, U>, Error> {
         // Return an empty iterator at index == length, just like slicing.
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
@@ -129,7 +129,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     /// Iterate all internal nodes on the same level as `index`.
-    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<T>, Error> {
+    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<'_, T>, Error> {
         // Return an empty iterator at index == length, just like slicing.
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
@@ -140,20 +140,20 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.interface.level_iter_from(index)
     }
 
-    pub fn iter_cow(&mut self) -> InterfaceIterCow<T, U> {
+    pub fn iter_cow(&mut self) -> InterfaceIterCow<'_, T, U> {
         self.interface.iter_cow()
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<&'_ T> {
         self.interface.get(index)
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&'_ mut T> {
         self.interface.get_mut(index)
     }
 
-    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
         self.interface.get_cow(index)
     }
 
@@ -252,11 +252,11 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
         self.length
     }
 
-    fn iter_from(&self, index: usize) -> Iter<T> {
+    fn iter_from(&self, index: usize) -> Iter<'_, T> {
         Iter::from_index(index, &self.tree, self.depth, self.length)
     }
 
-    fn level_iter_from(&self, index: usize) -> LevelIter<T> {
+    fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, self.length)
     }
 }
