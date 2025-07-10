@@ -20,9 +20,9 @@ pub trait ImmList<T: Value> {
         self.len().as_usize() == 0
     }
 
-    fn iter_from(&self, index: usize) -> Iter<T>;
+    fn iter_from(&self, index: usize) -> Iter<'_, T>;
 
-    fn level_iter_from(&self, index: usize) -> LevelIter<T>;
+    fn level_iter_from(&self, index: usize) -> LevelIter<'_, T>;
 }
 
 pub trait MutList<T: Value>: ImmList<T> {
@@ -70,7 +70,7 @@ where
             .get_mut_with(idx, |idx| self.backing.get(idx).cloned())
     }
 
-    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
         self.updates
             .get_cow_with(index, |idx| self.backing.get(idx))
     }
@@ -96,11 +96,11 @@ where
         !self.updates.is_empty()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T, U> {
+    pub fn iter(&self) -> InterfaceIter<'_, T, U> {
         self.iter_from(0)
     }
 
-    pub fn iter_from(&self, index: usize) -> InterfaceIter<T, U> {
+    pub fn iter_from(&self, index: usize) -> InterfaceIter<'_, T, U> {
         InterfaceIter {
             tree_iter: self.backing.iter_from(index),
             updates: &self.updates,
@@ -109,7 +109,7 @@ where
         }
     }
 
-    pub fn iter_cow(&mut self) -> InterfaceIterCow<T, U> {
+    pub fn iter_cow(&mut self) -> InterfaceIterCow<'_, T, U> {
         let index = 0;
         InterfaceIterCow {
             tree_iter: self.backing.iter_from(index),
@@ -118,7 +118,7 @@ where
         }
     }
 
-    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<T>, Error> {
+    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<'_, T>, Error> {
         if self.has_pending_updates() {
             Err(Error::LevelIterPendingUpdates)
         } else {
