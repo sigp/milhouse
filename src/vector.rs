@@ -74,11 +74,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T, U> {
+    pub fn iter(&self) -> InterfaceIter<'_, T, U> {
         self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T, U>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<'_, T, U>, Error> {
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
                 index,
@@ -89,15 +89,15 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<&'_ T> {
         self.interface.get(index)
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&'_ mut T> {
         self.interface.get_mut(index)
     }
 
-    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
         self.interface.get_cow(index)
     }
 
@@ -217,11 +217,11 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
         Length(N::to_usize())
     }
 
-    fn iter_from(&self, index: usize) -> Iter<T> {
+    fn iter_from(&self, index: usize) -> Iter<'_, T> {
         Iter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
 
-    fn level_iter_from(&self, index: usize) -> LevelIter<T> {
+    fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
 }
@@ -380,11 +380,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Decode for Vector<T, N, U> {
     }
 
     fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
-        let list = List::from_ssz_bytes(bytes).map_err(|e| {
-            ssz::DecodeError::BytesInvalid(format!("Error decoding vector: {:?}", e))
-        })?;
+        let list = List::from_ssz_bytes(bytes)
+            .map_err(|e| ssz::DecodeError::BytesInvalid(format!("Error decoding vector: {e:?}")))?;
         Self::try_from(list).map_err(|e| {
-            ssz::DecodeError::BytesInvalid(format!("Wrong number of vector elements: {:?}", e))
+            ssz::DecodeError::BytesInvalid(format!("Wrong number of vector elements: {e:?}"))
         })
     }
 }
