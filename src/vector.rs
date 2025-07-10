@@ -371,11 +371,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Decode for Vector<T, N, U> {
     }
 
     fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
-        let list = List::from_ssz_bytes(bytes).map_err(|e| {
-            ssz::DecodeError::BytesInvalid(format!("Error decoding vector: {:?}", e))
-        })?;
+        let list = List::from_ssz_bytes(bytes)
+            .map_err(|e| ssz::DecodeError::BytesInvalid(format!("Error decoding vector: {e:?}")))?;
         Self::try_from(list).map_err(|e| {
-            ssz::DecodeError::BytesInvalid(format!("Wrong number of vector elements: {:?}", e))
+            ssz::DecodeError::BytesInvalid(format!("Wrong number of vector elements: {e:?}"))
         })
     }
 }

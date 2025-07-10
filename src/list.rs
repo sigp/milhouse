@@ -496,8 +496,7 @@ where
 
             if num_items > max_len {
                 return Err(ssz::DecodeError::BytesInvalid(format!(
-                    "List of {} items exceeds maximum of {}",
-                    num_items, max_len
+                    "List of {num_items} items exceeds maximum of {max_len}"
                 )));
             }
 
@@ -507,7 +506,7 @@ where
                     .map(T::from_ssz_bytes),
                 |iter| {
                     List::try_from_iter(iter).map_err(|e| {
-                        ssz::DecodeError::BytesInvalid(format!("Error building ssz List: {:?}", e))
+                        ssz::DecodeError::BytesInvalid(format!("Error building ssz List: {e:?}"))
                     })
                 },
             )?
