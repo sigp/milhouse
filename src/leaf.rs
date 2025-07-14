@@ -1,19 +1,16 @@
-use crate::{
-    utils::{arb_arc, arb_rwlock},
-    Arc,
-};
-use arbitrary::Arbitrary;
+use crate::Arc;
 use educe::Educe;
 use parking_lot::RwLock;
 use tree_hash::Hash256;
 
-#[derive(Debug, Educe, Arbitrary)]
+#[derive(Debug, Educe)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[educe(PartialEq, Hash)]
 pub struct Leaf<T> {
     #[educe(PartialEq(ignore), Hash(ignore))]
-    #[arbitrary(with = arb_rwlock)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
     pub hash: RwLock<Hash256>,
-    #[arbitrary(with = arb_arc)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
     pub value: Arc<T>,
 }
 
