@@ -2,7 +2,7 @@ use crate::{Error, UpdateMap};
 use educe::Educe;
 use parking_lot::RwLock;
 use std::ops::ControlFlow;
-use tree_hash::{Hash256, TreeHash, BYTES_PER_CHUNK};
+use tree_hash::{BYTES_PER_CHUNK, Hash256, TreeHash};
 
 #[derive(Debug, Educe)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]

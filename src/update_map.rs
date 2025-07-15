@@ -1,6 +1,6 @@
 use crate::cow::{BTreeCow, Cow, VecCow};
 use crate::utils::max_btree_index;
-use std::collections::{btree_map::Entry, BTreeMap};
+use std::collections::{BTreeMap, btree_map::Entry};
 use std::ops::ControlFlow;
 use vec_map::VecMap;
 

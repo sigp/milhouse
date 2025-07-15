@@ -1,7 +1,7 @@
 use crate::tests::proptest::Large;
-use crate::{level_iter::LevelNode, Arc, List};
+use crate::{Arc, List, level_iter::LevelNode};
 use tree_hash::Hash256;
-use typenum::{U32, U8};
+use typenum::{U8, U32};
 
 #[test]
 fn level_iter_pop_front_basic_packed() {

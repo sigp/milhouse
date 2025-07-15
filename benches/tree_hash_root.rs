@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use milhouse::{List, Vector};
 use ssz_types::VariableList;
 use tree_hash::TreeHash;

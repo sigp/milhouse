@@ -1,11 +1,11 @@
-use super::{arb_hash256, arb_index, arb_large, arb_list, arb_vect, Large};
+use super::{Large, arb_hash256, arb_index, arb_large, arb_list, arb_vect};
 use crate::{Error, List, Value, Vector};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, TreeHash};
-use typenum::{Unsigned, U1, U1024, U2, U3, U32, U33, U4, U7, U8, U9};
+use typenum::{U1, U2, U3, U4, U7, U8, U9, U32, U33, U1024, Unsigned};
 
 const OP_LIMIT: usize = 128;
 

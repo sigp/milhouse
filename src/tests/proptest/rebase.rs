@@ -1,8 +1,8 @@
-use super::{arb_hash256, arb_large, arb_list, arb_vect, Large};
+use super::{Large, arb_hash256, arb_large, arb_list, arb_vect};
 use crate::{List, Vector};
 use proptest::prelude::*;
 use tree_hash::Hash256;
-use typenum::{U1, U1024, U2, U3, U32, U33, U4, U7, U8, U9};
+use typenum::{U1, U2, U3, U4, U7, U8, U9, U32, U33, U1024};
 
 macro_rules! list_test {
     ($name:ident, $T:ty, $N:ty) => {

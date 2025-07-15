@@ -10,7 +10,7 @@ use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
 use arbitrary::Arbitrary;
 use educe::Educe;
 use serde::{Deserialize, Serialize};
-use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
+use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::TryFrom;
 use std::marker::PhantomData;

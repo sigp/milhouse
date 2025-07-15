@@ -1,10 +1,10 @@
-use super::{arb_hash256, arb_large, arb_list, arb_vect, Large};
+use super::{Large, arb_hash256, arb_large, arb_list, arb_vect};
 use crate::{List, Vector};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use ssz_types::{FixedVector, VariableList};
 use tree_hash::{Hash256, TreeHash};
-use typenum::{U1, U1024, U2, U3, U32, U33, U4, U7, U8, U9};
+use typenum::{U1, U2, U3, U4, U7, U8, U9, U32, U33, U1024};
 
 macro_rules! list_test {
     ($name:ident, $T:ty, $N:ty) => {
