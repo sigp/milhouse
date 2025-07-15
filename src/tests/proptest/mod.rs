@@ -3,7 +3,7 @@ use proptest::prelude::*;
 use ssz_derive::{Decode, Encode};
 use tree_hash::Hash256;
 use tree_hash_derive::TreeHash;
-use typenum::{Unsigned, U4};
+use typenum::{U4, Unsigned};
 
 mod operations;
 mod rebase;

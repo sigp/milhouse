@@ -6,14 +6,14 @@ use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
 use crate::tree::{IntraRebaseAction, RebaseAction};
 use crate::update_map::MaxMap;
-use crate::utils::{compute_level, int_log, opt_packing_depth, updated_length, Length};
+use crate::utils::{Length, compute_level, int_log, opt_packing_depth, updated_length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
 #[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
 use educe::Educe;
 use itertools::process_results;
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
-use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeSeq};
+use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::collections::{BTreeMap, HashMap};
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};

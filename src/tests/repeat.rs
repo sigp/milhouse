@@ -1,7 +1,7 @@
 use crate::{List, Value};
 use std::fmt::Debug;
 use tree_hash::TreeHash;
-use typenum::{Unsigned, U1024, U64, U8};
+use typenum::{U8, U64, U1024, Unsigned};
 
 fn list_test<T: Value + Send + Sync + Debug, N: Unsigned + Debug>(val: T) {
     for n in 96..=N::to_usize() {

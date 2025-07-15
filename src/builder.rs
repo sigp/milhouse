@@ -1,5 +1,5 @@
-use crate::utils::{opt_packing_depth, opt_packing_factor, Length, MaybeArced};
-use crate::{Arc, Error, PackedLeaf, Tree, Value, MAX_TREE_DEPTH};
+use crate::utils::{Length, MaybeArced, opt_packing_depth, opt_packing_factor};
+use crate::{Arc, Error, MAX_TREE_DEPTH, PackedLeaf, Tree, Value};
 
 #[derive(Debug)]
 pub struct Builder<T: Value> {

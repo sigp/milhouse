@@ -1,6 +1,6 @@
-use crate::utils::{opt_packing_factor, Length};
+use crate::utils::{Length, opt_packing_factor};
 use crate::{Arc, Error, Leaf, List, PackedLeaf, Tree, UpdateMap, Value};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use tree_hash::Hash256;
 use typenum::Unsigned;
 

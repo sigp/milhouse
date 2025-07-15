@@ -1,6 +1,6 @@
 use crate::{
-    utils::{opt_packing_depth, opt_packing_factor, Length},
     Leaf, PackedLeaf, Tree, Value,
+    utils::{Length, opt_packing_depth, opt_packing_factor},
 };
 
 #[derive(Debug)]

@@ -1,10 +1,10 @@
 use crate::level_iter::LevelIter;
 use crate::update_map::UpdateMap;
-use crate::utils::{updated_length, Length};
+use crate::utils::{Length, updated_length};
 use crate::{
+    Cow, Error, Value,
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
-    Cow, Error, Value,
 };
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
