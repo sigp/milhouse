@@ -295,13 +295,13 @@ impl<T: Value> Tree<T> {
             (
                 Self::Node {
                     hash: orig_hash_lock,
-                    left: ref l1,
-                    right: ref r1,
+                    left: l1,
+                    right: r1,
                 },
                 Self::Node {
                     hash: base_hash_lock,
-                    left: ref l2,
-                    right: ref r2,
+                    left: l2,
+                    right: r2,
                 },
             ) if full_depth > 0 => {
                 use RebaseAction::*;
