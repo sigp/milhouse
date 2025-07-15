@@ -5,7 +5,7 @@ use crate::level_iter::LevelIter;
 use crate::tree::{IntraRebaseAction, RebaseAction};
 use crate::update_map::MaxMap;
 use crate::utils::Length;
-use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
+use crate::{Arc, ArcIter, Cow, Error, List, Tree, UpdateMap, Value};
 #[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
 use educe::Educe;
@@ -76,6 +76,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
 
     pub fn iter(&self) -> InterfaceIter<'_, T, U> {
         self.interface.iter()
+    }
+
+    pub fn iter_arc(&self) -> Result<ArcIter<'_, T>, Error> {
+        self.interface.iter_arc()
     }
 
     pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<'_, T, U>, Error> {
@@ -223,6 +227,15 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
 
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
+    }
+
+    fn iter_arc(&self, index: usize) -> Result<ArcIter<'_, T>, Error> {
+        Ok(ArcIter::from_index(
+            index,
+            &self.tree,
+            self.depth,
+            Length(N::to_usize()),
+        ))
     }
 }
 
