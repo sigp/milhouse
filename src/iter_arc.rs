@@ -1,8 +1,8 @@
 use triomphe::Arc;
 
 use crate::{
-    utils::{opt_packing_depth, Length},
     Leaf, Tree, Value,
+    utils::{Length, opt_packing_depth},
 };
 
 #[derive(Debug)]
@@ -44,7 +44,7 @@ impl<'a, T: Value> ArcIter<'a, T> {
             index: 0,
             full_depth: depth,
             packing_depth: opt_packing_depth::<T>().unwrap_or(0),
-            length: length,
+            length,
         }
     }
 }
@@ -72,8 +72,8 @@ impl<'a, T: Value> Iterator for ArcIter<'a, T> {
                 result
             }
             Some(Tree::PackedLeaf(_)) => {
-                // Panic in case of PackedLeaf
-                panic!("Arc iterator encountered packed leaves, but TreeHashType check should prevent this");
+                // Return None case of PackedLeaf
+                None
             }
             Some(Tree::Node { left, right, .. }) => {
                 let depth = self.full_depth - self.stack.len();

@@ -281,6 +281,15 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, self.length)
     }
+
+    fn iter_arc(&self, index: usize) -> Result<ArcIter<'_, T>, Error> {
+        Ok(ArcIter::from_index(
+            index,
+            &self.tree,
+            self.depth,
+            self.length,
+        ))
+    }
 }
 
 impl<T, N> MutList<T> for ListInner<T, N>
