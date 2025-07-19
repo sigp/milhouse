@@ -11,7 +11,7 @@ pub struct PackedLeaf<T: TreeHash + Clone> {
     #[educe(PartialEq(ignore), Hash(ignore))]
     #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
     pub hash: RwLock<Hash256>,
-    pub(crate) values: Vec<T>,
+    pub values: Vec<T>,
 }
 
 impl<T> Clone for PackedLeaf<T>

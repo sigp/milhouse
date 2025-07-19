@@ -10,6 +10,7 @@ pub mod iter;
 pub mod leaf;
 pub mod level_iter;
 pub mod list;
+pub mod mem;
 pub mod packed_leaf;
 mod repeat;
 pub mod serde;
