@@ -1,6 +1,7 @@
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::InterfaceIter;
 use crate::iter::Iter;
+use crate::iter_arc::ArcInterfaceIter;
 use crate::level_iter::LevelIter;
 use crate::tree::{IntraRebaseAction, RebaseAction};
 use crate::update_map::MaxMap;
@@ -78,8 +79,13 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
         self.interface.iter()
     }
 
-    pub fn iter_arc(&self) -> Result<ArcIter<'_, T>, Error> {
-        self.interface.iter_arc()
+    pub fn iter_arc(&self) -> Result<impl Iterator<Item = Arc<T>>, Error> {
+        Ok(ArcInterfaceIter::new(
+            &self.interface.backing.tree,
+            self.interface.backing.depth,
+            Length(self.len()),
+            &self.interface.updates,
+        ))
     }
 
     pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<'_, T, U>, Error> {
@@ -230,12 +236,7 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
     }
 
     fn iter_arc(&self, index: usize) -> Result<ArcIter<'_, T>, Error> {
-        Ok(ArcIter::from_index(
-            index,
-            &self.tree,
-            self.depth,
-            Length(N::to_usize()),
-        ))
+        ArcIter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
 }
 

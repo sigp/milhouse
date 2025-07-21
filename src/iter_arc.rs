@@ -1,7 +1,8 @@
+use tree_hash::{TreeHash, TreeHashType};
 use triomphe::Arc;
 
 use crate::{
-    Leaf, Tree, Value,
+    Error, Leaf, Tree, UpdateMap, Value,
     utils::{Length, opt_packing_depth},
 };
 
@@ -20,17 +21,25 @@ pub struct ArcIter<'a, T: Value> {
 }
 
 impl<'a, T: Value> ArcIter<'a, T> {
-    pub fn from_index(index: usize, root: &'a Tree<T>, depth: usize, length: Length) -> Self {
+    pub fn from_index(
+        index: usize,
+        root: &'a Tree<T>,
+        depth: usize,
+        length: Length,
+    ) -> Result<Self, Error> {
+        if <T as TreeHash>::tree_hash_type() == TreeHashType::Basic {
+            return Err(Error::PackedLeavesNoArc);
+        }
         let mut stack = Vec::with_capacity(depth);
         stack.push(root);
 
-        ArcIter {
+        Ok(ArcIter {
             stack,
             index,
             full_depth: depth,
             packing_depth: opt_packing_depth::<T>().unwrap_or(0),
             length,
-        }
+        })
     }
 }
 
@@ -99,3 +108,50 @@ impl<'a, T: Value> Iterator for ArcIter<'a, T> {
 }
 
 impl<T: Value> ExactSizeIterator for ArcIter<'_, T> {}
+#[derive(Debug)]
+pub struct ArcInterfaceIter<'a, T: Value, U: UpdateMap<T>> {
+    tree_iter: ArcIter<'a, T>,
+    updates: &'a U,
+    index: usize,
+    length: usize,
+}
+
+impl<'a, T: Value, U: UpdateMap<T>> ArcInterfaceIter<'a, T, U> {
+    pub fn new(root: &'a Tree<T>, depth: usize, length: Length, updates: &'a U) -> Self {
+        ArcInterfaceIter {
+            tree_iter: ArcIter::new(root, depth, length),
+            updates,
+            index: 0,
+            length: length.as_usize(),
+        }
+    }
+}
+
+impl<'a, T: Value, U: UpdateMap<T>> Iterator for ArcInterfaceIter<'a, T, U> {
+    type Item = Arc<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.length {
+            return None;
+        }
+        let idx = self.index;
+        self.index += 1;
+
+        let backing = self.tree_iter.next();
+        if let Some(new_val) = self.updates.get(idx) {
+            Some(
+                self.updates
+                    .get_arc(idx)
+                    .unwrap_or_else(|| Arc::new(new_val.clone())),
+            )
+        } else {
+            backing.cloned()
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let rem = self.length.saturating_sub(self.index);
+        (rem, Some(rem))
+    }
+}
+impl<T: Value, U: UpdateMap<T>> ExactSizeIterator for ArcInterfaceIter<'_, T, U> {}

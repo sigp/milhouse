@@ -2,7 +2,7 @@ use crate::builder::Builder;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
-use crate::iter_arc::ArcIter;
+use crate::iter_arc::{ArcInterfaceIter, ArcIter};
 use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
 use crate::tree::{IntraRebaseAction, RebaseAction};
@@ -137,16 +137,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         Ok(self.interface.iter_from(index))
     }
 
-    pub fn iter_arc(&self) -> Result<impl Iterator<Item = &Arc<T>>, Error> {
-        if T::tree_hash_type() == TreeHashType::Basic {
-            // Can't return `Arc`s for packed leaves.
-            return Err(Error::PackedLeavesNoArc);
-        }
-
-        Ok(ArcIter::new(
+    pub fn iter_arc(&self) -> Result<impl Iterator<Item = Arc<T>>, Error> {
+        Ok(ArcInterfaceIter::new(
             &self.interface.backing.tree,
             self.interface.backing.depth,
-            self.interface.backing.length,
+            Length(self.len()),
+            &self.interface.updates,
         ))
     }
 
@@ -283,12 +279,7 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
     }
 
     fn iter_arc(&self, index: usize) -> Result<ArcIter<'_, T>, Error> {
-        Ok(ArcIter::from_index(
-            index,
-            &self.tree,
-            self.depth,
-            self.length,
-        ))
+        ArcIter::from_index(index, &self.tree, self.depth, self.length)
     }
 }
 

@@ -215,12 +215,11 @@ where
             }
             Op::IterArc => {
                 if <T as TreeHash>::tree_hash_type() != TreeHashType::Basic {
-                    list.apply_updates().unwrap();
+                    let actual: Vec<T> =
+                        list.iter_arc().unwrap().map(|arc| (*arc).clone()).collect();
+                    let expected: Vec<T> = spec.iter().cloned().collect();
 
-                    let actual = list.iter_arc().unwrap().map(|arc| arc.as_ref());
-                    let expected = spec.iter();
-
-                    assert!(actual.eq(expected));
+                    assert_eq!(actual, expected);
                 }
             }
 
@@ -322,12 +321,11 @@ where
             }
             Op::IterArc => {
                 if <T as TreeHash>::tree_hash_type() != TreeHashType::Basic {
-                    vect.apply_updates().unwrap();
+                    let actual: Vec<T> =
+                        vect.iter_arc().unwrap().map(|arc| (*arc).clone()).collect();
+                    let expected: Vec<T> = spec.iter().cloned().collect();
 
-                    let actual = vect.iter_arc().unwrap().map(|arc| arc.as_ref());
-                    let expected = spec.iter();
-
-                    assert!(actual.eq(expected));
+                    assert!(actual.eq(&expected));
                 }
             }
 
