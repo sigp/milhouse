@@ -2,6 +2,7 @@ use crate::cow::{BTreeCow, Cow, VecCow};
 use crate::utils::max_btree_index;
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::ops::ControlFlow;
+use triomphe::Arc;
 use vec_map::VecMap;
 
 /// Trait for map types which can be used to store intermediate updates before application
@@ -17,6 +18,8 @@ pub trait UpdateMap<T>: Default + Clone {
     where
         F: FnOnce(usize) -> Option<&'a T>,
         T: Clone + 'a;
+
+    fn get_arc(&self, k: usize) -> Option<Arc<T>>;
 
     fn insert(&mut self, k: usize, value: T) -> Option<T>;
 
@@ -70,6 +73,10 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
             },
         };
         Some(Cow::BTree(cow))
+    }
+
+    fn get_arc(&self, k: usize) -> Option<Arc<T>> {
+        self.get(&k).cloned().map(Arc::new)
     }
 
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
@@ -136,6 +143,10 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
         Some(Cow::Vec(cow))
     }
 
+    fn get_arc(&self, k: usize) -> Option<Arc<T>> {
+        self.get(k).cloned().map(Arc::new)
+    }
+
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
         VecMap::insert(self, idx, value)
     }
@@ -200,6 +211,10 @@ where
         T: Clone + 'a,
     {
         self.inner.get_cow_with(k, f)
+    }
+
+    fn get_arc(&self, k: usize) -> Option<Arc<T>> {
+        self.inner.get_arc(k)
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
