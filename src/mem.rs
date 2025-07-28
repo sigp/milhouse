@@ -2,6 +2,7 @@ use crate::{Arc, List, Tree, UpdateMap, Value, Vector};
 use std::collections::HashMap;
 use typenum::Unsigned;
 
+/// Trait for types supporting memory usage tracking in a `MemoryTracker`.
 pub trait MemorySize {
     /// The memory address of this item.
     fn self_pointer(&self) -> usize;
@@ -22,6 +23,7 @@ pub struct MemoryTracker {
     total_size: usize,
 }
 
+/// The memory usage stats for a single item/value.
 #[derive(Debug)]
 pub struct ItemStats {
     /// Total size of this item ignoring structural sharing.
