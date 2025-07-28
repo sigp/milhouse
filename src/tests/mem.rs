@@ -1,4 +1,4 @@
-use crate::{mem::MemoryTracker, Vector};
+use crate::{Vector, mem::MemoryTracker};
 use typenum::U1024;
 
 #[test]

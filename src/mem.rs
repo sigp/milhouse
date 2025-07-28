@@ -24,7 +24,7 @@ pub struct MemoryTracker {
 
 #[derive(Debug)]
 pub struct ItemStats {
-    /// Total size of this item ignorning structural sharing.
+    /// Total size of this item ignoring structural sharing.
     pub total_size: usize,
     /// Amount of memory used by this item in addition to memory that was already tracked.
     pub differential_size: usize,
