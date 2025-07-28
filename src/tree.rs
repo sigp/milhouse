@@ -1,26 +1,26 @@
-use crate::utils::{arb_arc, arb_rwlock, opt_hash, opt_packing_depth, opt_packing_factor, Length};
+use crate::utils::{Length, opt_hash, opt_packing_depth, opt_packing_factor};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
-use arbitrary::Arbitrary;
 use educe::Educe;
-use ethereum_hashing::{hash32_concat, ZERO_HASHES};
+use ethereum_hashing::{ZERO_HASHES, hash32_concat};
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
 
-#[derive(Debug, Educe, Arbitrary)]
+#[derive(Debug, Educe)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[educe(PartialEq(bound(T: Value)), Hash)]
 pub enum Tree<T: Value> {
     Leaf(Leaf<T>),
     PackedLeaf(PackedLeaf<T>),
     Node {
         #[educe(PartialEq(ignore), Hash(ignore))]
-        #[arbitrary(with = arb_rwlock)]
+        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
         hash: RwLock<Hash256>,
-        #[arbitrary(with = arb_arc)]
+        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
         left: Arc<Self>,
-        #[arbitrary(with = arb_arc)]
+        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
         right: Arc<Self>,
     },
     Zero(usize),
@@ -295,13 +295,13 @@ impl<T: Value> Tree<T> {
             (
                 Self::Node {
                     hash: orig_hash_lock,
-                    left: ref l1,
-                    right: ref r1,
+                    left: l1,
+                    right: r1,
                 },
                 Self::Node {
                     hash: base_hash_lock,
-                    left: ref l2,
-                    right: ref r2,
+                    left: l2,
+                    right: r2,
                 },
             ) if full_depth > 0 => {
                 use RebaseAction::*;
@@ -420,10 +420,10 @@ impl<T: Value> Tree<T> {
     ///
     /// - `orig`: The tree to rebase.
     /// - `known_subtrees`: map from `(depth, tree_hash_root)` to `Arc<Node>`. This should be empty
-    ///    for the top-level call. The recursive calls fill it in. It can be discarded after the
-    ///    method returns.
+    ///   for the top-level call. The recursive calls fill it in. It can be discarded after the
+    ///   method returns.
     /// - `current_depth`: The depth of the tree `orig`. This will be decremented as we recurse
-    ///    down the tree towards the leaves.
+    ///   down the tree towards the leaves.
     ///
     /// Presently leaves are left untouched by this procedure, so it will only produce savings in
     /// trees with equal internal nodes (i.e. equal subtrees with at least two leaves/packed leaves

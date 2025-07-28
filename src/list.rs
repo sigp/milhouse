@@ -6,37 +6,45 @@ use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
 use crate::tree::{IntraRebaseAction, RebaseAction};
 use crate::update_map::MaxMap;
-use crate::utils::{arb_arc, compute_level, int_log, opt_packing_depth, updated_length, Length};
+use crate::utils::{Length, compute_level, int_log, opt_packing_depth, updated_length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
+#[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
 use educe::Educe;
 use itertools::process_results;
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
-use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeSeq};
+use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::collections::{BTreeMap, HashMap};
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
-
-#[derive(Debug, Clone, Educe, Arbitrary)]
+#[derive(Debug, Clone, Educe)]
 #[educe(PartialEq(bound(T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq)))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value")]
-#[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T> + PartialEq")]
+#[cfg_attr(
+    feature = "arbitrary",
+    derive(Arbitrary),
+    arbitrary(bound = "T: Arbitrary<'arbitrary> + Value"),
+    arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T> + PartialEq")
+)]
 pub struct List<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, ListInner<T, N>, U>,
 }
 
-#[derive(Debug, Clone, Educe, Arbitrary)]
+#[derive(Debug, Clone, Educe)]
 #[educe(PartialEq(bound(T: Value, N: Unsigned)))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
+#[cfg_attr(
+    feature = "arbitrary",
+    derive(Arbitrary),
+    arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")
+)]
 pub struct ListInner<T: Value, N: Unsigned> {
-    #[arbitrary(with = arb_arc)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) length: Length,
     pub(crate) depth: usize,
     pub(crate) packing_depth: usize,
-    #[arbitrary(default)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(default))]
     _phantom: PhantomData<N>,
 }
 
@@ -70,7 +78,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn repeat_slow(elem: T, n: usize) -> Result<Self, Error> {
-        Self::try_from_iter(std::iter::repeat(elem).take(n))
+        Self::try_from_iter(std::iter::repeat_n(elem, n))
     }
 
     pub fn builder() -> Result<Builder<T>, Error> {
@@ -113,11 +121,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T, U> {
+    pub fn iter(&self) -> InterfaceIter<'_, T, U> {
         self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T, U>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<'_, T, U>, Error> {
         // Return an empty iterator at index == length, just like slicing.
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
@@ -129,7 +137,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     /// Iterate all internal nodes on the same level as `index`.
-    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<T>, Error> {
+    pub fn level_iter_from(&self, index: usize) -> Result<LevelIter<'_, T>, Error> {
         // Return an empty iterator at index == length, just like slicing.
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
@@ -140,20 +148,20 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.interface.level_iter_from(index)
     }
 
-    pub fn iter_cow(&mut self) -> InterfaceIterCow<T, U> {
+    pub fn iter_cow(&mut self) -> InterfaceIterCow<'_, T, U> {
         self.interface.iter_cow()
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<&'_ T> {
         self.interface.get(index)
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&'_ mut T> {
         self.interface.get_mut(index)
     }
 
-    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
         self.interface.get_cow(index)
     }
 
@@ -252,11 +260,11 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
         self.length
     }
 
-    fn iter_from(&self, index: usize) -> Iter<T> {
+    fn iter_from(&self, index: usize) -> Iter<'_, T> {
         Iter::from_index(index, &self.tree, self.depth, self.length)
     }
 
-    fn level_iter_from(&self, index: usize) -> LevelIter<T> {
+    fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, self.length)
     }
 }
@@ -496,8 +504,7 @@ where
 
             if num_items > max_len {
                 return Err(ssz::DecodeError::BytesInvalid(format!(
-                    "List of {} items exceeds maximum of {}",
-                    num_items, max_len
+                    "List of {num_items} items exceeds maximum of {max_len}"
                 )));
             }
 
@@ -507,7 +514,7 @@ where
                     .map(T::from_ssz_bytes),
                 |iter| {
                     List::try_from_iter(iter).map_err(|e| {
-                        ssz::DecodeError::BytesInvalid(format!("Error building ssz List: {:?}", e))
+                        ssz::DecodeError::BytesInvalid(format!("Error building ssz List: {e:?}"))
                     })
                 },
             )?

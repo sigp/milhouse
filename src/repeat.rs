@@ -1,6 +1,6 @@
-use crate::utils::{opt_packing_factor, Length};
+use crate::utils::{Length, opt_packing_factor};
 use crate::{Arc, Error, Leaf, List, PackedLeaf, Tree, UpdateMap, Value};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use tree_hash::Hash256;
 use typenum::Unsigned;
 
@@ -49,7 +49,7 @@ where
                     1,
                 )]
             }
-            [(repeat_leaf, repeat_count)] if repeat_count % 2 == 0 => {
+            [(repeat_leaf, repeat_count)] if repeat_count.is_multiple_of(2) => {
                 smallvec![(
                     Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),
                     repeat_count / 2,
@@ -74,7 +74,7 @@ where
                 )]
             }
             [(repeat_leaf, repeat_count), (lonely_leaf, 1)] => {
-                if repeat_count % 2 == 0 {
+                if repeat_count.is_multiple_of(2) {
                     smallvec![
                         (
                             Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),

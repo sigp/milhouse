@@ -36,7 +36,7 @@ where
             std::iter::from_fn(|| seq.next_element().transpose()),
             |iter| {
                 List::try_from_iter(iter).map_err(|e| {
-                    serde::de::Error::custom(format!("Error deserializing List: {:?}", e))
+                    serde::de::Error::custom(format!("Error deserializing List: {e:?}"))
                 })
             },
         )?

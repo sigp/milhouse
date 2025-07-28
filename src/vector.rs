@@ -4,12 +4,13 @@ use crate::iter::Iter;
 use crate::level_iter::LevelIter;
 use crate::tree::{IntraRebaseAction, RebaseAction};
 use crate::update_map::MaxMap;
-use crate::utils::{arb_arc, Length};
+use crate::utils::Length;
 use crate::{Arc, Cow, Error, List, Tree, UpdateMap, Value};
+#[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
 use educe::Educe;
 use serde::{Deserialize, Serialize};
-use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
+use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
@@ -17,27 +18,35 @@ use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
 
-#[derive(Debug, Educe, Clone, Serialize, Deserialize, Arbitrary)]
+#[derive(Debug, Educe, Clone, Serialize, Deserialize)]
 #[educe(PartialEq(bound(T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq)))]
 #[serde(try_from = "List<T, N, U>")]
 #[serde(into = "List<T, N, U>")]
 #[serde(bound(serialize = "T: Value + Serialize, N: Unsigned, U: UpdateMap<T>"))]
 #[serde(bound(deserialize = "T: Value + Deserialize<'de>, N: Unsigned, U: UpdateMap<T>"))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value")]
-#[arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T>")]
+#[cfg_attr(
+    feature = "arbitrary",
+    derive(Arbitrary),
+    arbitrary(bound = "T: Arbitrary<'arbitrary> + Value"),
+    arbitrary(bound = "N: Unsigned, U: Arbitrary<'arbitrary> + UpdateMap<T>")
+)]
 pub struct Vector<T: Value, N: Unsigned, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
     pub(crate) interface: Interface<T, VectorInner<T, N>, U>,
 }
 
-#[derive(Debug, Educe, Clone, Arbitrary)]
+#[derive(Debug, Educe, Clone)]
 #[educe(PartialEq(bound(T: Value, N: Unsigned)))]
-#[arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")]
+#[cfg_attr(
+    feature = "arbitrary",
+    derive(Arbitrary),
+    arbitrary(bound = "T: Arbitrary<'arbitrary> + Value, N: Unsigned")
+)]
 pub struct VectorInner<T: Value, N: Unsigned> {
-    #[arbitrary(with = arb_arc)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
     pub(crate) tree: Arc<Tree<T>>,
     pub(crate) depth: usize,
     packing_depth: usize,
-    #[arbitrary(default)]
+    #[cfg_attr(feature = "arbitrary", arbitrary(default))]
     _phantom: PhantomData<N>,
 }
 
@@ -65,11 +74,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
         self.iter().cloned().collect()
     }
 
-    pub fn iter(&self) -> InterfaceIter<T, U> {
+    pub fn iter(&self) -> InterfaceIter<'_, T, U> {
         self.interface.iter()
     }
 
-    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<T, U>, Error> {
+    pub fn iter_from(&self, index: usize) -> Result<InterfaceIter<'_, T, U>, Error> {
         if index > self.len() {
             return Err(Error::OutOfBoundsIterFrom {
                 index,
@@ -80,15 +89,15 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
-    pub fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<&'_ T> {
         self.interface.get(index)
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&'_ mut T> {
         self.interface.get_mut(index)
     }
 
-    pub fn get_cow(&mut self, index: usize) -> Option<Cow<T>> {
+    pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
         self.interface.get_cow(index)
     }
 
@@ -208,11 +217,11 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
         Length(N::to_usize())
     }
 
-    fn iter_from(&self, index: usize) -> Iter<T> {
+    fn iter_from(&self, index: usize) -> Iter<'_, T> {
         Iter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
 
-    fn level_iter_from(&self, index: usize) -> LevelIter<T> {
+    fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
 }
@@ -371,11 +380,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Decode for Vector<T, N, U> {
     }
 
     fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
-        let list = List::from_ssz_bytes(bytes).map_err(|e| {
-            ssz::DecodeError::BytesInvalid(format!("Error decoding vector: {:?}", e))
-        })?;
+        let list = List::from_ssz_bytes(bytes)
+            .map_err(|e| ssz::DecodeError::BytesInvalid(format!("Error decoding vector: {e:?}")))?;
         Self::try_from(list).map_err(|e| {
-            ssz::DecodeError::BytesInvalid(format!("Wrong number of vector elements: {:?}", e))
+            ssz::DecodeError::BytesInvalid(format!("Wrong number of vector elements: {e:?}"))
         })
     }
 }

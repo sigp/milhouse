@@ -1,6 +1,6 @@
 use crate::{
-    utils::{compute_level, opt_packing_depth, opt_packing_factor, Length},
     Arc, PackedLeaf, Tree, Value,
+    utils::{Length, compute_level, opt_packing_depth, opt_packing_factor},
 };
 
 /// Iterator over the internal nodes at a given `depth` (level) in a tree.

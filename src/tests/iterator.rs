@@ -1,6 +1,6 @@
 use crate::{Error, List, Vector};
 use tree_hash::Hash256;
-use typenum::{Unsigned, U64};
+use typenum::{U64, Unsigned};
 
 #[test]
 fn hash256_vec_iter() {

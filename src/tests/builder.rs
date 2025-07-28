@@ -1,6 +1,6 @@
 use crate::List;
 use tree_hash::Hash256;
-use typenum::{Unsigned, U16, U32};
+use typenum::{U16, U32, Unsigned};
 
 #[test]
 fn build_partial_hash256_list() {
