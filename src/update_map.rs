@@ -239,3 +239,62 @@ where
         Some(self.max_key).filter(|_| !self.inner.is_empty())
     }
 }
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct ArcMap<M>(pub M);
+
+impl<T, M> UpdateMap<T> for ArcMap<M>
+where
+    M: UpdateMap<Arc<T>>,
+    T: Clone + 'static,
+{
+    fn get(&self, k: usize) -> Option<&T> {
+        self.0.get(k).map(|arc| &**arc)
+    }
+
+    fn get_mut_with<F>(&mut self, k: usize, f: F) -> Option<&mut T>
+    where
+        F: FnOnce(usize) -> Option<T>,
+    {
+        let value = self.0.get_mut_with(k, |idx| f(idx).map(Arc::new))?;
+        Arc::get_mut(value)
+    }
+
+    fn get_cow_with<'a, F>(&'a mut self, idx: usize, f: F) -> Option<Cow<'a, T>>
+    where
+        F: FnOnce(usize) -> Option<&'a T>,
+        T: Clone + 'a,
+    {
+        let arc = self
+            .0
+            .get_mut_with(idx, |_| Some(Arc::new(f(idx)?.clone())))?;
+        let value_mut = Arc::get_mut(arc)?;
+
+        Some(Cow::BTree(BTreeCow::Mutable { value: value_mut }))
+    }
+
+    fn get_arc(&self, k: usize) -> Option<Arc<T>> {
+        self.0.get(k).cloned()
+    }
+
+    fn insert(&mut self, k: usize, value: T) -> Option<T> {
+        self.0
+            .insert(k, Arc::new(value))
+            .and_then(|arc| Arc::try_unwrap(arc).ok())
+    }
+
+    fn for_each_range<F, E>(&self, start: usize, end: usize, mut f: F) -> Result<(), E>
+    where
+        F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
+    {
+        self.0.for_each_range(start, end, |k, v| f(k, &**v))
+    }
+
+    fn max_index(&self) -> Option<usize> {
+        self.0.max_index()
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
