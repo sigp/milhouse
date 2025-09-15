@@ -1,4 +1,5 @@
 use crate::{Arc, List, Tree, UpdateMap, Value, Vector};
+use alloy_primitives::FixedBytes;
 use std::collections::HashMap;
 use typenum::Unsigned;
 
@@ -157,6 +158,19 @@ impl<T: Value + MemorySize, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<
     }
 }
 
+impl<const N: usize> MemorySize for FixedBytes<N> {
+    fn self_pointer(&self) -> usize {
+        self as *const _ as usize
+    }
+
+    fn subtrees(&self) -> Vec<&dyn MemorySize> {
+        vec![]
+    }
+
+    fn intrinsic_size(&self) -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
 /// Implement `MemorySize` for a basic type with no nested allocations.
 #[macro_export]
 macro_rules! impl_memory_size_for_basic_type {
