@@ -2,6 +2,7 @@ use crate::builder::Builder;
 use crate::interface::{ImmList, Interface, MutList};
 use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
+use crate::iter_arc::{ArcInterfaceIter, ArcIter};
 use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
 use crate::tree::{IntraRebaseAction, RebaseAction};
@@ -16,7 +17,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeSeq}
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::collections::{BTreeMap, HashMap};
 use std::marker::PhantomData;
-use tree_hash::{Hash256, PackedEncoding, TreeHash};
+use tree_hash::{Hash256, PackedEncoding, TreeHash, TreeHashType};
 use typenum::Unsigned;
 use vec_map::VecMap;
 #[derive(Debug, Clone, Educe)]
@@ -134,6 +135,15 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             });
         }
         Ok(self.interface.iter_from(index))
+    }
+
+    pub fn iter_arc(&self) -> Result<impl Iterator<Item = Arc<T>>, Error> {
+        Ok(ArcInterfaceIter::new(
+            &self.interface.backing.tree,
+            self.interface.backing.depth,
+            Length(self.len()),
+            &self.interface.updates,
+        ))
     }
 
     /// Iterate all internal nodes on the same level as `index`.
@@ -267,6 +277,10 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, self.length)
     }
+
+    fn iter_arc(&self, index: usize) -> Result<ArcIter<'_, T>, Error> {
+        ArcIter::from_index(index, &self.tree, self.depth, self.length)
+    }
 }
 
 impl<T, N> MutList<T> for ListInner<T, N>
@@ -370,8 +384,8 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Default for List<T, N, U> {
 }
 
 impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> TreeHash for List<T, N, U> {
-    fn tree_hash_type() -> tree_hash::TreeHashType {
-        tree_hash::TreeHashType::List
+    fn tree_hash_type() -> TreeHashType {
+        TreeHashType::List
     }
 
     fn tree_hash_packed_encoding(&self) -> PackedEncoding {
