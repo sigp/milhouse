@@ -20,6 +20,9 @@ pub mod update_map;
 pub mod utils;
 pub mod vector;
 
+#[cfg(feature = "context_deserialize")]
+mod context_deserialize;
+
 pub use cow::Cow;
 pub use error::Error;
 pub use interface::ImmList;
