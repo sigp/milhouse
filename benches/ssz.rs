@@ -38,7 +38,7 @@ fn encode_variable_list<T: Value, N: Unsigned>(l1: &VariableList<T, N>) -> Vec<u
 }
 
 #[inline]
-fn encode_decode_variable_list<T: Value, N: Unsigned>(
+fn encode_decode_variable_list<T: Value + 'static, N: Unsigned>(
     l1: &VariableList<T, N>,
 ) -> VariableList<T, N> {
     let bytes = l1.as_ssz_bytes();
