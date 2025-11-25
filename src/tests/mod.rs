@@ -5,6 +5,7 @@ mod iterator;
 mod mem;
 mod packed;
 mod pop_front;
+mod prog;
 mod proptest;
 mod repeat;
 mod serde;

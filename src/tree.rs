@@ -1,12 +1,31 @@
-use crate::utils::{Length, opt_hash, opt_packing_depth, opt_packing_factor};
+use crate::builder::Builder;
+use crate::utils::{opt_hash, opt_packing_depth, opt_packing_factor, Length};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use educe::Educe;
-use ethereum_hashing::{ZERO_HASHES, hash32_concat};
+use ethereum_hashing::{hash32_concat, ZERO_HASHES};
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
+
+const PROG_TREE_EXPONENT: usize = 4;
+
+#[derive(Debug, Educe)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[educe(PartialEq(bound(T: Value)), Hash)]
+pub enum ProgTree<T: Value> {
+    Zero,
+    Node {
+        #[educe(PartialEq(ignore), Hash(ignore))]
+        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
+        hash: RwLock<Hash256>,
+        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
+        left: Arc<Self>,
+        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
+        right: Arc<Tree<T>>,
+    },
+}
 
 #[derive(Debug, Educe)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
@@ -517,6 +536,127 @@ impl<T: Value + Send + Sync> Tree<T> {
             }
             Self::PackedLeaf(leaf) => leaf.tree_hash(),
             Self::Zero(depth) => Hash256::from(ZERO_HASHES[*depth]),
+            Self::Node { hash, left, right } => {
+                let read_lock = hash.read();
+                let existing_hash = *read_lock;
+                drop(read_lock);
+
+                if !existing_hash.is_zero() {
+                    existing_hash
+                } else {
+                    // Parallelism goes brrrr.
+                    let (left_hash, right_hash) =
+                        rayon::join(|| left.tree_hash(), || right.tree_hash());
+                    let tree_hash =
+                        Hash256::from(hash32_concat(left_hash.as_slice(), right_hash.as_slice()));
+                    *hash.write() = tree_hash;
+                    tree_hash
+                }
+            }
+        }
+    }
+}
+
+impl<T: Value> ProgTree<T> {
+    pub fn empty() -> Self {
+        Self::Zero
+    }
+
+    pub fn capacity_at_depth(prog_depth: usize) -> usize {
+        match prog_depth.checked_sub(1) {
+            None => 0,
+            Some(depth_minus_one) => PROG_TREE_EXPONENT.pow(depth_minus_one as u32),
+        }
+    }
+
+    // XXX: make prog_depth u32
+    pub fn tree_capacity(prog_depth: usize) -> usize {
+        PROG_TREE_EXPONENT.pow(prog_depth as u32).saturating_sub(1) / (PROG_TREE_EXPONENT - 1)
+    }
+
+    // TODO: add a bulk builder
+    fn push_recursive(
+        &self,
+        value: T,
+        current_length: usize,
+        prog_depth: usize,
+    ) -> Result<Self, Error> {
+        match self {
+            // Expand this zero into a new right node for our element.
+            Self::Zero => {
+                let subtree_depth = if prog_depth == 0 {
+                    0
+                } else {
+                    2 * (prog_depth - 1)
+                };
+                let mut tree_builder = Builder::<T>::new(subtree_depth, 0)?;
+                tree_builder.push(value)?;
+                let (new_right, _, _) = tree_builder.finish()?;
+
+                Ok(Self::Node {
+                    hash: RwLock::new(Hash256::ZERO),
+                    // TODO: could reuse `self` here if we impl on `Arc<Self>`.
+                    left: Arc::new(Self::Zero),
+                    right: new_right,
+                })
+            }
+            Self::Node {
+                hash: _,
+                left,
+                right,
+            } => {
+                // Case 1: new element already fits inside this right-tree.
+                let tree_capacity = Self::tree_capacity(prog_depth);
+                // FIXME: account for packing
+                if current_length < tree_capacity {
+                    // XXX: know that prog_depth > 0 because we have a `Node`.
+                    let index = current_length.saturating_sub(Self::tree_capacity(prog_depth - 1));
+
+                    // Our right subtree can hold 4^(prog_depth - 1) entries. We need to work out
+                    // a 2-based depth for this sub tree, such that the subtree holds
+                    // 2^subtree_depth entries.
+                    //
+                    // 4^(prog_depth - 1) = 2^subtree_depth
+                    //
+                    // 2^(2 * (prog_depth - 1)) = 2^subtree_depth
+                    //
+                    // subtree_depth = 2 * (prog_depth - 1)
+                    // FIXME: generalise for different PROG_TREE_EXPONENT (use log)
+                    let subtree_depth = 2 * (prog_depth - 1);
+                    let new_right = right.with_updated_leaf(index, value, subtree_depth)?;
+
+                    // FIXME: remove assert
+                    assert!(matches!(**left, Self::Zero));
+
+                    Ok(Self::Node {
+                        hash: RwLock::new(Hash256::ZERO),
+                        left: left.clone(),
+                        right: new_right,
+                    })
+                } else {
+                    // Case 2: new element does not fit inside this right-tree: recurse to the next
+                    // level on the left.
+                    let new_left = left.push_recursive(value, current_length, prog_depth + 1)?;
+
+                    Ok(Self::Node {
+                        hash: RwLock::new(Hash256::ZERO),
+                        left: Arc::new(new_left),
+                        right: right.clone(),
+                    })
+                }
+            }
+        }
+    }
+
+    pub fn push(&self, value: T, current_length: usize) -> Result<Self, Error> {
+        self.push_recursive(value, current_length, 0)
+    }
+}
+
+impl<T: Value + Send + Sync> ProgTree<T> {
+    pub fn tree_hash(&self) -> Hash256 {
+        match self {
+            Self::Zero => Hash256::ZERO,
             Self::Node { hash, left, right } => {
                 let read_lock = hash.read();
                 let existing_hash = *read_lock;
