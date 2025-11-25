@@ -15,8 +15,8 @@ const PROG_TREE_EXPONENT: usize = 4;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[educe(PartialEq(bound(T: Value)), Hash)]
 pub enum ProgTree<T: Value> {
-    Zero,
-    Node {
+    ProgZero,
+    ProgNode {
         #[educe(PartialEq(ignore), Hash(ignore))]
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
         hash: RwLock<Hash256>,
@@ -559,7 +559,7 @@ impl<T: Value + Send + Sync> Tree<T> {
 
 impl<T: Value> ProgTree<T> {
     pub fn empty() -> Self {
-        Self::Zero
+        Self::ProgZero
     }
 
     pub fn capacity_at_depth(prog_depth: usize) -> usize {
@@ -583,52 +583,49 @@ impl<T: Value> ProgTree<T> {
     ) -> Result<Self, Error> {
         match self {
             // Expand this zero into a new right node for our element.
-            Self::Zero => {
-                let subtree_depth = if prog_depth == 0 {
-                    0
-                } else {
-                    2 * (prog_depth - 1)
-                };
+            Self::ProgZero => {
+                // FIXME: generalise
+                let subtree_depth = 2 * prog_depth;
                 let mut tree_builder = Builder::<T>::new(subtree_depth, 0)?;
                 tree_builder.push(value)?;
                 let (new_right, _, _) = tree_builder.finish()?;
 
-                Ok(Self::Node {
+                Ok(Self::ProgNode {
                     hash: RwLock::new(Hash256::ZERO),
                     // TODO: could reuse `self` here if we impl on `Arc<Self>`.
-                    left: Arc::new(Self::Zero),
+                    left: Arc::new(Self::ProgZero),
                     right: new_right,
                 })
             }
-            Self::Node {
+            Self::ProgNode {
                 hash: _,
                 left,
                 right,
             } => {
-                // Case 1: new element already fits inside this right-tree.
-                let tree_capacity = Self::tree_capacity(prog_depth);
+                // Case 1: new element already fits inside the right-tree at prog_depth + 1.
+                let tree_capacity = Self::tree_capacity(prog_depth + 1);
                 // FIXME: account for packing
                 if current_length < tree_capacity {
                     // XXX: know that prog_depth > 0 because we have a `Node`.
-                    let index = current_length.saturating_sub(Self::tree_capacity(prog_depth - 1));
+                    let index = current_length.saturating_sub(Self::tree_capacity(prog_depth));
 
-                    // Our right subtree can hold 4^(prog_depth - 1) entries. We need to work out
+                    // Our right subtree can hold 4^prog_depth entries. We need to work out
                     // a 2-based depth for this sub tree, such that the subtree holds
                     // 2^subtree_depth entries.
                     //
-                    // 4^(prog_depth - 1) = 2^subtree_depth
+                    // 4^prog_depth= 2^subtree_depth
                     //
-                    // 2^(2 * (prog_depth - 1)) = 2^subtree_depth
+                    // 2^(2 * prog_depth) = 2^subtree_depth
                     //
-                    // subtree_depth = 2 * (prog_depth - 1)
+                    // subtree_depth = 2 * prog_depth
                     // FIXME: generalise for different PROG_TREE_EXPONENT (use log)
-                    let subtree_depth = 2 * (prog_depth - 1);
+                    let subtree_depth = 2 * prog_depth;
                     let new_right = right.with_updated_leaf(index, value, subtree_depth)?;
 
                     // FIXME: remove assert
-                    assert!(matches!(**left, Self::Zero));
+                    assert!(matches!(**left, Self::ProgZero));
 
-                    Ok(Self::Node {
+                    Ok(Self::ProgNode {
                         hash: RwLock::new(Hash256::ZERO),
                         left: left.clone(),
                         right: new_right,
@@ -638,7 +635,7 @@ impl<T: Value> ProgTree<T> {
                     // level on the left.
                     let new_left = left.push_recursive(value, current_length, prog_depth + 1)?;
 
-                    Ok(Self::Node {
+                    Ok(Self::ProgNode {
                         hash: RwLock::new(Hash256::ZERO),
                         left: Arc::new(new_left),
                         right: right.clone(),
@@ -656,8 +653,8 @@ impl<T: Value> ProgTree<T> {
 impl<T: Value + Send + Sync> ProgTree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
-            Self::Zero => Hash256::ZERO,
-            Self::Node { hash, left, right } => {
+            Self::ProgZero => Hash256::ZERO,
+            Self::ProgNode { hash, left, right } => {
                 let read_lock = hash.read();
                 let existing_hash = *read_lock;
                 drop(read_lock);

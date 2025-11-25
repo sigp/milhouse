@@ -9,7 +9,9 @@ fn wow() {
 
     let two = one.push(Hash256::repeat_byte(0x22), 1).unwrap();
 
+    println!("{two:#?}");
+
     let three = two.push(Hash256::repeat_byte(0x33), 2).unwrap();
 
-    println!("{three:?}");
+    println!("{three:#?}");
 }
