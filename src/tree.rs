@@ -9,7 +9,28 @@ use std::collections::HashMap;
 use std::ops::ControlFlow;
 use tree_hash::Hash256;
 
+/// The size of each binary subtree in a progressive tree is `4^prog_depth` at depth `prog_depth`.
 const PROG_TREE_EXPONENT: usize = 4;
+
+/// This scaling factor is used to convert between a 4-based progressive depth and a 2-based
+/// depth for a binary subtree.
+///
+/// It is defined such that the binary subtree at progressive depth `prog_depth` has depth
+/// `PROG_TREE_BINARY_SCALE * prog_depth`. This comes from this equation:
+///
+/// PROG_TREE_EXPONENT^prog_depth = 2^binary_depth
+///
+/// Hence:
+///
+/// binary_depth = log2(PROG_TREE_EXPONENT^prog_depth)
+///
+/// Knowing PROG_TREE_EXPONENT is `2^k` for some `k`, this becomes:
+///
+/// binary_depth = log2(2^(k * prog_depth))
+///              = k * prog_depth
+///
+/// This `k` is the scaling factor, equal to `log2(PROG_TREE_EXPONENT)`.
+const PROG_TREE_BINARY_SCALE: usize = PROG_TREE_EXPONENT.trailing_zeros() as usize;
 
 #[derive(Debug, Educe)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
@@ -562,16 +583,18 @@ impl<T: Value> ProgTree<T> {
         Self::ProgZero
     }
 
-    pub fn capacity_at_depth(prog_depth: usize) -> usize {
+    /// The number of values that can be stored in the single subtree at `prog_depth` itself.
+    pub fn capacity_at_depth(prog_depth: u32) -> usize {
         match prog_depth.checked_sub(1) {
             None => 0,
-            Some(depth_minus_one) => PROG_TREE_EXPONENT.pow(depth_minus_one as u32),
+            Some(depth_minus_one) => PROG_TREE_EXPONENT.pow(depth_minus_one),
         }
     }
 
-    // XXX: make prog_depth u32
-    pub fn tree_capacity(prog_depth: usize) -> usize {
-        PROG_TREE_EXPONENT.pow(prog_depth as u32).saturating_sub(1) / (PROG_TREE_EXPONENT - 1)
+    /// The number of values that be stored in the whole progressive tree up to and including
+    /// the layer at `prog_depth`.
+    pub fn total_capacity_at_depth(prog_depth: u32) -> usize {
+        PROG_TREE_EXPONENT.pow(prog_depth).saturating_sub(1) / (PROG_TREE_EXPONENT - 1)
     }
 
     // TODO: add a bulk builder
@@ -579,13 +602,12 @@ impl<T: Value> ProgTree<T> {
         &self,
         value: T,
         current_length: usize,
-        prog_depth: usize,
+        prog_depth: u32,
     ) -> Result<Self, Error> {
         match self {
             // Expand this zero into a new right node for our element.
             Self::ProgZero => {
-                // FIXME: generalise
-                let subtree_depth = 2 * prog_depth;
+                let subtree_depth = PROG_TREE_BINARY_SCALE * prog_depth as usize;
                 let mut tree_builder = Builder::<T>::new(subtree_depth, 0)?;
                 tree_builder.push(value)?;
                 let (new_right, _, _) = tree_builder.finish()?;
@@ -603,23 +625,15 @@ impl<T: Value> ProgTree<T> {
                 right,
             } => {
                 // Case 1: new element already fits inside the right-tree at prog_depth + 1.
-                let tree_capacity = Self::tree_capacity(prog_depth + 1);
+                let total_capacity_at_depth = Self::total_capacity_at_depth(prog_depth + 1);
                 // FIXME: account for packing
-                if current_length < tree_capacity {
-                    // XXX: know that prog_depth > 0 because we have a `Node`.
-                    let index = current_length.saturating_sub(Self::tree_capacity(prog_depth));
+                if current_length < total_capacity_at_depth {
+                    let index = current_length.saturating_sub(Self::total_capacity_at_depth(prog_depth));
 
                     // Our right subtree can hold 4^prog_depth entries. We need to work out
                     // a 2-based depth for this sub tree, such that the subtree holds
                     // 2^subtree_depth entries.
-                    //
-                    // 4^prog_depth= 2^subtree_depth
-                    //
-                    // 2^(2 * prog_depth) = 2^subtree_depth
-                    //
-                    // subtree_depth = 2 * prog_depth
-                    // FIXME: generalise for different PROG_TREE_EXPONENT (use log)
-                    let subtree_depth = 2 * prog_depth;
+                    let subtree_depth = PROG_TREE_BINARY_SCALE * prog_depth as usize;
                     let new_right = right.with_updated_leaf(index, value, subtree_depth)?;
 
                     // FIXME: remove assert
