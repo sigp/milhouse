@@ -72,9 +72,7 @@ impl<T: Value> ProgTree<T> {
             None => 0,
             Some(prog_depth_minus_one) => {
                 // FIXME: work out why we don't need to sub the packing depth here, seems weird
-                let binary_depth_pre_packing =
-                    PROG_TREE_BINARY_SCALE * prog_depth_minus_one as usize;
-                binary_depth_pre_packing
+                PROG_TREE_BINARY_SCALE * prog_depth_minus_one as usize
             }
         }
     }
