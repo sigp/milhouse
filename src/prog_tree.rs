@@ -184,17 +184,12 @@ impl<T: Value + Send + Sync> ProgTree<T> {
 
 /// Iterator over elements in a progressive tree.
 ///
-/// The iterator maintains a stack of `ProgNode`s to continue iteration after each
-/// binary subtree (right child) is exhausted.
-///
-/// Note: The stack depth is bounded by the progressive depth of the tree, which grows
-/// logarithmically with base 4 (plus packing factor). For example, a tree with 2^20 elements
-/// (1 million) requires only ~10 progressive depths, making stack overflow unlikely in practice.
+/// The iterator traverses each binary subtree (right child) in sequence by following
+/// the left spine of the progressive tree structure.
 #[derive(Debug)]
 pub struct ProgTreeIter<'a, T: Value> {
-    /// Stack of progressive nodes to visit (their right children).
-    /// The stack depth is at most O(log₄(length/packing_factor)).
-    prog_stack: Vec<&'a ProgTree<T>>,
+    /// Current progressive node being traversed.
+    current_prog_node: Option<&'a ProgTree<T>>,
     /// Current iterator over a binary subtree (Tree).
     current_iter: Option<Iter<'a, T>>,
     /// Progressive depth for calculating the next subtree depth.
@@ -208,27 +203,28 @@ pub struct ProgTreeIter<'a, T: Value> {
 impl<'a, T: Value> ProgTreeIter<'a, T> {
     fn new(root: &'a ProgTree<T>, length: usize) -> Self {
         let mut iter = Self {
-            prog_stack: Vec::new(),
+            current_prog_node: Some(root),
             current_iter: None,
             prog_depth: 0,
             length,
             yielded: 0,
         };
 
-        // Initialize by traversing to the first right child
-        iter.advance_to_next_subtree(root);
+        // Initialize by setting up the iterator for the first right child
+        iter.advance_to_next_subtree();
         iter
     }
 
-    /// Advance to the next binary subtree by traversing down the left spine
-    /// and setting up an iterator for the right child.
-    fn advance_to_next_subtree(&mut self, node: &'a ProgTree<T>) {
-        match node {
-            ProgTree::ProgZero => {
+    /// Advance to the next binary subtree by moving to the left child and
+    /// setting up an iterator for its right child.
+    fn advance_to_next_subtree(&mut self) {
+        match self.current_prog_node {
+            None | Some(ProgTree::ProgZero) => {
                 // No more subtrees
                 self.current_iter = None;
+                self.current_prog_node = None;
             }
-            ProgTree::ProgNode { left, right, .. } => {
+            Some(ProgTree::ProgNode { left, right, .. }) => {
                 self.prog_depth += 1;
 
                 // Calculate the depth and length for this binary subtree
@@ -245,8 +241,8 @@ impl<'a, T: Value> ProgTreeIter<'a, T> {
                     Length(subtree_length),
                 ));
 
-                // Push the left child to continue later
-                self.prog_stack.push(left);
+                // Move to the left child for the next iteration
+                self.current_prog_node = Some(left);
             }
         }
     }
@@ -266,8 +262,8 @@ impl<'a, T: Value> Iterator for ProgTreeIter<'a, T> {
             }
 
             // Current subtree exhausted, move to the next one
-            if let Some(next_prog_node) = self.prog_stack.pop() {
-                self.advance_to_next_subtree(next_prog_node);
+            if self.current_prog_node.is_some() {
+                self.advance_to_next_subtree();
             } else {
                 // No more subtrees to iterate
                 return None;
