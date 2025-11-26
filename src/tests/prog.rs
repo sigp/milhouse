@@ -15,3 +15,14 @@ fn wow() {
 
     println!("{three:#?}");
 }
+
+#[test]
+fn wow_u64() {
+    let mut tree = ProgTree::<u64>::empty();
+
+    for i in 1..=65 {
+        tree = tree.push(i, i as usize - 1).unwrap();
+    }
+
+    println!("{tree:#?}");
+}

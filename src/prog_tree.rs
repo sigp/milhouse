@@ -1,4 +1,4 @@
-use crate::{Arc, Error, Tree, Value, builder::Builder};
+use crate::{Arc, Error, Tree, Value, builder::Builder, utils::opt_packing_factor};
 use educe::Educe;
 use ethereum_hashing::hash32_concat;
 use parking_lot::RwLock;
@@ -51,16 +51,30 @@ impl<T: Value> ProgTree<T> {
 
     /// The number of values that can be stored in the single subtree at `prog_depth` itself.
     pub fn capacity_at_depth(prog_depth: u32) -> usize {
-        match prog_depth.checked_sub(1) {
+        let capacity_pre_packing = match prog_depth.checked_sub(1) {
             None => 0,
-            Some(depth_minus_one) => PROG_TREE_EXPONENT.pow(depth_minus_one),
-        }
+            Some(depth_minus_one) => PROG_TREE_EXPONENT.pow(depth_minus_one)
+        };
+        capacity_pre_packing  * opt_packing_factor::<T>().unwrap_or(1)
     }
 
     /// The number of values that be stored in the whole progressive tree up to and including
     /// the layer at `prog_depth`.
     pub fn total_capacity_at_depth(prog_depth: u32) -> usize {
-        PROG_TREE_EXPONENT.pow(prog_depth).saturating_sub(1) / (PROG_TREE_EXPONENT - 1)
+        let total_capacity_pre_packing = PROG_TREE_EXPONENT.pow(prog_depth).saturating_sub(1) / (PROG_TREE_EXPONENT - 1);
+        total_capacity_pre_packing * opt_packing_factor::<T>().unwrap_or(1)
+    }
+
+    /// Calculate the depth for the binary subtree at `prog_depth`.
+    pub fn prog_depth_to_binary_depth(prog_depth: u32) -> usize {
+        match prog_depth.checked_sub(1) {
+            None => 0,
+            Some(prog_depth_minus_one) => {
+                // FIXME: work out why we don't need to sub the packing depth here, seems weird
+                let binary_depth_pre_packing = PROG_TREE_BINARY_SCALE * prog_depth_minus_one as usize;
+                binary_depth_pre_packing
+            }
+        }
     }
 
     // TODO: add a bulk builder
@@ -73,7 +87,8 @@ impl<T: Value> ProgTree<T> {
         match self {
             // Expand this zero into a new right node for our element.
             Self::ProgZero => {
-                let subtree_depth = PROG_TREE_BINARY_SCALE * prog_depth as usize;
+                // The `prog_depth` of the new right subtree is `prog_depth + 1`.
+                let subtree_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
                 let mut tree_builder = Builder::<T>::new(subtree_depth, 0)?;
                 tree_builder.push(value)?;
                 let (new_right, _, _) = tree_builder.finish()?;
@@ -91,7 +106,6 @@ impl<T: Value> ProgTree<T> {
             } => {
                 // Case 1: new element already fits inside the right-tree at prog_depth + 1.
                 let total_capacity_at_depth = Self::total_capacity_at_depth(prog_depth + 1);
-                // FIXME: account for packing
                 if current_length < total_capacity_at_depth {
                     let index =
                         current_length.saturating_sub(Self::total_capacity_at_depth(prog_depth));
@@ -99,7 +113,7 @@ impl<T: Value> ProgTree<T> {
                     // Our right subtree can hold 4^prog_depth entries. We need to work out
                     // a 2-based depth for this sub tree, such that the subtree holds
                     // 2^subtree_depth entries.
-                    let subtree_depth = PROG_TREE_BINARY_SCALE * prog_depth as usize;
+                    let subtree_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
                     let new_right = right.with_updated_leaf(index, value, subtree_depth)?;
 
                     // FIXME: remove assert
