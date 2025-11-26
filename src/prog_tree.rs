@@ -53,15 +53,16 @@ impl<T: Value> ProgTree<T> {
     pub fn capacity_at_depth(prog_depth: u32) -> usize {
         let capacity_pre_packing = match prog_depth.checked_sub(1) {
             None => 0,
-            Some(depth_minus_one) => PROG_TREE_EXPONENT.pow(depth_minus_one)
+            Some(depth_minus_one) => PROG_TREE_EXPONENT.pow(depth_minus_one),
         };
-        capacity_pre_packing  * opt_packing_factor::<T>().unwrap_or(1)
+        capacity_pre_packing * opt_packing_factor::<T>().unwrap_or(1)
     }
 
     /// The number of values that be stored in the whole progressive tree up to and including
     /// the layer at `prog_depth`.
     pub fn total_capacity_at_depth(prog_depth: u32) -> usize {
-        let total_capacity_pre_packing = PROG_TREE_EXPONENT.pow(prog_depth).saturating_sub(1) / (PROG_TREE_EXPONENT - 1);
+        let total_capacity_pre_packing =
+            PROG_TREE_EXPONENT.pow(prog_depth).saturating_sub(1) / (PROG_TREE_EXPONENT - 1);
         total_capacity_pre_packing * opt_packing_factor::<T>().unwrap_or(1)
     }
 
@@ -71,7 +72,8 @@ impl<T: Value> ProgTree<T> {
             None => 0,
             Some(prog_depth_minus_one) => {
                 // FIXME: work out why we don't need to sub the packing depth here, seems weird
-                let binary_depth_pre_packing = PROG_TREE_BINARY_SCALE * prog_depth_minus_one as usize;
+                let binary_depth_pre_packing =
+                    PROG_TREE_BINARY_SCALE * prog_depth_minus_one as usize;
                 binary_depth_pre_packing
             }
         }
