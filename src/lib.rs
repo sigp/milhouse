@@ -19,6 +19,7 @@ pub mod tree;
 pub mod update_map;
 pub mod utils;
 pub mod vector;
+pub mod prog_tree;
 
 #[cfg(feature = "context_deserialize")]
 mod context_deserialize;

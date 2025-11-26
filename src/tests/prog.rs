@@ -1,4 +1,4 @@
-use crate::tree::ProgTree;
+use crate::prog_tree::ProgTree;
 use tree_hash::Hash256;
 
 #[test]
