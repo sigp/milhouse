@@ -1,7 +1,7 @@
-use crate::utils::{opt_hash, opt_packing_depth, opt_packing_factor, Length};
+use crate::utils::{Length, opt_hash, opt_packing_depth, opt_packing_factor};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use educe::Educe;
-use ethereum_hashing::{hash32_concat, ZERO_HASHES};
+use ethereum_hashing::{ZERO_HASHES, hash32_concat};
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -537,4 +537,3 @@ impl<T: Value + Send + Sync> Tree<T> {
         }
     }
 }
-

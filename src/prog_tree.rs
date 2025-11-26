@@ -1,7 +1,7 @@
-use crate::{Arc, Value, Error, Tree, builder::Builder};
-use parking_lot::RwLock;
+use crate::{Arc, Error, Tree, Value, builder::Builder};
 use educe::Educe;
-use ethereum_hashing::{hash32_concat};
+use ethereum_hashing::hash32_concat;
+use parking_lot::RwLock;
 use tree_hash::Hash256;
 
 /// The size of each binary subtree in a progressive tree is `4^prog_depth` at depth `prog_depth`.
@@ -80,7 +80,6 @@ impl<T: Value> ProgTree<T> {
 
                 Ok(Self::ProgNode {
                     hash: RwLock::new(Hash256::ZERO),
-                    // TODO: could reuse `self` here if we impl on `Arc<Self>`.
                     left: Arc::new(Self::ProgZero),
                     right: new_right,
                 })
@@ -94,7 +93,8 @@ impl<T: Value> ProgTree<T> {
                 let total_capacity_at_depth = Self::total_capacity_at_depth(prog_depth + 1);
                 // FIXME: account for packing
                 if current_length < total_capacity_at_depth {
-                    let index = current_length.saturating_sub(Self::total_capacity_at_depth(prog_depth));
+                    let index =
+                        current_length.saturating_sub(Self::total_capacity_at_depth(prog_depth));
 
                     // Our right subtree can hold 4^prog_depth entries. We need to work out
                     // a 2-based depth for this sub tree, such that the subtree holds
