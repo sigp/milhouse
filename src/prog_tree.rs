@@ -170,12 +170,13 @@ impl<T: Value + Send + Sync> ProgTree<T> {
 
     /// Create an iterator over all elements in the progressive tree.
     ///
-    /// The iterator traverses elements in order:
-    /// 1. All elements in the first right child (prog_depth=1)
-    /// 2. All elements in the right child of the first left child (prog_depth=2)
-    /// 3. All elements in the right child of the second left child (prog_depth=3)
+    /// The iterator traverses elements in order by visiting each binary subtree
+    /// (right child) at increasing progressive depths:
+    /// 1. All elements in the right child at the root level
+    /// 2. All elements in the right child of the first left node
+    /// 3. All elements in the right child of the second left node
     ///
-    /// And so on, following the progressive tree structure.
+    /// And so on, following the progressive tree structure as defined in EIP-7916.
     pub fn iter(&self, length: usize) -> ProgTreeIter<'_, T> {
         ProgTreeIter::new(self, length)
     }
@@ -185,9 +186,14 @@ impl<T: Value + Send + Sync> ProgTree<T> {
 ///
 /// The iterator maintains a stack of `ProgNode`s to continue iteration after each
 /// binary subtree (right child) is exhausted.
+///
+/// Note: The stack depth is bounded by the progressive depth of the tree, which grows
+/// logarithmically with base 4 (plus packing factor). For example, a tree with 2^20 elements
+/// (1 million) requires only ~10 progressive depths, making stack overflow unlikely in practice.
 #[derive(Debug)]
 pub struct ProgTreeIter<'a, T: Value> {
     /// Stack of progressive nodes to visit (their right children).
+    /// The stack depth is at most O(log₄(length/packing_factor)).
     prog_stack: Vec<&'a ProgTree<T>>,
     /// Current iterator over a binary subtree (Tree).
     current_iter: Option<Iter<'a, T>>,
