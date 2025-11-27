@@ -1,4 +1,4 @@
-use crate::{Arc, Error, Tree, Value, builder::Builder, utils::opt_packing_factor};
+use crate::{Arc, Error, Tree, Value, builder::Builder, iter::Iter, utils::{Length, opt_packing_factor}};
 use educe::Educe;
 use ethereum_hashing::hash32_concat;
 use parking_lot::RwLock;
@@ -167,4 +167,114 @@ impl<T: Value + Send + Sync> ProgTree<T> {
             }
         }
     }
+
+    /// Create an iterator over all elements in the progressive tree.
+    ///
+    /// The iterator traverses elements in order by visiting each binary subtree
+    /// (right child) at increasing progressive depths:
+    /// 1. All elements in the right child at the root level
+    /// 2. All elements in the right child of the first left node
+    /// 3. All elements in the right child of the second left node
+    ///
+    /// And so on, following the progressive tree structure as defined in EIP-7916.
+    pub fn iter(&self, length: usize) -> ProgTreeIter<'_, T> {
+        ProgTreeIter::new(self, length)
+    }
 }
+
+/// Iterator over elements in a progressive tree.
+///
+/// The iterator traverses each binary subtree (right child) in sequence by following
+/// the left spine of the progressive tree structure.
+#[derive(Debug)]
+pub struct ProgTreeIter<'a, T: Value> {
+    /// Current progressive node being traversed.
+    current_prog_node: Option<&'a ProgTree<T>>,
+    /// Current iterator over a binary subtree (Tree).
+    current_iter: Option<Iter<'a, T>>,
+    /// Progressive depth for calculating the next subtree depth.
+    prog_depth: u32,
+    /// Total number of elements to iterate.
+    length: usize,
+    /// Number of elements already yielded.
+    yielded: usize,
+}
+
+impl<'a, T: Value> ProgTreeIter<'a, T> {
+    fn new(root: &'a ProgTree<T>, length: usize) -> Self {
+        let mut iter = Self {
+            current_prog_node: Some(root),
+            current_iter: None,
+            prog_depth: 0,
+            length,
+            yielded: 0,
+        };
+
+        // Initialize by setting up the iterator for the first right child
+        iter.advance_to_next_subtree();
+        iter
+    }
+
+    /// Advance to the next binary subtree by moving to the left child and
+    /// setting up an iterator for its right child.
+    fn advance_to_next_subtree(&mut self) {
+        match self.current_prog_node {
+            None | Some(ProgTree::ProgZero) => {
+                // No more subtrees
+                self.current_iter = None;
+                self.current_prog_node = None;
+            }
+            Some(ProgTree::ProgNode { left, right, .. }) => {
+                self.prog_depth += 1;
+
+                // Calculate the depth and length for this binary subtree
+                let binary_depth = ProgTree::<T>::prog_depth_to_binary_depth(self.prog_depth);
+                let remaining = self.length.saturating_sub(self.yielded);
+                let capacity = ProgTree::<T>::capacity_at_depth(self.prog_depth);
+                let subtree_length = remaining.min(capacity);
+
+                // Create an iterator for the right subtree
+                self.current_iter = Some(Iter::from_index(
+                    0,
+                    right,
+                    binary_depth,
+                    Length(subtree_length),
+                ));
+
+                // Move to the left child for the next iteration
+                self.current_prog_node = Some(left);
+            }
+        }
+    }
+}
+
+impl<'a, T: Value> Iterator for ProgTreeIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // Try to get the next item from the current binary tree iterator
+            if let Some(iter) = &mut self.current_iter
+                && let Some(value) = iter.next()
+            {
+                self.yielded += 1;
+                return Some(value);
+            }
+
+            // Current subtree exhausted, move to the next one
+            if self.current_prog_node.is_some() {
+                self.advance_to_next_subtree();
+            } else {
+                // No more subtrees to iterate
+                return None;
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.length.saturating_sub(self.yielded);
+        (remaining, Some(remaining))
+    }
+}
+
+impl<T: Value> ExactSizeIterator for ProgTreeIter<'_, T> {}
