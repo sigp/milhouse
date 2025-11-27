@@ -1,4 +1,9 @@
-use crate::{Arc, Error, Tree, Value, builder::Builder, iter::Iter, utils::{Length, opt_packing_factor}};
+use crate::{
+    Arc, Error, Tree, Value,
+    builder::Builder,
+    iter::Iter,
+    utils::{Length, opt_packing_factor},
+};
 use educe::Educe;
 use ethereum_hashing::hash32_concat;
 use parking_lot::RwLock;
