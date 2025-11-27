@@ -147,6 +147,19 @@ impl<T: Value> ProgTree<T> {
     pub fn push(&self, value: T, current_length: usize) -> Result<Self, Error> {
         self.push_recursive(value, current_length, 0)
     }
+
+    /// Create an iterator over all elements in the progressive tree.
+    ///
+    /// The iterator traverses elements in order by visiting each binary subtree
+    /// (right child) at increasing progressive depths:
+    /// 1. All elements in the right child at the root level
+    /// 2. All elements in the right child of the first left node
+    /// 3. All elements in the right child of the second left node
+    ///
+    /// And so on, following the progressive tree structure as defined in EIP-7916.
+    pub fn iter(&self, length: usize) -> ProgTreeIter<'_, T> {
+        ProgTreeIter::new(self, length)
+    }
 }
 
 impl<T: Value + Send + Sync> ProgTree<T> {
@@ -171,19 +184,6 @@ impl<T: Value + Send + Sync> ProgTree<T> {
                 }
             }
         }
-    }
-
-    /// Create an iterator over all elements in the progressive tree.
-    ///
-    /// The iterator traverses elements in order by visiting each binary subtree
-    /// (right child) at increasing progressive depths:
-    /// 1. All elements in the right child at the root level
-    /// 2. All elements in the right child of the first left node
-    /// 3. All elements in the right child of the second left node
-    ///
-    /// And so on, following the progressive tree structure as defined in EIP-7916.
-    pub fn iter(&self, length: usize) -> ProgTreeIter<'_, T> {
-        ProgTreeIter::new(self, length)
     }
 }
 
