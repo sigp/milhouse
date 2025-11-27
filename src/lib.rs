@@ -12,6 +12,7 @@ pub mod level_iter;
 pub mod list;
 pub mod mem;
 pub mod packed_leaf;
+pub mod prog_tree;
 mod repeat;
 pub mod serde;
 mod tests;
