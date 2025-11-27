@@ -132,11 +132,6 @@ where
         if bytes.is_empty() {
             Ok(ProgressiveList::empty())
         } else if <T as Decode>::is_ssz_fixed_len() {
-            let num_items = bytes
-                .len()
-                .checked_div(<T as Decode>::ssz_fixed_len())
-                .ok_or(ssz::DecodeError::ZeroLengthItem)?;
-
             process_results(
                 bytes
                     .chunks(<T as Decode>::ssz_fixed_len())
