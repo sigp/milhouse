@@ -38,6 +38,10 @@ impl<T: Value> ProgressiveList<T> {
         self.length.as_usize()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn iter(&self) -> ProgTreeIter<'_, T> {
         self.tree.iter(self.len())
     }
