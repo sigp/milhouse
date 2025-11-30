@@ -1,10 +1,10 @@
 use crate::{
+    Arc, Error, Value,
     prog_tree::{ProgTree, ProgTreeIter},
     utils::Length,
-    Arc, Error, Value,
 };
 use itertools::process_results;
-use ssz::{Decode, Encode, SszEncoder, TryFromIter, BYTES_PER_LENGTH_OFFSET};
+use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 
 pub struct ProgressiveList<T: Value> {
