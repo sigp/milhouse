@@ -60,7 +60,7 @@ jobs:
       uses: taiki-e/install-action@cargo-tarpaulin
     - name: Check code coverage with cargo-tarpaulin
       # Using --lib to avoid DHAT issues
-      run: cargo-tarpaulin --workspace --all-features --out xml --lib
+      run: cargo-tarpaulin --workspace --all-features --out xml --lib --timeout 1200
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v4
       with:
