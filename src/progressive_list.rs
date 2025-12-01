@@ -53,7 +53,7 @@ impl<T: Value> TryFrom<Vec<T>> for ProgressiveList<T> {
     type Error = Error;
 
     fn try_from(vec: Vec<T>) -> Result<Self, Error> {
-        Self::try_from_iter(vec.into_iter())
+        Self::try_from_iter(vec)
     }
 }
 
