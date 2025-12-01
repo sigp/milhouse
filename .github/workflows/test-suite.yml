@@ -49,3 +49,20 @@ jobs:
     - name: Check fuzzer targets
       if: matrix.os != 'windows-latest'
       run: cargo +nightly check --manifest-path fuzz/Cargo.toml --all-targets
+  coverage:
+    name: cargo-tarpaulin
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get latest version of stable Rust
+      run: rustup update stable
+    - name: Install cargo-tarpaulin
+      uses: taiki-e/install-action@cargo-tarpaulin
+    - name: Check code coverage with cargo-tarpaulin
+      run: cargo-tarpaulin --workspace --all-features --out xml
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v4
+      with:
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+        informational: true
