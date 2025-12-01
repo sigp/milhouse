@@ -1,5 +1,5 @@
-use super::{Large, arb_hash256, arb_index, arb_large, arb_list, arb_vect};
-use crate::{Error, List, Value, Vector};
+use super::{Large, arb_hash256, arb_index, arb_large, arb_list, arb_progressive_list, arb_vect};
+use crate::{Error, List, ProgressiveList, Value, Vector};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
@@ -91,6 +91,30 @@ impl<T: Value, N: Unsigned> Spec<T, N> {
     }
 }
 
+/// Simple specification for `ProgressiveList` behaviour without a length limit.
+#[derive(Debug, Clone)]
+pub struct ProgressiveSpec<T> {
+    values: Vec<T>,
+}
+
+impl<T: Value> ProgressiveSpec<T> {
+    pub fn new(values: Vec<T>) -> Self {
+        Self { values }
+    }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.values.iter()
+    }
+
+    pub fn push(&mut self, value: T) {
+        self.values.push(value);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Op<T> {
     /// Check that `len` returns the correct length.
@@ -171,6 +195,121 @@ where
     S: Strategy<Value = T> + 'a,
 {
     proptest::collection::vec(arb_op(strategy, n), 1..limit)
+}
+
+/// Strategy for generating operations for ProgressiveList.
+/// Since ProgressiveList has no length limit, we use a fixed index range.
+fn arb_op_progressive<'a, T, S>(strategy: &'a S, n: usize) -> impl Strategy<Value = Op<T>> + 'a
+where
+    T: Debug + Clone + 'a,
+    S: Strategy<Value = T> + 'a,
+{
+    // For ProgressiveList, we mainly want to test push, len, iter, and tree_hash
+    // since get, set, iter_from, pop_front, etc. are not implemented yet.
+    let a_block = prop_oneof![
+        Just(Op::Len),
+        arb_index(n).prop_map(Op::Get),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::Set(index, value)),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithIntoMut(index, value)),
+        (arb_index(n), strategy).prop_map(|(index, value)| Op::SetCowWithMakeMut(index, value)),
+        strategy.prop_map(Op::Push),
+        Just(Op::Iter),
+        arb_index(n).prop_map(Op::IterFrom),
+        arb_index(n).prop_map(Op::PopFront),
+        Just(Op::ApplyUpdates),
+    ];
+    let b_block = prop_oneof![
+        Just(Op::TreeHash),
+        Just(Op::Checkpoint),
+        Just(Op::Rebase),
+        Just(Op::Debase),
+        Just(Op::FromIntoRoundtrip),
+        Just(Op::IntraRebase),
+    ];
+    prop_oneof![
+        10 => a_block,
+        6 => b_block
+    ]
+}
+
+fn arb_ops_progressive<'a, T, S>(
+    strategy: &'a S,
+    n: usize,
+    limit: usize,
+) -> impl Strategy<Value = Vec<Op<T>>> + 'a
+where
+    T: Debug + Clone + 'a,
+    S: Strategy<Value = T> + 'a,
+{
+    proptest::collection::vec(arb_op_progressive(strategy, n), 1..limit)
+}
+
+fn apply_ops_progressive_list<T>(
+    list: &mut ProgressiveList<T>,
+    spec: &mut ProgressiveSpec<T>,
+    ops: Vec<Op<T>>,
+) where
+    T: Value + Debug + Send + Sync,
+{
+    let mut checkpoint = list.clone();
+
+    for op in ops {
+        match op {
+            Op::Len => {
+                assert_eq!(list.len(), spec.len());
+            }
+            Op::Get(_) => {
+                // No-op: ProgressiveList doesn't implement get yet
+            }
+            Op::Set(_, _) => {
+                // No-op: ProgressiveList doesn't implement set yet
+            }
+            Op::SetCowWithIntoMut(_, _) => {
+                // No-op: ProgressiveList doesn't implement set yet
+            }
+            Op::SetCowWithMakeMut(_, _) => {
+                // No-op: ProgressiveList doesn't implement set yet
+            }
+            Op::Push(value) => {
+                list.push(value.clone()).expect("push should succeed");
+                spec.push(value);
+            }
+            Op::Iter => {
+                assert!(list.iter().eq(spec.iter()));
+            }
+            Op::IterFrom(_) => {
+                // No-op: ProgressiveList doesn't implement iter_from yet
+            }
+            Op::PopFront(_) => {
+                // No-op: ProgressiveList doesn't implement pop_front yet
+            }
+            Op::ApplyUpdates => {
+                // No-op: ProgressiveList doesn't have apply_updates
+            }
+            Op::Checkpoint => {
+                checkpoint = list.clone();
+            }
+            Op::TreeHash => {
+                list.tree_hash_root();
+            }
+            Op::Rebase => {
+                // No-op: ProgressiveList doesn't implement rebase yet
+                let _ = &checkpoint;
+            }
+            Op::Debase => {
+                let ssz_bytes = list.as_ssz_bytes();
+                let new_list = ProgressiveList::from_ssz_bytes(&ssz_bytes).expect("SSZ decode");
+                assert_eq!(new_list, *list);
+                *list = new_list;
+            }
+            Op::FromIntoRoundtrip => {
+                // No-op: No corresponding Vector type for ProgressiveList
+            }
+            Op::IntraRebase => {
+                // No-op: ProgressiveList doesn't implement intra_rebase yet
+            }
+        }
+    }
 }
 
 fn apply_ops_list<T, N>(list: &mut List<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
@@ -491,4 +630,37 @@ mod vect {
     vect_test!(large_32, Large, U32, arb_large());
     vect_test!(large_33, Large, U33, arb_large());
     vect_test!(large_1024, Large, U1024, arb_large());
+}
+
+/// Maximum length for progressive list tests.
+/// We use smaller sizes than the regular list tests since progressive lists can grow unbounded.
+const PROGRESSIVE_LIST_MAX_LEN: usize = 128;
+
+macro_rules! progressive_list_test {
+    ($name:ident, $T:ty) => {
+        // Use default strategy (assumes existence of an `Arbitrary` impl).
+        progressive_list_test!($name, $T, any::<$T>());
+    };
+    ($name:ident, $T:ty, $strat:expr) => {
+        proptest! {
+            #[test]
+            fn $name(
+                init in arb_progressive_list::<$T, _>(&$strat, PROGRESSIVE_LIST_MAX_LEN),
+                ops in arb_ops_progressive::<$T, _>(&$strat, PROGRESSIVE_LIST_MAX_LEN, OP_LIMIT)
+            ) {
+                let mut list = ProgressiveList::<$T>::try_from_iter(init.clone()).unwrap();
+                let mut spec = ProgressiveSpec::<$T>::new(init);
+                apply_ops_progressive_list(&mut list, &mut spec, ops);
+            }
+        }
+    };
+}
+
+mod progressive_list {
+    use super::*;
+
+    progressive_list_test!(u8, u8);
+    progressive_list_test!(u64, u64);
+    progressive_list_test!(hash256, Hash256, arb_hash256());
+    progressive_list_test!(large, Large, arb_large());
 }

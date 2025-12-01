@@ -35,6 +35,17 @@ pub fn arb_hash256() -> impl Strategy<Value = Hash256> {
     proptest::array::uniform32(any::<u8>()).prop_map(Hash256::from)
 }
 
+/// Strategy for generating initial values for a progressive list.
+/// Unlike `arb_list`, this has no length limit, but we cap it at a reasonable
+/// size for testing purposes.
+pub fn arb_progressive_list<T, S>(strategy: S, max_len: usize) -> impl Strategy<Value = Vec<T>>
+where
+    S: Strategy<Value = T>,
+    T: std::fmt::Debug,
+{
+    proptest::collection::vec(strategy, 0..=max_len)
+}
+
 /// Struct with multiple fields shared by multiple proptests.
 #[derive(Debug, Clone, PartialEq, Encode, Decode, TreeHash)]
 pub struct Large {
