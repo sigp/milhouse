@@ -5,8 +5,10 @@ use crate::{
 };
 use itertools::process_results;
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
+use std::convert::TryFrom;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProgressiveList<T: Value> {
     tree: Arc<ProgTree<T>>,
     length: Length,
@@ -44,6 +46,14 @@ impl<T: Value> ProgressiveList<T> {
 
     pub fn iter(&self) -> ProgTreeIter<'_, T> {
         self.tree.iter(self.len())
+    }
+}
+
+impl<T: Value> TryFrom<Vec<T>> for ProgressiveList<T> {
+    type Error = Error;
+
+    fn try_from(vec: Vec<T>) -> Result<Self, Error> {
+        Self::try_from_iter(vec.into_iter())
     }
 }
 
