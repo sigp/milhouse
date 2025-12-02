@@ -1,4 +1,4 @@
-use crate::{List, Value, Vector};
+use crate::{List, ProgressiveList, Value, Vector};
 use context_deserialize::ContextDeserialize;
 use serde::de::Deserializer;
 use typenum::Unsigned;
@@ -41,5 +41,25 @@ where
         Vector::try_from(list).map_err(|e| {
             serde::de::Error::custom(format!("Failed to convert List to Vector: {:?}", e))
         })
+    }
+}
+
+impl<'de, C, T> ContextDeserialize<'de, C> for ProgressiveList<T>
+where
+    T: ContextDeserialize<'de, C> + Value,
+    C: Clone,
+{
+    fn context_deserialize<D>(deserializer: D, context: C) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // First deserialize as a Vec.
+        // This is not the most efficient implementation as it allocates a temporary Vec. In future
+        // we could write a more performant implementation using `ProgressiveList::builder()`.
+        let vec = Vec::<T>::context_deserialize(deserializer, context)?;
+
+        // Then convert to List, which will check the length.
+        ProgressiveList::try_from(vec)
+            .map_err(|e| serde::de::Error::custom(format!("Failed to create List: {:?}", e)))
     }
 }
