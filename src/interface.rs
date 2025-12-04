@@ -110,7 +110,10 @@ where
     }
 
     pub fn iter_cow(&mut self) -> InterfaceIterCow<'_, T, U> {
-        let index = 0;
+        self.iter_cow_from(0)
+    }
+
+    pub fn iter_cow_from(&mut self, index: usize) -> InterfaceIterCow<'_, T, U> {
         InterfaceIterCow {
             tree_iter: self.backing.iter_from(index),
             updates: &mut self.updates,
@@ -198,5 +201,17 @@ mod test {
         }
 
         assert_eq!(list.to_vec(), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn cow_iter_from() {
+        let mut list = List::<u64, U8>::new(vec![1, 2, 3, 4, 5]).unwrap();
+
+        let mut iter = list.iter_cow_from(2).unwrap();
+        while let Some((index, v)) = iter.next_cow() {
+            *v.into_mut().unwrap() = (index * 10) as u64;
+        }
+
+        assert_eq!(list.to_vec(), vec![1, 2, 20, 30, 40]);
     }
 }
