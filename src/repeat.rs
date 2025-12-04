@@ -108,5 +108,5 @@ where
         return Err(Error::BuilderStackLeftover);
     }
 
-    Ok(List::from_parts(root, Length(n)))
+    List::from_parts(root, Length(n))
 }

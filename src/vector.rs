@@ -196,7 +196,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> From<Vector<T, N, U>> for List<T, N
         let mut list = List::from_parts(
             vector.interface.backing.tree,
             Length(N::to_usize()),
-        );
+        ).expect("vector length should be within List capacity");
         list.interface.updates = vector.interface.updates;
         list
     }
