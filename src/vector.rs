@@ -1,5 +1,5 @@
 use crate::interface::{ImmList, Interface, MutList};
-use crate::interface_iter::InterfaceIter;
+use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::level_iter::LevelIter;
 use crate::tree::{IntraRebaseAction, RebaseAction};
@@ -86,6 +86,20 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
             });
         }
         Ok(self.interface.iter_from(index))
+    }
+
+    pub fn iter_cow(&mut self) -> InterfaceIterCow<'_, T, U> {
+        self.interface.iter_cow()
+    }
+
+    pub fn iter_cow_from(&mut self, index: usize) -> Result<InterfaceIterCow<'_, T, U>, Error> {
+        if index > self.len() {
+            return Err(Error::OutOfBoundsIterFrom {
+                index,
+                len: self.len(),
+            });
+        }
+        Ok(self.interface.iter_cow_from(index))
     }
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
