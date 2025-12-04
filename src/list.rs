@@ -53,13 +53,13 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         Self::try_from_iter(vec)
     }
 
-    pub(crate) fn from_parts(tree: Arc<Tree<T>>, depth: usize, length: Length) -> Self {
+    pub(crate) fn from_parts(tree: Arc<Tree<T>>, length: Length) -> Self {
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         Self {
             interface: Interface::new(ListInner {
                 tree,
                 length,
-                depth,
+                depth: Self::depth(),
                 packing_depth,
                 _phantom: PhantomData,
             }),
@@ -70,7 +70,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         // If the leaves are packed then they reduce the depth
         let depth = Self::depth();
         let tree = Tree::empty(depth);
-        Self::from_parts(tree, depth, Length(0))
+        Self::from_parts(tree, Length(0))
     }
 
     pub fn repeat(elem: T, n: usize) -> Result<Self, Error> {
@@ -92,7 +92,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             builder.push(item)?;
         }
 
-        let (tree, depth, length) = builder.finish()?;
+        let (tree, _, length) = builder.finish()?;
 
         // Check the length to cover the case where the capacity implied by packing_depth is
         // greater than N. E.g. the builder might pack up to 32 u8s, even if N is < 32.
@@ -100,7 +100,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             return Err(Error::BuilderFull);
         }
 
-        Ok(Self::from_parts(tree, depth, length))
+        Ok(Self::from_parts(tree, length))
     }
 
     /// This method exists for testing purposes.
@@ -239,8 +239,8 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             }
         }
 
-        let (tree, depth, length) = builder.finish()?;
-        *self = Self::from_parts(tree, depth, length);
+        let (tree, _, length) = builder.finish()?;
+        *self = Self::from_parts(tree, length);
 
         Ok(())
     }
