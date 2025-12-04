@@ -4,7 +4,7 @@ use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use tree_hash::{Hash256, TreeHash};
+use tree_hash::{Hash256, TreeHash, TreeHashType};
 use typenum::{U1, U2, U3, U4, U7, U8, U9, U32, U33, U1024, Unsigned};
 
 const OP_LIMIT: usize = 128;
@@ -107,6 +107,8 @@ pub enum Op<T> {
     Push(T),
     /// Check the `iter` method.
     Iter,
+    /// Cheeck the `iter_arc` method for non basic types.
+    IterArc,
     /// Check the `iter_from` method.
     IterFrom(usize),
     /// Check the `pop_front` method.
@@ -154,10 +156,11 @@ where
         Just(Op::Debase),
         Just(Op::FromIntoRoundtrip),
         Just(Op::IntraRebase),
+        Just(Op::IterArc),
     ];
     prop_oneof![
         10 => a_block,
-        6 => b_block
+        7 => b_block
     ]
 }
 
@@ -210,6 +213,16 @@ where
             Op::Iter => {
                 assert!(list.iter().eq(spec.iter()));
             }
+            Op::IterArc => {
+                if <T as TreeHash>::tree_hash_type() != TreeHashType::Basic {
+                    let actual: Vec<T> =
+                        list.iter_arc().unwrap().map(|arc| (*arc).clone()).collect();
+                    let expected: Vec<T> = spec.iter().cloned().collect();
+
+                    assert_eq!(actual, expected);
+                }
+            }
+
             Op::IterFrom(index) => match (list.iter_from(index), spec.iter_from(index)) {
                 (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
                 (Err(e1), Err(e2)) => assert_eq!(e1, e2),
@@ -306,6 +319,16 @@ where
             Op::Iter => {
                 assert!(vect.iter().eq(spec.iter()));
             }
+            Op::IterArc => {
+                if <T as TreeHash>::tree_hash_type() != TreeHashType::Basic {
+                    let actual: Vec<T> =
+                        vect.iter_arc().unwrap().map(|arc| (*arc).clone()).collect();
+                    let expected: Vec<T> = spec.iter().cloned().collect();
+
+                    assert!(actual.eq(&expected));
+                }
+            }
+
             Op::IterFrom(index) => match (vect.iter_from(index), spec.iter_from(index)) {
                 (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
                 (Err(e1), Err(e2)) => assert_eq!(e1, e2),

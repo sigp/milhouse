@@ -1,3 +1,4 @@
+use crate::ArcIter;
 use crate::level_iter::LevelIter;
 use crate::update_map::UpdateMap;
 use crate::utils::{Length, updated_length};
@@ -22,6 +23,8 @@ pub trait ImmList<T: Value> {
     fn iter_from(&self, index: usize) -> Iter<'_, T>;
 
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T>;
+
+    fn iter_arc(&self, index: usize) -> Result<ArcIter<'_, T>, Error>;
 }
 
 pub trait MutList<T: Value>: ImmList<T> {
@@ -98,6 +101,10 @@ where
 
     pub fn iter(&self) -> InterfaceIter<'_, T, U> {
         self.iter_from(0)
+    }
+
+    pub fn iter_arc(&self) -> Result<ArcIter<'_, T>, Error> {
+        self.backing.iter_arc(0)
     }
 
     pub fn iter_from(&self, index: usize) -> InterfaceIter<'_, T, U> {
