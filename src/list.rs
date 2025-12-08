@@ -55,7 +55,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
     pub(crate) fn from_parts(tree: Arc<Tree<T>>, length: Length) -> Result<Self, Error> {
         if length.as_usize() > N::to_usize() {
-            return Err(Error::BuilderFull);
+            return Err(Error::InvalidLengthFromParts {
+                length: length.as_usize(),
+                max_length: N::to_usize(),
+            });
         }
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         Ok(Self {
