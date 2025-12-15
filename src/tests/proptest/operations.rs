@@ -4,6 +4,7 @@ use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use tree_hash::{Hash256, TreeHash};
 use typenum::{U1, U2, U3, U4, U7, U8, U9, U32, U33, U1024, Unsigned};
 
@@ -109,6 +110,8 @@ pub enum Op<T> {
     Iter,
     /// Check the `iter_from` method.
     IterFrom(usize),
+    /// Check the `iter_cow_from` method.
+    IterCowFrom(usize),
     /// Check the `pop_front` method.
     PopFront(usize),
     /// Apply updates to the backing list.
@@ -144,10 +147,11 @@ where
         strategy.prop_map(Op::Push),
         Just(Op::Iter),
         arb_index(n).prop_map(Op::IterFrom),
+        arb_index(n).prop_map(Op::IterCowFrom),
         arb_index(n).prop_map(Op::PopFront),
-        Just(Op::ApplyUpdates),
     ];
     let b_block = prop_oneof![
+        Just(Op::ApplyUpdates),
         Just(Op::TreeHash),
         Just(Op::Checkpoint),
         Just(Op::Rebase),
@@ -157,7 +161,7 @@ where
     ];
     prop_oneof![
         10 => a_block,
-        6 => b_block
+        7 => b_block
     ]
 }
 
@@ -214,6 +218,22 @@ where
                 (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
                 (Err(e1), Err(e2)) => assert_eq!(e1, e2),
                 (Err(e), _) | (_, Err(e)) => panic!("iter_from mismatch: {}", e),
+            },
+            Op::IterCowFrom(index) => match (list.iter_cow_from(index), spec.iter_from(index)) {
+                (Ok(mut cow_iter), Ok(spec_iter)) => {
+                    let mut cow_values = Vec::new();
+                    while let Some((idx, cow)) = cow_iter.next_cow() {
+                        assert_eq!(
+                            idx,
+                            index + cow_values.len(),
+                            "index mismatch in iter_cow_from"
+                        );
+                        cow_values.push(cow.deref().clone());
+                    }
+                    assert!(cow_values.iter().eq(spec_iter));
+                }
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_cow_from mismatch: {}", e),
             },
             Op::PopFront(index) => match (list.pop_front(index), spec.pop_front(index)) {
                 (Ok(()), Ok(())) => {
@@ -310,6 +330,22 @@ where
                 (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
                 (Err(e1), Err(e2)) => assert_eq!(e1, e2),
                 (Err(e), _) | (_, Err(e)) => panic!("iter_from mismatch: {}", e),
+            },
+            Op::IterCowFrom(index) => match (vect.iter_cow_from(index), spec.iter_from(index)) {
+                (Ok(mut cow_iter), Ok(spec_iter)) => {
+                    let mut cow_values = Vec::new();
+                    while let Some((idx, cow)) = cow_iter.next_cow() {
+                        assert_eq!(
+                            idx,
+                            index + cow_values.len(),
+                            "index mismatch in iter_cow_from"
+                        );
+                        cow_values.push(cow.deref().clone());
+                    }
+                    assert!(cow_values.iter().eq(spec_iter));
+                }
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_cow_from mismatch: {}", e),
             },
             Op::PopFront(_) => {
                 // No-op
