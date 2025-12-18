@@ -4,6 +4,7 @@ use crate::{
     utils::Length,
 };
 use itertools::process_results;
+use serde::{Deserialize, Deserializer, de::Error as _};
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::convert::TryFrom;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
@@ -161,5 +162,19 @@ where
         } else {
             ssz::decode_list_of_variable_length_items(bytes, None)
         }
+    }
+}
+
+impl<'de, T> Deserialize<'de> for ProgressiveList<T>
+where
+    T: Deserialize<'de> + Value,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // TODO: this implementation is not necessarily the most efficient
+        Self::try_from_iter(Vec::deserialize(deserializer)?)
+            .map_err(|e| D::Error::custom(format!("{e:?}")))
     }
 }
