@@ -2,7 +2,7 @@ use crate::level_iter::LevelIter;
 use crate::update_map::UpdateMap;
 use crate::utils::{Length, updated_length};
 use crate::{
-    Cow, Error, Value,
+    Arc, Cow, Error, Tree, Value,
     interface_iter::{InterfaceIter, InterfaceIterCow},
     iter::Iter,
 };
@@ -22,6 +22,12 @@ pub trait ImmList<T: Value> {
     fn iter_from(&self, index: usize) -> Iter<'_, T>;
 
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T>;
+
+    fn tree(&self) -> &Arc<Tree<T>>;
+
+    fn depth(&self) -> usize;
+
+    fn packing_depth(&self) -> usize;
 }
 
 pub trait MutList<T: Value>: ImmList<T> {
@@ -143,6 +149,157 @@ where
         }
         self.updates = updates;
         Ok(())
+    }
+
+    /// Compute the tree hash root, accounting for pending updates.
+    ///
+    /// This method computes the tree hash without applying pending updates to the backing tree.
+    /// It recursively traverses the tree, using values from pending updates where they exist,
+    /// and cached hashes from the tree where they don't.
+    pub fn tree_hash_root(&self, full_length: usize) -> Hash256
+    where
+        T: Send + Sync,
+        B: ImmList<T>,
+    {
+        let tree = self.backing.tree();
+        let depth = self.backing.depth();
+        let packing_depth = self.backing.packing_depth();
+        
+        if self.updates.is_empty() {
+            // No pending updates, just use the cached tree hash
+            tree.tree_hash()
+        } else {
+            // Compute tree hash while considering pending updates
+            self.tree_hash_recursive(tree, &self.updates, 0, depth, packing_depth, full_length)
+        }
+    }
+
+    /// Recursively compute tree hash for a subtree, considering pending updates.
+    fn tree_hash_recursive(
+        &self,
+        node: &Tree<T>,
+        updates: &U,
+        prefix: usize,
+        depth: usize,
+        packing_depth: usize,
+        full_length: usize,
+    ) -> Hash256
+    where
+        T: Send + Sync,
+    {
+        use crate::tree::Tree;
+        use ethereum_hashing::{ZERO_HASHES, hash32_concat};
+        use std::ops::ControlFlow;
+
+        match node {
+            Tree::Leaf(leaf) if depth == 0 => {
+                // Check if this leaf has a pending update
+                if let Some(updated_value) = updates.get(prefix) {
+                    updated_value.tree_hash_root()
+                } else {
+                    // Use cached hash if available, otherwise compute
+                    let read_lock = leaf.hash.read();
+                    let existing_hash = *read_lock;
+                    drop(read_lock);
+                    
+                    if !existing_hash.is_zero() {
+                        existing_hash
+                    } else {
+                        leaf.value.tree_hash_root()
+                    }
+                }
+            }
+            Tree::PackedLeaf(packed_leaf) if depth == 0 => {
+                // Check if any values in this packed leaf have pending updates
+                let mut has_updates = false;
+                let packing_factor = T::tree_hash_packing_factor();
+                for i in 0..packing_factor {
+                    let index = prefix + i;
+                    if index >= full_length {
+                        break;
+                    }
+                    if updates.get(index).is_some() {
+                        has_updates = true;
+                        break;
+                    }
+                }
+
+                if has_updates {
+                    // Need to recompute hash with updated values
+                    let mut values = packed_leaf.values.clone();
+                    for i in 0..packing_factor {
+                        let index = prefix + i;
+                        if index >= full_length {
+                            break;
+                        }
+                        if let Some(updated_value) = updates.get(index) {
+                            if i < values.len() {
+                                values[i] = updated_value.clone();
+                            } else {
+                                values.push(updated_value.clone());
+                            }
+                        }
+                    }
+                    // Compute tree hash for packed values
+                    crate::packed_leaf::PackedLeaf { values, hash: parking_lot::RwLock::new(Hash256::ZERO) }.tree_hash()
+                } else {
+                    // No updates, use cached hash
+                    packed_leaf.tree_hash()
+                }
+            }
+            Tree::Zero(zero_depth) if *zero_depth == depth => {
+                Hash256::from(ZERO_HASHES[depth])
+            }
+            Tree::Node { hash, left, right } if depth > 0 => {
+                let new_depth = depth - 1;
+                let left_prefix = prefix;
+                let right_prefix = prefix | (1 << (new_depth + packing_depth));
+                let right_subtree_end = prefix + (1 << (depth + packing_depth));
+
+                // Check if there are updates in left or right subtrees
+                let mut has_left_updates = false;
+                updates.for_each_range(left_prefix, right_prefix, |_, _| {
+                    has_left_updates = true;
+                    ControlFlow::<(), Result<(), Error>>::Break(())
+                }).ok();
+                
+                let mut has_right_updates = false;
+                updates.for_each_range(right_prefix, right_subtree_end, |_, _| {
+                    has_right_updates = true;
+                    ControlFlow::<(), Result<(), Error>>::Break(())
+                }).ok();
+
+                if !has_left_updates && !has_right_updates {
+                    // No updates in this subtree, use cached hash if available
+                    let read_lock = hash.read();
+                    let existing_hash = *read_lock;
+                    drop(read_lock);
+                    
+                    if !existing_hash.is_zero() {
+                        return existing_hash;
+                    }
+                }
+
+                // Compute hashes for left and right subtrees
+                let left_hash = if has_left_updates {
+                    self.tree_hash_recursive(left, updates, left_prefix, new_depth, packing_depth, full_length)
+                } else {
+                    left.tree_hash()
+                };
+
+                let right_hash = if has_right_updates {
+                    self.tree_hash_recursive(right, updates, right_prefix, new_depth, packing_depth, full_length)
+                } else {
+                    right.tree_hash()
+                };
+
+                Hash256::from(hash32_concat(left_hash.as_slice(), right_hash.as_slice()))
+            }
+            _ => {
+                // Fallback to regular tree hash for unexpected cases
+                node.tree_hash()
+            }
+        }
     }
 }
 

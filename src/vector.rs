@@ -238,6 +238,18 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
+
+    fn tree(&self) -> &Arc<Tree<T>> {
+        &self.tree
+    }
+
+    fn depth(&self) -> usize {
+        self.depth
+    }
+
+    fn packing_depth(&self) -> usize {
+        self.packing_depth
+    }
 }
 
 impl<T, N> MutList<T> for VectorInner<T, N>
