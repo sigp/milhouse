@@ -241,7 +241,11 @@ where
                         }
                     }
                     // Compute tree hash for packed values
-                    crate::packed_leaf::PackedLeaf { values, hash: parking_lot::RwLock::new(Hash256::ZERO) }.tree_hash()
+                    use crate::packed_leaf::PackedLeaf;
+                    PackedLeaf {
+                        values,
+                        hash: parking_lot::RwLock::new(Hash256::ZERO)
+                    }.tree_hash()
                 } else {
                     // No updates, use cached hash
                     packed_leaf.tree_hash()
@@ -258,16 +262,16 @@ where
 
                 // Check if there are updates in left or right subtrees
                 let mut has_left_updates = false;
-                updates.for_each_range(left_prefix, right_prefix, |_, _| {
+                let _: Result<(), Error> = updates.for_each_range(left_prefix, right_prefix, |_, _| {
                     has_left_updates = true;
-                    ControlFlow::<(), Result<(), Error>>::Break(())
-                }).ok();
+                    ControlFlow::Break(())
+                });
                 
                 let mut has_right_updates = false;
-                updates.for_each_range(right_prefix, right_subtree_end, |_, _| {
+                let _: Result<(), Error> = updates.for_each_range(right_prefix, right_subtree_end, |_, _| {
                     has_right_updates = true;
-                    ControlFlow::<(), Result<(), Error>>::Break(())
-                }).ok();
+                    ControlFlow::Break(())
+                });
 
                 if !has_left_updates && !has_right_updates {
                     // No updates in this subtree, use cached hash if available
