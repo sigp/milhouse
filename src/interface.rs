@@ -164,7 +164,7 @@ where
         let tree = self.backing.tree();
         let depth = self.backing.depth();
         let packing_depth = self.backing.packing_depth();
-        
+
         if self.updates.is_empty() {
             // No pending updates, just use the cached tree hash
             tree.tree_hash()
@@ -201,7 +201,7 @@ where
                     let read_lock = leaf.hash.read();
                     let existing_hash = *read_lock;
                     drop(read_lock);
-                    
+
                     if !existing_hash.is_zero() {
                         existing_hash
                     } else {
@@ -244,16 +244,15 @@ where
                     use crate::packed_leaf::PackedLeaf;
                     PackedLeaf {
                         values,
-                        hash: parking_lot::RwLock::new(Hash256::ZERO)
-                    }.tree_hash()
+                        hash: parking_lot::RwLock::new(Hash256::ZERO),
+                    }
+                    .tree_hash()
                 } else {
                     // No updates, use cached hash
                     packed_leaf.tree_hash()
                 }
             }
-            Tree::Zero(zero_depth) if *zero_depth == depth => {
-                Hash256::from(ZERO_HASHES[depth])
-            }
+            Tree::Zero(zero_depth) if *zero_depth == depth => Hash256::from(ZERO_HASHES[depth]),
             Tree::Node { hash, left, right } if depth > 0 => {
                 let new_depth = depth - 1;
                 let left_prefix = prefix;
@@ -266,19 +265,20 @@ where
                     has_left_updates = true;
                     ControlFlow::Break(())
                 });
-                
+
                 let mut has_right_updates = false;
-                let _ = updates.for_each_range::<_, Error>(right_prefix, right_subtree_end, |_, _| {
-                    has_right_updates = true;
-                    ControlFlow::Break(())
-                });
+                let _ =
+                    updates.for_each_range::<_, Error>(right_prefix, right_subtree_end, |_, _| {
+                        has_right_updates = true;
+                        ControlFlow::Break(())
+                    });
 
                 if !has_left_updates && !has_right_updates {
                     // No updates in this subtree, use cached hash if available
                     let read_lock = hash.read();
                     let existing_hash = *read_lock;
                     drop(read_lock);
-                    
+
                     if !existing_hash.is_zero() {
                         return existing_hash;
                     }
@@ -286,13 +286,27 @@ where
 
                 // Compute hashes for left and right subtrees
                 let left_hash = if has_left_updates {
-                    self.tree_hash_recursive(left, updates, left_prefix, new_depth, packing_depth, full_length)
+                    self.tree_hash_recursive(
+                        left,
+                        updates,
+                        left_prefix,
+                        new_depth,
+                        packing_depth,
+                        full_length,
+                    )
                 } else {
                     left.tree_hash()
                 };
 
                 let right_hash = if has_right_updates {
-                    self.tree_hash_recursive(right, updates, right_prefix, new_depth, packing_depth, full_length)
+                    self.tree_hash_recursive(
+                        right,
+                        updates,
+                        right_prefix,
+                        new_depth,
+                        packing_depth,
+                        full_length,
+                    )
                 } else {
                     right.tree_hash()
                 };
