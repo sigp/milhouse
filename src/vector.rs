@@ -318,9 +318,8 @@ impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> tree_hash::TreeHash f
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        // FIXME(sproul): remove assert
-        assert!(!self.interface.has_pending_updates());
-        self.interface.backing.tree.tree_hash()
+        // For vectors, the length is fixed at N, so we use that as the full_length
+        self.interface.tree_hash_root(N::to_usize())
     }
 }
 

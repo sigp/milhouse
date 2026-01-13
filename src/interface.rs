@@ -262,13 +262,13 @@ where
 
                 // Check if there are updates in left or right subtrees
                 let mut has_left_updates = false;
-                let _: Result<(), Error> = updates.for_each_range(left_prefix, right_prefix, |_, _| {
+                let _ = updates.for_each_range::<_, Error>(left_prefix, right_prefix, |_, _| {
                     has_left_updates = true;
                     ControlFlow::Break(())
                 });
                 
                 let mut has_right_updates = false;
-                let _: Result<(), Error> = updates.for_each_range(right_prefix, right_subtree_end, |_, _| {
+                let _ = updates.for_each_range::<_, Error>(right_prefix, right_subtree_end, |_, _| {
                     has_right_updates = true;
                     ControlFlow::Break(())
                 });
