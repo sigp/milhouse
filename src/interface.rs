@@ -252,7 +252,80 @@ where
                     packed_leaf.tree_hash()
                 }
             }
-            Tree::Zero(zero_depth) if *zero_depth == depth => Hash256::from(ZERO_HASHES[depth]),
+            Tree::Zero(zero_depth) if *zero_depth == depth => {
+                // Check if there are any updates for this zero tree's range
+                let subtree_start = prefix;
+                let subtree_end = prefix + (1 << (depth + packing_depth));
+                let mut has_updates = false;
+                let _ = updates.for_each_range::<_, Error>(subtree_start, subtree_end, |_, _| {
+                    has_updates = true;
+                    ControlFlow::Break(())
+                });
+
+                if !has_updates {
+                    // No updates in this zero tree, return zero hash
+                    Hash256::from(ZERO_HASHES[depth])
+                } else if depth == 0 {
+                    // Leaf level with updates
+                    if let Some(packing_factor) = crate::utils::opt_packing_factor::<T>() {
+                        // Packed leaf case
+                        let mut values = Vec::with_capacity(packing_factor);
+                        for i in 0..packing_factor {
+                            let index = prefix + i;
+                            if index >= full_length {
+                                break;
+                            }
+                            if let Some(value) = updates.get(index) {
+                                values.push(value.clone());
+                            }
+                        }
+                        if !values.is_empty() {
+                            use crate::packed_leaf::PackedLeaf;
+                            PackedLeaf {
+                                values,
+                                hash: parking_lot::RwLock::new(Hash256::ZERO),
+                            }
+                            .tree_hash()
+                        } else {
+                            Hash256::from(ZERO_HASHES[depth])
+                        }
+                    } else {
+                        // Regular leaf case
+                        if let Some(value) = updates.get(prefix) {
+                            value.tree_hash_root()
+                        } else {
+                            Hash256::from(ZERO_HASHES[depth])
+                        }
+                    }
+                } else {
+                    // Internal node with updates - need to recursively build from zero trees
+                    let new_depth = depth - 1;
+                    let left_prefix = prefix;
+                    let right_prefix = prefix | (1 << (new_depth + packing_depth));
+                    
+                    let left_zero = Tree::zero(new_depth);
+                    let right_zero = Tree::zero(new_depth);
+                    
+                    let left_hash = self.tree_hash_recursive(
+                        &left_zero,
+                        updates,
+                        left_prefix,
+                        new_depth,
+                        packing_depth,
+                        full_length,
+                    );
+                    let right_hash = self.tree_hash_recursive(
+                        &right_zero,
+                        updates,
+                        right_prefix,
+                        new_depth,
+                        packing_depth,
+                        full_length,
+                    );
+                    
+                    Hash256::from(hash32_concat(left_hash.as_slice(), right_hash.as_slice()))
+                }
+            }
             Tree::Node { hash, left, right } if depth > 0 => {
                 let new_depth = depth - 1;
                 let left_prefix = prefix;
