@@ -265,6 +265,7 @@ fn apply_ops_progressive_list<T>(
             | Op::SetCowWithIntoMut(_, _)
             | Op::SetCowWithMakeMut(_, _)
             | Op::IterFrom(_)
+            | Op::IterCowFrom(_)
             | Op::PopFront(_)
             | Op::ApplyUpdates
             | Op::Checkpoint
