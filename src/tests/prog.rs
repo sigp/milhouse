@@ -1,9 +1,9 @@
-use crate::prog_tree::ProgTree;
+use crate::prog_tree::ProgressiveTree;
 use tree_hash::Hash256;
 
 #[test]
 fn wow() {
-    let empty = ProgTree::<Hash256>::empty();
+    let empty = ProgressiveTree::<Hash256>::empty();
 
     let one = empty.push(Hash256::repeat_byte(0x11), 0).unwrap();
 
@@ -18,7 +18,7 @@ fn wow() {
 
 #[test]
 fn wow_u64() {
-    let mut tree = ProgTree::<u64>::empty();
+    let mut tree = ProgressiveTree::<u64>::empty();
 
     for i in 1..=65 {
         tree = tree.push(i, i as usize - 1).unwrap();
@@ -29,7 +29,7 @@ fn wow_u64() {
 
 #[test]
 fn prog_tree_iterator() {
-    let mut tree = ProgTree::<u64>::empty();
+    let mut tree = ProgressiveTree::<u64>::empty();
 
     // Build a tree with 65 elements
     for i in 1..=65 {
@@ -54,14 +54,14 @@ fn prog_tree_iterator() {
 
 #[test]
 fn prog_tree_iterator_empty() {
-    let tree = ProgTree::<u64>::empty();
+    let tree = ProgressiveTree::<u64>::empty();
     let collected: Vec<_> = tree.iter(0).collect();
     assert_eq!(collected.len(), 0);
 }
 
 #[test]
 fn prog_tree_iterator_small() {
-    let mut tree = ProgTree::<u64>::empty();
+    let mut tree = ProgressiveTree::<u64>::empty();
 
     // Build a small tree with just 4 elements (one packed leaf)
     for i in 1..=4 {
@@ -74,7 +74,7 @@ fn prog_tree_iterator_small() {
 
 #[test]
 fn prog_tree_iterator_exact_size() {
-    let mut tree = ProgTree::<u64>::empty();
+    let mut tree = ProgressiveTree::<u64>::empty();
 
     for i in 1..=20 {
         tree = tree.push(i, i as usize - 1).unwrap();
@@ -89,7 +89,7 @@ fn prog_tree_iterator_exact_size() {
 
 #[test]
 fn prog_tree_iterator_hash256() {
-    let mut tree = ProgTree::<Hash256>::empty();
+    let mut tree = ProgressiveTree::<Hash256>::empty();
 
     // Build a tree with non-packed values
     for i in 1..=10 {

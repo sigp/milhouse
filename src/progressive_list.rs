@@ -1,6 +1,6 @@
 use crate::{
     Arc, Error, Value,
-    prog_tree::{ProgTree, ProgTreeIter},
+    prog_tree::{ProgressiveTree, ProgressiveTreeIter},
     utils::Length,
 };
 use itertools::process_results;
@@ -11,14 +11,14 @@ use tree_hash::{Hash256, PackedEncoding, TreeHash};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProgressiveList<T: Value> {
-    tree: Arc<ProgTree<T>>,
+    tree: Arc<ProgressiveTree<T>>,
     length: Length,
 }
 
 impl<T: Value> ProgressiveList<T> {
     pub fn empty() -> Self {
         Self {
-            tree: Arc::new(ProgTree::empty()),
+            tree: Arc::new(ProgressiveTree::empty()),
             length: Length(0),
         }
     }
@@ -45,7 +45,7 @@ impl<T: Value> ProgressiveList<T> {
         self.len() == 0
     }
 
-    pub fn iter(&self) -> ProgTreeIter<'_, T> {
+    pub fn iter(&self) -> ProgressiveTreeIter<'_, T> {
         self.tree.iter(self.len())
     }
 }
@@ -60,7 +60,7 @@ impl<T: Value> TryFrom<Vec<T>> for ProgressiveList<T> {
 
 impl<'a, T: Value> IntoIterator for &'a ProgressiveList<T> {
     type Item = &'a T;
-    type IntoIter = ProgTreeIter<'a, T>;
+    type IntoIter = ProgressiveTreeIter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

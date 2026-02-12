@@ -36,9 +36,9 @@ const PROG_TREE_BINARY_SCALE: usize = PROG_TREE_EXPONENT.trailing_zeros() as usi
 #[derive(Debug, Educe)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[educe(PartialEq(bound(T: Value)), Hash)]
-pub enum ProgTree<T: Value> {
-    ProgZero,
-    ProgNode {
+pub enum ProgressiveTree<T: Value> {
+    ProgressiveZero,
+    ProgressiveNode {
         #[educe(PartialEq(ignore), Hash(ignore))]
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
         hash: RwLock<Hash256>,
@@ -49,9 +49,9 @@ pub enum ProgTree<T: Value> {
     },
 }
 
-impl<T: Value> ProgTree<T> {
+impl<T: Value> ProgressiveTree<T> {
     pub fn empty() -> Self {
-        Self::ProgZero
+        Self::ProgressiveZero
     }
 
     /// The number of values that can be stored in the single subtree at `prog_depth` itself.
@@ -91,20 +91,20 @@ impl<T: Value> ProgTree<T> {
     ) -> Result<Self, Error> {
         match self {
             // Expand this zero into a new right node for our element.
-            Self::ProgZero => {
+            Self::ProgressiveZero => {
                 // The `prog_depth` of the new right subtree is `prog_depth + 1`.
                 let subtree_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
                 let mut tree_builder = Builder::<T>::new(subtree_depth, 0)?;
                 tree_builder.push(value)?;
                 let (new_right, _, _) = tree_builder.finish()?;
 
-                Ok(Self::ProgNode {
+                Ok(Self::ProgressiveNode {
                     hash: RwLock::new(Hash256::ZERO),
-                    left: Arc::new(Self::ProgZero),
+                    left: Arc::new(Self::ProgressiveZero),
                     right: new_right,
                 })
             }
-            Self::ProgNode {
+            Self::ProgressiveNode {
                 hash: _,
                 left,
                 right,
@@ -122,9 +122,9 @@ impl<T: Value> ProgTree<T> {
                     let new_right = right.with_updated_leaf(index, value, subtree_depth)?;
 
                     // FIXME: remove assert
-                    assert!(matches!(**left, Self::ProgZero));
+                    assert!(matches!(**left, Self::ProgressiveZero));
 
-                    Ok(Self::ProgNode {
+                    Ok(Self::ProgressiveNode {
                         hash: RwLock::new(Hash256::ZERO),
                         left: left.clone(),
                         right: new_right,
@@ -134,7 +134,7 @@ impl<T: Value> ProgTree<T> {
                     // level on the left.
                     let new_left = left.push_recursive(value, current_length, prog_depth + 1)?;
 
-                    Ok(Self::ProgNode {
+                    Ok(Self::ProgressiveNode {
                         hash: RwLock::new(Hash256::ZERO),
                         left: Arc::new(new_left),
                         right: right.clone(),
@@ -157,16 +157,16 @@ impl<T: Value> ProgTree<T> {
     /// 3. All elements in the right child of the second left node
     ///
     /// And so on, following the progressive tree structure as defined in EIP-7916.
-    pub fn iter(&self, length: usize) -> ProgTreeIter<'_, T> {
-        ProgTreeIter::new(self, length)
+    pub fn iter(&self, length: usize) -> ProgressiveTreeIter<'_, T> {
+        ProgressiveTreeIter::new(self, length)
     }
 }
 
-impl<T: Value + Send + Sync> ProgTree<T> {
+impl<T: Value + Send + Sync> ProgressiveTree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
-            Self::ProgZero => Hash256::ZERO,
-            Self::ProgNode { hash, left, right } => {
+            Self::ProgressiveZero => Hash256::ZERO,
+            Self::ProgressiveNode { hash, left, right } => {
                 let read_lock = hash.read();
                 let existing_hash = *read_lock;
                 drop(read_lock);
@@ -192,9 +192,9 @@ impl<T: Value + Send + Sync> ProgTree<T> {
 /// The iterator traverses each binary subtree (right child) in sequence by following
 /// the left spine of the progressive tree structure.
 #[derive(Debug)]
-pub struct ProgTreeIter<'a, T: Value> {
+pub struct ProgressiveTreeIter<'a, T: Value> {
     /// Current progressive node being traversed.
-    current_prog_node: Option<&'a ProgTree<T>>,
+    current_prog_node: Option<&'a ProgressiveTree<T>>,
     /// Current iterator over a binary subtree (Tree).
     current_iter: Option<Iter<'a, T>>,
     /// Progressive depth for calculating the next subtree depth.
@@ -205,8 +205,8 @@ pub struct ProgTreeIter<'a, T: Value> {
     yielded: usize,
 }
 
-impl<'a, T: Value> ProgTreeIter<'a, T> {
-    fn new(root: &'a ProgTree<T>, length: usize) -> Self {
+impl<'a, T: Value> ProgressiveTreeIter<'a, T> {
+    fn new(root: &'a ProgressiveTree<T>, length: usize) -> Self {
         let mut iter = Self {
             current_prog_node: Some(root),
             current_iter: None,
@@ -224,18 +224,18 @@ impl<'a, T: Value> ProgTreeIter<'a, T> {
     /// setting up an iterator for its right child.
     fn advance_to_next_subtree(&mut self) {
         match self.current_prog_node {
-            None | Some(ProgTree::ProgZero) => {
+            None | Some(ProgressiveTree::ProgressiveZero) => {
                 // No more subtrees
                 self.current_iter = None;
                 self.current_prog_node = None;
             }
-            Some(ProgTree::ProgNode { left, right, .. }) => {
+            Some(ProgressiveTree::ProgressiveNode { left, right, .. }) => {
                 self.prog_depth += 1;
 
                 // Calculate the depth and length for this binary subtree
-                let binary_depth = ProgTree::<T>::prog_depth_to_binary_depth(self.prog_depth);
+                let binary_depth = ProgressiveTree::<T>::prog_depth_to_binary_depth(self.prog_depth);
                 let remaining = self.length.saturating_sub(self.yielded);
-                let capacity = ProgTree::<T>::capacity_at_depth(self.prog_depth);
+                let capacity = ProgressiveTree::<T>::capacity_at_depth(self.prog_depth);
                 let subtree_length = remaining.min(capacity);
 
                 // Create an iterator for the right subtree
@@ -253,7 +253,7 @@ impl<'a, T: Value> ProgTreeIter<'a, T> {
     }
 }
 
-impl<'a, T: Value> Iterator for ProgTreeIter<'a, T> {
+impl<'a, T: Value> Iterator for ProgressiveTreeIter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -282,4 +282,4 @@ impl<'a, T: Value> Iterator for ProgTreeIter<'a, T> {
     }
 }
 
-impl<T: Value> ExactSizeIterator for ProgTreeIter<'_, T> {}
+impl<T: Value> ExactSizeIterator for ProgressiveTreeIter<'_, T> {}
