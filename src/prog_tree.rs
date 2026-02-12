@@ -233,7 +233,8 @@ impl<'a, T: Value> ProgressiveTreeIter<'a, T> {
                 self.prog_depth += 1;
 
                 // Calculate the depth and length for this binary subtree
-                let binary_depth = ProgressiveTree::<T>::prog_depth_to_binary_depth(self.prog_depth);
+                let binary_depth =
+                    ProgressiveTree::<T>::prog_depth_to_binary_depth(self.prog_depth);
                 let remaining = self.length.saturating_sub(self.yielded);
                 let capacity = ProgressiveTree::<T>::capacity_at_depth(self.prog_depth);
                 let subtree_length = remaining.min(capacity);
