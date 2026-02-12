@@ -43,9 +43,9 @@ pub enum ProgressiveTree<T: Value> {
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
         hash: RwLock<Hash256>,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
-        left: Arc<Self>,
+        left: Arc<Tree<T>>,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
-        right: Arc<Tree<T>>,
+        right: Arc<Self>,
     },
 }
 
@@ -90,18 +90,18 @@ impl<T: Value> ProgressiveTree<T> {
         prog_depth: u32,
     ) -> Result<Self, Error> {
         match self {
-            // Expand this zero into a new right node for our element.
+            // Expand this zero into a new left node for our element.
             Self::ProgressiveZero => {
-                // The `prog_depth` of the new right subtree is `prog_depth + 1`.
+                // The `prog_depth` of the new left subtree is `prog_depth + 1`.
                 let subtree_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
                 let mut tree_builder = Builder::<T>::new(subtree_depth, 0)?;
                 tree_builder.push(value)?;
-                let (new_right, _, _) = tree_builder.finish()?;
+                let (new_left, _, _) = tree_builder.finish()?;
 
                 Ok(Self::ProgressiveNode {
                     hash: RwLock::new(Hash256::ZERO),
-                    left: Arc::new(Self::ProgressiveZero),
-                    right: new_right,
+                    left: new_left,
+                    right: Arc::new(Self::ProgressiveZero),
                 })
             }
             Self::ProgressiveNode {
@@ -109,35 +109,35 @@ impl<T: Value> ProgressiveTree<T> {
                 left,
                 right,
             } => {
-                // Case 1: new element already fits inside the right-tree at prog_depth + 1.
+                // Case 1: new element already fits inside the left-tree at prog_depth + 1.
                 let total_capacity_at_depth = Self::total_capacity_at_depth(prog_depth + 1);
                 if current_length < total_capacity_at_depth {
                     let index =
                         current_length.saturating_sub(Self::total_capacity_at_depth(prog_depth));
 
-                    // Our right subtree can hold 4^prog_depth entries. We need to work out
+                    // Our left subtree can hold 4^prog_depth entries. We need to work out
                     // a 2-based depth for this sub tree, such that the subtree holds
                     // 2^subtree_depth entries.
                     let subtree_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
-                    let new_right = right.with_updated_leaf(index, value, subtree_depth)?;
+                    let new_left = left.with_updated_leaf(index, value, subtree_depth)?;
 
                     // FIXME: remove assert
-                    assert!(matches!(**left, Self::ProgressiveZero));
+                    assert!(matches!(**right, Self::ProgressiveZero));
+
+                    Ok(Self::ProgressiveNode {
+                        hash: RwLock::new(Hash256::ZERO),
+                        left: new_left,
+                        right: right.clone(),
+                    })
+                } else {
+                    // Case 2: new element does not fit inside this left-tree: recurse to the next
+                    // level on the right.
+                    let new_right = right.push_recursive(value, current_length, prog_depth + 1)?;
 
                     Ok(Self::ProgressiveNode {
                         hash: RwLock::new(Hash256::ZERO),
                         left: left.clone(),
-                        right: new_right,
-                    })
-                } else {
-                    // Case 2: new element does not fit inside this right-tree: recurse to the next
-                    // level on the left.
-                    let new_left = left.push_recursive(value, current_length, prog_depth + 1)?;
-
-                    Ok(Self::ProgressiveNode {
-                        hash: RwLock::new(Hash256::ZERO),
-                        left: Arc::new(new_left),
-                        right: right.clone(),
+                        right: Arc::new(new_right),
                     })
                 }
             }
@@ -151,10 +151,10 @@ impl<T: Value> ProgressiveTree<T> {
     /// Create an iterator over all elements in the progressive tree.
     ///
     /// The iterator traverses elements in order by visiting each binary subtree
-    /// (right child) at increasing progressive depths:
-    /// 1. All elements in the right child at the root level
-    /// 2. All elements in the right child of the first left node
-    /// 3. All elements in the right child of the second left node
+    /// (left child) at increasing progressive depths:
+    /// 1. All elements in the left child at the root level
+    /// 2. All elements in the left child of the first right node
+    /// 3. All elements in the left child of the second right node
     ///
     /// And so on, following the progressive tree structure as defined in EIP-7916.
     pub fn iter(&self, length: usize) -> ProgressiveTreeIter<'_, T> {
@@ -189,8 +189,8 @@ impl<T: Value + Send + Sync> ProgressiveTree<T> {
 
 /// Iterator over elements in a progressive tree.
 ///
-/// The iterator traverses each binary subtree (right child) in sequence by following
-/// the left spine of the progressive tree structure.
+/// The iterator traverses each binary subtree (left child) in sequence by following
+/// the right spine of the progressive tree structure.
 #[derive(Debug)]
 pub struct ProgressiveTreeIter<'a, T: Value> {
     /// Current progressive node being traversed.
@@ -215,13 +215,13 @@ impl<'a, T: Value> ProgressiveTreeIter<'a, T> {
             yielded: 0,
         };
 
-        // Initialize by setting up the iterator for the first right child
+        // Initialize by setting up the iterator for the first left child
         iter.advance_to_next_subtree();
         iter
     }
 
-    /// Advance to the next binary subtree by moving to the left child and
-    /// setting up an iterator for its right child.
+    /// Advance to the next binary subtree by moving to the right child and
+    /// setting up an iterator for its left child.
     fn advance_to_next_subtree(&mut self) {
         match self.current_prog_node {
             None | Some(ProgressiveTree::ProgressiveZero) => {
@@ -238,16 +238,16 @@ impl<'a, T: Value> ProgressiveTreeIter<'a, T> {
                 let capacity = ProgressiveTree::<T>::capacity_at_depth(self.prog_depth);
                 let subtree_length = remaining.min(capacity);
 
-                // Create an iterator for the right subtree
+                // Create an iterator for the left subtree
                 self.current_iter = Some(Iter::from_index(
                     0,
-                    right,
+                    left,
                     binary_depth,
                     Length(subtree_length),
                 ));
 
-                // Move to the left child for the next iteration
-                self.current_prog_node = Some(left);
+                // Move to the right child for the next iteration
+                self.current_prog_node = Some(right);
             }
         }
     }
