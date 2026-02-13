@@ -1,6 +1,6 @@
 use crate::{
     Arc, Error, Value,
-    prog_tree::{ProgressiveTree, ProgressiveTreeIter},
+    progressive_tree::{ProgressiveTree, ProgressiveTreeIter},
     utils::Length,
 };
 use itertools::process_results;

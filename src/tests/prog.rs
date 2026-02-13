@@ -1,4 +1,4 @@
-use crate::prog_tree::ProgressiveTree;
+use crate::progressive_tree::ProgressiveTree;
 use tree_hash::Hash256;
 
 #[test]
