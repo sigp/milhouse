@@ -49,6 +49,19 @@ pub enum ProgressiveTree<T: Value> {
     },
 }
 
+impl<T: Value> Clone for ProgressiveTree<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::ProgressiveNode { hash, left, right } => Self::ProgressiveNode {
+                hash: RwLock::new(*hash.read()),
+                left: left.clone(),
+                right: right.clone(),
+            },
+            Self::ProgressiveZero => Self::ProgressiveZero,
+        }
+    }
+}
+
 impl<T: Value> ProgressiveTree<T> {
     pub fn empty() -> Self {
         Self::ProgressiveZero
