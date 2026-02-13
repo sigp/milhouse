@@ -2,7 +2,7 @@ use crate::{
     Arc, Error, Tree, Value,
     builder::Builder,
     iter::Iter,
-    utils::{Length, opt_packing_factor},
+    utils::{Length, opt_packing_depth, opt_packing_factor},
 };
 use educe::Educe;
 use ethereum_hashing::hash32_concat;
@@ -226,6 +226,26 @@ impl<T: Value> ProgressiveTree<T> {
     /// And so on, following the progressive tree structure as defined in EIP-7916.
     pub fn iter(&self, length: usize) -> ProgressiveTreeIter<'_, T> {
         ProgressiveTreeIter::new(self, length)
+    }
+
+    pub fn get_recursive(&self, index: usize, prog_depth: u32) -> Option<&T> {
+        match self {
+            Self::ProgressiveZero => None,
+            Self::ProgressiveNode { left, right, .. } => {
+                let total_capacity = Self::total_capacity_at_depth(prog_depth + 1);
+                if index < total_capacity {
+                    // Index is in the left subtree (binary tree).
+                    let subtree_index =
+                        index.saturating_sub(Self::total_capacity_at_depth(prog_depth));
+                    let binary_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
+                    let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
+                    left.get_recursive(subtree_index, binary_depth, packing_depth)
+                } else {
+                    // Index is in the right subtree (progressive tree).
+                    right.get_recursive(index, prog_depth + 1)
+                }
+            }
+        }
     }
 }
 

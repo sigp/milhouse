@@ -50,6 +50,17 @@ impl<T: Value> ProgressiveList<T> {
     pub fn iter(&self) -> ProgressiveTreeIter<'_, T> {
         self.tree.iter(self.len())
     }
+
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.len() {
+            return None;
+        }
+        self.tree.get_recursive(index, 0)
+    }
+
+    pub fn to_vec(&self) -> Vec<T> {
+        self.iter().cloned().collect()
+    }
 }
 
 impl<T: Value> TryFrom<Vec<T>> for ProgressiveList<T> {
