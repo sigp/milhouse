@@ -4,7 +4,7 @@ use crate::{
     utils::Length,
 };
 use itertools::process_results;
-use serde::{Deserialize, Deserializer, de::Error as _};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _, ser::SerializeSeq};
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::convert::TryFrom;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
@@ -58,6 +58,12 @@ impl<T: Value> TryFrom<Vec<T>> for ProgressiveList<T> {
     }
 }
 
+impl<T: Value> Default for ProgressiveList<T> {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl<'a, T: Value> IntoIterator for &'a ProgressiveList<T> {
     type Item = &'a T;
     type IntoIter = ProgressiveTreeIter<'a, T>;
@@ -83,6 +89,19 @@ impl<T: Value + Send + Sync> TreeHash for ProgressiveList<T> {
     fn tree_hash_root(&self) -> Hash256 {
         let root = self.tree.tree_hash();
         tree_hash::mix_in_length(&root, self.len())
+    }
+}
+
+impl<T: Value + Serialize> Serialize for ProgressiveList<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.len()))?;
+        for e in self {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
     }
 }
 
