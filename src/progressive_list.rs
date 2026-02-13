@@ -24,11 +24,13 @@ impl<T: Value> ProgressiveList<T> {
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let mut list = Self::empty();
-        for value in iter {
-            list.push(value)?;
-        }
-        Ok(list)
+        let items: Vec<T> = iter.into_iter().collect();
+        let length = items.len();
+        let tree = ProgressiveTree::build_from_iter(items)?;
+        Ok(Self {
+            tree: Arc::new(tree),
+            length: Length(length),
+        })
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {

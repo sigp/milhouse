@@ -95,7 +95,61 @@ impl<T: Value> ProgressiveTree<T> {
         }
     }
 
-    // TODO: add a bulk builder
+    /// Build a `ProgressiveTree` efficiently from an iterator.
+    /// Only creates one `Builder` per subtree.
+    pub fn build_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
+        let mut iter = iter.into_iter();
+        let mut subtrees: Vec<Arc<Tree<T>>> = Vec::new();
+        let mut prog_depth = 1u32;
+
+        loop {
+            let capacity = Self::capacity_at_depth(prog_depth);
+            let binary_depth = Self::prog_depth_to_binary_depth(prog_depth);
+
+            let mut builder = Builder::<T>::new(binary_depth, 0)?;
+            let mut count = 0;
+
+            // Fill up each subtree to its capacity.
+            while count < capacity {
+                match iter.next() {
+                    Some(item) => {
+                        builder.push(item)?;
+                        count += 1;
+                    }
+                    None => break,
+                }
+            }
+
+            if count == 0 {
+                // No items left.
+                break;
+            }
+
+            let (tree, _, _) = builder.finish()?;
+            subtrees.push(tree);
+
+            if count < capacity {
+                // No items left and subtree is only partially filled.
+                break;
+            }
+
+            // Move to the next subtree.
+            prog_depth += 1;
+        }
+
+        // Assemble the `ProgressiveTree` in reverse from deepest to shallowest.
+        let mut current = Self::ProgressiveZero;
+        for tree in subtrees.into_iter().rev() {
+            current = Self::ProgressiveNode {
+                hash: RwLock::new(Hash256::ZERO),
+                left: tree,
+                right: Arc::new(current),
+            };
+        }
+
+        Ok(current)
+    }
+
     fn push_recursive(
         &self,
         value: T,
