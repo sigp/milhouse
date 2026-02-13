@@ -189,7 +189,7 @@ impl<T: Value> ProgressiveTree<T> {
                     let new_left = left.with_updated_leaf(index, value, subtree_depth)?;
 
                     // FIXME: remove assert
-                    assert!(matches!(**right, Self::ProgressiveZero));
+                    debug_assert!(matches!(**right, Self::ProgressiveZero));
 
                     Ok(Self::ProgressiveNode {
                         hash: RwLock::new(Hash256::ZERO),
