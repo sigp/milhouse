@@ -2,6 +2,7 @@ use super::{Large, arb_hash256, arb_index, arb_large, arb_list, arb_vect};
 use crate::{Error, List, Value, Vector};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
+use ssz_types::{FixedVector, VariableList};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -88,6 +89,19 @@ impl<T: Value, N: Unsigned> Spec<T, N> {
             Ok(())
         } else {
             Err(Error::PushNotSupported)
+        }
+    }
+
+    pub fn tree_hash_root(&self) -> Hash256
+    where
+        T: Send + Sync,
+    {
+        if self.allow_push {
+            let var_list = VariableList::<T, N>::new(self.values.clone()).unwrap();
+            var_list.tree_hash_root()
+        } else {
+            let fixed_vect = FixedVector::<T, N>::new(self.values.clone()).unwrap();
+            fixed_vect.tree_hash_root()
         }
     }
 }
@@ -251,8 +265,7 @@ where
                 checkpoint = list.clone();
             }
             Op::TreeHash => {
-                list.apply_updates().unwrap();
-                list.tree_hash_root();
+                assert_eq!(list.tree_hash_root(), spec.tree_hash_root());
             }
             Op::Rebase => {
                 list.apply_updates().unwrap();
@@ -354,8 +367,7 @@ where
                 vect.apply_updates().unwrap();
             }
             Op::TreeHash => {
-                vect.apply_updates().unwrap();
-                vect.tree_hash_root();
+                assert_eq!(vect.tree_hash_root(), spec.tree_hash_root());
             }
             Op::Checkpoint => {
                 vect.apply_updates().unwrap();
