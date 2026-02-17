@@ -302,10 +302,10 @@ where
                     let new_depth = depth - 1;
                     let left_prefix = prefix;
                     let right_prefix = prefix | (1 << (new_depth + packing_depth));
-                    
+
                     let left_zero = Tree::zero(new_depth);
                     let right_zero = Tree::zero(new_depth);
-                    
+
                     let left_hash = self.tree_hash_recursive(
                         &left_zero,
                         updates,
@@ -322,7 +322,7 @@ where
                         packing_depth,
                         full_length,
                     );
-                    
+
                     Hash256::from(hash32_concat(left_hash.as_slice(), right_hash.as_slice()))
                 }
             }

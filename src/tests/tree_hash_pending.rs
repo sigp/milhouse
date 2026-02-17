@@ -1,6 +1,6 @@
 use crate::{List, Vector};
 use tree_hash::TreeHash;
-use typenum::{U1024, U32, U8};
+use typenum::{U8, U32, U1024};
 
 #[test]
 fn tree_hash_with_pending_updates() {
@@ -283,4 +283,3 @@ fn tree_hash_all_elements_updated() {
     let list_direct = List::<u64, U32>::new(vec![10, 20, 30, 40]).unwrap();
     assert_eq!(hash3, list_direct.tree_hash_root());
 }
-
