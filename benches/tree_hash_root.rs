@@ -1,4 +1,4 @@
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
 use milhouse::{List, Vector};
 use ssz_types::VariableList;
 use tree_hash::TreeHash;
@@ -14,10 +14,11 @@ pub fn tree_hash_root(c: &mut Criterion) {
         BenchmarkId::new("tree_hash_root_list", size),
         &size,
         |b, &size| {
-            b.iter(|| {
-                let l1 = List::<u64, C>::try_from_iter(0..size).unwrap();
-                l1.tree_hash_root()
-            });
+            b.iter_batched(
+                || List::<u64, C>::try_from_iter(0..size).unwrap(),
+                |l1| l1.tree_hash_root(),
+                BatchSize::LargeInput,
+            );
         },
     );
 
@@ -25,10 +26,11 @@ pub fn tree_hash_root(c: &mut Criterion) {
         BenchmarkId::new("tree_hash_root_vector", size),
         &size,
         |b, &size| {
-            b.iter(|| {
-                let v1 = Vector::<u64, D>::try_from_iter(0..size).unwrap();
-                v1.tree_hash_root()
-            });
+            b.iter_batched(
+                || Vector::<u64, D>::try_from_iter(0..size).unwrap(),
+                |v1| v1.tree_hash_root(),
+                BatchSize::LargeInput,
+            );
         },
     );
 
@@ -37,10 +39,11 @@ pub fn tree_hash_root(c: &mut Criterion) {
         BenchmarkId::new("tree_hash_root_variable_list", size),
         &size,
         |b, &size| {
-            b.iter(|| {
-                let l1 = VariableList::<u64, C>::new((0..size).collect()).unwrap();
-                l1.tree_hash_root()
-            })
+            b.iter_batched(
+                || VariableList::<u64, C>::new((0..size).collect()).unwrap(),
+                |l1| l1.tree_hash_root(),
+                BatchSize::LargeInput,
+            );
         },
     );
 
@@ -48,22 +51,27 @@ pub fn tree_hash_root(c: &mut Criterion) {
         BenchmarkId::new("tree_hash_root_list_parallel", size),
         &size,
         |b, &size| {
-            b.iter(|| {
-                let l1 = List::<u64, C>::try_from_iter(0..size).unwrap();
-                let mut l2 = l1.clone();
-                l2.push(99).unwrap();
-                l2.apply_updates().unwrap();
+            b.iter_batched(
+                || {
+                    let l1 = List::<u64, C>::try_from_iter(0..size).unwrap();
+                    let mut l2 = l1.clone();
+                    l2.push(99).unwrap();
+                    l2.apply_updates().unwrap();
+                    (l1, l2)
+                },
+                |(l1, l2)| {
+                    let handle_1 = std::thread::spawn(move || {
+                        l1.tree_hash_root();
+                    });
+                    let handle_2 = std::thread::spawn(move || {
+                        l2.tree_hash_root();
+                    });
 
-                let handle_1 = std::thread::spawn(move || {
-                    l1.tree_hash_root();
-                });
-                let handle_2 = std::thread::spawn(move || {
-                    l2.tree_hash_root();
-                });
-
-                handle_1.join().unwrap();
-                handle_2.join().unwrap();
-            });
+                    handle_1.join().unwrap();
+                    handle_2.join().unwrap();
+                },
+                BatchSize::LargeInput,
+            );
         },
     );
 }
