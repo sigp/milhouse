@@ -216,15 +216,10 @@ impl<M> MaxMap<M> {
 }
 
 impl<M> MaxMap<M> {
-    fn rebuild_range_cache<T>(&self)
+    fn rebuild_range_cache<T>(&self, max_index: usize)
     where
         M: UpdateMap<T>,
     {
-        let Some(max_index) = self.inner.max_index() else {
-            self.range_cache.write().replace(Vec::new());
-            return;
-        };
-
         let mut keys = Vec::with_capacity(self.inner.len());
         self.inner
             .for_each_range(0, max_index.saturating_add(1), |index, _| {
@@ -284,7 +279,17 @@ where
         }
 
         if self.range_cache.read().is_none() {
-            self.rebuild_range_cache();
+            let Some(max_index) = self.inner.max_index() else {
+                self.range_cache.write().replace(Vec::new());
+                return Ok(());
+            };
+
+            // Avoid paying the full cache-build cost for empty out-of-range probes.
+            if start > max_index {
+                return Ok(());
+            }
+
+            self.rebuild_range_cache(max_index);
         }
 
         let cache = self.range_cache.read();
@@ -320,6 +325,7 @@ where
 #[cfg(test)]
 mod test {
     use super::{MaxMap, UpdateMap};
+    use parking_lot::RwLock;
     use std::ops::ControlFlow;
     use vec_map::VecMap;
 
@@ -360,5 +366,27 @@ mod test {
             })
             .unwrap();
         assert_eq!(seen, vec![(3, 99)]);
+    }
+
+    #[test]
+    fn out_of_range_probe_does_not_build_cache() {
+        let mut inner = VecMap::new();
+        inner.insert(3, 10_u64);
+        let updates = MaxMap {
+            inner,
+            max_key: 3,
+            range_cache: RwLock::new(None),
+        };
+
+        let mut seen = Vec::new();
+        updates
+            .for_each_range(8, 16, |index, value| {
+                seen.push((index, *value));
+                ControlFlow::Continue(Ok::<(), ()>(()))
+            })
+            .unwrap();
+
+        assert!(seen.is_empty());
+        assert!(updates.range_cache.read().is_none());
     }
 }
