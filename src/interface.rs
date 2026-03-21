@@ -214,4 +214,25 @@ mod test {
 
         assert_eq!(list.to_vec(), vec![1, 2, 20, 30, 40]);
     }
+
+    #[test]
+    fn sparse_iter_cow_updates_apply_correctly() {
+        use typenum::U1024;
+
+        let mut list = List::<u64, U1024>::try_from_iter(0..1024).unwrap();
+
+        let mut iter = list.iter_cow();
+        while let Some((index, mut value)) = iter.next_cow() {
+            if index == 17 || index == 997 {
+                *value.make_mut().unwrap() = (index as u64) + 10_000;
+            }
+        }
+
+        assert!(list.has_pending_updates());
+        list.apply_updates().unwrap();
+        assert_eq!(*list.get(17).unwrap(), 10_017);
+        assert_eq!(*list.get(997).unwrap(), 10_997);
+        assert_eq!(*list.get(16).unwrap(), 16);
+        assert_eq!(*list.get(998).unwrap(), 998);
+    }
 }

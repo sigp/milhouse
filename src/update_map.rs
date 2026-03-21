@@ -1,5 +1,6 @@
 use crate::cow::{BTreeCow, Cow, VecCow};
 use crate::utils::max_btree_index;
+use parking_lot::RwLock;
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::ops::ControlFlow;
 use vec_map::VecMap;
@@ -167,7 +168,7 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug)]
 #[cfg_attr(
     feature = "arbitrary",
     derive(arbitrary::Arbitrary),
@@ -177,6 +178,63 @@ pub struct MaxMap<M> {
     #[cfg_attr(feature = "arbitrary", arbitrary(default))]
     inner: M,
     max_key: usize,
+    #[cfg_attr(feature = "arbitrary", arbitrary(default))]
+    range_cache: RwLock<Option<Vec<usize>>>,
+}
+
+impl<M: Default> Default for MaxMap<M> {
+    fn default() -> Self {
+        Self {
+            inner: M::default(),
+            max_key: 0,
+            range_cache: RwLock::new(None),
+        }
+    }
+}
+
+impl<M: Clone> Clone for MaxMap<M> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            max_key: self.max_key,
+            // The cache is derived state, so clear it on clone.
+            range_cache: RwLock::new(None),
+        }
+    }
+}
+
+impl<M: PartialEq> PartialEq for MaxMap<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner && self.max_key == other.max_key
+    }
+}
+
+impl<M> MaxMap<M> {
+    fn invalidate_range_cache(&self) {
+        self.range_cache.write().take();
+    }
+}
+
+impl<M> MaxMap<M> {
+    fn rebuild_range_cache<T>(&self)
+    where
+        M: UpdateMap<T>,
+    {
+        let Some(max_index) = self.inner.max_index() else {
+            self.range_cache.write().replace(Vec::new());
+            return;
+        };
+
+        let mut keys = Vec::with_capacity(self.inner.len());
+        self.inner
+            .for_each_range(0, max_index.saturating_add(1), |index, _| {
+                keys.push(index);
+                ControlFlow::Continue(Ok::<(), ()>(()))
+            })
+            .expect("collecting range cache cannot fail");
+
+        self.range_cache.write().replace(keys);
+    }
 }
 
 impl<T, M> UpdateMap<T> for MaxMap<M>
@@ -191,7 +249,13 @@ where
     where
         F: FnOnce(usize) -> Option<T>,
     {
-        self.inner.get_mut_with(k, f)
+        let exists = self.inner.get(k).is_some();
+        self.invalidate_range_cache();
+        let result = self.inner.get_mut_with(k, f);
+        if result.is_some() && !exists && k > self.max_key {
+            self.max_key = k;
+        }
+        result
     }
 
     fn get_cow_with<'a, F>(&'a mut self, k: usize, f: F) -> Option<Cow<'a, T>>
@@ -199,10 +263,12 @@ where
         F: FnOnce(usize) -> Option<&'a T>,
         T: Clone + 'a,
     {
+        self.invalidate_range_cache();
         self.inner.get_cow_with(k, f)
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
+        self.invalidate_range_cache();
         if k > self.max_key {
             self.max_key = k;
         }
@@ -213,7 +279,31 @@ where
     where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
     {
-        self.inner.for_each_range(start, end, f)
+        if start >= end {
+            return Ok(());
+        }
+
+        if self.range_cache.read().is_none() {
+            self.rebuild_range_cache();
+        }
+
+        let cache = self.range_cache.read();
+        let keys = cache.as_ref().expect("range cache must be initialized");
+        let start_idx = keys.partition_point(|key| *key < start);
+        let mut f = f;
+
+        for key in &keys[start_idx..] {
+            if *key >= end {
+                break;
+            }
+            if let Some(value) = self.inner.get(*key) {
+                match f(*key, value) {
+                    ControlFlow::Continue(res) => res?,
+                    ControlFlow::Break(()) => break,
+                }
+            }
+        }
+        Ok(())
     }
 
     fn len(&self) -> usize {
@@ -221,6 +311,54 @@ where
     }
 
     fn max_index(&self) -> Option<usize> {
-        Some(self.max_key).filter(|_| !self.inner.is_empty())
+        self.inner
+            .max_index()
+            .map(|inner_max| inner_max.max(self.max_key))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{MaxMap, UpdateMap};
+    use std::ops::ControlFlow;
+    use vec_map::VecMap;
+
+    #[test]
+    fn get_mut_with_updates_max_index_for_new_entries() {
+        let mut updates = MaxMap::<VecMap<u64>>::default();
+
+        *updates.get_mut_with(5, |index| Some(index as u64)).unwrap() = 42;
+
+        assert_eq!(updates.max_index(), Some(5));
+    }
+
+    #[test]
+    fn get_cow_with_only_caches_materialized_entries() {
+        let mut updates = MaxMap::<VecMap<u64>>::default();
+        let backing = 11_u64;
+
+        let _ = updates.get_cow_with(3, |_| Some(&backing)).unwrap();
+        assert_eq!(updates.max_index(), None);
+
+        let mut seen = Vec::new();
+        updates
+            .for_each_range(0, 4, |index, value| {
+                seen.push((index, *value));
+                ControlFlow::Continue(Ok::<(), ()>(()))
+            })
+            .unwrap();
+        assert!(seen.is_empty());
+
+        let cow = updates.get_cow_with(3, |_| Some(&backing)).unwrap();
+        *cow.into_mut().unwrap() = 99;
+        assert_eq!(updates.max_index(), Some(3));
+
+        updates
+            .for_each_range(0, 4, |index, value| {
+                seen.push((index, *value));
+                ControlFlow::Continue(Ok::<(), ()>(()))
+            })
+            .unwrap();
+        assert_eq!(seen, vec![(3, 99)]);
     }
 }

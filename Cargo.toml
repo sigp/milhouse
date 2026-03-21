@@ -57,5 +57,9 @@ harness = false
 name = "pop_front"
 harness = false
 
+[[bench]]
+name = "apply_updates"
+harness = false
+
 [profile.bench]
 debug = true
