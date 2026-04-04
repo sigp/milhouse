@@ -238,6 +238,18 @@ impl<T: Value, N: Unsigned> ImmList<T> for VectorInner<T, N> {
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, Length(N::to_usize()))
     }
+
+    fn tree(&self) -> &Arc<Tree<T>> {
+        &self.tree
+    }
+
+    fn depth(&self) -> usize {
+        self.depth
+    }
+
+    fn packing_depth(&self) -> usize {
+        self.packing_depth
+    }
 }
 
 impl<T, N> MutList<T> for VectorInner<T, N>
@@ -306,9 +318,8 @@ impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> tree_hash::TreeHash f
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        // FIXME(sproul): remove assert
-        assert!(!self.interface.has_pending_updates());
-        self.interface.backing.tree.tree_hash()
+        // For vectors, the length is fixed at N, so we use that as the full_length
+        self.interface.tree_hash_root(N::to_usize())
     }
 }
 

@@ -277,6 +277,18 @@ impl<T: Value, N: Unsigned> ImmList<T> for ListInner<T, N> {
     fn level_iter_from(&self, index: usize) -> LevelIter<'_, T> {
         LevelIter::from_index(index, &self.tree, self.depth, self.length)
     }
+
+    fn tree(&self) -> &Arc<Tree<T>> {
+        &self.tree
+    }
+
+    fn depth(&self) -> usize {
+        self.depth
+    }
+
+    fn packing_depth(&self) -> usize {
+        self.packing_depth
+    }
 }
 
 impl<T, N> MutList<T> for ListInner<T, N>
@@ -393,10 +405,7 @@ impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> TreeHash for List<T, 
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        // FIXME(sproul): remove assert
-        assert!(!self.interface.has_pending_updates());
-
-        let root = self.interface.backing.tree.tree_hash();
+        let root = self.interface.tree_hash_root(self.len());
         tree_hash::mix_in_length(&root, self.len())
     }
 }
