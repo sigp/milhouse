@@ -21,7 +21,6 @@ ethereum_hashing = "0.8"
 ethereum_ssz = "0.10"
 ethereum_ssz_derive = "0.10"
 itertools = "0.13.0"
-parking_lot = "0.12.1"
 rayon = "1.5.1"
 serde = { version = "1.0.0", features = ["derive"] }
 tree_hash = "0.12"
