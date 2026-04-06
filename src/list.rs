@@ -162,6 +162,18 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         Ok(self.interface.iter_cow_from(index))
     }
 
+    /// Compute the bytes owned by `self` that are not shared with `base`.
+    ///
+    /// O(dirty_nodes) — shared subtrees are skipped via `Arc::ptr_eq`.
+    pub fn cow_bytes(&self, base: &Self) -> usize {
+        crate::mem::cow_tree_bytes(&base.interface.backing.tree, &self.interface.backing.tree)
+    }
+
+    /// Total bytes of all tree nodes (no sharing baseline).
+    pub fn total_tree_bytes(&self) -> usize {
+        crate::mem::total_tree_bytes(&self.interface.backing.tree)
+    }
+
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&'_ T> {
         self.interface.get(index)

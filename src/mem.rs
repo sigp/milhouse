@@ -158,6 +158,67 @@ impl<T: Value + MemorySize, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<
     }
 }
 
+/// Compute the bytes owned by `derived` that are not shared with `base`.
+///
+/// Walks both trees in parallel, comparing `Arc` pointers at each level. When pointers
+/// match, the entire subtree is shared and costs 0 — the recursion stops immediately.
+/// When pointers differ, the derived node is counted and its children are recursed.
+///
+/// Complexity: O(dirty_nodes), where dirty_nodes are the tree nodes that differ between
+/// the two trees. For a single leaf mutation in a tree of depth D, this visits ~D nodes.
+/// For a fully-rewritten tree, it visits all nodes (same as `total_tree_bytes`).
+///
+/// No allocations, no external state (unlike `MemoryTracker` which builds a `HashMap`).
+pub fn cow_tree_bytes<T: Value>(base: &Arc<Tree<T>>, derived: &Arc<Tree<T>>) -> usize {
+    if Arc::ptr_eq(base, derived) {
+        return 0;
+    }
+
+    let self_bytes = node_bytes::<T>(derived);
+
+    match (base.as_ref(), derived.as_ref()) {
+        (
+            Tree::Node {
+                left: bl,
+                right: br,
+                ..
+            },
+            Tree::Node {
+                left: dl,
+                right: dr,
+                ..
+            },
+        ) => self_bytes + cow_tree_bytes(bl, dl) + cow_tree_bytes(br, dr),
+        // Structure mismatch or derived is a leaf/zero — count the full derived subtree.
+        _ => self_bytes + children_bytes::<T>(derived),
+    }
+}
+
+/// Total bytes of all nodes in a tree. No sharing baseline.
+pub fn total_tree_bytes<T: Value>(tree: &Arc<Tree<T>>) -> usize {
+    node_bytes::<T>(tree) + children_bytes::<T>(tree)
+}
+
+/// Bytes consumed by a single tree node (not including its children).
+fn node_bytes<T: Value>(tree: &Arc<Tree<T>>) -> usize {
+    // Every node is an Arc<Tree<T>>: the Arc pointer + the Tree enum.
+    let overhead = std::mem::size_of::<Arc<Tree<T>>>() + std::mem::size_of::<Tree<T>>();
+    let leaf_data = match tree.as_ref() {
+        Tree::PackedLeaf(packed) => packed.values.capacity() * std::mem::size_of::<T>(),
+        Tree::Leaf(_) => std::mem::size_of::<Arc<T>>() + std::mem::size_of::<T>(),
+        Tree::Node { .. } | Tree::Zero(_) => 0,
+    };
+    overhead + leaf_data
+}
+
+/// Sum of `total_tree_bytes` for a node's children.
+fn children_bytes<T: Value>(tree: &Arc<Tree<T>>) -> usize {
+    match tree.as_ref() {
+        Tree::Node { left, right, .. } => total_tree_bytes(left) + total_tree_bytes(right),
+        _ => 0,
+    }
+}
+
 impl<const N: usize> MemorySize for FixedBytes<N> {
     fn self_pointer(&self) -> usize {
         self as *const _ as usize
