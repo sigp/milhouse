@@ -146,3 +146,29 @@ fn cow_bytes_chain() {
     assert!(c_vs_a >= c_vs_b, "C vs A ({c_vs_a}) >= C vs B ({c_vs_b})");
     assert!(c_vs_a >= b_vs_a, "C vs A ({c_vs_a}) >= B vs A ({b_vs_a})");
 }
+
+#[test]
+fn cow_bytes_includes_leaf_data() {
+    use alloy_primitives::FixedBytes;
+
+    // 10KB per entry, capacity 2. Uses Leaf<T> (unpacked, since size > 32 bytes).
+    // cow_bytes must account for the leaf data, not just tree node overhead.
+    type Big = FixedBytes<10000>;
+
+    let base = List::<Big, typenum::U2>::new(vec![Box::new(Big::ZERO).as_ref().clone()]).unwrap();
+    let mut derived = base.clone();
+    *derived.get_mut(0).unwrap() = Box::new(FixedBytes([0xAA; 10000])).as_ref().clone();
+    derived.apply_updates().unwrap();
+
+    let cow = derived.cow_bytes(&base);
+    assert!(
+        cow >= 10000,
+        "cow_bytes ({cow}) must be >= 10000 — leaf data must be counted"
+    );
+
+    let total = base.total_tree_bytes();
+    assert!(
+        total >= 10000,
+        "total_tree_bytes ({total}) must be >= 10000"
+    );
+}
