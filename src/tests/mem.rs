@@ -172,3 +172,109 @@ fn cow_bytes_includes_leaf_data() {
         "total_tree_bytes ({total}) must be >= 10000"
     );
 }
+
+// ── total_unique_cow_tree_bytes tests ─────────────────────────────────
+
+#[test]
+fn unique_cow_dedup_shared_states() {
+    // Two states cloned from the same base, both mutating the same index.
+    // Their COW'd paths overlap — unique count should be less than sum of individual.
+    let base = List::<u64, U1048576>::try_from_iter(0..1000u64).unwrap();
+    let mut s1 = base.clone();
+    *s1.get_mut(0).unwrap() = 111;
+    s1.apply_updates().unwrap();
+
+    let mut s2 = base.clone();
+    *s2.get_mut(0).unwrap() = 222;
+    s2.apply_updates().unwrap();
+
+    let base_tree = base.tree_root();
+    let individual_sum = s1.cow_bytes(&base) + s2.cow_bytes(&base);
+    let unique =
+        crate::mem::total_unique_cow_tree_bytes(base_tree, &[s1.tree_root(), s2.tree_root()]);
+
+    // Both mutated the same index but different values → different leaf nodes
+    // but shared internal path nodes. Unique should be less than sum.
+    assert!(unique > 0);
+    assert!(
+        unique <= individual_sum,
+        "unique ({unique}) should be <= sum of individual ({individual_sum})"
+    );
+}
+
+#[test]
+fn unique_cow_chain() {
+    // Chain: base → A → B. B shares A's COW'd nodes.
+    let base = List::<u64, U1048576>::try_from_iter(0..1000u64).unwrap();
+    let mut a = base.clone();
+    for i in 0..500 {
+        *a.get_mut(i).unwrap() = u64::MAX;
+    }
+    a.apply_updates().unwrap();
+
+    let mut b = a.clone();
+    for i in 500..1000 {
+        *b.get_mut(i).unwrap() = u64::MAX;
+    }
+    b.apply_updates().unwrap();
+
+    let base_tree = base.tree_root();
+    let unique =
+        crate::mem::total_unique_cow_tree_bytes(base_tree, &[a.tree_root(), b.tree_root()]);
+    let b_alone = b.cow_bytes(&base);
+
+    // B was cloned from A then modified further. B shares A's nodes for indices 0..500
+    // but has new nodes for 500..1000. A has its own path nodes for 0..500.
+    // Unique should be close to B's cost — A adds only the few path nodes that B replaced.
+    let individual_sum = a.cow_bytes(&base) + b.cow_bytes(&base);
+    assert!(
+        unique < individual_sum,
+        "unique ({unique}) should be < sum ({individual_sum}) due to sharing"
+    );
+    assert!(
+        unique >= b_alone,
+        "unique ({unique}) should be >= B alone ({b_alone})"
+    );
+}
+
+#[test]
+fn unique_cow_disjoint() {
+    // Two states mutating completely different indices — no shared COW nodes.
+    let base = List::<u64, U1048576>::try_from_iter(0..10000u64).unwrap();
+    let mut s1 = base.clone();
+    *s1.get_mut(0).unwrap() = 111;
+    s1.apply_updates().unwrap();
+
+    let mut s2 = base.clone();
+    *s2.get_mut(9999).unwrap() = 222;
+    s2.apply_updates().unwrap();
+
+    let base_tree = base.tree_root();
+    let individual_sum = s1.cow_bytes(&base) + s2.cow_bytes(&base);
+    let unique =
+        crate::mem::total_unique_cow_tree_bytes(base_tree, &[s1.tree_root(), s2.tree_root()]);
+
+    // Disjoint mutations: no shared COW nodes (except possibly root).
+    // Unique should be close to (but possibly slightly less than) the sum
+    // because the root node might be counted once instead of twice.
+    assert!(unique > 0);
+    assert!(unique <= individual_sum);
+}
+
+#[test]
+fn unique_cow_empty() {
+    let base = List::<u64, U1048576>::try_from_iter(0..1000u64).unwrap();
+    let base_tree = base.tree_root();
+    let unique = crate::mem::total_unique_cow_tree_bytes(base_tree, &[]);
+    assert_eq!(unique, 0);
+}
+
+#[test]
+fn unique_cow_clone_only() {
+    // Clone without mutation — should be 0.
+    let base = List::<u64, U1048576>::try_from_iter(0..1000u64).unwrap();
+    let clone = base.clone();
+    let base_tree = base.tree_root();
+    let unique = crate::mem::total_unique_cow_tree_bytes(base_tree, &[clone.tree_root()]);
+    assert_eq!(unique, 0);
+}

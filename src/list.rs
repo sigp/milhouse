@@ -174,6 +174,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         crate::mem::total_tree_bytes(&self.interface.backing.tree)
     }
 
+    /// Access the internal tree root for use with `total_unique_cow_tree_bytes`.
+    pub fn tree_root(&self) -> &Arc<Tree<T>> {
+        &self.interface.backing.tree
+    }
+
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&'_ T> {
         self.interface.get(index)
