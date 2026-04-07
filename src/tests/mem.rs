@@ -321,3 +321,74 @@ fn measure_mainnet_field_sizes() {
         total as f64 / 1048576.0
     );
 }
+
+#[test]
+fn unique_cow_finalization_advance() {
+    // Simulate finalization advance:
+    // F_old is the original base. S1..S4 are slot transitions from F_old (few mutations).
+    // F_new is an epoch boundary state (all entries rewritten) from F_old.
+    // After finalization, F_new becomes the base.
+    //
+    // total_unique_cow_tree_bytes(F_new, [S1..S4]) should NOT count the full tree
+    // per state — the dedup HashSet should catch that S1..S4 all share F_old's nodes.
+
+    let f_old = List::<u64, U1048576>::try_from_iter(0..10_000u64).unwrap();
+
+    // F_new: epoch boundary, ALL entries rewritten (completely new tree)
+    let mut f_new = f_old.clone();
+    for i in 0..10_000 {
+        *f_new.get_mut(i).unwrap() = (i as u64).wrapping_add(1_000_000);
+    }
+    f_new.apply_updates().unwrap();
+
+    // S1..S4: slot transitions from F_old, few mutations each
+    let mut states = Vec::new();
+    for s in 0..4 {
+        let mut si = f_old.clone();
+        for j in 0..10 {
+            let idx = (s * 137 + j * 31) % 10_000;
+            *si.get_mut(idx).unwrap() = u64::MAX;
+        }
+        si.apply_updates().unwrap();
+        states.push(si);
+    }
+
+    // Measure using F_old as base (the correct base) — should be small
+    let refs_old: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
+    let with_old_base = crate::mem::total_unique_cow_tree_bytes(f_old.tree_root(), &refs_old);
+
+    // Measure using F_new as base (what happens after finalization) — should ALSO be
+    // reasonable because the HashSet deduplicates F_old's shared nodes across states
+    let refs_new: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
+    let with_new_base = crate::mem::total_unique_cow_tree_bytes(f_new.tree_root(), &refs_new);
+
+    let full_tree = f_old.total_tree_bytes();
+
+    eprintln!("with_old_base = {with_old_base}");
+    eprintln!("with_new_base = {with_new_base}");
+    eprintln!("full_tree     = {full_tree}");
+    eprintln!("naive per-state cow_bytes vs F_new:");
+    for (i, s) in states.iter().enumerate() {
+        eprintln!("  S{i}: {}", s.cow_bytes(&f_new));
+    }
+
+    // with_old_base: just the dirty paths from S1..S4 (small)
+    assert!(
+        with_old_base < full_tree / 4,
+        "with_old_base ({with_old_base}) should be much less than full tree ({full_tree})"
+    );
+
+    // with_new_base: F_old's tree counted ONCE (from S1's walk) + dirty paths.
+    // Should be roughly full_tree + small delta, NOT 4 × full_tree.
+    assert!(
+        with_new_base < full_tree * 2,
+        "with_new_base ({with_new_base}) should be < 2× full tree ({full_tree}) thanks to dedup"
+    );
+
+    // Naive per-state sum would be ~4 × full_tree (each state counted independently)
+    let naive_sum: usize = states.iter().map(|s| s.cow_bytes(&f_new)).sum();
+    assert!(
+        with_new_base < naive_sum / 2,
+        "dedup ({with_new_base}) should be much less than naive sum ({naive_sum})"
+    );
+}
