@@ -278,3 +278,46 @@ fn unique_cow_clone_only() {
     let unique = crate::mem::total_unique_cow_tree_bytes(base_tree, &[clone.tree_root()]);
     assert_eq!(unique, 0);
 }
+
+#[test]
+fn measure_mainnet_field_sizes() {
+    use alloy_primitives::FixedBytes;
+
+    let n = 1_000_000;
+    type C = typenum::U1099511627776;
+    type SPHR = typenum::U8192;
+    type EPHV = typenum::U65536;
+    type EPSV = typenum::U8192;
+
+    let balances = List::<u64, C>::try_from_iter(0..n as u64).unwrap();
+    let participation = List::<u8, C>::try_from_iter(vec![0u8; n]).unwrap();
+    let validators = List::<FixedBytes<128>, C>::new(vec![FixedBytes::<128>::ZERO; n]).unwrap();
+    let state_roots = crate::Vector::<FixedBytes<32>, SPHR>::default();
+    let randao = crate::Vector::<FixedBytes<32>, EPHV>::default();
+    let slashings = crate::Vector::<u64, EPSV>::default();
+
+    let mut total = 0;
+    for (name, bytes) in [
+        ("validators (128B×1M)", validators.total_tree_bytes()),
+        ("balances (u64×1M)", balances.total_tree_bytes()),
+        ("inactivity (u64×1M)", balances.total_tree_bytes()),
+        ("prev_part (u8×1M)", participation.total_tree_bytes()),
+        ("curr_part (u8×1M)", participation.total_tree_bytes()),
+        ("state_roots (H256×8192)", state_roots.total_tree_bytes()),
+        ("block_roots (H256×8192)", state_roots.total_tree_bytes()),
+        ("randao_mixes (H256×65536)", randao.total_tree_bytes()),
+        ("slashings (u64×8192)", slashings.total_tree_bytes()),
+    ] {
+        total += bytes;
+        eprintln!(
+            "  {name:<30} {bytes:>12} bytes {:>8.1} MB",
+            bytes as f64 / 1048576.0
+        );
+    }
+    eprintln!(
+        "  {:<30} {:>12} bytes {:>8.1} MB",
+        "TOTAL",
+        total,
+        total as f64 / 1048576.0
+    );
+}

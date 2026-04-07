@@ -1,256 +1,236 @@
-//! Benchmarks for cow_bytes and total_unique_cow_tree_bytes.
+//! Benchmarks for total_unique_cow_tree_bytes simulating a realistic state cache.
 //!
-//! Simulates realistic state cache scenarios at mainnet scale:
-//! - Slot transitions: few random mutations (balances, roots, participation)
-//! - Epoch transitions: all balances + inactivity + participation rewritten
-//! - Effective balance updates: ~500 validator records mutated
+//! Each "state" has 4 fields matching the dominant BeaconState fields:
+//! - validators (FixedBytes<128> × 1M) — 267 MB, rarely dirty
+//! - balances (u64 × 1M) — 42 MB, fully dirty at epoch boundary
+//! - inactivity_scores (u64 × 1M) — 42 MB, fully dirty at epoch boundary
+//! - participation (u8 × 1M) — 5 MB, fully dirty at epoch boundary
 //!
-//! Each scenario is multiplied by expected cache size (128 states) to benchmark
-//! total_unique_cow_tree_bytes across the full cache.
+//! Scenarios simulate how the state cache looks in practice:
+//! (1) Slot transitions: ~10 balance changes, ~128 participation changes
+//! (2) Epoch transitions: all balances + inactivity + participation rewritten
+//! (3) Effective balance updates: ~500 validator mutations
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use milhouse::List;
+use alloy_primitives::FixedBytes;
+use criterion::{Criterion, criterion_group, criterion_main};
 use milhouse::mem::total_unique_cow_tree_bytes;
+use milhouse::{Arc, List, Tree};
 use std::hint::black_box;
 
-type C = typenum::U1099511627776; // ValidatorRegistryLimit
-const N: usize = 1_000_000; // mainnet validator count
+type C = typenum::U1099511627776;
+const N: usize = 1_000_000;
 
-/// Build a base list and derive states simulating slot transitions.
-/// Each state mutates ~10 random indices (proposer reward + a few attestation rewards).
-fn build_slot_states(count: usize) -> (List<u64, C>, Vec<List<u64, C>>) {
-    let base = List::<u64, C>::try_from_iter(0..N as u64).unwrap();
-    let mut states = Vec::with_capacity(count);
-    for i in 0..count {
-        let mut s = base.clone();
-        // ~10 scattered balance changes per slot
-        for j in 0..10 {
-            let idx = (i * 137 + j * 7919) % N; // pseudo-random scatter
-            *s.get_mut(idx).unwrap() = u64::MAX;
-        }
-        s.apply_updates().unwrap();
-        states.push(s);
-    }
-    (base, states)
+/// A minimal multi-field "state" matching the dominant BeaconState fields.
+struct MiniState {
+    validators: List<FixedBytes<128>, C>,
+    balances: List<u64, C>,
+    inactivity: List<u64, C>,
+    participation: List<u8, C>,
 }
 
-/// Build states simulating epoch transitions.
-/// Each state has ALL entries rewritten (balances after rewards/penalties).
-fn build_epoch_states(count: usize) -> (List<u64, C>, Vec<List<u64, C>>) {
-    let base = List::<u64, C>::try_from_iter(0..N as u64).unwrap();
-    let mut states = Vec::with_capacity(count);
-    for i in 0..count {
-        let mut s = base.clone();
-        for idx in 0..N {
-            *s.get_mut(idx).unwrap() = (idx as u64).wrapping_add(i as u64);
+impl MiniState {
+    fn new() -> Self {
+        MiniState {
+            validators: List::new(vec![FixedBytes::<128>::ZERO; N]).unwrap(),
+            balances: List::try_from_iter(0..N as u64).unwrap(),
+            inactivity: List::try_from_iter(vec![0u64; N]).unwrap(),
+            participation: List::try_from_iter(vec![0u8; N]).unwrap(),
         }
-        s.apply_updates().unwrap();
-        states.push(s);
     }
-    (base, states)
 }
 
-/// Build states simulating effective balance updates.
-/// ~500 validators have their effective balance changed per epoch.
-fn build_eff_balance_states(count: usize) -> (List<u64, C>, Vec<List<u64, C>>) {
-    let base = List::<u64, C>::try_from_iter(0..N as u64).unwrap();
-    let mut states = Vec::with_capacity(count);
-    for i in 0..count {
-        let mut s = base.clone();
-        for j in 0..500 {
-            let idx = (i * 311 + j * 6271) % N;
-            *s.get_mut(idx).unwrap() = u64::MAX;
+impl Clone for MiniState {
+    fn clone(&self) -> Self {
+        MiniState {
+            validators: self.validators.clone(),
+            balances: self.balances.clone(),
+            inactivity: self.inactivity.clone(),
+            participation: self.participation.clone(),
         }
-        s.apply_updates().unwrap();
-        states.push(s);
     }
-    (base, states)
 }
 
-/// Build a chain of states: each cloned from the previous, with ~10 mutations.
-/// This is the realistic head-following pattern where states share COW nodes.
-fn build_chain_states(count: usize) -> (List<u64, C>, Vec<List<u64, C>>) {
-    let base = List::<u64, C>::try_from_iter(0..N as u64).unwrap();
-    let mut states = Vec::with_capacity(count);
-    let mut prev = base.clone();
-    for i in 0..count {
-        let mut s = prev.clone();
-        for j in 0..10 {
-            let idx = (i * 137 + j * 7919) % N;
-            *s.get_mut(idx).unwrap() = u64::MAX;
-        }
-        s.apply_updates().unwrap();
-        states.push(s.clone());
-        prev = s;
-    }
-    (base, states)
+/// Compute total unique bytes across all fields of all states vs the base.
+fn measure_all_fields(base: &MiniState, states: &[MiniState]) -> usize {
+    let mut total = 0;
+
+    // Validators
+    let base_v = base.validators.tree_root();
+    let derived_v: Vec<_> = states.iter().map(|s| s.validators.tree_root()).collect();
+    total += total_unique_cow_tree_bytes(base_v, &derived_v);
+
+    // Balances
+    let base_b = base.balances.tree_root();
+    let derived_b: Vec<_> = states.iter().map(|s| s.balances.tree_root()).collect();
+    total += total_unique_cow_tree_bytes(base_b, &derived_b);
+
+    // Inactivity
+    let base_i = base.inactivity.tree_root();
+    let derived_i: Vec<_> = states.iter().map(|s| s.inactivity.tree_root()).collect();
+    total += total_unique_cow_tree_bytes(base_i, &derived_i);
+
+    // Participation
+    let base_p = base.participation.tree_root();
+    let derived_p: Vec<_> = states.iter().map(|s| s.participation.tree_root()).collect();
+    total += total_unique_cow_tree_bytes(base_p, &derived_p);
+
+    total
 }
 
-/// Mixed cache: 4 epoch boundary states + 124 slot transition states (chained).
-fn build_mixed_cache() -> (List<u64, C>, Vec<List<u64, C>>) {
-    let base = List::<u64, C>::try_from_iter(0..N as u64).unwrap();
-    let mut states = Vec::with_capacity(128);
-
-    // 4 epoch boundary states (all entries rewritten)
-    for i in 0..4 {
-        let mut s = base.clone();
-        for idx in 0..N {
-            *s.get_mut(idx).unwrap() = (idx as u64).wrapping_add(i as u64 + 1);
-        }
-        s.apply_updates().unwrap();
-        states.push(s);
+/// Slot transition: ~10 balance changes, ~128 participation changes.
+fn apply_slot(state: &mut MiniState, slot: usize) {
+    for j in 0..10 {
+        let idx = (slot * 137 + j * 7919) % N;
+        *state.balances.get_mut(idx).unwrap() = u64::MAX;
     }
-
-    // 124 slot transition states (chained, ~10 mutations each)
-    let mut prev = base.clone();
-    for i in 0..124 {
-        let mut s = prev.clone();
-        for j in 0..10 {
-            let idx = (i * 137 + j * 7919) % N;
-            *s.get_mut(idx).unwrap() = u64::MAX;
-        }
-        s.apply_updates().unwrap();
-        states.push(s.clone());
-        prev = s;
+    for j in 0..128 {
+        let idx = (slot * 251 + j * 31) % N;
+        *state.participation.get_mut(idx).unwrap() = 0xFF;
     }
-
-    (base, states)
+    state.balances.apply_updates().unwrap();
+    state.participation.apply_updates().unwrap();
 }
 
-fn bench_total_unique(c: &mut Criterion) {
-    let mut group = c.benchmark_group("total_unique_cow_tree_bytes");
+/// Epoch transition: all balances + inactivity rewritten, participation replaced.
+fn apply_epoch(_base: &MiniState, state: &mut MiniState, epoch: usize) {
+    for idx in 0..N {
+        *state.balances.get_mut(idx).unwrap() = (idx as u64).wrapping_add(epoch as u64);
+    }
+    for idx in 0..N {
+        *state.inactivity.get_mut(idx).unwrap() = epoch as u64;
+    }
+    // Participation: new list (epoch rotation)
+    state.participation = List::try_from_iter(vec![0u8; N]).unwrap();
+
+    state.balances.apply_updates().unwrap();
+    state.inactivity.apply_updates().unwrap();
+}
+
+/// Effective balance updates: ~500 validator mutations.
+fn apply_eff_balance(state: &mut MiniState, epoch: usize) {
+    for j in 0..500 {
+        let idx = (epoch * 311 + j * 6271) % N;
+        let mut val = FixedBytes::<128>::ZERO;
+        val.0[0] = epoch as u8;
+        *state.validators.get_mut(idx).unwrap() = val;
+    }
+    state.validators.apply_updates().unwrap();
+}
+
+fn bench_realistic_cache(c: &mut Criterion) {
+    let mut group = c.benchmark_group("realistic_cache");
     group.sample_size(10);
 
-    // Scenario 1: Slot transitions (few mutations per state)
-    for cache_size in [32, 64, 128] {
-        eprintln!("Building {cache_size} slot states...");
-        let (base, states) = build_slot_states(cache_size);
-        let refs: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
-
-        group.bench_with_input(
-            BenchmarkId::new("slot_transitions", cache_size),
-            &(&base, &refs),
-            |b, (base, refs)| {
-                b.iter(|| black_box(total_unique_cow_tree_bytes(base.tree_root(), refs)));
-            },
-        );
-    }
-
-    // Scenario 2: Epoch transitions (all entries dirty)
-    for cache_size in [4, 8, 16] {
-        eprintln!("Building {cache_size} epoch states...");
-        let (base, states) = build_epoch_states(cache_size);
-        let refs: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
-
-        group.bench_with_input(
-            BenchmarkId::new("epoch_transitions", cache_size),
-            &(&base, &refs),
-            |b, (base, refs)| {
-                b.iter(|| black_box(total_unique_cow_tree_bytes(base.tree_root(), refs)));
-            },
-        );
-    }
-
-    // Scenario 3: Effective balance updates (~500 mutations per state)
-    for cache_size in [32, 64, 128] {
-        eprintln!("Building {cache_size} eff_balance states...");
-        let (base, states) = build_eff_balance_states(cache_size);
-        let refs: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
-
-        group.bench_with_input(
-            BenchmarkId::new("eff_balance_updates", cache_size),
-            &(&base, &refs),
-            |b, (base, refs)| {
-                b.iter(|| black_box(total_unique_cow_tree_bytes(base.tree_root(), refs)));
-            },
-        );
-    }
-
-    // Scenario 4: Chain of slot transitions (states cloned from previous)
-    for cache_size in [32, 64, 128] {
-        eprintln!("Building {cache_size} chain states...");
-        let (base, states) = build_chain_states(cache_size);
-        let refs: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
-
-        group.bench_with_input(
-            BenchmarkId::new("chain_slots", cache_size),
-            &(&base, &refs),
-            |b, (base, refs)| {
-                b.iter(|| black_box(total_unique_cow_tree_bytes(base.tree_root(), refs)));
-            },
-        );
-    }
-
-    // Scenario 5: Mixed realistic cache (4 epoch + 124 chained slots)
+    // Scenario 1: 128 slot-transition states (chained, like head-following)
     {
-        eprintln!("Building mixed cache (4 epoch + 124 chain)...");
-        let (base, states) = build_mixed_cache();
-        let refs: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
+        eprintln!("Building 128 chained slot states (4 fields each)...");
+        let base = MiniState::new();
+        let mut states = Vec::with_capacity(128);
+        let mut prev = base.clone();
+        for i in 0..128 {
+            let mut s = prev.clone();
+            apply_slot(&mut s, i);
+            states.push(s.clone());
+            prev = s;
+        }
 
-        group.bench_function("mixed_cache_128", |b| {
-            b.iter(|| black_box(total_unique_cow_tree_bytes(base.tree_root(), &refs)));
+        group.bench_function("128_slot_chain", |b| {
+            b.iter(|| black_box(measure_all_fields(&base, &states)));
         });
+
+        let bytes = measure_all_fields(&base, &states);
+        eprintln!("  128 slot chain: {} MB unique", bytes / (1024 * 1024));
     }
 
-    group.finish();
-}
+    // Scenario 2: 4 epoch boundary + 124 chained slot states
+    {
+        eprintln!("Building mixed cache (4 epoch + 124 slot chain)...");
+        let base = MiniState::new();
+        let mut states = Vec::with_capacity(128);
 
-fn bench_comparison(c: &mut Criterion) {
-    let mut group = c.benchmark_group("unique_vs_sum");
-    group.sample_size(10);
+        for i in 0..4 {
+            let mut s = base.clone();
+            apply_epoch(&base, &mut s, i + 1);
+            states.push(s);
+        }
 
-    // Compare total_unique_cow_tree_bytes vs naive sum of cow_bytes
-    // to show how much deduplication helps.
-    for (label, cache_size, builder) in [
-        ("slot_128", 128usize, build_slot_states as fn(usize) -> _),
-        ("eff_balance_128", 128, build_eff_balance_states),
-        ("epoch_8", 8, build_epoch_states),
-    ] {
-        eprintln!("Building comparison: {label}...");
-        let (base, states) = builder(cache_size);
-        let refs: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
+        let mut prev = base.clone();
+        for i in 0..124 {
+            let mut s = prev.clone();
+            apply_slot(&mut s, i);
+            states.push(s.clone());
+            prev = s;
+        }
 
-        group.bench_with_input(
-            BenchmarkId::new("unique", label),
-            &(&base, &refs),
-            |b, (base, refs)| {
-                b.iter(|| black_box(total_unique_cow_tree_bytes(base.tree_root(), refs)));
-            },
-        );
+        group.bench_function("mixed_4epoch_124slot", |b| {
+            b.iter(|| black_box(measure_all_fields(&base, &states)));
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("naive_sum", label),
-            &(&base, &states),
-            |b, (base, states)| {
-                b.iter(|| {
-                    let sum: usize = states.iter().map(|s| s.cow_bytes(base)).sum();
-                    black_box(sum);
-                });
-            },
-        );
+        let bytes = measure_all_fields(&base, &states);
+        eprintln!("  mixed cache: {} MB unique", bytes / (1024 * 1024));
     }
 
-    // Print dedup ratio for each scenario
-    for (label, cache_size, builder) in [
-        ("slot_128", 128usize, build_slot_states as fn(usize) -> _),
-        ("chain_128", 128, build_chain_states),
-        ("eff_balance_128", 128, build_eff_balance_states),
-        ("epoch_8", 8, build_epoch_states),
-    ] {
-        let (base, states) = builder(cache_size);
-        let refs: Vec<_> = states.iter().map(|s| s.tree_root()).collect();
-        let unique = total_unique_cow_tree_bytes(base.tree_root(), &refs);
-        let naive: usize = states.iter().map(|s| s.cow_bytes(&base)).sum();
+    // Scenario 3: 4 epoch + 4 eff_balance + 120 slot chain
+    {
+        eprintln!("Building cache with eff_balance updates...");
+        let base = MiniState::new();
+        let mut states = Vec::with_capacity(128);
+
+        for i in 0..4 {
+            let mut s = base.clone();
+            apply_epoch(&base, &mut s, i + 1);
+            states.push(s);
+        }
+
+        for i in 0..4 {
+            let mut s = base.clone();
+            apply_eff_balance(&mut s, i + 1);
+            states.push(s);
+        }
+
+        let mut prev = base.clone();
+        for i in 0..120 {
+            let mut s = prev.clone();
+            apply_slot(&mut s, i);
+            states.push(s.clone());
+            prev = s;
+        }
+
+        group.bench_function("mixed_4epoch_4eff_120slot", |b| {
+            b.iter(|| black_box(measure_all_fields(&base, &states)));
+        });
+
+        let bytes = measure_all_fields(&base, &states);
         eprintln!(
-            "{label}: unique={} naive_sum={} ratio={:.2}x",
-            unique,
-            naive,
-            naive as f64 / unique as f64,
+            "  mixed+eff_balance cache: {} MB unique",
+            bytes / (1024 * 1024)
+        );
+    }
+
+    // Scenario 4: Just slot transitions (independent, not chained)
+    {
+        eprintln!("Building 128 independent slot states...");
+        let base = MiniState::new();
+        let mut states = Vec::with_capacity(128);
+        for i in 0..128 {
+            let mut s = base.clone();
+            apply_slot(&mut s, i);
+            states.push(s);
+        }
+
+        group.bench_function("128_slot_independent", |b| {
+            b.iter(|| black_box(measure_all_fields(&base, &states)));
+        });
+
+        let bytes = measure_all_fields(&base, &states);
+        eprintln!(
+            "  128 slot independent: {} MB unique",
+            bytes / (1024 * 1024)
         );
     }
 
     group.finish();
 }
 
-criterion_group!(benches, bench_total_unique, bench_comparison);
+criterion_group!(benches, bench_realistic_cache);
 criterion_main!(benches);
