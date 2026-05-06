@@ -155,9 +155,9 @@ fn cow_bytes_includes_leaf_data() {
     // cow_bytes must account for the leaf data, not just tree node overhead.
     type Big = FixedBytes<10000>;
 
-    let base = List::<Big, typenum::U2>::new(vec![Box::new(Big::ZERO).as_ref().clone()]).unwrap();
+    let base = List::<Big, typenum::U2>::new(vec![Big::ZERO]).unwrap();
     let mut derived = base.clone();
-    *derived.get_mut(0).unwrap() = Box::new(FixedBytes([0xAA; 10000])).as_ref().clone();
+    *derived.get_mut(0).unwrap() = FixedBytes([0xAA; 10000]);
     derived.apply_updates().unwrap();
 
     let cow = derived.cow_bytes(&base);
