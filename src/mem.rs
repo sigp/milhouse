@@ -1,6 +1,6 @@
 use crate::{Arc, List, Tree, UpdateMap, Value, Vector};
 use alloy_primitives::FixedBytes;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use typenum::Unsigned;
 
 /// Trait for types supporting memory usage tracking in a `MemoryTracker`.
@@ -155,6 +155,138 @@ impl<T: Value + MemorySize, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<
         // TODO(memsize): This approximates the size of the UpdateMap, and assumes that `T` is not
         // recursive. In most practical cases the update map should be empty anyway.
         std::mem::size_of::<Self>() + self.interface.updates.len() * std::mem::size_of::<T>()
+    }
+}
+
+/// Compute the bytes owned by `derived` that are not shared with `base`.
+///
+/// Walks both trees in parallel, comparing `Arc` pointers at each level. When pointers
+/// match, the entire subtree is shared and costs 0 — the recursion stops immediately.
+/// When pointers differ, the derived node is counted and its children are recursed.
+///
+/// Complexity: O(dirty_nodes), where dirty_nodes are the tree nodes that differ between
+/// the two trees. For a single leaf mutation in a tree of depth D, this visits ~D nodes.
+/// For a fully-rewritten tree, it visits all nodes (same as `total_tree_bytes`).
+///
+/// No allocations, no external state (unlike `MemoryTracker` which builds a `HashMap`).
+pub fn cow_tree_bytes<T: Value>(base: &Arc<Tree<T>>, derived: &Arc<Tree<T>>) -> usize {
+    if Arc::ptr_eq(base, derived) {
+        return 0;
+    }
+
+    let self_bytes = node_bytes::<T>(derived);
+
+    match (base.as_ref(), derived.as_ref()) {
+        (
+            Tree::Node {
+                left: bl,
+                right: br,
+                ..
+            },
+            Tree::Node {
+                left: dl,
+                right: dr,
+                ..
+            },
+        ) => self_bytes + cow_tree_bytes(bl, dl) + cow_tree_bytes(br, dr),
+        // Structure mismatch or derived is a leaf/zero — count the full derived subtree.
+        _ => self_bytes + children_bytes::<T>(derived),
+    }
+}
+
+/// Total bytes of all nodes in a tree. No sharing baseline.
+pub fn total_tree_bytes<T: Value>(tree: &Arc<Tree<T>>) -> usize {
+    node_bytes::<T>(tree) + children_bytes::<T>(tree)
+}
+
+/// Bytes consumed by a single tree node (not including its children).
+fn node_bytes<T: Value>(tree: &Arc<Tree<T>>) -> usize {
+    // Every node is an Arc<Tree<T>>: the Arc pointer + the Tree enum.
+    let overhead = std::mem::size_of::<Arc<Tree<T>>>() + std::mem::size_of::<Tree<T>>();
+    let leaf_data = match tree.as_ref() {
+        Tree::PackedLeaf(packed) => packed.values.capacity() * std::mem::size_of::<T>(),
+        Tree::Leaf(_) => std::mem::size_of::<Arc<T>>() + std::mem::size_of::<T>(),
+        Tree::Node { .. } | Tree::Zero(_) => 0,
+    };
+    overhead + leaf_data
+}
+
+/// Sum of `total_tree_bytes` for a node's children.
+fn children_bytes<T: Value>(tree: &Arc<Tree<T>>) -> usize {
+    match tree.as_ref() {
+        Tree::Node { left, right, .. } => total_tree_bytes(left) + total_tree_bytes(right),
+        _ => 0,
+    }
+}
+
+/// Compute the total unique COW bytes across multiple derived trees relative to a shared base.
+///
+/// Like `cow_tree_bytes` but deduplicates across all derived trees using a `HashSet` of
+/// pointers. Nodes shared with `base` are skipped via `Arc::ptr_eq` (no base walk needed).
+/// Nodes shared between derived trees are counted once.
+///
+/// Complexity: O(total_unique_dirty_nodes) — each unique COW'd node is visited exactly once
+/// across all derived trees. The `HashSet` only contains dirty nodes (not base nodes), so it
+/// stays small.
+pub fn total_unique_cow_tree_bytes<T: Value>(
+    base: &Arc<Tree<T>>,
+    derived: &[&Arc<Tree<T>>],
+) -> usize {
+    let mut seen = HashSet::new();
+    let mut total = 0;
+    for d in derived {
+        total += cow_tree_bytes_dedup(base, d, &mut seen);
+    }
+    total
+}
+
+fn cow_tree_bytes_dedup<T: Value>(
+    base: &Arc<Tree<T>>,
+    derived: &Arc<Tree<T>>,
+    seen: &mut HashSet<usize>,
+) -> usize {
+    // Shared with base — entire subtree is free.
+    if Arc::ptr_eq(base, derived) {
+        return 0;
+    }
+
+    // Already counted from another derived tree — skip.
+    if !seen.insert(Arc::as_ptr(derived) as usize) {
+        return 0;
+    }
+
+    let self_bytes = node_bytes::<T>(derived);
+
+    match (base.as_ref(), derived.as_ref()) {
+        (
+            Tree::Node {
+                left: bl,
+                right: br,
+                ..
+            },
+            Tree::Node {
+                left: dl,
+                right: dr,
+                ..
+            },
+        ) => self_bytes + cow_tree_bytes_dedup(bl, dl, seen) + cow_tree_bytes_dedup(br, dr, seen),
+        _ => self_bytes + children_bytes_dedup::<T>(derived, seen),
+    }
+}
+
+fn children_bytes_dedup<T: Value>(tree: &Arc<Tree<T>>, seen: &mut HashSet<usize>) -> usize {
+    match tree.as_ref() {
+        Tree::Node { left, right, .. } => {
+            let mut total = 0;
+            if seen.insert(Arc::as_ptr(left) as usize) {
+                total += node_bytes::<T>(left) + children_bytes_dedup::<T>(left, seen);
+            }
+            if seen.insert(Arc::as_ptr(right) as usize) {
+                total += node_bytes::<T>(right) + children_bytes_dedup::<T>(right, seen);
+            }
+            total
+        }
+        _ => 0,
     }
 }
 
