@@ -130,6 +130,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     pub fn apply_updates(&mut self) -> Result<(), Error> {
         self.interface.apply_updates()
     }
+
+    pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
+        self.interface.bulk_update(updates)
+    }
 }
 
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> TryFrom<List<T, N, U>> for Vector<T, N, U> {
@@ -247,6 +251,20 @@ where
 {
     fn validate_push(_current_len: usize) -> Result<(), Error> {
         Err(Error::PushNotSupported)
+    }
+
+    fn validate_bulk_update<U: UpdateMap<T>>(&self, updates: &U) -> Result<(), Error> {
+        // For a vector there is no possibility of pushing in a bulk update so it is sufficient to
+        // check the `max_index`.
+        let max_index = updates.max_index().ok_or(Error::UpdateMapMissingMaxIndex)?;
+        if max_index >= N::to_usize() {
+            Err(Error::OutOfBoundsUpdate {
+                index: max_index,
+                len: N::to_usize(),
+            })
+        } else {
+            Ok(())
+        }
     }
 
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {

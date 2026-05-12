@@ -29,6 +29,7 @@ pub enum Error {
     BuilderStackLeftover,
     BuilderFull,
     BulkUpdateUnclean,
+    UpdateMapMissingMaxIndex,
     CowMissingEntry,
     LevelIterPendingUpdates,
     IntraRebaseZeroHash,

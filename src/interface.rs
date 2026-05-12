@@ -26,6 +26,7 @@ pub trait ImmList<T: Value> {
 
 pub trait MutList<T: Value>: ImmList<T> {
     fn validate_push(current_len: usize) -> Result<(), Error>;
+    fn validate_bulk_update<U: UpdateMap<T>>(&self, updates: &U) -> Result<(), Error>;
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
     fn update<U: UpdateMap<T>>(
         &mut self,
@@ -137,10 +138,21 @@ where
         self.len() == 0
     }
 
+    /// Stage a new set of `updates`, while flushing existing ones.
     pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
-        if !self.updates.is_empty() {
-            return Err(Error::BulkUpdateUnclean);
+        // Flush existing updates.
+        //
+        // This is required prior to `validate_bulk_update` to update the backing's internal
+        // length. It does mean that an invalid bulk update will mutate `self` by flushing the
+        // existing updates.
+        self.apply_updates()?;
+
+        // Validate new updates (check against List/Vector capacity and ensure contiguous range).
+        if !updates.is_empty() {
+            self.backing.validate_bulk_update(&updates)?;
         }
+
+        // Stage new updates.
         self.updates = updates;
         Ok(())
     }

@@ -16,9 +16,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeSeq}
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::collections::{BTreeMap, HashMap};
 use std::marker::PhantomData;
+use std::ops::ControlFlow;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
 use vec_map::VecMap;
+
 #[derive(Debug, Clone, Educe)]
 #[educe(PartialEq(bound(T: Value, N: Unsigned, U: UpdateMap<T> + PartialEq)))]
 #[cfg_attr(
@@ -195,6 +197,14 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.interface.apply_updates()
     }
 
+    /// Replace the `update_map` for the list with the given `updates`.
+    ///
+    /// Any existing updates will be flushed to the underlying tree before the replacement occurs.
+    /// The new updates WILL NOT be flushed, unless `self.apply_updates` is called immediately
+    /// afterwards.
+    ///
+    /// Errors if the updates would create a gap (all updates at indices >= current length must be
+    /// contiguous without gaps).
     pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
         self.interface.bulk_update(updates)
     }
@@ -290,6 +300,38 @@ where
         } else {
             Ok(())
         }
+    }
+
+    fn validate_bulk_update<U: UpdateMap<T>>(&self, updates: &U) -> Result<(), Error> {
+        // For a list, we need to check that all updates at indices >= the current length are
+        // contiguous.
+        let max_index = updates.max_index().ok_or(Error::UpdateMapMissingMaxIndex)?;
+
+        if max_index >= N::to_usize() {
+            return Err(Error::OutOfBoundsUpdate {
+                index: max_index,
+                len: N::to_usize(),
+            });
+        }
+
+        let start = self.length.as_usize();
+        let end = max_index.saturating_add(1);
+
+        let mut previous_index = self.length.as_usize().checked_sub(1);
+
+        updates.for_each_range(start, end, |index, _| {
+            // This neatly handles the length=0 case, by ensuring that we only accept `index == 0`,
+            // which yields `None` when `.checked_sub(1)` is applied.
+            if index.checked_sub(1) != previous_index {
+                ControlFlow::Continue(Err(Error::OutOfBoundsUpdate {
+                    index,
+                    len: self.length.as_usize(),
+                }))
+            } else {
+                previous_index = Some(index);
+                ControlFlow::Continue(Ok(()))
+            }
+        })
     }
 
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error> {

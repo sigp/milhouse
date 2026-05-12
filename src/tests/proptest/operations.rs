@@ -1,7 +1,8 @@
 use super::{Large, arb_hash256, arb_index, arb_large, arb_list, arb_vect};
-use crate::{Error, List, Value, Vector};
+use crate::{Error, List, UpdateMap, Value, Vector, update_map::MaxMap};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -90,6 +91,29 @@ impl<T: Value, N: Unsigned> Spec<T, N> {
             Err(Error::PushNotSupported)
         }
     }
+
+    pub fn bulk_update(&mut self, mut updates: Vec<(usize, T)>) -> Result<(), Error> {
+        let mut new_list = self.clone();
+        updates.sort_by_key(|(index, _)| *index);
+        for (index, value) in updates {
+            match index.cmp(&new_list.values.len()) {
+                Ordering::Less => {
+                    new_list.values[index] = value;
+                }
+                Ordering::Equal if self.allow_push => {
+                    new_list.push(value)?;
+                }
+                _ => {
+                    return Err(Error::OutOfBoundsUpdate {
+                        index,
+                        len: new_list.values.len(),
+                    });
+                }
+            }
+        }
+        *self = new_list;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +152,8 @@ pub enum Op<T> {
     FromIntoRoundtrip,
     /// Rebase the list on itself to exploit self-sharing.
     IntraRebase,
+    /// Apply a bulk update to the list/vector.
+    BulkUpdate(Vec<(usize, T)>),
 }
 
 fn arb_op<'a, T, S>(strategy: &'a S, n: usize) -> impl Strategy<Value = Op<T>> + 'a
@@ -158,10 +184,11 @@ where
         Just(Op::Debase),
         Just(Op::FromIntoRoundtrip),
         Just(Op::IntraRebase),
+        proptest::collection::vec((arb_index(n), strategy), 0..n).prop_map(Op::BulkUpdate),
     ];
     prop_oneof![
         10 => a_block,
-        7 => b_block
+        8 => b_block
     ]
 }
 
@@ -285,6 +312,21 @@ where
                 assert_eq!(new_list, *list);
                 *list = new_list;
             }
+            Op::BulkUpdate(updates) => {
+                let mut update_map = MaxMap::<vec_map::VecMap<T>>::default();
+                for &(index, ref value) in &updates {
+                    update_map.insert(index, value.clone());
+                }
+
+                match spec.bulk_update(updates) {
+                    Ok(()) => {
+                        list.bulk_update(update_map).unwrap();
+                    }
+                    Err(_) => {
+                        list.bulk_update(update_map).unwrap_err();
+                    }
+                }
+            }
         }
     }
 }
@@ -388,6 +430,21 @@ where
 
                 assert_eq!(new_vect, *vect);
                 *vect = new_vect;
+            }
+            Op::BulkUpdate(updates) => {
+                let mut update_map = MaxMap::<vec_map::VecMap<T>>::default();
+                for &(index, ref value) in &updates {
+                    update_map.insert(index, value.clone());
+                }
+
+                match spec.bulk_update(updates) {
+                    Ok(()) => {
+                        vect.bulk_update(update_map).unwrap();
+                    }
+                    Err(_) => {
+                        vect.bulk_update(update_map).unwrap_err();
+                    }
+                }
             }
         }
     }

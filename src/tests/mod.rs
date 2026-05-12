@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 mod builder;
+mod bulk_update;
 mod iterator;
 mod mem;
 mod packed;

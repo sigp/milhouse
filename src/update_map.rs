@@ -20,6 +20,7 @@ pub trait UpdateMap<T>: Default + Clone {
 
     fn insert(&mut self, k: usize, value: T) -> Option<T>;
 
+    /// Iterate between `start` (inclusive) and `end` (exclusive).
     fn for_each_range<F, E>(&self, start: usize, end: usize, f: F) -> Result<(), E>
     where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>;
