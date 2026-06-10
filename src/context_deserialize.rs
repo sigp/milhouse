@@ -1,4 +1,4 @@
-use crate::{List, ProgressiveList, Value, Vector};
+use crate::{List, ProgressiveList, UpdateMap, Value, Vector};
 use context_deserialize::ContextDeserialize;
 use serde::de::Deserializer;
 use typenum::Unsigned;
@@ -44,9 +44,10 @@ where
     }
 }
 
-impl<'de, C, T> ContextDeserialize<'de, C> for ProgressiveList<T>
+impl<'de, C, T, U> ContextDeserialize<'de, C> for ProgressiveList<T, U>
 where
     T: ContextDeserialize<'de, C> + Value,
+    U: UpdateMap<T>,
     C: Clone,
 {
     fn context_deserialize<D>(deserializer: D, context: C) -> Result<Self, D::Error>

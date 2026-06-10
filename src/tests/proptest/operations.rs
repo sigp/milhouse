@@ -118,6 +118,34 @@ impl<T: Value> ProgressiveSpec<T> {
     pub fn push(&mut self, value: T) {
         self.values.push(value);
     }
+
+    pub fn set(&mut self, index: usize, value: T) -> Option<()> {
+        *self.values.get_mut(index)? = value;
+        Some(())
+    }
+
+    pub fn iter_from(&self, index: usize) -> Result<impl Iterator<Item = &T>, Error> {
+        if index <= self.len() {
+            Ok(self.values[index..].iter())
+        } else {
+            Err(Error::OutOfBoundsIterFrom {
+                index,
+                len: self.len(),
+            })
+        }
+    }
+
+    pub fn pop_front(&mut self, index: usize) -> Result<(), Error> {
+        if index <= self.len() {
+            self.values = self.values[index..].to_vec();
+            Ok(())
+        } else {
+            Err(Error::OutOfBoundsIterFrom {
+                index,
+                len: self.len(),
+            })
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -205,8 +233,10 @@ where
     proptest::collection::vec(arb_op(strategy, n), 1..limit)
 }
 
-/// Strategy for generating operations for ProgressiveList.
-/// Only includes operations that are currently implemented for ProgressiveList.
+/// Strategy for generating operations for `ProgressiveList`.
+///
+/// Covers the full mutation/rebase API. `IntraRebase` and `FromIntoRoundtrip` are not applicable to
+/// an (unbounded) `ProgressiveList` and are excluded.
 fn arb_op_progressive<'a, T, S>(
     strategy: &'a S,
     max_len: usize,
@@ -215,15 +245,33 @@ where
     T: Debug + Clone + 'a,
     S: Strategy<Value = T> + 'a,
 {
-    // Only include operations that are currently implemented for ProgressiveList:
-    // Len, Get, Push, Iter, TreeHash, and Debase (SSZ roundtrip)
-    prop_oneof![
+    // The behaviour of `prop_oneof` changes to dynamic dispatch past 10 elements which
+    // breaks the borrowing pattern used in this function. Using two weighted substrategies
+    // prevents the boxing.
+    let a_block = prop_oneof![
         Just(Op::Len),
         arb_index(max_len).prop_map(Op::Get),
+        (arb_index(max_len), strategy).prop_map(|(index, value)| Op::Set(index, value)),
+        (arb_index(max_len), strategy)
+            .prop_map(|(index, value)| Op::SetCowWithIntoMut(index, value)),
+        (arb_index(max_len), strategy)
+            .prop_map(|(index, value)| Op::SetCowWithMakeMut(index, value)),
         strategy.prop_map(Op::Push),
         Just(Op::Iter),
+        arb_index(max_len).prop_map(Op::IterFrom),
+        arb_index(max_len).prop_map(Op::IterCowFrom),
+        arb_index(max_len).prop_map(Op::PopFront),
+    ];
+    let b_block = prop_oneof![
+        Just(Op::ApplyUpdates),
         Just(Op::TreeHash),
+        Just(Op::Checkpoint),
+        Just(Op::Rebase),
         Just(Op::Debase),
+    ];
+    prop_oneof![
+        10 => a_block,
+        5 => b_block
     ]
 }
 
@@ -246,10 +294,31 @@ fn apply_ops_progressive_list<T>(
 ) where
     T: Value + Debug + Send + Sync,
 {
+    let mut checkpoint = list.clone();
+
     for op in ops {
         match op {
             Op::Len => {
                 assert_eq!(list.len(), spec.len());
+            }
+            Op::Get(index) => {
+                assert_eq!(list.get(index), spec.get(index));
+            }
+            Op::Set(index, value) => {
+                let res = list.get_mut(index).map(|elem| *elem = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithIntoMut(index, value) => {
+                let res = list
+                    .get_cow(index)
+                    .map(|cow| *cow.into_mut().unwrap() = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithMakeMut(index, value) => {
+                let res = list
+                    .get_cow(index)
+                    .map(|mut cow| *cow.make_mut().unwrap() = value.clone());
+                assert_eq!(res, spec.set(index, value));
             }
             Op::Push(value) => {
                 list.push(value.clone()).expect("push should succeed");
@@ -258,31 +327,60 @@ fn apply_ops_progressive_list<T>(
             Op::Iter => {
                 assert!(list.iter().eq(spec.iter()));
             }
-            Op::Get(index) => {
-                assert_eq!(list.get(index), spec.get(index));
+            Op::IterFrom(index) => match (list.iter_from(index), spec.iter_from(index)) {
+                (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_from mismatch: {}", e),
+            },
+            Op::IterCowFrom(index) => match (list.iter_cow_from(index), spec.iter_from(index)) {
+                (Ok(mut cow_iter), Ok(spec_iter)) => {
+                    let mut cow_values = Vec::new();
+                    while let Some((idx, cow)) = cow_iter.next_cow() {
+                        assert_eq!(
+                            idx,
+                            index + cow_values.len(),
+                            "index mismatch in iter_cow_from"
+                        );
+                        cow_values.push(cow.deref().clone());
+                    }
+                    assert!(cow_values.iter().eq(spec_iter));
+                }
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_cow_from mismatch: {}", e),
+            },
+            Op::PopFront(index) => match (list.pop_front(index), spec.pop_front(index)) {
+                (Ok(()), Ok(())) => {
+                    assert_eq!(list.len(), spec.len());
+                    assert!(list.iter().eq(spec.iter()))
+                }
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("pop_front mismatch: {}", e),
+            },
+            Op::ApplyUpdates => {
+                list.apply_updates().unwrap();
             }
             Op::TreeHash => {
+                list.apply_updates().unwrap();
                 list.tree_hash_root();
             }
+            Op::Checkpoint => {
+                list.apply_updates().unwrap();
+                checkpoint = list.clone();
+            }
+            Op::Rebase => {
+                list.apply_updates().unwrap();
+                let new_list = list.rebase(&checkpoint).unwrap();
+                assert_eq!(new_list, *list);
+            }
             Op::Debase => {
+                list.apply_updates().unwrap();
                 let ssz_bytes = list.as_ssz_bytes();
                 let new_list = ProgressiveList::from_ssz_bytes(&ssz_bytes).expect("SSZ decode");
                 assert_eq!(new_list, *list);
                 *list = new_list;
             }
-            // These operations are not implemented for ProgressiveList yet and
-            // are not generated by arb_op_progressive, but we handle them for completeness.
-            Op::Set(_, _)
-            | Op::SetCowWithIntoMut(_, _)
-            | Op::SetCowWithMakeMut(_, _)
-            | Op::IterFrom(_)
-            | Op::IterCowFrom(_)
-            | Op::PopFront(_)
-            | Op::ApplyUpdates
-            | Op::Checkpoint
-            | Op::Rebase
-            | Op::FromIntoRoundtrip
-            | Op::IntraRebase => {}
+            // Not applicable to an (unbounded) `ProgressiveList`.
+            Op::FromIntoRoundtrip | Op::IntraRebase => {}
         }
     }
 }

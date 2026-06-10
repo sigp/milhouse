@@ -1,6 +1,7 @@
 #![allow(clippy::comparison_chain)]
 #![deny(clippy::unwrap_used)]
 
+pub mod any_list;
 pub mod builder;
 pub mod cow;
 pub mod error;
@@ -25,6 +26,7 @@ pub mod vector;
 #[cfg(feature = "context_deserialize")]
 mod context_deserialize;
 
+pub use any_list::{AnyList, AnyListIter, AnyListIterCow, AnyListMut, AnyListRef};
 pub use cow::Cow;
 pub use error::Error;
 pub use interface::ImmList;

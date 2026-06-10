@@ -2,6 +2,7 @@ use crate::{
     Arc, Error, Tree, Value,
     builder::Builder,
     iter::Iter,
+    tree::RebaseAction,
     utils::{Length, opt_packing_depth, opt_packing_factor},
 };
 use educe::Educe;
@@ -243,6 +244,145 @@ impl<T: Value> ProgressiveTree<T> {
                 } else {
                     // Index is in the right subtree (progressive tree).
                     right.get_recursive(index, prog_depth + 1)
+                }
+            }
+        }
+    }
+
+    /// Create a new tree where the `index`th leaf is set to `value`.
+    ///
+    /// If `index == current_length` the value is appended (equivalent to `push`). Updating any
+    /// index `> current_length` is an error, as it would leave a gap in the list.
+    pub fn with_updated_leaf(
+        &self,
+        index: usize,
+        value: T,
+        current_length: usize,
+    ) -> Result<Self, Error> {
+        if index < current_length {
+            self.replace_recursive(index, value, 0)
+        } else if index == current_length {
+            self.push_recursive(value, current_length, 0)
+        } else {
+            Err(Error::OutOfBoundsUpdate {
+                index,
+                len: current_length,
+            })
+        }
+    }
+
+    /// Replace the value at an *existing* `index`, leaving the list length unchanged.
+    ///
+    /// Routes to the binary subtree containing `index` using the same geometry as
+    /// `get_recursive`/`push_recursive`, then delegates the in-subtree update to `Tree`.
+    fn replace_recursive(&self, index: usize, value: T, prog_depth: u32) -> Result<Self, Error> {
+        match self {
+            Self::ProgressiveZero => Err(Error::OutOfBoundsUpdate { index, len: 0 }),
+            Self::ProgressiveNode { left, right, .. } => {
+                let total_capacity = Self::total_capacity_at_depth(prog_depth + 1);
+                if index < total_capacity {
+                    // Index lies in this node's binary (left) subtree.
+                    let subtree_index =
+                        index.saturating_sub(Self::total_capacity_at_depth(prog_depth));
+                    let binary_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
+                    let new_left = left.with_updated_leaf(subtree_index, value, binary_depth)?;
+
+                    Ok(Self::ProgressiveNode {
+                        hash: RwLock::new(Hash256::ZERO),
+                        left: new_left,
+                        right: right.clone(),
+                    })
+                } else {
+                    // Recurse into the right (progressive) subtree.
+                    let new_right = right.replace_recursive(index, value, prog_depth + 1)?;
+
+                    Ok(Self::ProgressiveNode {
+                        hash: RwLock::new(Hash256::ZERO),
+                        left: left.clone(),
+                        right: Arc::new(new_right),
+                    })
+                }
+            }
+        }
+    }
+
+    /// Rebase `orig` onto `base`, exploiting structural sharing between equal subtrees to reduce
+    /// memory usage. The logical contents and `tree_hash` of `orig` are unchanged; only `Arc`
+    /// pointers are shared with `base` where subtrees are equal.
+    pub fn rebase_on(
+        orig: &Arc<Self>,
+        base: &Arc<Self>,
+        orig_length: usize,
+        base_length: usize,
+    ) -> Result<Arc<Self>, Error> {
+        Self::rebase_on_recursive(orig, base, orig_length, base_length, 0)
+    }
+
+    fn rebase_on_recursive(
+        orig: &Arc<Self>,
+        base: &Arc<Self>,
+        orig_length: usize,
+        base_length: usize,
+        prog_depth: u32,
+    ) -> Result<Arc<Self>, Error> {
+        if Arc::ptr_eq(orig, base) {
+            return Ok(base.clone());
+        }
+        match (&**orig, &**base) {
+            // `orig` is empty here, or `base` has nothing to share. Keep `orig` as-is.
+            (Self::ProgressiveZero, _) | (Self::ProgressiveNode { .. }, Self::ProgressiveZero) => {
+                Ok(orig.clone())
+            }
+            (
+                Self::ProgressiveNode {
+                    hash: orig_hash,
+                    left: orig_left,
+                    right: orig_right,
+                },
+                Self::ProgressiveNode {
+                    left: base_left,
+                    right: base_right,
+                    ..
+                },
+            ) => {
+                let lo = Self::total_capacity_at_depth(prog_depth);
+                let subtree_capacity = Self::capacity_at_depth(prog_depth + 1);
+                let binary_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
+                let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
+
+                let orig_left_len = orig_length.saturating_sub(lo).min(subtree_capacity);
+                let base_left_len = base_length.saturating_sub(lo).min(subtree_capacity);
+
+                // Rebase the binary (left) subtree using the existing `Tree` machinery.
+                let new_left = match Tree::rebase_on(
+                    orig_left,
+                    base_left,
+                    Some((Length(orig_left_len), Length(base_left_len))),
+                    binary_depth + packing_depth,
+                )? {
+                    RebaseAction::EqualReplace(replacement) => replacement.clone(),
+                    RebaseAction::NotEqualReplace(replacement) => replacement,
+                    RebaseAction::EqualNoop | RebaseAction::NotEqualNoop => orig_left.clone(),
+                };
+
+                // Rebase the progressive (right) subtree.
+                let new_right = Self::rebase_on_recursive(
+                    orig_right,
+                    base_right,
+                    orig_length,
+                    base_length,
+                    prog_depth + 1,
+                )?;
+
+                // Avoid allocating a new node if nothing changed.
+                if Arc::ptr_eq(&new_left, orig_left) && Arc::ptr_eq(&new_right, orig_right) {
+                    Ok(orig.clone())
+                } else {
+                    Ok(Arc::new(Self::ProgressiveNode {
+                        hash: RwLock::new(*orig_hash.read()),
+                        left: new_left,
+                        right: new_right,
+                    }))
                 }
             }
         }
