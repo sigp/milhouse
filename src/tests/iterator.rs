@@ -244,3 +244,42 @@ fn list_iter_from_rev_pending_push() {
         );
     }
 }
+
+#[test]
+fn list_iter_size_hint_tracks_both_cursors() {
+    type N = U64;
+    let list = List::<u64, N>::new((0..6).collect()).unwrap();
+    let mut iter = list.iter();
+
+    assert_eq!(iter.size_hint(), (6, Some(6)));
+    assert_eq!(iter.next().copied(), Some(0));
+    assert_eq!(iter.size_hint(), (5, Some(5)));
+    assert_eq!(iter.next_back().copied(), Some(5));
+    assert_eq!(iter.size_hint(), (4, Some(4)));
+    assert_eq!(iter.next_back().copied(), Some(4));
+    assert_eq!(iter.size_hint(), (3, Some(3)));
+}
+
+#[test]
+fn list_iter_from_len_is_empty_both_directions() {
+    type N = U64;
+    let list = List::<u64, N>::new((0..5).collect()).unwrap();
+    let mut iter = list.iter_from(list.len()).unwrap();
+    assert_eq!(iter.next(), None);
+    assert_eq!(iter.next_back(), None);
+    assert_eq!(iter.size_hint(), (0, Some(0)));
+}
+
+#[test]
+fn packed_reverse_from_end_consumes_exactly_once() {
+    use typenum::U8;
+    let vec: Vec<u64> = (0..8).collect();
+    let list = List::<u64, U8>::new(vec.clone()).unwrap();
+    let mut iter = list.iter();
+
+    for expected in vec.iter().rev() {
+        assert_eq!(iter.next_back(), Some(expected));
+    }
+    assert_eq!(iter.next_back(), None);
+    assert_eq!(iter.next(), None);
+}
