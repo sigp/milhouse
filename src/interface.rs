@@ -105,7 +105,8 @@ where
             tree_iter: self.backing.iter_from(index),
             updates: &self.updates,
             index,
-            length: self.len(),
+            back: self.len(),
+            tree_backing_len: self.backing.len().as_usize(),
         }
     }
 

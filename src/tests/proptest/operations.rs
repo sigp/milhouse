@@ -56,6 +56,21 @@ impl<T: Value, N: Unsigned> Spec<T, N> {
         }
     }
 
+    pub fn iter_rev(&self) -> impl Iterator<Item = &T> {
+        self.values.iter().rev()
+    }
+
+    pub fn iter_from_rev(&self, index: usize) -> Result<impl Iterator<Item = &T>, Error> {
+        if index <= self.len() {
+            Ok(self.values[index..].iter().rev())
+        } else {
+            Err(Error::OutOfBoundsIterFrom {
+                index,
+                len: self.len(),
+            })
+        }
+    }
+
     pub fn pop_front(&mut self, index: usize) -> Result<(), Error> {
         if index <= self.len() {
             self.values = self.values[index..].to_vec();
@@ -108,8 +123,12 @@ pub enum Op<T> {
     Push(T),
     /// Check the `iter` method.
     Iter,
+    /// Check the `iter().rev()` method.
+    IterRev,
     /// Check the `iter_from` method.
     IterFrom(usize),
+    /// Check the `iter_from(k).rev()` method.
+    IterFromRev(usize),
     /// Check the `iter_cow_from` method.
     IterCowFrom(usize),
     /// Check the `pop_front` method.
@@ -151,6 +170,8 @@ where
         arb_index(n).prop_map(Op::PopFront),
     ];
     let b_block = prop_oneof![
+        Just(Op::IterRev),
+        arb_index(n).prop_map(Op::IterFromRev),
         Just(Op::ApplyUpdates),
         Just(Op::TreeHash),
         Just(Op::Checkpoint),
@@ -214,10 +235,18 @@ where
             Op::Iter => {
                 assert!(list.iter().eq(spec.iter()));
             }
+            Op::IterRev => {
+                assert!(list.iter().rev().eq(spec.iter_rev()));
+            }
             Op::IterFrom(index) => match (list.iter_from(index), spec.iter_from(index)) {
                 (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
                 (Err(e1), Err(e2)) => assert_eq!(e1, e2),
                 (Err(e), _) | (_, Err(e)) => panic!("iter_from mismatch: {}", e),
+            },
+            Op::IterFromRev(index) => match (list.iter_from(index), spec.iter_from_rev(index)) {
+                (Ok(iter1), Ok(iter2)) => assert!(iter1.rev().eq(iter2)),
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_from_rev mismatch: {}", e),
             },
             Op::IterCowFrom(index) => match (list.iter_cow_from(index), spec.iter_from(index)) {
                 (Ok(mut cow_iter), Ok(spec_iter)) => {
@@ -326,10 +355,18 @@ where
             Op::Iter => {
                 assert!(vect.iter().eq(spec.iter()));
             }
+            Op::IterRev => {
+                assert!(vect.iter().rev().eq(spec.iter_rev()));
+            }
             Op::IterFrom(index) => match (vect.iter_from(index), spec.iter_from(index)) {
                 (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
                 (Err(e1), Err(e2)) => assert_eq!(e1, e2),
                 (Err(e), _) | (_, Err(e)) => panic!("iter_from mismatch: {}", e),
+            },
+            Op::IterFromRev(index) => match (vect.iter_from(index), spec.iter_from_rev(index)) {
+                (Ok(iter1), Ok(iter2)) => assert!(iter1.rev().eq(iter2)),
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_from_rev mismatch: {}", e),
             },
             Op::IterCowFrom(index) => match (vect.iter_cow_from(index), spec.iter_from(index)) {
                 (Ok(mut cow_iter), Ok(spec_iter)) => {
