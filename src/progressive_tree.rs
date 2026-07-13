@@ -1,13 +1,14 @@
 use crate::{
-    Arc, Error, Tree, Value,
+    Arc, Error, Tree, UpdateMap, Value,
     builder::Builder,
     iter::Iter,
     tree::RebaseAction,
-    utils::{Length, opt_packing_depth, opt_packing_factor},
+    utils::{Length, opt_packing_depth, opt_packing_factor, updated_length},
 };
 use educe::Educe;
 use ethereum_hashing::hash32_concat;
 use parking_lot::RwLock;
+use std::ops::ControlFlow;
 use tree_hash::Hash256;
 
 /// The size of each binary subtree in a progressive tree is `4^prog_depth` at depth `prog_depth`.
@@ -90,7 +91,12 @@ impl<T: Value> ProgressiveTree<T> {
         match prog_depth.checked_sub(1) {
             None => 0,
             Some(prog_depth_minus_one) => {
-                // FIXME: work out why we don't need to sub the packing depth here, seems weird
+                // This is the depth of the binary subtree counted in nodes above its (packed)
+                // leaves, i.e. the packing depth is deliberately excluded. `Tree`/`Builder` add
+                // the packing depth back internally, and `capacity_at_depth` already multiplies by
+                // the packing factor, so the chunk count `2^binary_depth` lines up with the element
+                // capacity `2^binary_depth * packing_factor`. Subtracting the packing depth here
+                // would double-count it.
                 PROG_TREE_BINARY_SCALE * prog_depth_minus_one as usize
             }
         }
@@ -99,9 +105,18 @@ impl<T: Value> ProgressiveTree<T> {
     /// Build a `ProgressiveTree` efficiently from an iterator.
     /// Only creates one `Builder` per subtree.
     pub fn build_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
+        Ok(Self::build_from_iter_with_len(iter)?.0)
+    }
+
+    /// Like [`Self::build_from_iter`], but also returns the number of items consumed so callers do
+    /// not need to count the iterator separately.
+    pub(crate) fn build_from_iter_with_len(
+        iter: impl IntoIterator<Item = T>,
+    ) -> Result<(Self, usize), Error> {
         let mut iter = iter.into_iter();
         let mut subtrees: Vec<Arc<Tree<T>>> = Vec::new();
         let mut prog_depth = 1u32;
+        let mut length = 0;
 
         loop {
             let capacity = Self::capacity_at_depth(prog_depth);
@@ -128,6 +143,7 @@ impl<T: Value> ProgressiveTree<T> {
 
             let (tree, _, _) = builder.finish()?;
             subtrees.push(tree);
+            length += count;
 
             if count < capacity {
                 // No items left and subtree is only partially filled.
@@ -148,7 +164,7 @@ impl<T: Value> ProgressiveTree<T> {
             };
         }
 
-        Ok(current)
+        Ok((current, length))
     }
 
     fn push_recursive(
@@ -160,11 +176,12 @@ impl<T: Value> ProgressiveTree<T> {
         match self {
             // Expand this zero into a new left node for our element.
             Self::ProgressiveZero => {
-                // The `prog_depth` of the new left subtree is `prog_depth + 1`.
+                // The new element is the first leaf of a fresh binary subtree at `prog_depth + 1`.
+                // Setting it on a zero subtree yields the same tree as building one with `Builder`,
+                // without allocating the builder.
                 let subtree_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
-                let mut tree_builder = Builder::<T>::new(subtree_depth, 0)?;
-                tree_builder.push(value)?;
-                let (new_left, _, _) = tree_builder.finish()?;
+                let new_left =
+                    Tree::zero(subtree_depth).with_updated_leaf(0, value, subtree_depth)?;
 
                 Ok(Self::ProgressiveNode {
                     hash: RwLock::new(Hash256::ZERO),
@@ -189,7 +206,8 @@ impl<T: Value> ProgressiveTree<T> {
                     let subtree_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
                     let new_left = left.with_updated_leaf(index, value, subtree_depth)?;
 
-                    // FIXME: remove assert
+                    // Invariant: a list has no gaps, so if the append still fits in this level's
+                    // left subtree then no deeper level has been opened yet.
                     debug_assert!(matches!(**right, Self::ProgressiveZero));
 
                     Ok(Self::ProgressiveNode {
@@ -227,6 +245,14 @@ impl<T: Value> ProgressiveTree<T> {
     /// And so on, following the progressive tree structure as defined in EIP-7916.
     pub fn iter(&self, length: usize) -> ProgressiveTreeIter<'_, T> {
         ProgressiveTreeIter::new(self, length)
+    }
+
+    /// Create an iterator over the elements starting at `index`.
+    ///
+    /// Seeks to the right binary subtree using the spine geometry (rather than discarding elements
+    /// one at a time), so the cost is logarithmic in `index`.
+    pub fn iter_from(&self, index: usize, length: usize) -> ProgressiveTreeIter<'_, T> {
+        ProgressiveTreeIter::from_index(self, index, length)
     }
 
     pub fn get_recursive(&self, index: usize, prog_depth: u32) -> Option<&T> {
@@ -269,6 +295,132 @@ impl<T: Value> ProgressiveTree<T> {
                 len: current_length,
             })
         }
+    }
+
+    /// Apply a whole batch of updates to the tree in a single walk of the progressive spine.
+    ///
+    /// This is the batched equivalent of calling [`Self::with_updated_leaf`] once per update in
+    /// ascending index order: it produces an identical tree (and therefore an identical root) but
+    /// only walks the spine once. At each spine level the pending updates are partitioned into
+    /// those landing in this node's binary (left) subtree, which are delegated to the already
+    /// batched [`Tree::with_updated_leaves`], and those landing further right, which are handled by
+    /// recursing into `right`. Appends are supported and grow the spine just like `push`.
+    ///
+    /// `current_length` is the length of the list before the updates are applied.
+    pub fn with_updated_leaves<U: UpdateMap<T>>(
+        &self,
+        updates: &U,
+        current_length: usize,
+    ) -> Result<Self, Error> {
+        let new_length = updated_length(Length(current_length), updates).as_usize();
+
+        // The largest updated index tells each spine level whether anything lands at or beyond the
+        // next subtree with a single O(1) comparison, instead of re-scanning the tail at every
+        // level. If the batch grew the list then appends are contiguous and the largest index is
+        // exactly `new_length - 1`; otherwise (a pure-replace batch) we find it in one forward pass.
+        // NOTE: we deliberately don't use `UpdateMap::max_index` here, as `MaxMap` only tracks
+        // appends (`insert`), not replaces made via `get_mut`/`get_cow`.
+        let max_index = if new_length > current_length {
+            Some(new_length - 1)
+        } else {
+            let mut max = None;
+            updates.for_each_range(0, new_length, |index, _| {
+                max = Some(index);
+                ControlFlow::Continue(Ok::<(), Error>(()))
+            })?;
+            max
+        };
+
+        self.with_updated_leaves_recursive(updates, max_index, 0)
+    }
+
+    fn with_updated_leaves_recursive<U: UpdateMap<T>>(
+        &self,
+        updates: &U,
+        max_index: Option<usize>,
+        prog_depth: u32,
+    ) -> Result<Self, Error> {
+        // Global index range `[subtree_start, subtree_end)` covered by this node's binary (left)
+        // subtree.
+        let subtree_start = Self::total_capacity_at_depth(prog_depth);
+        let subtree_end = Self::total_capacity_at_depth(prog_depth + 1);
+        let binary_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
+
+        match self {
+            Self::ProgressiveZero => {
+                if !Self::has_updates_in_range(updates, subtree_start, subtree_end) {
+                    // No appended element opens this spine level (and, since a list has no gaps,
+                    // nothing lands further right either).
+                    return Ok(Self::ProgressiveZero);
+                }
+
+                // Grow a new spine level: build the binary subtree from empty, applying the updates
+                // that land in it directly from the original map (shifted by `subtree_start`)
+                // rather than copying them into a temporary map.
+                let zero = Tree::zero(binary_depth);
+                let new_left =
+                    zero.with_updated_leaves(updates, 0, subtree_start, binary_depth, None)?;
+
+                let new_right = if max_index.is_some_and(|max| max >= subtree_end) {
+                    Arc::new(Self::ProgressiveZero.with_updated_leaves_recursive(
+                        updates,
+                        max_index,
+                        prog_depth + 1,
+                    )?)
+                } else {
+                    Arc::new(Self::ProgressiveZero)
+                };
+
+                Ok(Self::ProgressiveNode {
+                    hash: RwLock::new(Hash256::ZERO),
+                    left: new_left,
+                    right: new_right,
+                })
+            }
+            Self::ProgressiveNode { left, right, .. } => {
+                // Apply the updates landing in this node's binary subtree, leaving it untouched if
+                // none do (its existing leaves are preserved either way).
+                let new_left = if Self::has_updates_in_range(updates, subtree_start, subtree_end) {
+                    // Apply the updates landing in this subtree directly from the original map,
+                    // shifted by `subtree_start`, instead of collecting them into a temporary map.
+                    left.with_updated_leaves(updates, 0, subtree_start, binary_depth, None)?
+                } else {
+                    left.clone()
+                };
+
+                // Recurse for updates landing further right, again skipping the work if there are
+                // none. `max_index >= subtree_end` is exactly "some update lands at or beyond the
+                // next subtree", since every update index is `<= max_index`.
+                let new_right = if max_index.is_some_and(|max| max >= subtree_end) {
+                    Arc::new(right.with_updated_leaves_recursive(
+                        updates,
+                        max_index,
+                        prog_depth + 1,
+                    )?)
+                } else {
+                    right.clone()
+                };
+
+                Ok(Self::ProgressiveNode {
+                    hash: RwLock::new(Hash256::ZERO),
+                    left: new_left,
+                    right: new_right,
+                })
+            }
+        }
+    }
+
+    /// Whether `updates` contains any index in `[start, end)`.
+    fn has_updates_in_range<U: UpdateMap<T>>(updates: &U, start: usize, end: usize) -> bool {
+        if start >= end {
+            return false;
+        }
+        let mut found = false;
+        let _: Result<(), Error> = updates.for_each_range(start, end, |_, _| {
+            found = true;
+            ControlFlow::Break(())
+        });
+        found
     }
 
     /// Replace the value at an *existing* `index`, leaving the list length unchanged.
@@ -345,13 +497,17 @@ impl<T: Value> ProgressiveTree<T> {
                     ..
                 },
             ) => {
-                let lo = Self::total_capacity_at_depth(prog_depth);
+                let subtree_start = Self::total_capacity_at_depth(prog_depth);
                 let subtree_capacity = Self::capacity_at_depth(prog_depth + 1);
                 let binary_depth = Self::prog_depth_to_binary_depth(prog_depth + 1);
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
 
-                let orig_left_len = orig_length.saturating_sub(lo).min(subtree_capacity);
-                let base_left_len = base_length.saturating_sub(lo).min(subtree_capacity);
+                let orig_left_len = orig_length
+                    .saturating_sub(subtree_start)
+                    .min(subtree_capacity);
+                let base_left_len = base_length
+                    .saturating_sub(subtree_start)
+                    .min(subtree_capacity);
 
                 // Rebase the binary (left) subtree using the existing `Tree` machinery.
                 let new_left = match Tree::rebase_on(
@@ -434,17 +590,69 @@ pub struct ProgressiveTreeIter<'a, T: Value> {
 
 impl<'a, T: Value> ProgressiveTreeIter<'a, T> {
     fn new(root: &'a ProgressiveTree<T>, length: usize) -> Self {
+        // Starting from index 0 is just the general seek with no elements skipped.
+        Self::from_index(root, 0, length)
+    }
+
+    /// Create an iterator positioned at `start_index`.
+    ///
+    /// Walks the right spine to the binary subtree that holds `start_index` and seeks within it,
+    /// rather than yielding and discarding the preceding elements.
+    fn from_index(root: &'a ProgressiveTree<T>, start_index: usize, length: usize) -> Self {
         let mut iter = Self {
             current_prog_node: Some(root),
             current_iter: None,
             prog_depth: 0,
             length,
-            yielded: 0,
+            yielded: start_index,
         };
-
-        // Initialize by setting up the iterator for the first left child
-        iter.advance_to_next_subtree();
+        iter.seek_to_subtree(start_index);
         iter
+    }
+
+    /// Skip whole binary subtrees along the right spine until the one containing `start_index` is
+    /// reached, then set up its inner iterator at the matching local offset.
+    fn seek_to_subtree(&mut self, start_index: usize) {
+        loop {
+            match self.current_prog_node {
+                None | Some(ProgressiveTree::ProgressiveZero) => {
+                    self.current_iter = None;
+                    self.current_prog_node = None;
+                    return;
+                }
+                Some(ProgressiveTree::ProgressiveNode { left, right, .. }) => {
+                    // This node's binary subtree is at progressive depth `prog_depth + 1` and
+                    // covers the global index range `[subtree_start, subtree_end)`.
+                    let next_depth = self.prog_depth + 1;
+                    let subtree_start =
+                        ProgressiveTree::<T>::total_capacity_at_depth(self.prog_depth);
+                    let subtree_end = ProgressiveTree::<T>::total_capacity_at_depth(next_depth);
+                    self.prog_depth = next_depth;
+
+                    if start_index < subtree_end {
+                        // The target lives in this subtree; seek to it and stop.
+                        let binary_depth =
+                            ProgressiveTree::<T>::prog_depth_to_binary_depth(next_depth);
+                        let capacity = ProgressiveTree::<T>::capacity_at_depth(next_depth);
+                        let remaining = self.length.saturating_sub(subtree_start);
+                        let subtree_length = remaining.min(capacity);
+                        let local_index = start_index - subtree_start;
+
+                        self.current_iter = Some(Iter::from_index(
+                            local_index,
+                            left,
+                            binary_depth,
+                            Length(subtree_length),
+                        ));
+                        self.current_prog_node = Some(right);
+                        return;
+                    }
+
+                    // `start_index` is past this subtree; skip it without building an iterator.
+                    self.current_prog_node = Some(right);
+                }
+            }
+        }
     }
 
     /// Advance to the next binary subtree by moving to the right child and

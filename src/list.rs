@@ -323,7 +323,7 @@ where
         self.length = updated_length(self.length, &updates);
         self.tree =
             self.tree
-                .with_updated_leaves(&updates, 0, self.depth, hash_updates.as_ref())?;
+                .with_updated_leaves(&updates, 0, 0, self.depth, hash_updates.as_ref())?;
         Ok(())
     }
 }

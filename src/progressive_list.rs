@@ -9,7 +9,6 @@ use itertools::process_results;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _, ser::SerializeSeq};
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::convert::TryFrom;
-use std::ops::ControlFlow;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use vec_map::VecMap;
 
@@ -35,9 +34,9 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let items: Vec<T> = iter.into_iter().collect();
-        let length = items.len();
-        let tree = ProgressiveTree::build_from_iter(items)?;
+        // Build the backing tree directly from the iterator and take the length from the build,
+        // avoiding an intermediate `Vec`.
+        let (tree, length) = ProgressiveTree::build_from_iter_with_len(iter)?;
         Ok(Self {
             tree: Arc::new(tree),
             length: Length(length),
@@ -114,23 +113,12 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
         let updates = std::mem::take(&mut self.updates);
         let new_length = updated_length(self.length, &updates);
 
-        let mut tree = self.tree.clone();
-        let mut running_length = self.length.as_usize();
-
-        updates.for_each_range(0, new_length.as_usize(), |index, value| {
-            match tree.with_updated_leaf(index, value.clone(), running_length) {
-                Ok(new_tree) => {
-                    tree = Arc::new(new_tree);
-                    if index >= running_length {
-                        running_length = index + 1;
-                    }
-                    ControlFlow::Continue(Ok(()))
-                }
-                Err(e) => ControlFlow::Continue(Err(e)),
-            }
-        })?;
-
-        self.tree = tree;
+        // Apply every pending update in a single walk of the spine, rather than re-walking it once
+        // per update.
+        self.tree = Arc::new(
+            self.tree
+                .with_updated_leaves(&updates, self.length.as_usize())?,
+        );
         self.length = new_length;
         Ok(())
     }
@@ -160,12 +148,9 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
 
     fn iter_from_unchecked(&self, index: usize) -> ProgressiveListIter<'_, T, U> {
         let backing_len = self.backing_len();
-        let mut tree_iter = self.tree.iter(backing_len);
-
-        // Advance the backing iterator so it stays in step with the merged index.
-        for _ in 0..index.min(backing_len) {
-            tree_iter.next();
-        }
+        // Seek the backing iterator directly to the merged index (capped at the backing length,
+        // since any indices beyond it come purely from pending updates).
+        let tree_iter = self.tree.iter_from(index.min(backing_len), backing_len);
 
         ProgressiveListIter {
             tree_iter,
@@ -194,11 +179,7 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
 
     fn iter_cow_from_unchecked(&mut self, index: usize) -> ProgressiveListIterCow<'_, T, U> {
         let backing_len = self.backing_len();
-        let mut tree_iter = self.tree.iter(backing_len);
-
-        for _ in 0..index.min(backing_len) {
-            tree_iter.next();
-        }
+        let tree_iter = self.tree.iter_from(index.min(backing_len), backing_len);
 
         ProgressiveListIterCow {
             tree_iter,
@@ -227,9 +208,10 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
             });
         }
 
-        // The progressive structure re-indexes on removal, so rebuild from the remaining elements.
-        let remaining: Vec<T> = self.iter_from(n)?.cloned().collect();
-        *self = Self::try_from_iter(remaining)?;
+        // Removing from the front re-indexes every element across the progressive subtrees, so
+        // there is nothing to share with the old tree; rebuild from the remaining elements. The
+        // remaining iterator is streamed straight into the builder to avoid a temporary `Vec`.
+        *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
 
         Ok(())
     }
@@ -318,7 +300,8 @@ impl<T: Value + Serialize, U: UpdateMap<T>> Serialize for ProgressiveList<T, U> 
     }
 }
 
-// FIXME: duplicated from `ssz::encode::impl_for_vec`
+// This mirrors `ssz::encode::impl_for_vec`, which we can't reuse directly because it is
+// specialised to `Vec` and iterates by reference over our merged view instead.
 impl<T: Value, U: UpdateMap<T>> Encode for ProgressiveList<T, U> {
     fn is_ssz_fixed_len() -> bool {
         false
@@ -408,7 +391,8 @@ where
     where
         D: Deserializer<'de>,
     {
-        // TODO: this implementation is not necessarily the most efficient
+        // Deserialize into a `Vec` first for simplicity; a custom visitor that fed the builder
+        // directly would avoid the intermediate allocation.
         Self::try_from_iter(Vec::deserialize(deserializer)?)
             .map_err(|e| D::Error::custom(format!("{e:?}")))
     }

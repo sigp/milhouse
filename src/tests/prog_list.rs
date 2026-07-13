@@ -278,3 +278,26 @@ fn bulk_update_then_apply() {
     assert_eq!(list.to_vec(), expected.to_vec());
     assert_eq!(list.tree_hash_root(), expected.tree_hash_root());
 }
+
+/// Regression test for a pure-replace `apply_updates` whose highest changed index lives in a deep
+/// progressive subtree. The spine-extent decision is driven by the largest *updated* index, which
+/// must be discovered from the entries themselves: CoW replaces via `get_mut` do not extend
+/// `MaxMap`'s append-only `max_index`, so relying on it would stop the walk short and silently drop
+/// the deep updates.
+#[test]
+fn replace_in_deep_subtree_then_apply_matches_fresh() {
+    // 130 elements spans several progressive subtrees for `u64`.
+    let mut list = build(130);
+
+    // Replace a low index and a deep one, both via the CoW `get_mut` path (not `push`).
+    *list.get_mut(1).unwrap() = 1111;
+    *list.get_mut(129).unwrap() = 9999;
+    list.apply_updates().unwrap();
+
+    let mut expected_vec: Vec<u64> = (0..130).collect();
+    expected_vec[1] = 1111;
+    expected_vec[129] = 9999;
+    let expected = ProgressiveList::<u64>::new(expected_vec).unwrap();
+    assert_eq!(list.to_vec(), expected.to_vec());
+    assert_eq!(list.tree_hash_root(), expected.tree_hash_root());
+}
