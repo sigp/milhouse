@@ -34,8 +34,8 @@ impl<T: Value> Clone for Tree<T> {
                 left: left.clone(),
                 right: right.clone(),
             },
-            Self::Leaf(leaf) => Self::Leaf(leaf.clone()),
-            Self::PackedLeaf(leaf) => Self::PackedLeaf(leaf.clone()),
+            Self::Leaf(l) => Self::Leaf(l.clone()),
+            Self::PackedLeaf(pl) => Self::PackedLeaf(pl.clone()),
             Self::Zero(depth) => Self::Zero(*depth),
         }
     }

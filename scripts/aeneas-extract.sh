@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Extract the core tree types to Lean via Charon + Aeneas.
 #
-# Produces `tree.llbc` (Charon's LLBC dump) and `aeneas-lean/` (the Lean
-# development). Requires a checkout of https://github.com/AeneasVerif/aeneas
-# with `charon` and `aeneas` built; defaults assume it sits next to this repo.
+# Produces `tree.llbc` (Charon's LLBC dump) and regenerates the generated
+# files in `aeneas-lean/Tree/` (the hand-written `TypesExternal.lean` and
+# `FunsExternal.lean` are not touched; diff the `*_Template.lean` files after
+# regenerating to see if the external interface changed). Requires a checkout
+# of https://github.com/AeneasVerif/aeneas with `charon` and `aeneas` built;
+# defaults assume it sits next to this repo.
+#
+# Check the result elaborates with: cd aeneas-lean && lake build
 #
 # Scope notes:
 # - `Tree::tree_hash` is excluded: its closures form a mixed mutually
@@ -11,8 +16,13 @@
 #   pointer in its type (`LazyLock`), neither of which Aeneas supports yet.
 # - `UpdateMap::is_empty` is excluded: provided trait method that triggers
 #   an Aeneas internal error.
+# - `Tree::with_updated_leaves` and `PackedLeaf::update` are excluded: their
+#   `FnMut` closures are translated with a mismatched calling convention
+#   (Aeneas Lean-backend bug).
+# - Tree's derived `Debug`/`PartialEq` impls are excluded: recursive trait
+#   impls are emitted with forward references (Aeneas Lean-backend bug).
 # - serde/ssz/hashing/mem are opaque: signatures only, modelled by hand in
-#   `aeneas-lean/FunsExternal.lean` per the Aeneas `-split-files` workflow.
+#   `aeneas-lean/Tree/FunsExternal.lean` per the `-split-files` workflow.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -31,7 +41,18 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --opaque 'milhouse::serde' \
     --exclude 'milhouse::tree::_::tree_hash' \
     --exclude 'milhouse::update_map::UpdateMap::is_empty' \
+    --exclude 'milhouse::tree::_::with_updated_leaves' \
+    --exclude 'milhouse::packed_leaf::_::update' \
+    --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
+    --exclude 'milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<_>> for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \
     --dest-file tree.llbc
 
-"$AENEAS" -backend lean -split-files -dest aeneas-lean tree.llbc
+"$AENEAS" -backend lean -split-files -dest aeneas-lean/Tree tree.llbc
+
+# Workaround for an Aeneas Lean-backend bug: the `impl_def` for `Eq<(U, T)>`
+# fails to resolve its self-referential `assert_fields_are_eq` default method
+# ("could not resolve recursive fields"). Replace it with a plain `def` and
+# the no-op the default resolves to.
+perl -0pi -e 's/impl_def (Pair\.Insts\.CoreCmpEq \{U : Type\} \{T : Type\}.*?assert_fields_are_eq := )core\.cmp\.Eq\.assert_fields_are_eq\.default\n\s*\(Pair\.Insts\.CoreCmpEq cmpEqInst cmpEqInst1\)\n\}/def $1fun _ => ok ()\n}/s' \
+    aeneas-lean/Tree/Funs.lean

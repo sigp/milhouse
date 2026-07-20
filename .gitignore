@@ -8,4 +8,4 @@ Cargo.lock
 
 # Charon / Aeneas verification artifacts
 *.llbc
-/aeneas-lean
+/aeneas-lean/.lake
