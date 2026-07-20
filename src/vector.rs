@@ -71,7 +71,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().cloned().collect()
+        self.iter().map(|x| x.clone()).collect()
     }
 
     pub fn iter(&self) -> InterfaceIter<'_, T, U> {

@@ -118,7 +118,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().cloned().collect()
+        self.iter().map(|x| x.clone()).collect()
     }
 
     pub fn iter(&self) -> InterfaceIter<'_, T, U> {
@@ -211,7 +211,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     ///
     /// Errors if `n > self.len()`.
     pub fn pop_front_slow(&mut self, n: usize) -> Result<(), Error> {
-        *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
+        *self = Self::try_from_iter(self.iter_from(n)?.map(|x| x.clone()))?;
         Ok(())
     }
 
