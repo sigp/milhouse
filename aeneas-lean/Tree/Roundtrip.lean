@@ -1,5 +1,5 @@
 -- The general roundtrip: `get_recursive` after `with_updated_leaf`, at
--- arbitrary depth.
+-- arbitrary depth, including packed leaves.
 import Tree.Lemmas
 open Aeneas Aeneas.Std Result
 set_option maxHeartbeats 4000000
@@ -11,17 +11,16 @@ namespace milhouse.tree
 
 /-! ## Auxiliary machinery -/
 
-/-- Trees containing no `PackedLeaf` node. Packed leaves only arise for
-    "basic" (packable) value types; the roundtrip theorem is stated for
-    non-packable types (`opt_packing_factor = none`), whose trees are
-    unpacked. -/
-inductive NoPacked {T : Type} : Tree T → Prop
-  | leaf (l : leaf.Leaf T) : NoPacked (Tree.Leaf l)
-  | node (rl : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
-        (alloy_primitives.bits.fixed.FixedBytes 32#usize))
-      (left right : triomphe.arc.Arc (Tree T)) :
-      NoPacked left → NoPacked right → NoPacked (Tree.Node rl left right)
-  | zero (d : Std.Usize) : NoPacked (Tree.Zero d)
+/-- Does the tree contain any `Zero` (summary) node? Updating *through* a
+    `Zero` node at depth 0 creates a fresh packed leaf with the new value at
+    sub-index 0 (`PackedLeaf::single`), which is only correct when
+    `index % packing_factor = 0` — the invariant milhouse's callers maintain
+    (fresh leaves are only created by appends). The general roundtrip takes
+    this as a hypothesis, guarded by `hasZero`. -/
+def hasZero {T : Type} : Tree T → Bool
+  | Tree.Zero _ => true
+  | Tree.Node _ left right => hasZero left || hasZero right
+  | _ => false
 
 /-- Induction measure tie-breaker: a `Zero` node first rewrites itself to a
     `Node` at the *same* depth before recursing, so it costs one extra tick. -/
@@ -38,6 +37,127 @@ private theorem bind_eq_ok_iff {α β : Type} {x : Result α}
     (x >>= f) = ok y ↔ ∃ a, x = ok a ∧ f a = ok y := by
   cases x <;> simp [Bind.bind, Std.bind]
 
+/-- Inversion for `Vec.push`. -/
+private theorem push_eq_ok {α : Type} {v : alloc.vec.Vec α} {x : α}
+    {v' : alloc.vec.Vec α} (h : alloc.vec.Vec.push v x = ok v') :
+    v'.val = v.val ++ [x] := by
+  unfold alloc.vec.Vec.push at h
+  grind
+
+/-- If `opt_packing_factor` returns `some factor`, the underlying trait
+    method returns `factor`. -/
+private theorem opt_packing_factor_some {T : Type}
+    {thi : tree_hash.TreeHash T} {factor : Std.Usize}
+    (h : utils.opt_packing_factor thi = ok (some factor)) :
+    thi.tree_hash_packing_factor = ok factor := by
+  unfold utils.opt_packing_factor at h
+  cases htht : thi.tree_hash_type with
+  | fail e => rw [htht] at h; simp at h
+  | div => rw [htht] at h; simp at h
+  | ok tht =>
+    rw [htht] at h
+    cases tht <;> simp at h
+    cases hfac : thi.tree_hash_packing_factor with
+    | fail e => rw [hfac] at h; simp at h
+    | div => rw [hfac] at h; simp at h
+    | ok i => rw [hfac] at h; simp at h; simp [h]
+
+/-! ## Packed-leaf lemmas -/
+
+/-- After a successful `insert_mut` at `sub`, the values contain the new
+    value at `sub`. -/
+private theorem insert_mut_ok {T : Type} {thi : tree_hash.TreeHash T}
+    {cl : core.clone.Clone T} {lf : packed_leaf.PackedLeaf T}
+    {sub : Std.Usize} {v : T} {updated : packed_leaf.PackedLeaf T}
+    (h : packed_leaf.PackedLeaf.insert_mut thi cl lf sub v =
+      ok (core.result.Result.Ok (), updated)) :
+    updated.values[sub.val]? = some v := by
+  unfold packed_leaf.PackedLeaf.insert_mut at h
+  simp [lock_api.rwlock.RwLock.get_mut,
+    alloy_primitives.bits.fixed.FixedBytes.ZERO] at h
+  split at h
+  · -- `sub = len`: push
+    next heq =>
+    cases hp : alloc.vec.Vec.push lf.values v with
+    | fail e => rw [hp] at h; simp at h
+    | div => rw [hp] at h; simp at h
+    | ok v' =>
+      rw [hp] at h
+      simp at h
+      subst h
+      have hv' := push_eq_ok hp
+      subst heq
+      simp [hv']
+  · -- `sub < len`: set in place, or out of bounds
+    split at h
+    · next hlt =>
+      cases him : alloc.vec.Vec.index_mut_usize lf.values sub with
+      | fail e => rw [him] at h; simp at h
+      | div => rw [him] at h; simp at h
+      | ok p =>
+        rw [him] at h
+        obtain ⟨elem, back⟩ := p
+        simp at h
+        -- characterize `back`
+        unfold alloc.vec.Vec.index_mut_usize at him
+        split at him <;>
+          simp only [ok.injEq, Prod.mk.injEq, reduceCtorEq] at him
+        obtain ⟨-, hback⟩ := him
+        subst hback
+        subst h
+        simp [hlt]
+    · simp at h
+
+/-- After a successful `insert_at_index`, the packing factor and sub-index
+    computations succeeded and the new value sits at the sub-index. -/
+private theorem insert_at_index_ok {T : Type} {thi : tree_hash.TreeHash T}
+    {cl : core.clone.Clone T} {pl val : packed_leaf.PackedLeaf T}
+    {index : Std.Usize} {v : T}
+    (h : packed_leaf.PackedLeaf.insert_at_index thi cl pl index v =
+      ok (core.result.Result.Ok val)) :
+    ∃ factor sub, thi.tree_hash_packing_factor = ok factor ∧
+      index % factor = ok sub ∧ val.values[sub.val]? = some v := by
+  unfold packed_leaf.PackedLeaf.insert_at_index at h
+  simp [alloy_primitives.bits.fixed.FixedBytes.ZERO,
+    lock_api.rwlock.RwLock.new] at h
+  simp only [bind_eq_ok_iff] at h
+  obtain ⟨cv, hcv, factor, hf, sub, hs, ⟨r, upd⟩, hins, h⟩ := h
+  cases r with
+  | Err e =>
+    simp [core.result.Result.Insts.CoreOpsTry.branch,
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+      core.convert.FromSame.from] at h
+  | Ok u =>
+    cases u
+    simp [core.result.Result.Insts.CoreOpsTry.branch] at h
+    subst h
+    exact ⟨factor, sub, hf, hs, insert_mut_ok hins⟩
+
+/-- `get_recursive` on a packed leaf at depth 0, given the packing
+    computations and the value at the sub-index. -/
+private theorem get_recursive_packed {T : Type} (ValueInst : Value T)
+    {pl : packed_leaf.PackedLeaf T} {index : Std.Usize} {v : T}
+    {factor sub : Std.Usize} (packing_depth : Std.Usize)
+    (hf : ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor =
+      ok factor)
+    (hs : index % factor = ok sub)
+    (hg : pl.values[sub.val]? = some v) :
+    Tree.get_recursive ValueInst (Tree.PackedLeaf pl) index 0#usize
+      packing_depth = ok (some v) := by
+  unfold Tree.get_recursive
+  simp [hf, hs, core.slice.Slice.get, alloc.vec.Vec.deref]
+  simpa using hg
+
+/-- Trees containing no `PackedLeaf` node (used by the restricted
+    corollary below). -/
+inductive NoPacked {T : Type} : Tree T → Prop
+  | leaf (l : leaf.Leaf T) : NoPacked (Tree.Leaf l)
+  | node (rl : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+        (alloy_primitives.bits.fixed.FixedBytes 32#usize))
+      (left right : triomphe.arc.Arc (Tree T)) :
+      NoPacked left → NoPacked right → NoPacked (Tree.Node rl left right)
+  | zero (d : Std.Usize) : NoPacked (Tree.Zero d)
+
 /-- For a non-packable value type, the packing depth is `none`. -/
 private theorem opt_packing_depth_none {T : Type}
     (thi : tree_hash.TreeHash T)
@@ -47,7 +167,7 @@ private theorem opt_packing_depth_none {T : Type}
   simp [hpf, core.option.Option.Insts.CoreOpsTry_traitTry.branch,
     core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual]
 
-/-! ## The Leaf base case -/
+/-! ## Leaf and packed-leaf base cases of the induction -/
 
 private theorem update_on_leaf {T : Type} {ValueInst : Value T}
     {l : leaf.Leaf T} {index depth : Std.Usize} {new_value : T} {t : Tree T}
@@ -67,26 +187,56 @@ private theorem update_on_leaf {T : Type} {ValueInst : Value T}
     simpa using get_recursive_leaf ValueInst _ index packing_depth
   · simp at h
 
+private theorem update_on_packed {T : Type} {ValueInst : Value T}
+    {pl : packed_leaf.PackedLeaf T} {index depth : Std.Usize} {new_value : T}
+    {t : Tree T}
+    (h : Tree.with_updated_leaf ValueInst (Tree.PackedLeaf pl) index new_value
+      depth = ok (core.result.Result.Ok t))
+    (packing_depth : Std.Usize) :
+    Tree.get_recursive ValueInst t index depth packing_depth =
+      ok (some new_value) := by
+  unfold Tree.with_updated_leaf at h
+  split at h
+  · next hdep =>
+    subst hdep
+    simp [triomphe.arc.Arc.new] at h
+    simp only [bind_eq_ok_iff] at h
+    obtain ⟨r, hins, h⟩ := h
+    cases r with
+    | Err e =>
+      simp [core.result.Result.Insts.CoreOpsTry.branch,
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+        core.convert.FromSame.from] at h
+    | Ok val =>
+      simp [core.result.Result.Insts.CoreOpsTry.branch] at h
+      subst h
+      obtain ⟨factor, sub, hf, hs, hg⟩ := insert_at_index_ok hins
+      exact get_recursive_packed ValueInst packing_depth hf hs hg
+  · simp at h
+
 /-! ## The main induction -/
 
 private theorem get_after_update_aux {T : Type} (ValueInst : Value T)
-    (hpf : utils.opt_packing_factor ValueInst.tree_hashTreeHashInst = ok none)
+    {opd : Option Std.Usize}
+    (hpd : utils.opt_packing_depth ValueInst.tree_hashTreeHashInst = ok opd)
     (index : Std.Usize) (new_value : T) :
     ∀ (n : Nat) (depth : Std.Usize) (self t : Tree T),
       2 * depth.val + zbit self ≤ n →
-      NoPacked self →
+      (∀ factor, utils.opt_packing_factor ValueInst.tree_hashTreeHashInst =
+        ok (some factor) → hasZero self = true →
+        index % factor = ok 0#usize) →
       Tree.with_updated_leaf ValueInst self index new_value depth =
         ok (core.result.Result.Ok t) →
-      Tree.get_recursive ValueInst t index depth 0#usize =
-        ok (some new_value) := by
-  have hpd := opt_packing_depth_none _ hpf
+      Tree.get_recursive ValueInst t index depth
+        (core.option.Option.unwrap_or opd 0#usize) = ok (some new_value) := by
   intro n
   induction n with
   | zero =>
-    intro depth self t hn hnp h
-    cases hnp with
-    | leaf l => exact update_on_leaf h 0#usize
-    | node rl left right hl hr =>
+    intro depth self t hn hz h
+    cases self with
+    | Leaf l => exact update_on_leaf h _
+    | PackedLeaf pl => exact update_on_packed h _
+    | Node rl left right =>
       -- `2 * depth.val ≤ 0` forces `depth = 0`, so the `depth > 0` guard
       -- fails and the update returns an error: contradiction.
       unfold Tree.with_updated_leaf at h
@@ -96,19 +246,20 @@ private theorem get_after_update_aux {T : Type} (ValueInst : Value T)
         have : 0 < depth.val := by scalar_tac
         omega
       · simp at h
-    | zero d => simp [zbit] at hn
+    | Zero d => simp [zbit] at hn
   | succ n ih =>
-    intro depth self t hn hnp h
-    cases hnp with
-    | leaf l => exact update_on_leaf h 0#usize
-    | node rl left right hl hr =>
+    intro depth self t hn hz h
+    cases self with
+    | Leaf l => exact update_on_leaf h _
+    | PackedLeaf pl => exact update_on_packed h _
+    | Node rl left right =>
       simp only [zbit] at hn
       unfold Tree.with_updated_leaf at h
       split at h
       case isFalse => simp at h
       case isTrue hgt =>
       rw [hpd] at h
-      simp [lift, core.option.Option.unwrap_or_none,
+      simp [lift,
         triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
         triomphe.arc.Arc.Insts.CoreCloneClone.clone,
         alloy_primitives.bits.fixed.FixedBytes.ZERO,
@@ -140,10 +291,12 @@ private theorem get_after_update_aux {T : Type} (ValueInst : Value T)
             subst h
             unfold Tree.get_recursive
             rw [if_pos hgt]
-            simp [hnd, hi, hi1, hbit, lift,
+            simp only [hnd, hi, hi1, lift, bind_tc_ok,
               triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref]
+            rw [if_pos hbit]
             exact ih nd left val
-              (by have := zbit_le_one left; omega) hl hrec
+              (by have := zbit_le_one left; omega)
+              (fun f hf hzl => hz f hf (by simp [hasZero, hzl])) hrec
       case isFalse hbit =>
         -- update descended right
         cases hrec : Tree.with_updated_leaf ValueInst right index new_value nd
@@ -162,11 +315,13 @@ private theorem get_after_update_aux {T : Type} (ValueInst : Value T)
             subst h
             unfold Tree.get_recursive
             rw [if_pos hgt]
-            simp [hnd, hi, hi1, hbit, lift,
+            simp only [hnd, hi, hi1, lift, bind_tc_ok,
               triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref]
+            rw [if_neg hbit]
             exact ih nd right val
-              (by have := zbit_le_one right; omega) hr hrec
-    | zero d =>
+              (by have := zbit_le_one right; omega)
+              (fun f hf hzr => hz f hf (by simp [hasZero, hzr])) hrec
+    | Zero d =>
       simp only [zbit] at hn
       unfold Tree.with_updated_leaf at h
       split at h
@@ -174,14 +329,38 @@ private theorem get_after_update_aux {T : Type} (ValueInst : Value T)
       case isTrue hdeq =>
       split at h
       case isTrue hdep =>
-        -- depth 0: a fresh leaf is created (no packing for this type)
+        -- depth 0: a fresh leaf (unpacked) or a fresh single-element packed
+        -- leaf (packed) is created.
         subst hdep
-        rw [hpf] at h
-        simp [core.option.Option.is_some, Tree.leaf, leaf.Leaf.new,
-          leaf.Leaf.with_hash, alloy_primitives.bits.fixed.FixedBytes.ZERO,
-          lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at h
-        subst h
-        simpa using get_recursive_leaf ValueInst _ index 0#usize
+        cases hfac : utils.opt_packing_factor
+            ValueInst.tree_hashTreeHashInst with
+        | fail e => rw [hfac] at h; simp at h
+        | div => rw [hfac] at h; simp at h
+        | ok o =>
+        rw [hfac] at h
+        cases o with
+        | none =>
+          simp [core.option.Option.is_some, Tree.leaf, leaf.Leaf.new,
+            leaf.Leaf.with_hash, alloy_primitives.bits.fixed.FixedBytes.ZERO,
+            lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at h
+          subst h
+          simpa using get_recursive_leaf ValueInst _ index _
+        | some f =>
+          have hf := opt_packing_factor_some hfac
+          have hsub0 := hz f hfac (by simp [hasZero])
+          simp only [core.option.Option.is_some] at h
+          unfold packed_leaf.PackedLeaf.single at h
+          rw [hf] at h
+          simp [alloc.vec.Vec.with_capacity,
+            alloy_primitives.bits.fixed.FixedBytes.ZERO,
+            lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at h
+          simp only [bind_eq_ok_iff] at h
+          obtain ⟨v1, hp, h⟩ := h
+          simp at h
+          subst h
+          have hv1 := push_eq_ok hp
+          apply get_recursive_packed ValueInst _ hf hsub0
+          simp [hv1]
       case isFalse hdep =>
         -- depth > 0: the Zero node rewrites itself into a Node of two Zero
         -- children and recurses at the same depth, one measure tick lower.
@@ -193,18 +372,39 @@ private theorem get_after_update_aux {T : Type} (ValueInst : Value T)
         simp only [bind_eq_ok_iff] at h
         obtain ⟨i, hi, h⟩ := h
         exact ih depth _ t (by simp only [zbit]; omega)
-          (NoPacked.node _ _ _ (NoPacked.zero i) (NoPacked.zero i)) h
+          (fun f hf _ => hz f hf (by simp [hasZero])) h
 
-/-! ## The theorem -/
+/-! ## The theorems -/
 
-/-- **General roundtrip at arbitrary depth.** For a non-packable value type,
-    if `with_updated_leaf` succeeds at `index`/`depth` on a tree without
-    packed leaves, then `get_recursive` at the same `index`/`depth` on the
-    updated tree returns the new value.
+/-- **General roundtrip at arbitrary depth, packed leaves included.** If
+    `with_updated_leaf` succeeds at `index`/`depth`, then `get_recursive` at
+    the same `index`/`depth` on the updated tree returns the new value.
 
-    The packing depth passed to `get_recursive` is `0`, matching what
-    milhouse's callers compute via `opt_packing_depth().unwrap_or(0)` for a
-    non-packable type. -/
+    The packing depth passed to `get_recursive` is
+    `opt_packing_depth().unwrap_or(0)`, matching milhouse's callers.
+
+    The one side condition (`hz`) concerns packable value types updating
+    *through* a `Zero` node: the fresh packed leaf created by
+    `PackedLeaf::single` holds the new value at sub-index 0, so the update is
+    only faithful when `index % packing_factor = 0`. This is the invariant
+    milhouse's callers maintain: fresh leaves are only created by appends.
+    For non-packable types, or trees without `Zero` nodes, `hz` is vacuous. -/
+theorem get_recursive_with_updated_leaf_general {T : Type}
+    (ValueInst : Value T) {opd : Option Std.Usize}
+    (hpd : utils.opt_packing_depth ValueInst.tree_hashTreeHashInst = ok opd)
+    {self t : Tree T} {index depth : Std.Usize} {new_value : T}
+    (hz : ∀ factor, utils.opt_packing_factor ValueInst.tree_hashTreeHashInst =
+      ok (some factor) → hasZero self = true → index % factor = ok 0#usize)
+    (h : Tree.with_updated_leaf ValueInst self index new_value depth =
+      ok (core.result.Result.Ok t)) :
+    Tree.get_recursive ValueInst t index depth
+      (core.option.Option.unwrap_or opd 0#usize) = ok (some new_value) :=
+  get_after_update_aux ValueInst hpd index new_value
+    (2 * depth.val + zbit self) depth self t (Nat.le_refl _) hz h
+
+/-- The earlier restricted roundtrip, now a corollary: for a non-packable
+    value type the `hz` side condition is vacuous (and `NoPacked` is not
+    needed at all). -/
 theorem get_recursive_with_updated_leaf {T : Type} (ValueInst : Value T)
     (hpf : utils.opt_packing_factor ValueInst.tree_hashTreeHashInst = ok none)
     {self t : Tree T} {index depth : Std.Usize} {new_value : T}
@@ -212,8 +412,10 @@ theorem get_recursive_with_updated_leaf {T : Type} (ValueInst : Value T)
     (h : Tree.with_updated_leaf ValueInst self index new_value depth =
       ok (core.result.Result.Ok t)) :
     Tree.get_recursive ValueInst t index depth 0#usize =
-      ok (some new_value) :=
-  get_after_update_aux ValueInst hpf index new_value
-    (2 * depth.val + zbit self) depth self t (Nat.le_refl _) hnp h
+      ok (some new_value) := by
+  have hpd := opt_packing_depth_none _ hpf
+  have hgen := get_recursive_with_updated_leaf_general ValueInst hpd
+    (fun f hf _ => by rw [hpf] at hf; simp at hf) h
+  simpa using hgen
 
 end milhouse.tree
