@@ -539,4 +539,54 @@ theorem rebase_on_preserves_dense {T : Type} (ValueInst : Value T)
   (rebase_on_is_positional ValueInst orig base lengths full_depth action
     hrebase).preserves_dense horig hbase
 
+/-- The `(depth, hash)` key used by `Tree.intra_rebase` cannot determine the
+    represented dense length. The input below is dense with length three and
+    contains a full left subtree and a partial right subtree under the same
+    cached hash. Replacing the right subtree by the left one produces a
+    length-four shape, which is not dense at the original length. -/
+theorem intraRebaseKey_allows_length_changing_replacement {T : Type}
+    (root_hash repeated_hash :
+      alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (left_leaf right_leaf : leaf.Leaf T) :
+    let full := Tree.Node repeated_hash (Tree.Leaf left_leaf)
+      (Tree.Leaf right_leaf)
+    let sparse := Tree.Node repeated_hash (Tree.Leaf left_leaf)
+      (Tree.Zero 0#usize)
+    DenseTree none (Tree.Node root_hash full sparse) 2 3 ∧
+      ¬ DenseTree none (Tree.Node root_hash full full) 2 3 := by
+  dsimp only
+  have hfull : DenseTree none
+      (Tree.Node repeated_hash (Tree.Leaf left_leaf)
+        (Tree.Leaf right_leaf)) 1 2 := by
+    exact DenseTree.node none repeated_hash (Tree.Leaf left_leaf)
+      (Tree.Leaf right_leaf) 0 1 1 (DenseTree.leaf left_leaf)
+      (DenseTree.leaf right_leaf) (by omega)
+      (by simp [subtreeCapacity, leafCapacity])
+  have hpartial : DenseTree none
+      (Tree.Node repeated_hash (Tree.Leaf left_leaf)
+        (Tree.Zero 0#usize)) 1 1 := by
+    exact DenseTree.node none repeated_hash (Tree.Leaf left_leaf)
+      (Tree.Zero 0#usize) 0 1 0 (DenseTree.leaf left_leaf)
+      (DenseTree.zero none 0#usize) (by omega) (by omega)
+  constructor
+  · exact DenseTree.node none root_hash
+      (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Leaf right_leaf))
+      (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Zero 0#usize))
+      1 2 1 hfull hpartial (by omega)
+      (by simp [subtreeCapacity, leafCapacity])
+  · intro hbad
+    have hlength_four : DenseTree none
+        (Tree.Node root_hash
+          (Tree.Node repeated_hash (Tree.Leaf left_leaf)
+            (Tree.Leaf right_leaf))
+          (Tree.Node repeated_hash (Tree.Leaf left_leaf)
+            (Tree.Leaf right_leaf))) 2 4 := by
+      exact DenseTree.node none root_hash
+        (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Leaf right_leaf))
+        (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Leaf right_leaf))
+        1 2 2 hfull hfull (by omega)
+        (by simp [subtreeCapacity, leafCapacity])
+    have hunique := DenseTree.indices_unique hbad hlength_four
+    omega
+
 end milhouse.tree
