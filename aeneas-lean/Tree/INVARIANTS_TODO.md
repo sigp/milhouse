@@ -63,9 +63,9 @@ all remaining capacity is represented by `Zero` padding.
 - [x] Derive `get_recursive_with_updated_leaf_general` from `DenseTree` and
       `index <= len`, removing its local side condition from caller proofs
       (`get_recursive_with_updated_leaf_dense`).
-- [ ] Define a dense update-map predicate: updates below the old length are
+- [x] Define a dense update-map predicate: updates below the old length are
       replacements and extensions cover the complete interval
-      `[old_len, new_len)`.
+      `[old_len, new_len)` (`DenseUpdateDomain`).
 - [ ] Once `with_updated_leaves` is included in the extracted subset, prove it
       preserves `DenseTree` under the dense update-map predicate.
 
@@ -93,6 +93,10 @@ all remaining capacity is represented by `Zero` padding.
 
 - [ ] Establish `PackingLayout` for each concrete translated `Value` instance
       used by verified containers.
-- [ ] Prove packing factors are positive and routing shifts fit in `Usize`.
-- [ ] Bridge `subtreeCapacity` to `1 << (depth + packing_depth)` using
-      `factor_is_power`.
+- [x] Prove packing factors and subtree capacities are positive
+      (`PackingLayout.leafCapacity_pos`,
+      `PackingLayout.subtreeCapacity_pos`).
+- [ ] Add the container-level bound needed to prove every routing shift fits
+      in `Usize`; successful-update proofs already invert checked shifts.
+- [x] Bridge `subtreeCapacity` to `1 << (depth + packing_depth)` using
+      `factor_is_power` (`PackingLayout.subtreeCapacity_eq_two_pow`).

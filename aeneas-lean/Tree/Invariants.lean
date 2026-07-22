@@ -57,6 +57,30 @@ def updatedDenseLength (packing_factor : Option Std.Usize) (depth : Nat)
   then len + 1
   else len
 
+/-- Domain condition for applying several pending updates to a dense backing
+    tree. Existing indices may be updated sparsely, but any extension must be
+    a complete interval from the old right edge and no update may occur beyond
+    the reported new length. -/
+structure DenseUpdateDomain (old_len new_len : Nat)
+    (has_update : Nat → Prop) : Prop where
+  length_mono : old_len ≤ new_len
+  extension_complete : ∀ index,
+    old_len ≤ index → index < new_len → has_update index
+  updates_bounded : ∀ index, has_update index → index < new_len
+
+/-- A map containing replacements only is dense-domain valid. -/
+theorem DenseUpdateDomain.replacements {old_len : Nat}
+    {has_update : Nat → Prop}
+    (hbounded : ∀ index, has_update index → index < old_len) :
+    DenseUpdateDomain old_len old_len has_update := by
+  exact ⟨Nat.le_refl _, by omega, hbounded⟩
+
+/-- A singleton update at the old right edge describes a one-element dense
+    extension. -/
+theorem DenseUpdateDomain.singleton_extension (old_len : Nat) :
+    DenseUpdateDomain old_len (old_len + 1) (fun index => index = old_len) := by
+  constructor <;> omega
+
 /-- A tree containing exactly `len` materialized values as a dense left prefix
     of a subtree at `depth`.
 
