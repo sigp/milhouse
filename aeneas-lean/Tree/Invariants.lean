@@ -998,6 +998,55 @@ theorem node_unboxed_preserves_dense {T : Type} (ValueInst : Value T)
   exact DenseTree.node packing_factor _ left right child_depth left_len
     right_len left_dense right_dense left_nonempty left_full_before_right
 
+/-- The translated `Tree.clone` operation preserves the complete dense-tree
+    judgment, including packed-vector length. -/
+theorem DenseTree.clone_preserves_dense {T : Type} (ValueInst : Value T)
+    {packing_factor : Option Std.Usize} {tree updated : Tree T}
+    {depth len : Nat}
+    (hdense : DenseTree packing_factor tree depth len)
+    (hclone : Tree.Insts.CoreCloneClone.clone ValueInst tree = ok updated) :
+    DenseTree packing_factor updated depth len := by
+  cases hdense with
+  | zero packing_factor zero_depth =>
+    simp [Tree.Insts.CoreCloneClone.clone] at hclone
+    subst updated
+    exact DenseTree.zero packing_factor zero_depth
+  | leaf leaf =>
+    unfold Tree.Insts.CoreCloneClone.clone at hclone
+    simp only [result_bind_eq_ok_iff] at hclone
+    obtain ⟨new_leaf, hleaf, hclone⟩ := hclone
+    simp at hclone
+    subst updated
+    exact DenseTree.leaf new_leaf
+  | packed factor leaf hnonempty hfit =>
+    unfold Tree.Insts.CoreCloneClone.clone
+      packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone at hclone
+    simp [lock_api.rwlock.RwLock.read,
+      lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref,
+      lock_api.rwlock.RwLock.new] at hclone
+    simp only [result_bind_eq_ok_iff] at hclone
+    obtain ⟨new_values, hvalues, hclone⟩ := hclone
+    simp at hclone
+    subst updated
+    have hlength : new_values.val.length = leaf.values.val.length := by
+      exact Aeneas.Std.Slice.clone_length hvalues
+    have hnew_nonempty : 0 < new_values.val.length := by omega
+    have hnew_fit : new_values.val.length ≤ factor.val := by omega
+    have hnew_dense := DenseTree.packed factor
+      ({ hash := leaf.hash, values := new_values } : packed_leaf.PackedLeaf T)
+      hnew_nonempty hnew_fit
+    simpa [hlength] using hnew_dense
+  | node packing_factor hash left right child_depth left_len right_len
+      left_dense right_dense left_nonempty left_full_before_right =>
+    simp [Tree.Insts.CoreCloneClone.clone,
+      lock_api.rwlock.RwLock.read,
+      lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref,
+      lock_api.rwlock.RwLock.new,
+      triomphe.arc.Arc.Insts.CoreCloneClone.clone] at hclone
+    subst updated
+    exact DenseTree.node packing_factor hash left right child_depth left_len
+      right_len left_dense right_dense left_nonempty left_full_before_right
+
 /-! ## Recursive update preservation -/
 
 private def updateZbit {T : Type} : Tree T → Nat
