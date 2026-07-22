@@ -12,49 +12,6 @@ namespace milhouse.tree
 
 /-! ## Auxiliary machinery -/
 
-/-- A path-sensitive bound for `with_updated_leaf`.
-
-    The predicate follows the same child at each `Node` as the update.  If it
-    reaches a `Zero` subtree for a packable value type, it requires the packed
-    sub-index to be at most the computed length of that subtree.  A `Zero`
-    subtree has length zero, so this says precisely that a fresh packed leaf is
-    created at sub-index zero.  `Zero` nodes in unvisited siblings impose no
-    condition.
-
-    This is the local form of the caller invariant `index ≤ length`: deriving
-    it from the length of the whole tree additionally requires the usual
-    dense-prefix/well-formedness invariant on the tree representation. The
-    `True` cases for failed routing operations are harmless here because the
-    roundtrip theorem separately assumes that the update succeeded. -/
-def updateIndexWithinLength {T : Type} (ValueInst : Value T)
-    (self : Tree T) (index depth packing_depth : Std.Usize) : Prop :=
-  match self with
-  | Tree.Leaf _ => True
-  | Tree.PackedLeaf _ => True
-  | Tree.Node _ left right =>
-    if depth > 0#usize then
-      match depth - 1#usize with
-      | ok new_depth =>
-        match new_depth + packing_depth with
-        | ok shift =>
-          match index >>> shift with
-          | ok shifted =>
-            if (shifted &&& 1#usize) = 0#usize then
-              updateIndexWithinLength ValueInst left index new_depth
-                packing_depth
-            else
-              updateIndexWithinLength ValueInst right index new_depth
-                packing_depth
-          | _ => True
-        | _ => True
-      | _ => True
-    else True
-  | Tree.Zero _ =>
-    ∀ factor, utils.opt_packing_factor ValueInst.tree_hashTreeHashInst =
-        ok (some factor) →
-      ∃ sub len, index % factor = ok sub ∧
-        Tree.compute_len ValueInst self = ok len ∧ sub.val ≤ len.val
-
 /-- Induction measure tie-breaker: a `Zero` node first rewrites itself to a
     `Node` at the *same* depth before recursing, so it costs one extra tick. -/
 private def zbit {T : Type} : Tree T → Nat
@@ -534,6 +491,32 @@ theorem get_recursive_with_updated_leaf_general {T : Type}
       (core.option.Option.unwrap_or opd 0#usize) = ok (some new_value) :=
   get_after_update_aux ValueInst hpd index new_value
     (2 * depth.val + zbit self) depth self t (Nat.le_refl _) hindex h
+
+/-- Dense trees discharge the general roundtrip theorem's path-sensitive side
+    condition from the caller-facing bound `index ≤ len`. -/
+theorem get_recursive_with_updated_leaf_dense {T : Type}
+    (ValueInst : Value T) {packing_factor : Option Std.Usize}
+    {packing_depth depth : Std.Usize} {self t : Tree T} {len : Nat}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor self depth.val len)
+    (index : Std.Usize) (hindex : index.val ≤ len) (new_value : T)
+    (h : Tree.with_updated_leaf ValueInst self index new_value depth =
+      ok (core.result.Result.Ok t)) :
+    Tree.get_recursive ValueInst t index depth packing_depth =
+      ok (some new_value) := by
+  have hpd := hlayout.opt_packing_depth_eq
+  have hpath := hdense.updateIndexWithinLength hlayout index hindex
+  have hunwrap := hlayout.unwrap_opt_packing_depth_eq
+  have hpath' : updateIndexWithinLength ValueInst self index depth
+      (core.option.Option.unwrap_or
+        (if packing_factor.isSome then some packing_depth else none)
+        0#usize) := by
+    rw [hunwrap]
+    exact hpath
+  have hroundtrip := get_recursive_with_updated_leaf_general ValueInst hpd
+    hpath' h
+  rw [hunwrap] at hroundtrip
+  exact hroundtrip
 
 /-- The earlier restricted roundtrip, now a corollary: for a non-packable
     value type the length side condition is vacuous (and `NoPacked` is not

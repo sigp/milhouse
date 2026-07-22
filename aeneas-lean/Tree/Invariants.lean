@@ -81,6 +81,40 @@ inductive DenseTree {T : Type} :
       DenseTree packing_factor (Tree.Node rl left right) (child_depth + 1)
         (left_len + right_len)
 
+/-- The path-sensitive bound consumed by the update/read roundtrip theorem.
+
+    At a selected `Zero`, it rules out creating a packed leaf at a nonzero
+    sub-index. `DenseTree.updateIndexWithinLength` below derives this local
+    condition from the global dense-prefix length bound. -/
+def updateIndexWithinLength {T : Type} (ValueInst : Value T)
+    (self : Tree T) (index depth packing_depth : Std.Usize) : Prop :=
+  match self with
+  | Tree.Leaf _ => True
+  | Tree.PackedLeaf _ => True
+  | Tree.Node _ left right =>
+    if depth > 0#usize then
+      match depth - 1#usize with
+      | ok new_depth =>
+        match new_depth + packing_depth with
+        | ok shift =>
+          match index >>> shift with
+          | ok shifted =>
+            if (shifted &&& 1#usize) = 0#usize then
+              updateIndexWithinLength ValueInst left index new_depth
+                packing_depth
+            else
+              updateIndexWithinLength ValueInst right index new_depth
+                packing_depth
+          | _ => True
+        | _ => True
+      | _ => True
+    else True
+  | Tree.Zero _ =>
+    ∀ factor, utils.opt_packing_factor ValueInst.tree_hashTreeHashInst =
+        ok (some factor) →
+      ∃ sub len, index % factor = ok sub ∧
+        Tree.compute_len ValueInst self = ok len ∧ sub.val ≤ len.val
+
 /-! ## Basic consequences -/
 
 /-- A valid packing layout always has a positive leaf capacity. -/
@@ -101,6 +135,55 @@ theorem PackingLayout.subtreeCapacity_pos {T : Type} {ValueInst : Value T}
     0 < subtreeCapacity packing_factor depth := by
   have hleaf := h.leafCapacity_pos
   simp [subtreeCapacity, hleaf]
+
+/-- Under a valid layout, subtree capacity is exactly the power of two used
+    by the translated bit routing. -/
+theorem PackingLayout.subtreeCapacity_eq_two_pow {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (h : PackingLayout ValueInst packing_factor packing_depth)
+    (depth : Nat) :
+    subtreeCapacity packing_factor depth =
+      2 ^ (packing_depth.val + depth) := by
+  cases h with
+  | unpacked => simp [subtreeCapacity, leafCapacity]
+  | packed factor packing_depth _ _ hpower =>
+    simp [subtreeCapacity, leafCapacity, hpower, pow_add]
+
+/-- The optional packing-depth query recorded by a layout. -/
+theorem PackingLayout.opt_packing_depth_eq {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (h : PackingLayout ValueInst packing_factor packing_depth) :
+    utils.opt_packing_depth ValueInst.tree_hashTreeHashInst =
+      ok (if packing_factor.isSome then some packing_depth else none) := by
+  cases h with
+  | unpacked factor_eq depth_eq => simpa using depth_eq
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    simpa using depth_eq
+
+/-- The optional packing-factor query recorded by a layout. -/
+theorem PackingLayout.opt_packing_factor_eq {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (h : PackingLayout ValueInst packing_factor packing_depth) :
+    utils.opt_packing_factor ValueInst.tree_hashTreeHashInst =
+      ok packing_factor := by
+  cases h with
+  | unpacked factor_eq depth_eq => exact factor_eq
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    exact factor_eq
+
+/-- Unwrapping the optional depth recorded by a layout yields its routing
+    depth in both packed and unpacked modes. -/
+theorem PackingLayout.unwrap_opt_packing_depth_eq {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (h : PackingLayout ValueInst packing_factor packing_depth) :
+    core.option.Option.unwrap_or
+        (if packing_factor.isSome then some packing_depth else none)
+        0#usize = packing_depth := by
+  cases h <;> simp [core.option.Option.unwrap_or]
 
 /-- The logical length of a dense tree never exceeds its subtree capacity. -/
 theorem DenseTree.length_le_capacity {T : Type}
@@ -175,6 +258,107 @@ private theorem usize_add_eq_of_val {x y z : Std.Usize}
     have hresult : result = z := by scalar_tac
     exact congrArg ok hresult
 
+/-- Successful checked addition agrees with natural-number addition. -/
+private theorem usize_add_val {x y sum : Std.Usize}
+    (h : x + y = ok sum) : sum.val = x.val + y.val := by
+  have hadd := UScalar.add_equiv x y
+  rw [h] at hadd
+  simp at hadd
+  omega
+
+/-- Successful subtraction by one exposes the predecessor relation. -/
+private theorem usize_sub_one_val {x predecessor : Std.Usize}
+    (h : x - 1#usize = ok predecessor) :
+    x.val = predecessor.val + 1 := by
+  have hsub := UScalar.sub_equiv x 1#usize
+  rw [h] at hsub
+  obtain ⟨-, hone, -⟩ := hsub
+  scalar_tac
+
+/-- Successful right shift agrees with `Nat.shiftRight`. -/
+private theorem usize_shift_right_val {x shift shifted : Std.Usize}
+    (h : x >>> shift = ok shifted) :
+    shifted.val = x.val >>> shift.val := by
+  have hbound : shift.val < System.Platform.numBits := by
+    change UScalar.shiftRight x shift.val = ok shifted at h
+    unfold UScalar.shiftRight at h
+    split at h
+    · assumption
+    · simp at h
+  have hspec := Std.Usize.ShiftRight_spec x shift hbound
+  rw [h] at hspec
+  exact hspec.1
+
+/-- Testing routing bit `shift` selects the lower half exactly when the index
+    modulo the represented parent capacity lies below the child capacity. -/
+private theorem routing_bit_zero_iff {index shift shifted : Std.Usize}
+    (hshift : index >>> shift = ok shifted) :
+    (shifted &&& 1#usize) = 0#usize ↔
+      index.val % (2 ^ (shift.val + 1)) < 2 ^ shift.val := by
+  have hshifted := usize_shift_right_val hshift
+  have hnat :
+      ((index.val >>> shift.val) &&& 1 = 0) ↔
+        index.val % (2 ^ (shift.val + 1)) < 2 ^ shift.val := by
+    rw [Nat.shiftRight_eq_div_pow, Nat.and_one_is_mod, pow_succ]
+    rw [← Nat.mod_mul_right_div_self]
+    exact Nat.div_eq_zero_iff_lt (Nat.two_pow_pos shift.val)
+  constructor
+  · intro hbit
+    apply hnat.mp
+    have hbitval := congrArg UScalar.val hbit
+    simpa [hshifted] using hbitval
+  · intro hleft
+    have hbitval := hnat.mpr hleft
+    apply UScalar.eq_of_val_eq
+    simpa [hshifted] using hbitval
+
+/-- Reducing modulo a child capacity after the parent capacity changes
+    nothing when the parent remainder selects the left child. -/
+private theorem mod_child_eq_parent_of_lt (index child_capacity : Nat)
+    (hchild : 0 < child_capacity)
+    (hleft : index % (child_capacity * 2) < child_capacity) :
+    index % child_capacity = index % (child_capacity * 2) := by
+  calc
+    index % child_capacity =
+        (index % (child_capacity * 2)) % child_capacity := by
+          symm
+          exact Nat.mod_mul_right_mod index child_capacity 2
+    _ = index % (child_capacity * 2) := Nat.mod_eq_of_lt hleft
+
+/-- In the right half, reducing modulo the child capacity subtracts exactly
+    one child capacity from the parent remainder. -/
+private theorem mod_child_eq_parent_sub_of_not_lt (index child_capacity : Nat)
+    (hchild : 0 < child_capacity)
+    (hright : ¬ index % (child_capacity * 2) < child_capacity) :
+    index % child_capacity =
+      index % (child_capacity * 2) - child_capacity := by
+  let remainder := index % (child_capacity * 2)
+  have hremainder_lt : remainder < child_capacity * 2 :=
+    Nat.mod_lt index (by omega)
+  have hremainder_ge : child_capacity ≤ remainder := by omega
+  calc
+    index % child_capacity = remainder % child_capacity := by
+      exact (Nat.mod_mul_right_mod index child_capacity 2).symm
+    _ = (remainder - child_capacity) % child_capacity :=
+      Nat.mod_eq_sub_mod hremainder_ge
+    _ = remainder - child_capacity := Nat.mod_eq_of_lt (by omega)
+
+/-- A natural-number remainder of zero yields the corresponding successful
+    translated `Usize` operation. -/
+private theorem usize_rem_eq_zero {index factor : Std.Usize}
+    (hfactor : 0 < factor.val) (hrem : index.val % factor.val = 0) :
+    index % factor = ok 0#usize := by
+  have hspec := Std.Usize.rem_bv_spec index (Nat.ne_of_gt hfactor)
+  cases heq : index % factor with
+  | fail e => rw [heq] at hspec; simp at hspec
+  | div => rw [heq] at hspec; simp at hspec
+  | ok remainder =>
+    rw [heq] at hspec
+    have hremainder : remainder = 0#usize := by
+      have := hspec.1
+      scalar_tac
+    exact congrArg ok hremainder
+
 /-- `Tree.compute_len` agrees with the logical length carried by `DenseTree`,
     provided that logical length is represented by the supplied `Usize`. -/
 theorem DenseTree.compute_len_eq {T : Type} (ValueInst : Value T)
@@ -213,6 +397,162 @@ theorem DenseTree.compute_len_eq {T : Type} (ValueInst : Value T)
     unfold Tree.compute_len
     simp [triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
       hleftcompute, hrightcompute, hadd]
+
+/-- A dense-prefix bound implies the local path condition used by the
+    update/read roundtrip theorem. The modulo form makes the lemma valid for a
+    subtree reached below the root as well as for a whole tree. -/
+theorem DenseTree.updateIndexWithinLength_of_mod_le {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize} {tree : Tree T} {depth len : Nat}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor tree depth len)
+    (machine_depth : Std.Usize) (hdepth : machine_depth.val = depth)
+    (index : Std.Usize)
+    (hindex : index.val % subtreeCapacity packing_factor depth ≤ len) :
+    updateIndexWithinLength ValueInst tree index machine_depth packing_depth := by
+  induction hdense generalizing machine_depth with
+  | zero packing_factor zero_depth =>
+    intro actual_factor hactual
+    have hfactor_query := hlayout.opt_packing_factor_eq
+    rw [hfactor_query] at hactual
+    cases packing_factor with
+    | none => simp at hactual
+    | some factor =>
+      simp at hactual
+      subst actual_factor
+      have hfactor_pos : 0 < factor.val := by
+        simpa [leafCapacity] using hlayout.leafCapacity_pos
+      have hcapacity : subtreeCapacity (some factor) zero_depth.val =
+          factor.val * 2 ^ zero_depth.val := by
+        simp [subtreeCapacity, leafCapacity]
+      have hmod_capacity :
+          index.val % subtreeCapacity (some factor) zero_depth.val = 0 := by
+        omega
+      have hfactor_dvd : factor.val ∣
+          subtreeCapacity (some factor) zero_depth.val := by
+        refine ⟨2 ^ zero_depth.val, ?_⟩
+        exact hcapacity
+      have hmod_factor := Nat.mod_mod_of_dvd index.val hfactor_dvd
+      rw [hmod_capacity] at hmod_factor
+      simp at hmod_factor
+      refine ⟨0#usize, 0#usize,
+        usize_rem_eq_zero hfactor_pos hmod_factor, ?_, by simp⟩
+      simp [Tree.compute_len]
+  | leaf l => trivial
+  | packed factor leaf values_nonempty values_fit => trivial
+  | node packing_factor rl left right child_depth left_len right_len
+      left_dense right_dense left_nonempty left_full_before_right
+      ihleft ihright =>
+    unfold updateIndexWithinLength
+    have hdepth_pos : machine_depth > 0#usize := by scalar_tac
+    rw [if_pos hdepth_pos]
+    cases hnew_depth : machine_depth - 1#usize with
+    | fail e => simp
+    | div => simp
+    | ok new_depth =>
+      simp only
+      cases hshift : new_depth + packing_depth with
+      | fail e => simp
+      | div => simp
+      | ok shift =>
+        simp only
+        cases hshifted : index >>> shift with
+        | fail e => simp
+        | div => simp
+        | ok shifted =>
+          simp only
+          have hnew_depth_val : new_depth.val = child_depth := by
+            have hpred := usize_sub_one_val hnew_depth
+            omega
+          have hshift_val : shift.val = packing_depth.val + child_depth := by
+            have hadd := usize_add_val hshift
+            omega
+          have hchild_capacity :
+              subtreeCapacity packing_factor child_depth = 2 ^ shift.val := by
+            rw [hlayout.subtreeCapacity_eq_two_pow]
+            congr 1
+            omega
+          have hparent_capacity :
+              subtreeCapacity packing_factor (child_depth + 1) =
+                2 ^ (shift.val + 1) := by
+            rw [hlayout.subtreeCapacity_eq_two_pow]
+            congr 1
+            omega
+          split
+          · next hbit =>
+            have hroute := (routing_bit_zero_iff hshifted).mp hbit
+            rw [← hchild_capacity, ← hparent_capacity] at hroute
+            have hchild_mod :
+                index.val % subtreeCapacity packing_factor child_depth =
+                  index.val %
+                    subtreeCapacity packing_factor (child_depth + 1) := by
+              rw [hchild_capacity, hparent_capacity, pow_succ]
+              exact mod_child_eq_parent_of_lt index.val (2 ^ shift.val)
+                (Nat.two_pow_pos shift.val) (by simpa [pow_succ] using
+                  (routing_bit_zero_iff hshifted).mp hbit)
+            have hright_bound := right_dense.length_le_capacity
+            have hleft_bound := left_dense.length_le_capacity
+            have hlocal :
+                index.val % subtreeCapacity packing_factor child_depth ≤
+                  left_len := by
+              rw [hchild_mod]
+              by_cases hright_pos : 0 < right_len
+              · have hleft_full := left_full_before_right hright_pos
+                omega
+              · have hright_zero : right_len = 0 := by omega
+                omega
+            exact ihleft hlayout new_depth hnew_depth_val hlocal
+          · next hbit =>
+            have hroute : ¬ index.val % (2 ^ (shift.val + 1)) <
+                2 ^ shift.val := by
+              intro hleft
+              exact hbit ((routing_bit_zero_iff hshifted).mpr hleft)
+            have hchild_mod :
+                index.val % subtreeCapacity packing_factor child_depth =
+                  index.val %
+                    subtreeCapacity packing_factor (child_depth + 1) -
+                      subtreeCapacity packing_factor child_depth := by
+              rw [hchild_capacity, hparent_capacity, pow_succ]
+              exact mod_child_eq_parent_sub_of_not_lt index.val
+                (2 ^ shift.val) (Nat.two_pow_pos shift.val)
+                (by simpa [pow_succ] using hroute)
+            have hright_bound := right_dense.length_le_capacity
+            have hleft_bound := left_dense.length_le_capacity
+            have hparent_route :
+                subtreeCapacity packing_factor child_depth ≤
+                  index.val %
+                    subtreeCapacity packing_factor (child_depth + 1) := by
+              rw [hchild_capacity, hparent_capacity]
+              omega
+            have hlocal :
+                index.val % subtreeCapacity packing_factor child_depth ≤
+                  right_len := by
+              rw [hchild_mod]
+              by_cases hright_pos : 0 < right_len
+              · have hleft_full := left_full_before_right hright_pos
+                omega
+              · have hright_zero : right_len = 0 := by omega
+                omega
+            exact ihright hlayout new_depth hnew_depth_val hlocal
+
+/-- Root-level form of `updateIndexWithinLength_of_mod_le`. -/
+theorem DenseTree.updateIndexWithinLength {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth depth : Std.Usize} {tree : Tree T} {len : Nat}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor tree depth.val len)
+    (index : Std.Usize) (hindex : index.val ≤ len) :
+    updateIndexWithinLength ValueInst tree index depth packing_depth := by
+  apply hdense.updateIndexWithinLength_of_mod_le hlayout depth rfl index
+  by_cases hfull_index : index.val <
+      subtreeCapacity packing_factor depth.val
+  · rw [Nat.mod_eq_of_lt hfull_index]
+    exact hindex
+  · have hcapacity := hdense.length_le_capacity
+    have hindex_eq : index.val = subtreeCapacity packing_factor depth.val := by
+      omega
+    rw [hindex_eq, Nat.mod_self]
+    omega
 
 /-- Length zero is represented canonically by a `Zero` node. -/
 theorem DenseTree.eq_zero_of_length_zero {T : Type}

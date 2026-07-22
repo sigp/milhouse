@@ -29,8 +29,10 @@ all remaining capacity is represented by `Zero` padding.
       (`DenseTree.noZero_of_full`).
 - [ ] For `index < len`, `get_recursive` returns a materialized value.
 - [ ] For `len <= index < capacity`, `get_recursive` returns `none`.
-- [ ] `DenseTree` plus `index <= len` implies
-      `updateIndexWithinLength`, discharging the roundtrip side condition.
+- [x] `DenseTree` plus `index <= len` implies
+      `updateIndexWithinLength`, discharging the roundtrip side condition
+      (`DenseTree.updateIndexWithinLength`,
+      `get_recursive_with_updated_leaf_dense`).
 
 ## Constructors
 
