@@ -271,6 +271,42 @@ theorem DenseTree.noZero_of_full {T : Type} {ValueInst : Value T}
 
 /-! ## Initial preservation lemmas -/
 
+/-- If the optional packing-factor query succeeds with `some factor`, the
+    underlying trait method returned that factor. -/
+theorem tree_hash_packing_factor_eq_of_opt_some {T : Type}
+    {thi : tree_hash.TreeHash T} {factor : Std.Usize}
+    (h : utils.opt_packing_factor thi = ok (some factor)) :
+    thi.tree_hash_packing_factor = ok factor := by
+  unfold utils.opt_packing_factor at h
+  cases htht : thi.tree_hash_type with
+  | fail e => rw [htht] at h; simp at h
+  | div => rw [htht] at h; simp at h
+  | ok tht =>
+    rw [htht] at h
+    cases tht <;> simp at h
+    cases hfactor : thi.tree_hash_packing_factor with
+    | fail e => rw [hfactor] at h; simp at h
+    | div => rw [hfactor] at h; simp at h
+    | ok actual => rw [hfactor] at h; simp at h; simpa [h] using hfactor
+
+/-- A packed layout exposes its packing factor through the raw trait method
+    used by `PackedLeaf.single` and tree updates. -/
+theorem PackingLayout.tree_hash_packing_factor_eq {T : Type}
+    {ValueInst : Value T} {factor packing_depth : Std.Usize}
+    (h : PackingLayout ValueInst (some factor) packing_depth) :
+    ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor = ok factor := by
+  cases h with
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    exact tree_hash_packing_factor_eq_of_opt_some factor_eq
+
+/-- Inversion for the translated vector push operation. -/
+private theorem vec_push_eq_ok {T : Type} {values : alloc.vec.Vec T}
+    {value : T} {updated : alloc.vec.Vec T}
+    (h : alloc.vec.Vec.push values value = ok updated) :
+    updated.val = values.val ++ [value] := by
+  unfold alloc.vec.Vec.push at h
+  grind
+
 /-- `Tree.zero` constructs the canonical dense tree of length zero. -/
 theorem zero_preserves_dense {T : Type} (ValueInst : Value T)
     (packing_factor : Option Std.Usize) (depth : Std.Usize) :
@@ -278,5 +314,124 @@ theorem zero_preserves_dense {T : Type} (ValueInst : Value T)
       DenseTree packing_factor tree depth.val 0 := by
   refine ⟨Tree.Zero depth, ?_, DenseTree.zero packing_factor depth⟩
   rfl
+
+/-- `Tree.empty` is the same canonical zero tree as `Tree.zero`. -/
+theorem empty_preserves_dense {T : Type} (ValueInst : Value T)
+    (packing_factor : Option Std.Usize) (depth : Std.Usize) :
+    ∃ tree, Tree.empty ValueInst depth = ok tree ∧
+      DenseTree packing_factor tree depth.val 0 := by
+  exact zero_preserves_dense ValueInst packing_factor depth
+
+/-- The unboxed zero constructor also produces a dense tree of length zero. -/
+theorem zero_unboxed_preserves_dense {T : Type} (ValueInst : Value T)
+    (packing_factor : Option Std.Usize) (depth : Std.Usize) :
+    ∃ tree, Tree.zero_unboxed ValueInst depth = ok tree ∧
+      DenseTree packing_factor tree depth.val 0 := by
+  exact ⟨Tree.Zero depth, rfl, DenseTree.zero packing_factor depth⟩
+
+/-- `Tree.leaf` produces an unpacked dense tree containing one value. -/
+theorem leaf_preserves_dense {T : Type} (ValueInst : Value T) (value : T) :
+    ∃ tree, Tree.leaf ValueInst value = ok tree ∧
+      DenseTree none tree 0 1 := by
+  unfold Tree.leaf leaf.Leaf.new leaf.Leaf.with_hash
+  simp [alloy_primitives.bits.fixed.FixedBytes.ZERO,
+    lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+  exact DenseTree.leaf _
+
+/-- `Tree.leaf_with_hash` produces an unpacked dense tree containing one
+    value; the supplied cache has no bearing on density. -/
+theorem leaf_with_hash_preserves_dense {T : Type} (ValueInst : Value T)
+    (value : T) (hash : alloy_primitives.bits.fixed.FixedBytes 32#usize) :
+    ∃ tree, Tree.leaf_with_hash ValueInst value hash = ok tree ∧
+      DenseTree none tree 0 1 := by
+  unfold Tree.leaf_with_hash leaf.Leaf.with_hash
+  simp [lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+  exact DenseTree.leaf _
+
+/-- The unboxed leaf constructor produces an unpacked dense tree containing
+    one value. -/
+theorem leaf_unboxed_preserves_dense {T : Type} (ValueInst : Value T)
+    (value : T) :
+    ∃ tree, Tree.leaf_unboxed ValueInst value = ok tree ∧
+      DenseTree none tree 0 1 := by
+  unfold Tree.leaf_unboxed leaf.Leaf.new leaf.Leaf.with_hash
+  simp [alloy_primitives.bits.fixed.FixedBytes.ZERO,
+    lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+  exact DenseTree.leaf _
+
+/-- A singleton packed leaf is dense. The packing layout supplies both the
+    raw factor expected by the translated constructor and its positivity. -/
+theorem packedLeaf_single_preserves_dense {T : Type}
+    (ValueInst : Value T) {factor packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst (some factor) packing_depth)
+    (value : T) :
+    ∃ leaf,
+      packed_leaf.PackedLeaf.single ValueInst.tree_hashTreeHashInst
+        ValueInst.corecloneCloneInst value = ok leaf ∧
+      DenseTree (some factor) (Tree.PackedLeaf leaf) 0 1 := by
+  unfold packed_leaf.PackedLeaf.single
+  rw [hlayout.tree_hash_packing_factor_eq]
+  cases hpush : alloc.vec.Vec.push
+      (alloc.vec.Vec.with_capacity T factor) value with
+  | fail e =>
+    unfold alloc.vec.Vec.push at hpush
+    simp [alloc.vec.Vec.with_capacity] at hpush
+    grind
+  | div =>
+    unfold alloc.vec.Vec.push at hpush
+    simp [alloc.vec.Vec.with_capacity] at hpush
+    grind
+  | ok values =>
+    have hvalues := vec_push_eq_ok hpush
+    have hfactor_pos : 0 < factor.val := by
+      simpa [leafCapacity] using hlayout.leafCapacity_pos
+    simp [hpush, alloy_primitives.bits.fixed.FixedBytes.ZERO,
+      lock_api.rwlock.RwLock.new]
+    have hdense := DenseTree.packed factor
+      ({ hash := Array.repeat 32#usize 0#u8, values := values } :
+        packed_leaf.PackedLeaf T)
+      (by simp [hvalues, alloc.vec.Vec.with_capacity])
+      (by simp [hvalues, alloc.vec.Vec.with_capacity]; omega)
+    simpa [hvalues, alloc.vec.Vec.with_capacity] using hdense
+
+/-- `Tree.node` preserves density when the two child judgments satisfy the
+    left-prefix side conditions of `DenseTree.node`. -/
+theorem node_preserves_dense {T : Type} (ValueInst : Value T)
+    {packing_factor : Option Std.Usize}
+    (left right : triomphe.arc.Arc (Tree T))
+    (hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (child_depth left_len right_len : Nat)
+    (left_dense : DenseTree packing_factor left child_depth left_len)
+    (right_dense : DenseTree packing_factor right child_depth right_len)
+    (left_nonempty : 0 < left_len)
+    (left_full_before_right : 0 < right_len →
+      left_len = subtreeCapacity packing_factor child_depth) :
+    ∃ tree, Tree.node ValueInst left right hash = ok tree ∧
+      DenseTree packing_factor tree (child_depth + 1)
+        (left_len + right_len) := by
+  refine ⟨Tree.Node hash left right, ?_, ?_⟩
+  · rfl
+  · exact DenseTree.node packing_factor hash left right child_depth
+      left_len right_len left_dense right_dense left_nonempty
+      left_full_before_right
+
+/-- `Tree.node_unboxed` has the same density rule as `Tree.node`. -/
+theorem node_unboxed_preserves_dense {T : Type} (ValueInst : Value T)
+    {packing_factor : Option Std.Usize}
+    (left right : triomphe.arc.Arc (Tree T))
+    (child_depth left_len right_len : Nat)
+    (left_dense : DenseTree packing_factor left child_depth left_len)
+    (right_dense : DenseTree packing_factor right child_depth right_len)
+    (left_nonempty : 0 < left_len)
+    (left_full_before_right : 0 < right_len →
+      left_len = subtreeCapacity packing_factor child_depth) :
+    ∃ tree, Tree.node_unboxed ValueInst left right = ok tree ∧
+      DenseTree packing_factor tree (child_depth + 1)
+        (left_len + right_len) := by
+  unfold Tree.node_unboxed
+  simp [alloy_primitives.bits.fixed.FixedBytes.ZERO,
+    lock_api.rwlock.RwLock.new]
+  exact DenseTree.node packing_factor _ left right child_depth left_len
+    right_len left_dense right_dense left_nonempty left_full_before_right
 
 end milhouse.tree

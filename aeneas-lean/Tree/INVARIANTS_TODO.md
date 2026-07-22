@@ -36,14 +36,18 @@ all remaining capacity is represented by `Zero` padding.
 
 - [x] `Tree.zero` produces a dense tree of length zero
       (`zero_preserves_dense`).
-- [ ] `Tree.empty` produces a dense tree of length zero.
-- [ ] `Tree.zero_unboxed` produces a dense tree of length zero.
-- [ ] `Tree.leaf`, `leaf_with_hash`, and `leaf_unboxed` produce an unpacked
-      dense tree of length one.
-- [ ] `PackedLeaf.single` produces a packed dense tree of length one under a
-      packed `PackingLayout`.
-- [ ] `Tree.node` and `node_unboxed` preserve density when their child lengths
-      satisfy the left-prefix condition.
+- [x] `Tree.empty` produces a dense tree of length zero
+      (`empty_preserves_dense`).
+- [x] `Tree.zero_unboxed` produces a dense tree of length zero
+      (`zero_unboxed_preserves_dense`).
+- [x] `Tree.leaf`, `leaf_with_hash`, and `leaf_unboxed` produce an unpacked
+      dense tree of length one (`leaf_preserves_dense`,
+      `leaf_with_hash_preserves_dense`, `leaf_unboxed_preserves_dense`).
+- [x] `PackedLeaf.single` produces a packed dense tree of length one under a
+      packed `PackingLayout` (`packedLeaf_single_preserves_dense`).
+- [x] `Tree.node` and `node_unboxed` preserve density when their child lengths
+      satisfy the left-prefix condition (`node_preserves_dense`,
+      `node_unboxed_preserves_dense`).
 
 ## Updates
 
