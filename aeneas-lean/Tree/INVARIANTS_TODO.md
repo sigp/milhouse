@@ -17,12 +17,16 @@ all remaining capacity is represented by `Zero` padding.
 
 ## Basic derived lemmas
 
-- [ ] `DenseTree` has a unique depth and length for fixed packing/tree.
-- [ ] A dense tree's length is at most `subtreeCapacity`.
-- [ ] `Tree.compute_len` returns the `DenseTree` length (including the required
-      `Usize` no-overflow bridge).
-- [ ] Length zero implies the tree is the canonical `Zero depth`.
-- [ ] Full length implies that the tree contains no `Zero` padding.
+- [x] `DenseTree` has a unique depth and length for fixed packing/tree
+      (`DenseTree.indices_unique`).
+- [x] A dense tree's length is at most `subtreeCapacity`
+      (`DenseTree.length_le_capacity`).
+- [x] `Tree.compute_len` returns the `DenseTree` length when represented by a
+      supplied `Usize` (`DenseTree.compute_len_eq`).
+- [x] Length zero implies the tree is the canonical `Zero depth`
+      (`DenseTree.eq_zero_of_length_zero`).
+- [x] Full length implies that the tree contains no `Zero` padding
+      (`DenseTree.noZero_of_full`).
 - [ ] For `index < len`, `get_recursive` returns a materialized value.
 - [ ] For `len <= index < capacity`, `get_recursive` returns `none`.
 - [ ] `DenseTree` plus `index <= len` implies
