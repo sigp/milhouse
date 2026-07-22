@@ -3,6 +3,7 @@ import Tree.Invariants
 open Aeneas Aeneas.Std Result
 set_option maxHeartbeats 4000000
 set_option linter.unusedVariables false
+set_option linter.unusedSimpArgs false
 
 open milhouse
 
@@ -108,6 +109,412 @@ def applyRebaseAction {T : Type} (orig : Tree T) :
   | tree.RebaseAction.EqualNoop => orig
   | tree.RebaseAction.EqualReplace replacement => replacement
 
+private def combineRebaseActions {T : Type}
+    (orig_hash base_hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (orig_left orig_right base_left base_right : Tree T)
+    (left_action right_action : tree.RebaseAction (Tree T)) :
+    tree.RebaseAction (Tree T) :=
+  match left_action, right_action with
+  | .NotEqualNoop, .NotEqualNoop => .NotEqualNoop
+  | .NotEqualNoop, .NotEqualReplace new_right =>
+      .NotEqualReplace (Tree.Node orig_hash orig_left new_right)
+  | .NotEqualNoop, .EqualNoop => .NotEqualNoop
+  | .NotEqualNoop, .EqualReplace new_right =>
+      .NotEqualReplace (Tree.Node orig_hash orig_left new_right)
+  | .NotEqualReplace new_left, .NotEqualNoop =>
+      .NotEqualReplace (Tree.Node orig_hash new_left orig_right)
+  | .NotEqualReplace new_left, .NotEqualReplace new_right =>
+      .NotEqualReplace (Tree.Node orig_hash new_left new_right)
+  | .NotEqualReplace new_left, .EqualNoop =>
+      .NotEqualReplace (Tree.Node orig_hash new_left orig_right)
+  | .NotEqualReplace new_left, .EqualReplace new_right =>
+      .NotEqualReplace (Tree.Node orig_hash new_left new_right)
+  | .EqualNoop, .NotEqualNoop => .NotEqualNoop
+  | .EqualNoop, .NotEqualReplace new_right =>
+      .NotEqualReplace (Tree.Node orig_hash orig_left new_right)
+  | .EqualNoop, .EqualNoop => .EqualNoop
+  | .EqualNoop, .EqualReplace new_right =>
+      .NotEqualReplace (Tree.Node orig_hash orig_left new_right)
+  | .EqualReplace new_left, .NotEqualNoop =>
+      .NotEqualReplace (Tree.Node orig_hash new_left orig_right)
+  | .EqualReplace new_left, .NotEqualReplace new_right =>
+      .NotEqualReplace (Tree.Node orig_hash new_left new_right)
+  | .EqualReplace _, .EqualNoop =>
+      .EqualReplace (Tree.Node base_hash base_left base_right)
+  | .EqualReplace _, .EqualReplace _ =>
+      .EqualReplace (Tree.Node base_hash base_left base_right)
+
+private theorem combineRebaseActions_is_positional {T : Type}
+    (orig_hash base_hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (orig_left orig_right base_left base_right : Tree T)
+    (left_action right_action : tree.RebaseAction (Tree T))
+    (hleft : PositionalMix orig_left base_left
+      (applyRebaseAction orig_left left_action))
+    (hright : PositionalMix orig_right base_right
+      (applyRebaseAction orig_right right_action)) :
+    PositionalMix
+      (Tree.Node orig_hash orig_left orig_right)
+      (Tree.Node base_hash base_left base_right)
+      (applyRebaseAction (Tree.Node orig_hash orig_left orig_right)
+        (combineRebaseActions orig_hash base_hash orig_left orig_right
+          base_left base_right left_action right_action)) := by
+  cases left_action <;> cases right_action <;>
+    simp [applyRebaseAction, combineRebaseActions] at hleft hright ⊢
+  all_goals first
+    | exact PositionalMix.orig _ _
+    | exact PositionalMix.base _ _
+    | exact PositionalMix.node orig_hash base_hash orig_hash _ _ _ _ _ _
+        hleft hright
+
+private def rebaseChildren {T : Type} (ValueInst : Value T)
+    (orig_hash base_hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (orig_left orig_right base_left base_right : Tree T)
+    (lengths : Option (utils.Length × utils.Length))
+    (full_depth : Std.Usize) :
+    Result (core.result.Result (tree.RebaseAction (Tree T)) error.Error) := do
+  let new_depth ← full_depth - 1#usize
+  let mapped ← core.option.Option.map
+    (Tree.rebase_on.closure_1.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthPairPairLengthLengthPairLengthLength
+      ValueInst) lengths new_depth
+  let (left_lengths, right_lengths) ← core.option.OptionPair.unzip mapped
+  let left_result ←
+    Tree.rebase_on ValueInst orig_left base_left left_lengths new_depth
+  let left_flow ← core.result.Result.Insts.CoreOpsTry.branch left_result
+  match left_flow with
+  | core.ops.control_flow.ControlFlow.Continue left_action =>
+    let right_result ←
+      Tree.rebase_on ValueInst orig_right base_right right_lengths new_depth
+    let right_flow ← core.result.Result.Insts.CoreOpsTry.branch right_result
+    match right_flow with
+    | core.ops.control_flow.ControlFlow.Continue right_action =>
+      match left_action with
+        | .NotEqualNoop => match right_action with
+          | .NotEqualNoop => ok (core.result.Result.Ok .NotEqualNoop)
+          | .NotEqualReplace new_right =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash orig_left new_right)))
+          | .EqualNoop => ok (core.result.Result.Ok .NotEqualNoop)
+          | .EqualReplace new_right =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash orig_left new_right)))
+        | .NotEqualReplace new_left => match right_action with
+          | .NotEqualNoop =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash new_left orig_right)))
+          | .NotEqualReplace new_right =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash new_left new_right)))
+          | .EqualNoop =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash new_left orig_right)))
+          | .EqualReplace new_right =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash new_left new_right)))
+        | .EqualNoop => match right_action with
+          | .NotEqualNoop => ok (core.result.Result.Ok .NotEqualNoop)
+          | .NotEqualReplace new_right =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash orig_left new_right)))
+          | .EqualNoop => ok (core.result.Result.Ok .EqualNoop)
+          | .EqualReplace new_right =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash orig_left new_right)))
+        | .EqualReplace new_left => match right_action with
+          | .NotEqualNoop =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash new_left orig_right)))
+          | .NotEqualReplace new_right =>
+              ok (core.result.Result.Ok (.NotEqualReplace
+                (Tree.Node orig_hash new_left new_right)))
+          | .EqualNoop =>
+              ok (core.result.Result.Ok (.EqualReplace
+                (Tree.Node base_hash base_left base_right)))
+          | .EqualReplace _ =>
+              ok (core.result.Result.Ok (.EqualReplace
+                (Tree.Node base_hash base_left base_right)))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        (tree.RebaseAction (Tree T)) (core.convert.FromSame error.Error)
+        residual
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      (tree.RebaseAction (Tree T)) (core.convert.FromSame error.Error) residual
+
+private theorem try_branch_continue_eq {A E : Type}
+    {result : core.result.Result A E} {value : A}
+    (h : core.result.Result.Insts.CoreOpsTry.branch result =
+      ok (core.ops.control_flow.ControlFlow.Continue value)) :
+    result = core.result.Result.Ok value := by
+  cases result with
+  | Ok actual =>
+    simp [core.result.Result.Insts.CoreOpsTry.branch] at h
+    exact congrArg core.result.Result.Ok h
+  | Err error =>
+    simp [core.result.Result.Insts.CoreOpsTry.branch] at h
+
+private theorem residual_cannot_return_ok {A E : Type}
+    {residual : core.result.Result core.convert.Infallible E} {value : A}
+    (h : core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      A (core.convert.FromSame E) residual =
+      ok (core.result.Result.Ok value)) : False := by
+  cases residual with
+  | Ok impossible => exact nomatch impossible
+  | Err error =>
+    simp [core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+      core.convert.FromSame.from] at h
+
+private theorem rebaseChildren_is_positional {T : Type} (ValueInst : Value T)
+    (orig_hash base_hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (orig_left orig_right base_left base_right : Tree T)
+    (lengths : Option (utils.Length × utils.Length))
+    (full_depth : Std.Usize) (action : tree.RebaseAction (Tree T))
+    (hchildren : rebaseChildren ValueInst orig_hash base_hash orig_left
+      orig_right base_left base_right lengths full_depth =
+      ok (core.result.Result.Ok action))
+    (hrecursive : ∀ (new_depth : Std.Usize),
+      full_depth - 1#usize = ok new_depth →
+      ∀ (orig base : Tree T)
+        (child_lengths : Option (utils.Length × utils.Length))
+        (child_action : tree.RebaseAction (Tree T)),
+        Tree.rebase_on ValueInst orig base child_lengths new_depth =
+          ok (core.result.Result.Ok child_action) →
+        PositionalMix orig base (applyRebaseAction orig child_action)) :
+    PositionalMix (Tree.Node orig_hash orig_left orig_right)
+      (Tree.Node base_hash base_left base_right)
+      (applyRebaseAction (Tree.Node orig_hash orig_left orig_right) action) := by
+  unfold rebaseChildren at hchildren
+  cases hnew_depth : full_depth - 1#usize with
+  | fail e => rw [hnew_depth] at hchildren; simp at hchildren
+  | div => rw [hnew_depth] at hchildren; simp at hchildren
+  | ok new_depth =>
+    rw [hnew_depth] at hchildren
+    simp only [Bind.bind, Std.bind, bind_tc_ok] at hchildren
+    cases hmapped : core.option.Option.map
+        (Tree.rebase_on.closure_1.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthPairPairLengthLengthPairLengthLength
+          ValueInst) lengths new_depth with
+    | fail e => rw [hmapped] at hchildren; simp at hchildren
+    | div => rw [hmapped] at hchildren; simp at hchildren
+    | ok mapped =>
+      rw [hmapped] at hchildren
+      simp only [Bind.bind, Std.bind, bind_tc_ok] at hchildren
+      cases hunzip : core.option.OptionPair.unzip mapped with
+      | fail e => rw [hunzip] at hchildren; simp at hchildren
+      | div => rw [hunzip] at hchildren; simp at hchildren
+      | ok split_lengths =>
+        rw [hunzip] at hchildren
+        simp only [Bind.bind, Std.bind, bind_tc_ok] at hchildren
+        obtain ⟨left_lengths, right_lengths⟩ := split_lengths
+        simp at hchildren
+        cases hleft_result : Tree.rebase_on ValueInst orig_left base_left
+            left_lengths new_depth with
+        | fail e => rw [hleft_result] at hchildren; simp at hchildren
+        | div => rw [hleft_result] at hchildren; simp at hchildren
+        | ok left_result =>
+          rw [hleft_result] at hchildren
+          simp only [Bind.bind, Std.bind, bind_tc_ok] at hchildren
+          cases hleft_flow : core.result.Result.Insts.CoreOpsTry.branch
+              left_result with
+          | fail e => rw [hleft_flow] at hchildren; simp at hchildren
+          | div => rw [hleft_flow] at hchildren; simp at hchildren
+          | ok left_flow =>
+            rw [hleft_flow] at hchildren
+            simp only [Bind.bind, Std.bind, bind_tc_ok] at hchildren
+            cases left_flow with
+            | Break residual =>
+              exact (residual_cannot_return_ok hchildren).elim
+            | Continue left_action =>
+              cases hright_result : Tree.rebase_on ValueInst orig_right
+                  base_right right_lengths new_depth with
+              | fail e => rw [hright_result] at hchildren; simp at hchildren
+              | div => rw [hright_result] at hchildren; simp at hchildren
+              | ok right_result =>
+                rw [hright_result] at hchildren
+                simp only [Bind.bind, Std.bind, bind_tc_ok] at hchildren
+                cases hright_flow : core.result.Result.Insts.CoreOpsTry.branch
+                    right_result with
+                | fail e => rw [hright_flow] at hchildren; simp at hchildren
+                | div => rw [hright_flow] at hchildren; simp at hchildren
+                | ok right_flow =>
+                  rw [hright_flow] at hchildren
+                  simp only [Bind.bind, Std.bind, bind_tc_ok] at hchildren
+                  cases right_flow with
+                  | Break residual =>
+                    exact (residual_cannot_return_ok hchildren).elim
+                  | Continue right_action =>
+                    simp at hchildren
+                    have hleft_action :
+                        left_result = core.result.Result.Ok left_action := by
+                      exact try_branch_continue_eq hleft_flow
+                    have hright_action :
+                        right_result = core.result.Result.Ok right_action := by
+                      exact try_branch_continue_eq hright_flow
+                    rw [hleft_action] at hleft_result
+                    rw [hright_action] at hright_result
+                    have hleft_mix := hrecursive new_depth hnew_depth
+                      orig_left base_left left_lengths left_action hleft_result
+                    have hright_mix := hrecursive new_depth hnew_depth
+                      orig_right base_right right_lengths right_action
+                      hright_result
+                    cases left_action <;> cases right_action <;>
+                      simp at hchildren <;> subst action <;>
+                      simpa [combineRebaseActions] using
+                        (combineRebaseActions_is_positional orig_hash base_hash
+                          orig_left orig_right base_left base_right _ _
+                          hleft_mix hright_mix)
+
+private theorem rebaseChildren_is_positional_of_ih {T : Type}
+    (ValueInst : Value T) (n : Nat)
+    (ih : ∀ m < n,
+      ∀ (orig base : Tree T)
+        (lengths : Option (utils.Length × utils.Length))
+        (full_depth : Std.Usize) (action : tree.RebaseAction (Tree T)),
+        full_depth.val ≤ m →
+        Tree.rebase_on ValueInst orig base lengths full_depth =
+          ok (core.result.Result.Ok action) →
+        PositionalMix orig base (applyRebaseAction orig action))
+    (orig_hash base_hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (orig_left orig_right base_left base_right : Tree T)
+    (lengths : Option (utils.Length × utils.Length))
+    (full_depth : Std.Usize) (action : tree.RebaseAction (Tree T))
+    (hdepth : full_depth.val ≤ n)
+    (hchildren : rebaseChildren ValueInst orig_hash base_hash orig_left
+      orig_right base_left base_right lengths full_depth =
+      ok (core.result.Result.Ok action)) :
+    PositionalMix (Tree.Node orig_hash orig_left orig_right)
+      (Tree.Node base_hash base_left base_right)
+      (applyRebaseAction (Tree.Node orig_hash orig_left orig_right) action) := by
+  apply rebaseChildren_is_positional ValueInst orig_hash base_hash orig_left
+    orig_right base_left base_right lengths full_depth action hchildren
+  intro new_depth hnew_depth child_orig child_base child_lengths child_action
+    hchild
+  have hsub := UScalar.sub_equiv full_depth 1#usize
+  rw [hnew_depth] at hsub
+  have hdepth_eq : full_depth.val = new_depth.val + 1 := by
+    obtain ⟨-, hone, -⟩ := hsub
+    scalar_tac
+  have hlt : new_depth.val < n := by omega
+  exact ih new_depth.val hlt child_orig child_base child_lengths new_depth
+    child_action (Nat.le_refl _) hchild
+
+private theorem rebase_on_is_positional_aux {T : Type} (ValueInst : Value T) :
+    ∀ (n : Nat) (orig base : Tree T)
+      (lengths : Option (utils.Length × utils.Length))
+      (full_depth : Std.Usize) (action : tree.RebaseAction (Tree T)),
+      full_depth.val ≤ n →
+      Tree.rebase_on ValueInst orig base lengths full_depth =
+        ok (core.result.Result.Ok action) →
+      PositionalMix orig base (applyRebaseAction orig action) := by
+  intro n
+  induction n using Nat.strong_induction_on with
+  | h n ih =>
+    intro orig base lengths full_depth action hdepth hrebase
+    unfold Tree.rebase_on at hrebase
+    obtain ⟨pointer_equal, hpointer, hpointer_true⟩ :=
+      triomphe.arc.Arc.ptr_eq_spec orig base
+    rw [hpointer] at hrebase
+    cases pointer_equal with
+    | true =>
+      simp at hrebase
+      subst action
+      exact PositionalMix.orig orig base
+    | false =>
+      simp only [Bind.bind, Std.bind, bind_tc_ok, reduceCtorEq, ↓reduceIte,
+        triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] at hrebase
+      cases orig <;> cases base <;> simp only at hrebase
+      case Leaf.Leaf orig_leaf base_leaf =>
+        cases heq : triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.eq
+            ValueInst.corecmpPartialEqInst orig_leaf.value base_leaf.value with
+        | fail e => rw [heq] at hrebase; simp at hrebase
+        | div => rw [heq] at hrebase; simp at hrebase
+        | ok equal =>
+          rw [heq] at hrebase
+          cases equal <;> simp [applyRebaseAction] at hrebase ⊢
+          · subst action; exact PositionalMix.orig _ _
+          · subst action; exact PositionalMix.base _ _
+      case PackedLeaf.PackedLeaf orig_leaf base_leaf =>
+        cases heq : alloc.vec.partial_eq.PartialEqVec.eq
+            ValueInst.corecmpPartialEqInst orig_leaf.values base_leaf.values with
+        | fail e => rw [heq] at hrebase; simp at hrebase
+        | div => rw [heq] at hrebase; simp at hrebase
+        | ok equal =>
+          rw [heq] at hrebase
+          cases equal <;> simp [applyRebaseAction] at hrebase ⊢
+          · subst action; exact PositionalMix.orig _ _
+          · subst action; exact PositionalMix.base _ _
+      case Zero.Zero orig_depth base_depth =>
+        simp [lift] at hrebase
+        split at hrebase
+        · simp at hrebase
+          subst action
+          exact PositionalMix.base _ _
+        · simp at hrebase
+          subst action
+          exact PositionalMix.orig _ _
+      case Node.Node orig_hash orig_left orig_right base_hash base_left
+          base_right =>
+        by_cases hfull_depth : full_depth > 0#usize
+        · rw [if_pos hfull_depth] at hrebase
+          simp [lock_api.rwlock.RwLock.read,
+            lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref,
+            alloy_primitives.bits.fixed.FixedBytes.is_zero,
+            alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes.eq,
+            lock_api.rwlock.RwLock.new,
+            triomphe.arc.Arc.Insts.CoreCloneClone.clone,
+            triomphe.arc.Arc.new] at hrebase
+          split at hrebase
+          · apply rebaseChildren_is_positional_of_ih ValueInst n ih orig_hash
+              base_hash orig_left orig_right base_left base_right lengths
+              full_depth action hdepth
+            change rebaseChildren ValueInst orig_hash base_hash orig_left
+              orig_right base_left base_right lengths full_depth =
+              ok (core.result.Result.Ok action) at hrebase
+            exact hrebase
+          · split at hrebase
+            · cases hlengths : core.option.Option.is_none_or
+                  (Tree.rebase_on.closure.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthBool
+                    ValueInst) lengths () with
+              | fail e => rw [hlengths] at hrebase; simp at hrebase
+              | div => rw [hlengths] at hrebase; simp at hrebase
+              | ok lengths_equal =>
+                rw [hlengths] at hrebase
+                cases lengths_equal with
+                | false =>
+                  simp at hrebase
+                  apply rebaseChildren_is_positional_of_ih ValueInst n ih
+                    orig_hash base_hash orig_left orig_right base_left base_right
+                    lengths full_depth action hdepth
+                  change rebaseChildren ValueInst orig_hash base_hash orig_left
+                    orig_right base_left base_right lengths full_depth =
+                    ok (core.result.Result.Ok action) at hrebase
+                  exact hrebase
+                | true =>
+                  simp at hrebase
+                  subst action
+                  exact PositionalMix.base _ _
+            · apply rebaseChildren_is_positional_of_ih ValueInst n ih
+                orig_hash base_hash orig_left orig_right base_left base_right
+                lengths full_depth action hdepth
+              change rebaseChildren ValueInst orig_hash base_hash orig_left
+                orig_right base_left base_right lengths full_depth =
+                ok (core.result.Result.Ok action) at hrebase
+              exact hrebase
+        · rw [if_neg hfull_depth] at hrebase
+          simp at hrebase
+      all_goals simp at hrebase
+      all_goals subst action
+      all_goals exact PositionalMix.orig _ _
+
+/-- Every successful `Tree.rebase_on` action is a positional mix of its two
+    inputs. -/
+theorem rebase_on_is_positional {T : Type} (ValueInst : Value T)
+    (orig base : Tree T) (lengths : Option (utils.Length × utils.Length))
+    (full_depth : Std.Usize) (action : tree.RebaseAction (Tree T))
+    (hrebase : Tree.rebase_on ValueInst orig base lengths full_depth =
+      ok (core.result.Result.Ok action)) :
+    PositionalMix orig base (applyRebaseAction orig action) :=
+  rebase_on_is_positional_aux ValueInst full_depth.val orig base lengths
+    full_depth action (Nat.le_refl _) hrebase
+
 /-- Once a rebase action is known to be positional, density follows directly. -/
 theorem rebaseAction_preserves_dense {T : Type}
     {packing_factor : Option Std.Usize} {orig base : Tree T}
@@ -117,5 +524,19 @@ theorem rebaseAction_preserves_dense {T : Type}
     (hbase : DenseTree packing_factor base depth len) :
     DenseTree packing_factor (applyRebaseAction orig action) depth len :=
   hmix.preserves_dense horig hbase
+
+/-- A successful translated rebase preserves density when both input trees
+    represent the same dense prefix. -/
+theorem rebase_on_preserves_dense {T : Type} (ValueInst : Value T)
+    {packing_factor : Option Std.Usize} {orig base : Tree T}
+    {depth len : Nat} {lengths : Option (utils.Length × utils.Length)}
+    {full_depth : Std.Usize} {action : tree.RebaseAction (Tree T)}
+    (horig : DenseTree packing_factor orig depth len)
+    (hbase : DenseTree packing_factor base depth len)
+    (hrebase : Tree.rebase_on ValueInst orig base lengths full_depth =
+      ok (core.result.Result.Ok action)) :
+    DenseTree packing_factor (applyRebaseAction orig action) depth len :=
+  (rebase_on_is_positional ValueInst orig base lengths full_depth action
+    hrebase).preserves_dense horig hbase
 
 end milhouse.tree
