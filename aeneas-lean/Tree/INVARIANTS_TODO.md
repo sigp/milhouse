@@ -56,10 +56,13 @@ all remaining capacity is represented by `Zero` padding.
 - [x] `PackedLeaf.insert_at_index` preserves the packed-leaf length for a
       replacement and increments it for a one-past-the-end insertion
       (`packedLeaf_insert_at_index_preserves_dense`).
-- [ ] `Tree.with_updated_leaf` preserves `DenseTree`: `index < len` preserves
-      the length, while `index = len` increments it.
-- [ ] Derive `get_recursive_with_updated_leaf_general` from `DenseTree` and
-      `index <= len`, removing its local side condition from caller proofs.
+- [x] `Tree.with_updated_leaf` preserves `DenseTree`: replacements preserve
+      length, while an update at the right edge increments it when the subtree
+      has spare capacity (`with_updated_leaf_preserves_dense`). A full subtree
+      remains full because its bit routing wraps at the subtree capacity.
+- [x] Derive `get_recursive_with_updated_leaf_general` from `DenseTree` and
+      `index <= len`, removing its local side condition from caller proofs
+      (`get_recursive_with_updated_leaf_dense`).
 - [ ] Define a dense update-map predicate: updates below the old length are
       replacements and extensions cover the complete interval
       `[old_len, new_len)`.

@@ -1,6 +1,7 @@
 -- Structural invariants for milhouse trees.
 import Tree.Funs
 open Aeneas Aeneas.Std Result
+set_option maxHeartbeats 4000000
 set_option linter.unusedVariables false
 
 open milhouse
@@ -46,6 +47,16 @@ def leafCapacity : Option Std.Usize → Nat
 def subtreeCapacity (packing_factor : Option Std.Usize) (depth : Nat) : Nat :=
   leafCapacity packing_factor * 2 ^ depth
 
+/-- Resulting logical length of a successful dense update at a subtree. The
+    update grows only at the current right edge and only when spare capacity
+    remains; a full subtree wraps routing and therefore stays full. -/
+def updatedDenseLength (packing_factor : Option Std.Usize) (depth : Nat)
+    (index : Std.Usize) (len : Nat) : Nat :=
+  if index.val % subtreeCapacity packing_factor depth = len ∧
+      len < subtreeCapacity packing_factor depth
+  then len + 1
+  else len
+
 /-- A tree containing exactly `len` materialized values as a dense left prefix
     of a subtree at `depth`.
 
@@ -80,6 +91,47 @@ inductive DenseTree {T : Type} :
           left_len = subtreeCapacity packing_factor child_depth) :
       DenseTree packing_factor (Tree.Node rl left right) (child_depth + 1)
         (left_len + right_len)
+
+/-- Internal input shape used while proving `with_updated_leaf`: the function
+    transiently expands a `Zero` into a node with two zero children before it
+    recurses. Such an all-empty node is not a canonical `DenseTree`, but every
+    recursive child still is. -/
+private inductive UpdateReady {T : Type} :
+    Option Std.Usize → Tree T → Nat → Nat → Prop where
+  | zero (packing_factor : Option Std.Usize) (depth : Std.Usize) :
+      UpdateReady packing_factor (Tree.Zero depth) depth.val 0
+  | leaf (l : leaf.Leaf T) :
+      UpdateReady none (Tree.Leaf l) 0 1
+  | packed (factor : Std.Usize) (pl : packed_leaf.PackedLeaf T)
+      (values_nonempty : 0 < pl.values.val.length)
+      (values_fit : pl.values.val.length ≤ factor.val) :
+      UpdateReady (some factor) (Tree.PackedLeaf pl) 0 pl.values.val.length
+  | node (packing_factor : Option Std.Usize)
+      (rl : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+        (alloy_primitives.bits.fixed.FixedBytes 32#usize))
+      (left right : triomphe.arc.Arc (Tree T))
+      (child_depth left_len right_len : Nat)
+      (left_dense : DenseTree packing_factor left child_depth left_len)
+      (right_dense : DenseTree packing_factor right child_depth right_len)
+      (shape :
+        (left_len = 0 ∧ right_len = 0) ∨
+        (0 < left_len ∧ (0 < right_len →
+          left_len = subtreeCapacity packing_factor child_depth))) :
+      UpdateReady packing_factor (Tree.Node rl left right) (child_depth + 1)
+        (left_len + right_len)
+
+private theorem UpdateReady.ofDense {T : Type}
+    {packing_factor : Option Std.Usize} {tree : Tree T} {depth len : Nat}
+    (h : DenseTree packing_factor tree depth len) :
+    UpdateReady packing_factor tree depth len := by
+  cases h with
+  | zero packing_factor depth => exact UpdateReady.zero packing_factor depth
+  | leaf l => exact UpdateReady.leaf l
+  | packed factor pl hpos hfit => exact UpdateReady.packed factor pl hpos hfit
+  | node packing_factor rl left right child_depth left_len right_len
+      hleft hright hleftpos hfull =>
+    exact UpdateReady.node packing_factor rl left right child_depth left_len
+      right_len hleft hright (Or.inr ⟨hleftpos, hfull⟩)
 
 /-- The path-sensitive bound consumed by the update/read roundtrip theorem.
 
@@ -921,5 +973,428 @@ theorem node_unboxed_preserves_dense {T : Type} (ValueInst : Value T)
     lock_api.rwlock.RwLock.new]
   exact DenseTree.node packing_factor _ left right child_depth left_len
     right_len left_dense right_dense left_nonempty left_full_before_right
+
+/-! ## Recursive update preservation -/
+
+private def updateZbit {T : Type} : Tree T → Nat
+  | Tree.Zero _ => 1
+  | _ => 0
+
+private theorem updateZbit_le_one {T : Type} (tree : Tree T) :
+    updateZbit tree ≤ 1 := by
+  cases tree <;> simp [updateZbit]
+
+private theorem with_updated_leaf_leaf_preserves_dense {T : Type}
+    (ValueInst : Value T) (leaf : leaf.Leaf T) (index : Std.Usize)
+    (new_value : T) {updated : Tree T}
+    (h : Tree.with_updated_leaf ValueInst (Tree.Leaf leaf) index new_value
+      0#usize = ok (core.result.Result.Ok updated)) :
+    DenseTree none updated 0 1 := by
+  obtain ⟨new_tree, hleaf, hdense⟩ :=
+    leaf_preserves_dense ValueInst new_value
+  unfold Tree.with_updated_leaf at h
+  rw [hleaf] at h
+  simp at h
+  subst updated
+  exact hdense
+
+private theorem with_updated_leaf_packed_preserves_dense {T : Type}
+    (ValueInst : Value T) {factor packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst (some factor) packing_depth)
+    (leaf : packed_leaf.PackedLeaf T) (len : Nat)
+    (hdense : DenseTree (some factor) (Tree.PackedLeaf leaf) 0 len)
+    (index : Std.Usize) (new_value : T) {updated : Tree T}
+    (h : Tree.with_updated_leaf ValueInst (Tree.PackedLeaf leaf) index
+      new_value 0#usize = ok (core.result.Result.Ok updated)) :
+    DenseTree (some factor) updated 0
+      (updatedDenseLength (some factor) 0 index len) := by
+  unfold Tree.with_updated_leaf at h
+  simp [triomphe.arc.Arc.new] at h
+  simp only [result_bind_eq_ok_iff] at h
+  obtain ⟨result, hinsert, h⟩ := h
+  cases result with
+  | Err e =>
+    simp [core.result.Result.Insts.CoreOpsTry.branch,
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+      core.convert.FromSame.from] at h
+  | Ok updated_leaf =>
+    simp [core.result.Result.Insts.CoreOpsTry.branch] at h
+    subst h
+    obtain ⟨hupdated, sub, hsub, hlength⟩ :=
+      packedLeaf_insert_at_index_preserves_dense ValueInst hlayout hdense
+        index new_value hinsert
+    have hfactor_pos : 0 < factor.val := by
+      simpa [leafCapacity] using hlayout.leafCapacity_pos
+    have hsub_val := usize_rem_val hfactor_pos hsub
+    rw [hlength] at hupdated
+    have hmod_lt : index.val % factor.val < factor.val :=
+      Nat.mod_lt index.val hfactor_pos
+    by_cases hedge : index.val % factor.val = len
+    · have hlen_lt : len < factor.val := by omega
+      simpa [updatedDenseLength, subtreeCapacity, leafCapacity, hsub_val,
+        hedge, hlen_lt] using hupdated
+    · simpa [updatedDenseLength, subtreeCapacity, leafCapacity, hsub_val,
+        hedge] using hupdated
+
+private theorem with_updated_leaf_preserves_dense_aux {T : Type}
+    (ValueInst : Value T) {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (index : Std.Usize) (new_value : T) :
+    ∀ (n : Nat) (depth : Std.Usize) (self updated : Tree T)
+      (tree_depth len : Nat),
+      2 * depth.val + updateZbit self ≤ n →
+      depth.val = tree_depth →
+      UpdateReady packing_factor self tree_depth len →
+      index.val % subtreeCapacity packing_factor tree_depth ≤ len →
+      Tree.with_updated_leaf ValueInst self index new_value depth =
+        ok (core.result.Result.Ok updated) →
+      DenseTree packing_factor updated tree_depth
+        (updatedDenseLength packing_factor tree_depth index len) := by
+  intro n
+  induction n with
+  | zero =>
+    intro depth self updated tree_depth len hmeasure hdepth hready hindex hupdate
+    cases hready with
+    | zero packing_factor zero_depth =>
+      simp [updateZbit] at hmeasure
+    | leaf leaf =>
+      have hdepth_zero : depth = 0#usize := by scalar_tac
+      subst depth
+      simpa [updatedDenseLength, subtreeCapacity, leafCapacity] using
+        with_updated_leaf_leaf_preserves_dense ValueInst leaf index new_value
+          hupdate
+    | packed factor leaf hnonempty hfit =>
+      have hdepth_zero : depth = 0#usize := by scalar_tac
+      subst depth
+      exact with_updated_leaf_packed_preserves_dense ValueInst hlayout leaf
+        leaf.values.val.length (DenseTree.packed factor leaf hnonempty hfit)
+        index new_value hupdate
+    | node packing_factor rl left right child_depth left_len right_len
+        left_dense right_dense shape =>
+      simp [updateZbit] at hmeasure
+      omega
+  | succ n ih =>
+    intro depth self updated tree_depth len hmeasure hdepth hready hindex hupdate
+    cases hready with
+    | leaf leaf =>
+      have hdepth_zero : depth = 0#usize := by scalar_tac
+      subst depth
+      simpa [updatedDenseLength, subtreeCapacity, leafCapacity] using
+        with_updated_leaf_leaf_preserves_dense ValueInst leaf index new_value
+          hupdate
+    | packed factor leaf hnonempty hfit =>
+      have hdepth_zero : depth = 0#usize := by scalar_tac
+      subst depth
+      exact with_updated_leaf_packed_preserves_dense ValueInst hlayout leaf
+        leaf.values.val.length (DenseTree.packed factor leaf hnonempty hfit)
+        index new_value hupdate
+    | node packing_factor rl left right child_depth left_len right_len
+        left_dense right_dense shape =>
+      unfold Tree.with_updated_leaf at hupdate
+      have hdepth_pos : depth > 0#usize := by scalar_tac
+      rw [if_pos hdepth_pos] at hupdate
+      rw [hlayout.opt_packing_depth_eq] at hupdate
+      have hunwrap := hlayout.unwrap_opt_packing_depth_eq
+      simp [hunwrap, lift,
+        triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
+        triomphe.arc.Arc.Insts.CoreCloneClone.clone,
+        alloy_primitives.bits.fixed.FixedBytes.ZERO,
+        lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new, Tree.node] at hupdate
+      simp only [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨new_depth, hnew_depth, shift, hshift, shifted, hshifted,
+        hupdate⟩ := hupdate
+      have hnew_depth_val : new_depth.val = child_depth := by
+        have hpred := usize_sub_one_val hnew_depth
+        omega
+      have hshift_val : shift.val = packing_depth.val + child_depth := by
+        have hadd := usize_add_val hshift
+        omega
+      have hchild_capacity :
+          subtreeCapacity packing_factor child_depth = 2 ^ shift.val := by
+        rw [hlayout.subtreeCapacity_eq_two_pow]
+        congr 1
+        omega
+      have hparent_capacity :
+          subtreeCapacity packing_factor (child_depth + 1) =
+            2 ^ (shift.val + 1) := by
+        rw [hlayout.subtreeCapacity_eq_two_pow]
+        congr 1
+        omega
+      have hcapacity_succ :
+          subtreeCapacity packing_factor (child_depth + 1) =
+            subtreeCapacity packing_factor child_depth * 2 := by
+        simp [subtreeCapacity, pow_succ, Nat.mul_assoc]
+      have hchild_capacity_pos := hlayout.subtreeCapacity_pos child_depth
+      have hparent_capacity_pos :=
+        hlayout.subtreeCapacity_pos (child_depth + 1)
+      have hparent_mod_lt :
+          index.val % subtreeCapacity packing_factor (child_depth + 1) <
+            subtreeCapacity packing_factor (child_depth + 1) :=
+        Nat.mod_lt index.val hparent_capacity_pos
+      have hleft_bound := left_dense.length_le_capacity
+      have hright_bound := right_dense.length_le_capacity
+      split at hupdate
+      · next hbit =>
+        have hroute := (routing_bit_zero_iff hshifted).mp hbit
+        have hroute_capacity :
+            index.val %
+                subtreeCapacity packing_factor (child_depth + 1) <
+              subtreeCapacity packing_factor child_depth := by
+          rw [hchild_capacity, hparent_capacity]
+          exact hroute
+        have hchild_mod :
+            index.val % subtreeCapacity packing_factor child_depth =
+              index.val %
+                subtreeCapacity packing_factor (child_depth + 1) := by
+          rw [hchild_capacity, hparent_capacity, pow_succ]
+          exact mod_child_eq_parent_of_lt index.val (2 ^ shift.val)
+            (Nat.two_pow_pos shift.val) (by simpa [pow_succ] using hroute)
+        rw [hcapacity_succ] at hchild_mod hindex hroute_capacity hparent_mod_lt
+        have hlocal :
+            index.val % subtreeCapacity packing_factor child_depth ≤
+              left_len := by
+          rw [hchild_mod]
+          cases shape with
+          | inl hempty => omega
+          | inr hdense_shape =>
+            by_cases hright_pos : 0 < right_len
+            · have hleft_full := hdense_shape.2 hright_pos
+              omega
+            · omega
+        cases hrecursive : Tree.with_updated_leaf ValueInst left index
+            new_value new_depth with
+        | fail e => rw [hrecursive] at hupdate; simp at hupdate
+        | div => rw [hrecursive] at hupdate; simp at hupdate
+        | ok result =>
+          rw [hrecursive] at hupdate
+          cases result with
+          | Err e =>
+            simp [core.result.Result.Insts.CoreOpsTry.branch,
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+              core.convert.FromSame.from] at hupdate
+          | Ok new_left =>
+            simp [core.result.Result.Insts.CoreOpsTry.branch] at hupdate
+            subst updated
+            have hrecursive_dense := ih new_depth left new_left child_depth
+              left_len
+              (by have := updateZbit_le_one left; omega)
+              hnew_depth_val
+              (UpdateReady.ofDense left_dense) hlocal hrecursive
+            let new_left_len := updatedDenseLength packing_factor child_depth
+              index left_len
+            have hnew_left_pos : 0 < new_left_len := by
+              unfold new_left_len updatedDenseLength
+              split
+              · omega
+              · cases shape with
+                | inl hempty =>
+                  rename_i hnotgrow
+                  exfalso
+                  apply hnotgrow
+                  constructor
+                  · rw [hchild_mod]
+                    omega
+                  · omega
+                | inr hdense_shape => exact hdense_shape.1
+            have hnew_left_full : 0 < right_len →
+                new_left_len = subtreeCapacity packing_factor child_depth := by
+              intro hright_pos
+              cases shape with
+              | inl hempty => omega
+              | inr hdense_shape =>
+                have hleft_full := hdense_shape.2 hright_pos
+                unfold new_left_len updatedDenseLength
+                simp [hleft_full]
+            have hnode_dense : DenseTree packing_factor
+                (Tree.Node (Array.repeat 32#usize 0#u8) new_left right)
+                (child_depth + 1) (new_left_len + right_len) :=
+              DenseTree.node packing_factor _ new_left right child_depth
+                new_left_len right_len hrecursive_dense right_dense
+                hnew_left_pos hnew_left_full
+            have hlength :
+                updatedDenseLength packing_factor (child_depth + 1) index
+                    (left_len + right_len) = new_left_len + right_len := by
+              unfold new_left_len
+              unfold updatedDenseLength
+              rw [hchild_mod, hcapacity_succ]
+              split <;> split <;>
+                cases shape with
+                | inl hempty => omega
+                | inr hdense_shape =>
+                  by_cases hright_pos : 0 < right_len
+                  · have hleft_full := hdense_shape.2 hright_pos
+                    omega
+                  · omega
+            rw [hlength]
+            exact hnode_dense
+      · next hbit =>
+        have hroute : ¬ index.val % (2 ^ (shift.val + 1)) <
+            2 ^ shift.val := by
+          intro hleft
+          exact hbit ((routing_bit_zero_iff hshifted).mpr hleft)
+        have hchild_mod :
+            index.val % subtreeCapacity packing_factor child_depth =
+              index.val %
+                subtreeCapacity packing_factor (child_depth + 1) -
+                  subtreeCapacity packing_factor child_depth := by
+          rw [hchild_capacity, hparent_capacity, pow_succ]
+          exact mod_child_eq_parent_sub_of_not_lt index.val
+            (2 ^ shift.val) (Nat.two_pow_pos shift.val)
+            (by simpa [pow_succ] using hroute)
+        have hparent_route :
+            subtreeCapacity packing_factor child_depth ≤
+              index.val %
+                subtreeCapacity packing_factor (child_depth + 1) := by
+          rw [hchild_capacity, hparent_capacity]
+          omega
+        rw [hcapacity_succ] at hchild_mod hindex hparent_route hparent_mod_lt
+        cases shape with
+        | inl hempty => omega
+        | inr hdense_shape =>
+          have hleft_full : left_len =
+              subtreeCapacity packing_factor child_depth := by
+            by_cases hright_pos : 0 < right_len
+            · exact hdense_shape.2 hright_pos
+            · omega
+          have hlocal :
+              index.val % subtreeCapacity packing_factor child_depth ≤
+                right_len := by
+            rw [hchild_mod]
+            omega
+          cases hrecursive : Tree.with_updated_leaf ValueInst right index
+              new_value new_depth with
+          | fail e => rw [hrecursive] at hupdate; simp at hupdate
+          | div => rw [hrecursive] at hupdate; simp at hupdate
+          | ok result =>
+            rw [hrecursive] at hupdate
+            cases result with
+            | Err e =>
+              simp [core.result.Result.Insts.CoreOpsTry.branch,
+                core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+                core.convert.FromSame.from] at hupdate
+            | Ok new_right =>
+              simp [core.result.Result.Insts.CoreOpsTry.branch] at hupdate
+              subst updated
+              have hrecursive_dense := ih new_depth right new_right child_depth
+                right_len
+                (by have := updateZbit_le_one right; omega)
+                hnew_depth_val
+                (UpdateReady.ofDense right_dense) hlocal hrecursive
+              let new_right_len := updatedDenseLength packing_factor child_depth
+                index right_len
+              have hnode_dense : DenseTree packing_factor
+                  (Tree.Node (Array.repeat 32#usize 0#u8) left new_right)
+                  (child_depth + 1) (left_len + new_right_len) :=
+                DenseTree.node packing_factor _ left new_right child_depth
+                  left_len new_right_len left_dense hrecursive_dense
+                  hdense_shape.1 (by intro; exact hleft_full)
+              have hlength :
+                  updatedDenseLength packing_factor (child_depth + 1) index
+                      (left_len + right_len) = left_len + new_right_len := by
+                unfold new_right_len
+                unfold updatedDenseLength
+                rw [hchild_mod, hcapacity_succ, hleft_full]
+                split <;> split <;> omega
+              rw [hlength]
+              exact hnode_dense
+    | zero packing_factor zero_depth =>
+      unfold Tree.with_updated_leaf at hupdate
+      have hdepth_eq : zero_depth = depth := by scalar_tac
+      subst zero_depth
+      rw [if_pos rfl] at hupdate
+      by_cases hdepth_zero : depth = 0#usize
+      · rw [if_pos hdepth_zero] at hupdate
+        subst depth
+        cases packing_factor with
+        | none =>
+          have hfactor := hlayout.opt_packing_factor_eq
+          rw [hfactor] at hupdate
+          simp [core.option.Option.is_some, Tree.leaf, milhouse.leaf.Leaf.new,
+            milhouse.leaf.Leaf.with_hash,
+            alloy_primitives.bits.fixed.FixedBytes.ZERO,
+            lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
+          subst updated
+          have hmod : index.val % 1 = 0 := Nat.mod_one index.val
+          simpa [updatedDenseLength, subtreeCapacity, leafCapacity, hmod] using
+            (DenseTree.leaf
+              ({ hash := Array.repeat 32#usize 0#u8, value := new_value } :
+                milhouse.leaf.Leaf T))
+        | some factor =>
+          have hfactor := hlayout.opt_packing_factor_eq
+          rw [hfactor] at hupdate
+          simp only [core.option.Option.is_some] at hupdate
+          cases hsingle : packed_leaf.PackedLeaf.single
+              ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst
+              new_value with
+          | fail e => rw [hsingle] at hupdate; simp at hupdate
+          | div => rw [hsingle] at hupdate; simp at hupdate
+          | ok new_leaf =>
+            rw [hsingle] at hupdate
+            simp [triomphe.arc.Arc.new] at hupdate
+            subst updated
+            obtain ⟨canonical_leaf, hcanonical, hcanonical_dense⟩ :=
+              packedLeaf_single_preserves_dense ValueInst hlayout new_value
+            rw [hsingle] at hcanonical
+            simp at hcanonical
+            subst canonical_leaf
+            have hfactor_pos : 0 < factor.val := by
+              simpa [leafCapacity] using hlayout.leafCapacity_pos
+            have hmod : index.val % factor.val = 0 := by
+              simpa [subtreeCapacity, leafCapacity] using hindex
+            simpa [updatedDenseLength, subtreeCapacity, leafCapacity, hmod,
+              hfactor_pos] using hcanonical_dense
+      · rw [if_neg hdepth_zero] at hupdate
+        simp [Tree.zero, triomphe.arc.Arc.new,
+          triomphe.arc.Arc.Insts.CoreCloneClone.clone,
+          alloy_primitives.bits.fixed.FixedBytes.ZERO, Tree.node,
+          lock_api.rwlock.RwLock.new,
+          triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] at hupdate
+        simp only [result_bind_eq_ok_iff] at hupdate
+        obtain ⟨child_depth, hchild_depth, hrecursive⟩ := hupdate
+        have hchild_depth_val := usize_sub_one_val hchild_depth
+        let empty_node : Tree T := Tree.Node (Array.repeat 32#usize 0#u8)
+          (@Tree.Zero T child_depth) (@Tree.Zero T child_depth)
+        have hempty_ready : UpdateReady packing_factor empty_node depth.val 0 := by
+          have hready := UpdateReady.node packing_factor
+            (Array.repeat 32#usize 0#u8) (@Tree.Zero T child_depth)
+            (@Tree.Zero T child_depth) child_depth.val 0 0
+            (@DenseTree.zero T packing_factor child_depth)
+            (@DenseTree.zero T packing_factor child_depth)
+            (Or.inl ⟨rfl, rfl⟩)
+          simpa [empty_node, hchild_depth_val] using hready
+        have hrecursive_measure :
+            2 * depth.val + updateZbit empty_node ≤ n := by
+          simp [empty_node, updateZbit] at hmeasure ⊢
+          omega
+        exact ih depth empty_node updated depth.val 0
+          hrecursive_measure rfl hempty_ready hindex
+          hrecursive
+
+/-- A successful single-value update preserves density. It increases the
+    logical length exactly at the current dense right edge when the subtree is
+    not already full. -/
+theorem with_updated_leaf_preserves_dense {T : Type}
+    (ValueInst : Value T) {packing_factor : Option Std.Usize}
+    {packing_depth depth : Std.Usize} {self updated : Tree T} {len : Nat}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor self depth.val len)
+    (index : Std.Usize) (hindex : index.val ≤ len) (new_value : T)
+    (hupdate : Tree.with_updated_leaf ValueInst self index new_value depth =
+      ok (core.result.Result.Ok updated)) :
+    DenseTree packing_factor updated depth.val
+      (updatedDenseLength packing_factor depth.val index len) := by
+  apply with_updated_leaf_preserves_dense_aux ValueInst hlayout index new_value
+    (2 * depth.val + updateZbit self) depth self updated depth.val len
+    (Nat.le_refl _) rfl (UpdateReady.ofDense hdense)
+  by_cases hindex_lt : index.val <
+      subtreeCapacity packing_factor depth.val
+  · simpa [Nat.mod_eq_of_lt hindex_lt] using hindex
+  · have hcapacity := hdense.length_le_capacity
+    have hindex_eq : index.val = subtreeCapacity packing_factor depth.val := by
+      omega
+    rw [hindex_eq, Nat.mod_self]
+    omega
+  exact hupdate
 
 end milhouse.tree
