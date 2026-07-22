@@ -51,8 +51,9 @@ all remaining capacity is represented by `Zero` padding.
 
 ## Updates
 
-- [ ] `PackedLeaf.insert_at_index` preserves the packed-leaf length for a
-      replacement and increments it for a one-past-the-end insertion.
+- [x] `PackedLeaf.insert_at_index` preserves the packed-leaf length for a
+      replacement and increments it for a one-past-the-end insertion
+      (`packedLeaf_insert_at_index_preserves_dense`).
 - [ ] `Tree.with_updated_leaf` preserves `DenseTree`: `index < len` preserves
       the length, while `index = len` increments it.
 - [ ] Derive `get_recursive_with_updated_leaf_general` from `DenseTree` and

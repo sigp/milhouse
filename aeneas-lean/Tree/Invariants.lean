@@ -173,7 +173,7 @@ private theorem usize_add_eq_of_val {x y z : Std.Usize}
     rw [heq] at hadd
     simp at hadd
     have hresult : result = z := by scalar_tac
-    simpa [hresult] using heq
+    exact congrArg ok hresult
 
 /-- `Tree.compute_len` agrees with the logical length carried by `DenseTree`,
     provided that logical length is represented by the supplied `Usize`. -/
@@ -287,7 +287,10 @@ theorem tree_hash_packing_factor_eq_of_opt_some {T : Type}
     cases hfactor : thi.tree_hash_packing_factor with
     | fail e => rw [hfactor] at h; simp at h
     | div => rw [hfactor] at h; simp at h
-    | ok actual => rw [hfactor] at h; simp at h; simpa [h] using hfactor
+    | ok actual =>
+      rw [hfactor] at h
+      simp at h
+      exact congrArg ok h
 
 /-- A packed layout exposes its packing factor through the raw trait method
     used by `PackedLeaf.single` and tree updates. -/
@@ -306,6 +309,108 @@ private theorem vec_push_eq_ok {T : Type} {values : alloc.vec.Vec T}
     updated.val = values.val ++ [value] := by
   unfold alloc.vec.Vec.push at h
   grind
+
+/-- Inversion for a successful `Result` bind. -/
+private theorem result_bind_eq_ok_iff {A B : Type} {x : Result A}
+    {f : A → Result B} {y : B} :
+    (x >>= f) = ok y ↔ ∃ a, x = ok a ∧ f a = ok y := by
+  cases x <;> simp [Bind.bind, Std.bind]
+
+/-- A successful in-place packed-leaf insertion either replaces an existing
+    vector element or appends exactly one element. -/
+private theorem packedLeaf_insert_mut_length {T : Type}
+    {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
+    {leaf updated : packed_leaf.PackedLeaf T} {sub : Std.Usize} {value : T}
+    (h : packed_leaf.PackedLeaf.insert_mut thi cloneInst leaf sub value =
+      ok (core.result.Result.Ok (), updated)) :
+    updated.values.val.length =
+        (if sub.val = leaf.values.val.length
+        then leaf.values.val.length + 1
+        else leaf.values.val.length) ∧
+      sub.val ≤ leaf.values.val.length := by
+  unfold packed_leaf.PackedLeaf.insert_mut at h
+  simp [lock_api.rwlock.RwLock.get_mut,
+    alloy_primitives.bits.fixed.FixedBytes.ZERO] at h
+  split at h
+  · next heq =>
+    cases hpush : alloc.vec.Vec.push leaf.values value with
+    | fail e => rw [hpush] at h; simp at h
+    | div => rw [hpush] at h; simp at h
+    | ok values =>
+      rw [hpush] at h
+      simp at h
+      subst h
+      have hvalues := vec_push_eq_ok hpush
+      have hsub : sub.val = leaf.values.val.length := by scalar_tac
+      simp [hsub, hvalues]
+  · next hne =>
+    split at h
+    · next hlt =>
+      cases hindex : alloc.vec.Vec.index_mut_usize leaf.values sub with
+      | fail e => rw [hindex] at h; simp at h
+      | div => rw [hindex] at h; simp at h
+      | ok pair =>
+        rw [hindex] at h
+        obtain ⟨element, back⟩ := pair
+        simp at h
+        unfold alloc.vec.Vec.index_mut_usize at hindex
+        split at hindex <;>
+          simp only [ok.injEq, Prod.mk.injEq, reduceCtorEq] at hindex
+        obtain ⟨-, hback⟩ := hindex
+        subst hback
+        subst h
+        have hsub_ne : sub.val ≠ leaf.values.val.length := by
+          intro heqval
+          apply hne
+          scalar_tac
+        simp [hsub_ne]
+        omega
+    · simp at h
+
+/-- The value of a successful `Usize` remainder is the corresponding natural
+    number remainder. -/
+private theorem usize_rem_val {x y remainder : Std.Usize}
+    (y_pos : 0 < y.val) (h : x % y = ok remainder) :
+    remainder.val = x.val % y.val := by
+  have hspec := Std.Usize.rem_bv_spec x (Nat.ne_of_gt y_pos)
+  rw [h] at hspec
+  exact hspec.1
+
+/-- A successful functional packed-leaf insertion has the same replace/append
+    length behavior as its `insert_mut` helper. -/
+private theorem packedLeaf_insert_at_index_length {T : Type}
+    {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
+    {leaf updated : packed_leaf.PackedLeaf T} {index : Std.Usize} {value : T}
+    (h : packed_leaf.PackedLeaf.insert_at_index thi cloneInst leaf index value =
+      ok (core.result.Result.Ok updated)) :
+    ∃ factor sub,
+      thi.tree_hash_packing_factor = ok factor ∧
+      index % factor = ok sub ∧
+      updated.values.val.length =
+        (if sub.val = leaf.values.val.length
+        then leaf.values.val.length + 1
+        else leaf.values.val.length) ∧
+      sub.val ≤ leaf.values.val.length := by
+  unfold packed_leaf.PackedLeaf.insert_at_index at h
+  simp [alloy_primitives.bits.fixed.FixedBytes.ZERO,
+    lock_api.rwlock.RwLock.new] at h
+  simp only [result_bind_eq_ok_iff] at h
+  obtain ⟨cloned, hclone, factor, hfactor, sub, hsub,
+    ⟨result, candidate⟩, hinsert, h⟩ := h
+  cases result with
+  | Err e =>
+    simp [core.result.Result.Insts.CoreOpsTry.branch,
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+      core.convert.FromSame.from] at h
+  | Ok success =>
+    cases success
+    simp [core.result.Result.Insts.CoreOpsTry.branch] at h
+    subst h
+    have hlength := packedLeaf_insert_mut_length hinsert
+    have hclone_length : cloned.val.length = leaf.values.val.length := by
+      exact Aeneas.Std.Slice.clone_length hclone
+    simp [hclone_length] at hlength
+    exact ⟨factor, sub, hfactor, hsub, hlength⟩
 
 /-- `Tree.zero` constructs the canonical dense tree of length zero. -/
 theorem zero_preserves_dense {T : Type} (ValueInst : Value T)
@@ -393,6 +498,49 @@ theorem packedLeaf_single_preserves_dense {T : Type}
       (by simp [hvalues, alloc.vec.Vec.with_capacity])
       (by simp [hvalues, alloc.vec.Vec.with_capacity]; omega)
     simpa [hvalues, alloc.vec.Vec.with_capacity] using hdense
+
+/-- `PackedLeaf.insert_at_index` preserves packed-leaf density. A successful
+    call replaces an existing slot, or appends exactly when the computed
+    packed sub-index is the old leaf length. -/
+theorem packedLeaf_insert_at_index_preserves_dense {T : Type}
+    (ValueInst : Value T) {factor packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst (some factor) packing_depth)
+    {leaf updated : packed_leaf.PackedLeaf T} {len : Nat}
+    (hdense : DenseTree (some factor) (Tree.PackedLeaf leaf) 0 len)
+    (index : Std.Usize) (value : T)
+    (hinsert : packed_leaf.PackedLeaf.insert_at_index
+      ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst
+      leaf index value = ok (core.result.Result.Ok updated)) :
+    DenseTree (some factor) (Tree.PackedLeaf updated) 0
+        updated.values.val.length ∧
+      ∃ sub, index % factor = ok sub ∧
+        updated.values.val.length =
+          (if sub.val = len then len + 1 else len) := by
+  cases hdense with
+  | packed _ _ old_nonempty old_fit =>
+    obtain ⟨actual_factor, sub, hfactor, hsub, hlength, hsub_le⟩ :=
+      packedLeaf_insert_at_index_length hinsert
+    have hraw_factor := hlayout.tree_hash_packing_factor_eq
+    have hfactor_eq : actual_factor = factor := by
+      rw [hraw_factor] at hfactor
+      simp at hfactor
+      exact hfactor.symm
+    subst actual_factor
+    have hfactor_pos : 0 < factor.val := by
+      simpa [leafCapacity] using hlayout.leafCapacity_pos
+    have hsub_val := usize_rem_val hfactor_pos hsub
+    have hsub_lt : sub.val < factor.val := by
+      rw [hsub_val]
+      exact Nat.mod_lt index.val hfactor_pos
+    have hnew_nonempty : 0 < updated.values.val.length := by
+      rw [hlength]
+      split <;> omega
+    have hnew_fit : updated.values.val.length ≤ factor.val := by
+      rw [hlength]
+      split <;> omega
+    refine ⟨DenseTree.packed factor updated hnew_nonempty hnew_fit,
+      sub, hsub, ?_⟩
+    simpa using hlength
 
 /-- `Tree.node` preserves density when the two child judgments satisfy the
     left-prefix side conditions of `DenseTree.node`. -/
