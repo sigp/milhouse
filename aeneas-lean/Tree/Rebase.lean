@@ -539,54 +539,628 @@ theorem rebase_on_preserves_dense {T : Type} (ValueInst : Value T)
   (rebase_on_is_positional ValueInst orig base lengths full_depth action
     hrebase).preserves_dense horig hbase
 
-/-- The `(depth, hash)` key used by `Tree.intra_rebase` cannot determine the
-    represented dense length. The input below is dense with length three and
-    contains a full left subtree and a partial right subtree under the same
-    cached hash. Replacing the right subtree by the left one produces a
-    length-four shape, which is not dense at the original length. -/
-theorem intraRebaseKey_allows_length_changing_replacement {T : Type}
-    (root_hash repeated_hash :
-      alloy_primitives.bits.fixed.FixedBytes 32#usize)
-    (left_leaf right_leaf : leaf.Leaf T) :
-    let full := Tree.Node repeated_hash (Tree.Leaf left_leaf)
-      (Tree.Leaf right_leaf)
-    let sparse := Tree.Node repeated_hash (Tree.Leaf left_leaf)
-      (Tree.Zero 0#usize)
-    DenseTree none (Tree.Node root_hash full sparse) 2 3 ∧
-      ¬ DenseTree none (Tree.Node root_hash full full) 2 3 := by
-  dsimp only
-  have hfull : DenseTree none
-      (Tree.Node repeated_hash (Tree.Leaf left_leaf)
-        (Tree.Leaf right_leaf)) 1 2 := by
-    exact DenseTree.node none repeated_hash (Tree.Leaf left_leaf)
-      (Tree.Leaf right_leaf) 0 1 1 (DenseTree.leaf left_leaf)
-      (DenseTree.leaf right_leaf) (by omega)
-      (by simp [subtreeCapacity, leafCapacity])
-  have hpartial : DenseTree none
-      (Tree.Node repeated_hash (Tree.Leaf left_leaf)
-        (Tree.Zero 0#usize)) 1 1 := by
-    exact DenseTree.node none repeated_hash (Tree.Leaf left_leaf)
-      (Tree.Zero 0#usize) 0 1 0 (DenseTree.leaf left_leaf)
-      (DenseTree.zero none 0#usize) (by omega) (by omega)
-  constructor
-  · exact DenseTree.node none root_hash
-      (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Leaf right_leaf))
-      (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Zero 0#usize))
-      1 2 1 hfull hpartial (by omega)
-      (by simp [subtreeCapacity, leafCapacity])
-  · intro hbad
-    have hlength_four : DenseTree none
-        (Tree.Node root_hash
-          (Tree.Node repeated_hash (Tree.Leaf left_leaf)
-            (Tree.Leaf right_leaf))
-          (Tree.Node repeated_hash (Tree.Leaf left_leaf)
-            (Tree.Leaf right_leaf))) 2 4 := by
-      exact DenseTree.node none root_hash
-        (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Leaf right_leaf))
-        (Tree.Node repeated_hash (Tree.Leaf left_leaf) (Tree.Leaf right_leaf))
-        1 2 2 hfull hfull (by omega)
-        (by simp [subtreeCapacity, leafCapacity])
-    have hunique := DenseTree.indices_unique hbad hlength_four
-    omega
+/-! ## Intra-rebase preservation
+
+`Tree.intra_rebase` deduplicates equal subtrees within a single tree, keyed
+by `(depth, hash)`. A cached hash cannot distinguish virtual `Zero` padding
+from materialized zero values, so hash equality alone does not determine the
+represented dense length. The implementation therefore plumbs the
+represented length top-down (mirroring `rebase_on`) and only stores and
+replaces subtrees whose represented length equals their capacity. Two full
+dense subtrees at equal depth represent equal lengths, so a replacement can
+never change the dense prefix. In a dense tree this restriction forgoes
+nothing: at most one subtree per depth is partial, so a partial subtree
+never has an identically-positioned duplicate to share with. -/
+
+/-- The `known_subtrees` map threaded through `Tree.intra_rebase`. -/
+abbrev IntraRebaseMap (T : Type) :=
+  std.collections.hash.map.HashMap
+    (Std.Usize × alloy_primitives.bits.fixed.FixedBytes 32#usize)
+    (triomphe.arc.Arc (Tree T)) std.hash.random.RandomState Global
+
+/-- The concrete tree denoted by an intra-rebase action. -/
+def applyIntraRebaseAction {T : Type} (orig : Tree T) :
+    tree.IntraRebaseAction (Tree T) → Tree T
+  | tree.IntraRebaseAction.Noop => orig
+  | tree.IntraRebaseAction.Replace replacement => replacement
+
+/-- Invariant of the `known_subtrees` map: every stored subtree is dense and
+    full at its keyed depth. -/
+def FullDenseMap {T : Type} (packing_factor : Option Std.Usize)
+    (map : IntraRebaseMap T) : Prop :=
+  ∀ key subtree, (key, subtree) ∈ map →
+    DenseTree packing_factor subtree key.1.val
+      (subtreeCapacity packing_factor key.1.val)
+
+/-- The empty map of the top-level `intra_rebase` call satisfies the
+    invariant. -/
+theorem FullDenseMap.empty {T : Type} (packing_factor : Option Std.Usize) :
+    FullDenseMap (T := T) packing_factor [] := by
+  intro key subtree hmem
+  simp at hmem
+
+/-! ### Arithmetic bridges -/
+
+private theorem result_bind_eq_ok_iff {A B : Type} {x : Result A}
+    {f : A → Result B} {y : B} :
+    (x >>= f) = ok y ↔ ∃ a, x = ok a ∧ f a = ok y := by
+  cases x <;> simp [Bind.bind, Std.bind]
+
+private theorem usize_add_val {x y sum : Std.Usize}
+    (h : x + y = ok sum) : sum.val = x.val + y.val := by
+  have hadd := UScalar.add_equiv x y
+  rw [h] at hadd
+  simp at hadd
+  omega
+
+private theorem usize_sub_one_val {x predecessor : Std.Usize}
+    (h : x - 1#usize = ok predecessor) :
+    x.val = predecessor.val + 1 := by
+  have hsub := UScalar.sub_equiv x 1#usize
+  rw [h] at hsub
+  obtain ⟨-, hone, -⟩ := hsub
+  scalar_tac
+
+private theorem usize_sub_val {x y difference : Std.Usize}
+    (h : x - y = ok difference) :
+    difference.val = x.val - y.val := by
+  have hsub := UScalar.sub_equiv x y
+  rw [h] at hsub
+  obtain ⟨-, heq, -⟩ := hsub
+  omega
+
+/-- A successful `1 << shift` is exactly the power of two. -/
+private theorem usize_shift_left_one_val {shift shifted : Std.Usize}
+    (h : 1#usize <<< shift = ok shifted) :
+    shifted.val = 2 ^ shift.val := by
+  have hbound : shift.val < UScalarTy.Usize.numBits := by
+    change UScalar.shiftLeft 1#usize shift.val = ok shifted at h
+    unfold UScalar.shiftLeft at h
+    split at h
+    · assumption
+    · simp at h
+  have hspec := UScalar.ShiftLeft_spec 1#usize shift
+    (UScalar.size UScalarTy.Usize) hbound rfl
+  rw [h] at hspec
+  obtain ⟨hval, -⟩ := hspec
+  have hone : (1#usize).val = 1 := by simp
+  rw [hval, hone, Nat.one_shiftLeft, UScalar.size_def]
+  exact Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) hbound)
+
+/-- The translated `core::cmp::min` on `Length` is the natural-number
+    minimum. -/
+private theorem length_min_val {x y minimum : utils.Length}
+    (h : core.cmp.min utils.Length.Insts.CoreCmpOrd x y = ok minimum) :
+    (minimum.val = x.val ∧ x.val ≤ y.val) ∨
+      (minimum.val = y.val ∧ y.val ≤ x.val) := by
+  simp only [core.cmp.min, utils.Length.Insts.CoreCmpOrd,
+    core.cmp.Ord.min_body, core.cmp.PartialOrd.lt_body,
+    utils.Length.Insts.CoreCmpPartialOrdLength,
+    utils.Length.Insts.CoreCmpPartialOrdLength.partial_cmp,
+    utils.Length.Insts.CoreCmpOrd.cmp, core.cmp.impls.OrdUsize.cmp,
+    Bind.bind, Std.bind] at h
+  split at h <;> simp_all <;> subst minimum <;>
+    (simp_all [Nat.compare_eq_lt]; try omega)
+
+/-! ### Association-list model of `known_subtrees` -/
+
+private theorem blanket_borrow_spec {K : Type} (k : K) :
+    (core.borrow.Borrow.Blanket K).borrow k = ok k := by
+  simp [core.borrow.Borrow.Blanket, core.borrow.Borrow.Blanket.borrow]
+
+/-- The composite key comparison used by the intra-rebase map decides
+    equality of `(depth, hash)` keys. -/
+private theorem intra_key_eq_spec
+    (k q : Std.Usize × alloy_primitives.bits.fixed.FixedBytes 32#usize) :
+    ∃ b, (Pair.Insts.CoreCmpEq core.cmp.EqUsize
+        (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
+          32#usize)).partialEqInst.eq k q = ok b ∧ (b = true ↔ k = q) := by
+  obtain ⟨kd, kh⟩ := k
+  obtain ⟨qd, qh⟩ := q
+  simp only [Pair.Insts.CoreCmpEq, Pair.Insts.CoreCmpPartialEqPair,
+    Pair.Insts.CoreCmpPartialEqPair.eq,
+    alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq,
+    alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes,
+    alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes.eq,
+    core.cmp.EqUsize, core.cmp.PartialEqUsize,
+    core.cmp.impls.PartialEqUsize.eq, liftFun2, bind_tc_ok]
+  by_cases hd : kd = qd
+  · by_cases hh : kh = qh
+    · subst hd
+      subst hh
+      exact ⟨true, by simp, by simp⟩
+    · have hval : ¬ kh.val = qh.val := fun hval => hh (Subtype.ext hval)
+      exact ⟨false, by simp [hd, hval], by simp [hh]⟩
+  · exact ⟨false, by simp [hd], by simp [hd]⟩
+
+/-- Association-list lookup only returns entries of the list, at the queried
+    key. -/
+private theorem lookup_eq_some_mem {K V : Type}
+    {borrow : K → Result K} {eq : K → K → Result Bool}
+    (hborrow : ∀ k, borrow k = ok k)
+    (heq : ∀ k q, ∃ b, eq k q = ok b ∧ (b = true ↔ k = q))
+    {entries : List (K × V)} {q : K} {v : V}
+    (h : TreeAux.lookup borrow eq entries q = ok (some v)) :
+    (q, v) ∈ entries := by
+  induction entries with
+  | nil => simp [TreeAux.lookup] at h
+  | cons entry rest ih =>
+    obtain ⟨k, v'⟩ := entry
+    obtain ⟨b, heqb, hiff⟩ := heq k q
+    simp only [TreeAux.lookup, hborrow, heqb, bind_tc_ok] at h
+    cases b with
+    | false =>
+      simp only [Bool.false_eq_true, if_false] at h
+      exact List.mem_cons_of_mem _ (ih h)
+    | true =>
+      simp only [if_true] at h
+      have hv : v' = v := by simpa using h
+      have hk : k = q := hiff.mp rfl
+      subst hv
+      subst hk
+      exact List.mem_cons_self ..
+
+/-- Association-list insertion only adds the inserted binding; every other
+    entry of the result was already present. -/
+private theorem insert_entries_subset {K V : Type}
+    {eq : K → K → Result Bool}
+    (heq : ∀ k q, ∃ b, eq k q = ok b ∧ (b = true ↔ k = q)) :
+    ∀ {entries : List (K × V)} {k : K} {v : V} {previous : Option V}
+      {updated : List (K × V)},
+      TreeAux.insert eq entries k v = ok (previous, updated) →
+      ∀ key value, (key, value) ∈ updated →
+        (key = k ∧ value = v) ∨ (key, value) ∈ entries := by
+  intro entries
+  induction entries with
+  | nil =>
+    intro k v previous updated h key value hmem
+    simp only [TreeAux.insert, ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    simp at hmem
+    exact Or.inl hmem
+  | cons entry rest ih =>
+    intro k v previous updated h key value hmem
+    obtain ⟨k', v'⟩ := entry
+    obtain ⟨b, heqb, hiff⟩ := heq k' k
+    simp only [TreeAux.insert, heqb, bind_tc_ok] at h
+    cases b with
+    | true =>
+      have hk : k' = k := hiff.mp rfl
+      simp only [if_true, ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      rcases List.mem_cons.mp hmem with hhead | htail
+      · simp only [Prod.mk.injEq] at hhead
+        exact Or.inl ⟨hhead.1.trans hk, hhead.2⟩
+      · exact Or.inr (List.mem_cons_of_mem _ htail)
+    | false =>
+      simp only [Bool.false_eq_true, if_false] at h
+      rw [result_bind_eq_ok_iff] at h
+      obtain ⟨⟨o, rest'⟩, hrec, h⟩ := h
+      simp at h
+      obtain ⟨-, rfl⟩ := h
+      rcases List.mem_cons.mp hmem with hhead | htail
+      · exact Or.inr (by rw [hhead]; exact List.mem_cons_self ..)
+      · rcases ih hrec key value htail with hnew | hold
+        · exact Or.inl hnew
+        · exact Or.inr (List.mem_cons_of_mem _ hold)
+
+/-! ### Preservation -/
+
+private theorem intra_rebase_preserves_dense_aux {T : Type}
+    (ValueInst : Value T) {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth) :
+    ∀ (n : Nat) (orig : Tree T) (known_subtrees : IntraRebaseMap T)
+      (current_depth : Std.Usize) (len : utils.Length)
+      (action : tree.IntraRebaseAction (Tree T))
+      (updated_map : IntraRebaseMap T),
+      current_depth.val ≤ n →
+      DenseTree packing_factor orig current_depth.val len.val →
+      FullDenseMap packing_factor known_subtrees →
+      Tree.intra_rebase ValueInst orig known_subtrees current_depth
+        packing_depth len = ok (core.result.Result.Ok action, updated_map) →
+      DenseTree packing_factor (applyIntraRebaseAction orig action)
+        current_depth.val len.val ∧
+        FullDenseMap packing_factor updated_map := by
+  intro n
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    intro orig known_subtrees current_depth len action updated_map hdepth
+      hdense hmap hrebase
+    unfold Tree.intra_rebase at hrebase
+    simp only [triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
+      bind_tc_ok] at hrebase
+    cases orig with
+    | Leaf l =>
+      simp only [ok.injEq, Prod.mk.injEq, core.result.Result.Ok.injEq]
+        at hrebase
+      obtain ⟨rfl, rfl⟩ := hrebase
+      exact ⟨hdense, hmap⟩
+    | PackedLeaf pl =>
+      simp only [ok.injEq, Prod.mk.injEq, core.result.Result.Ok.injEq]
+        at hrebase
+      obtain ⟨rfl, rfl⟩ := hrebase
+      exact ⟨hdense, hmap⟩
+    | Zero z =>
+      simp only [ok.injEq, Prod.mk.injEq, core.result.Result.Ok.injEq]
+        at hrebase
+      obtain ⟨rfl, rfl⟩ := hrebase
+      exact ⟨hdense, hmap⟩
+    | Node hash left right =>
+      obtain ⟨child_depth, left_n, right_n, hdepth_eq, hlen_eq, hleft_dense,
+        hright_dense, hleft_pos, hleft_full⟩ := dense_node_inv hdense
+      have hpos : current_depth > 0#usize := by scalar_tac
+      simp only [lock_api.rwlock.RwLock.read,
+        lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref,
+        alloy_primitives.bits.fixed.FixedBytes.is_zero,
+        utils.Length.as_usize,
+        triomphe.arc.Arc.Insts.CoreCloneClone.clone,
+        Tree.node, lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new,
+        bind_tc_ok] at hrebase
+      rw [if_pos hpos] at hrebase
+      split at hrebase
+      · simp at hrebase
+      rw [result_bind_eq_ok_iff] at hrebase
+      obtain ⟨i, hi, hrebase⟩ := hrebase
+      have hi_val := usize_add_val hi
+      rw [result_bind_eq_ok_iff] at hrebase
+      obtain ⟨capacity, hcap, hrebase⟩ := hrebase
+      have hcap_val := usize_shift_left_one_val hcap
+      have hcap_parent : capacity.val =
+          subtreeCapacity packing_factor current_depth.val := by
+        rw [PackingLayout.subtreeCapacity_eq_two_pow hlayout, hcap_val, hi_val,
+          Nat.add_comm]
+      by_cases hfull : len = capacity
+      · -- The subtree is full: consult and possibly extend the map.
+        rw [if_pos hfull] at hrebase
+        have hlen_cap : len.val =
+            subtreeCapacity packing_factor current_depth.val := by
+          rw [← hcap_parent, hfull]
+        simp only [std.collections.hash.map.HashMap.get] at hrebase
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨cached, hlookup, hrebase⟩ := hrebase
+        cases cached with
+        | some known_subtree =>
+          simp at hrebase
+          obtain ⟨rfl, rfl⟩ := hrebase
+          have hmem := lookup_eq_some_mem blanket_borrow_spec
+            intra_key_eq_spec hlookup
+          have hknown := hmap _ _ hmem
+          refine ⟨?_, hmap⟩
+          simpa [applyIntraRebaseAction, hlen_cap] using hknown
+        | none =>
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨i2, hi2, hrebase⟩ := hrebase
+          have hi2_val := usize_sub_one_val hi2
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨i3, hi3, hrebase⟩ := hrebase
+          have hi3_val := usize_add_val hi3
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨child_capacity, hcc, hrebase⟩ := hrebase
+          have hcc_val := usize_shift_left_one_val hcc
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨left_len, hmin, hrebase⟩ := hrebase
+          have hmin_val := length_min_val hmin
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨i5, hi5, hrebase⟩ := hrebase
+          have hi5_val := usize_sub_val hi5
+          have hchild : child_depth = i2.val := by omega
+          subst hchild
+          have hcc_cap : child_capacity.val =
+              subtreeCapacity packing_factor i2.val := by
+            rw [PackingLayout.subtreeCapacity_eq_two_pow hlayout, hcc_val,
+              hi3_val, Nat.add_comm]
+          have hleft_cap := hleft_dense.length_le_capacity
+          have hleft_len_val : left_len.val = left_n := by
+            rcases Nat.eq_zero_or_pos right_n with hr0 | hrpos
+            · rcases hmin_val with ⟨h1, h2⟩ | ⟨h1, h2⟩ <;> omega
+            · have hfull_left := hleft_full hrpos
+              rcases hmin_val with ⟨h1, h2⟩ | ⟨h1, h2⟩ <;> omega
+          have hi5_len_val : i5.val = right_n := by omega
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨⟨left_result, known1⟩, hrec_left, hrebase⟩ := hrebase
+          simp at hrebase
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨left_flow, hbranch_left, hrebase⟩ := hrebase
+          cases left_flow with
+          | Break residual =>
+            simp at hrebase
+            rw [result_bind_eq_ok_iff] at hrebase
+            obtain ⟨r2, hres, hrebase⟩ := hrebase
+            simp only [ok.injEq, Prod.mk.injEq] at hrebase
+            obtain ⟨rfl, -⟩ := hrebase
+            exact (residual_cannot_return_ok hres).elim
+          | Continue left_action =>
+            simp at hrebase
+            have hleft_ok := try_branch_continue_eq hbranch_left
+            subst hleft_ok
+            have hleft_dense' : DenseTree packing_factor left i2.val
+                left_len.val := by rwa [hleft_len_val]
+            obtain ⟨hleft_pres, hmap1⟩ := ih i2.val (by omega) left
+              known_subtrees i2 left_len left_action known1 (Nat.le_refl _)
+              hleft_dense' hmap hrec_left
+            rw [result_bind_eq_ok_iff] at hrebase
+            obtain ⟨⟨right_result, known2⟩, hrec_right, hrebase⟩ := hrebase
+            simp at hrebase
+            rw [result_bind_eq_ok_iff] at hrebase
+            obtain ⟨right_flow, hbranch_right, hrebase⟩ := hrebase
+            cases right_flow with
+            | Break residual =>
+              simp at hrebase
+              rw [result_bind_eq_ok_iff] at hrebase
+              obtain ⟨r2, hres, hrebase⟩ := hrebase
+              simp only [ok.injEq, Prod.mk.injEq] at hrebase
+              obtain ⟨rfl, -⟩ := hrebase
+              exact (residual_cannot_return_ok hres).elim
+            | Continue right_action =>
+              simp at hrebase
+              have hright_ok := try_branch_continue_eq hbranch_right
+              subst hright_ok
+              have hright_dense' : DenseTree packing_factor right i2.val
+                  i5.val := by rwa [hi5_len_val]
+              obtain ⟨hright_pres, hmap2⟩ := ih i2.val (by omega) right known1
+                i2 i5 right_action known2 (Nat.le_refl _) hright_dense' hmap1
+                hrec_right
+              have hdepth_val : current_depth.val = i2.val + 1 := hi2_val
+              have hlen_val : len.val = left_len.val + i5.val := by omega
+              have hside_pos : 0 < left_len.val := by omega
+              have hside_full : 0 < i5.val →
+                  left_len.val = subtreeCapacity packing_factor i2.val := by
+                intro hpos5
+                have := hleft_full (by omega)
+                omega
+              cases left_action with
+              | Noop =>
+                cases right_action with
+                | Noop =>
+                  simp [std.collections.hash.map.HashMap.insert] at hrebase
+                  rw [result_bind_eq_ok_iff] at hrebase
+                  obtain ⟨⟨existing, known3⟩, hins, hrebase⟩ := hrebase
+                  cases existing with
+                  | some prev => simp [core.option.Option.is_some] at hrebase
+                  | none =>
+                    simp [core.option.Option.is_some] at hrebase
+                    obtain ⟨rfl, rfl⟩ := hrebase
+                    refine ⟨hdense, ?_⟩
+                    intro key subtree hmem
+                    rcases insert_entries_subset intra_key_eq_spec hins key
+                      subtree hmem with ⟨rfl, rfl⟩ | hold
+                    · simpa [← hlen_cap] using hdense
+                    · exact hmap2 key subtree hold
+                | Replace new_right =>
+                  simp [std.collections.hash.map.HashMap.insert] at hrebase
+                  rw [result_bind_eq_ok_iff] at hrebase
+                  obtain ⟨⟨existing, known3⟩, hins, hrebase⟩ := hrebase
+                  cases existing with
+                  | some prev => simp [core.option.Option.is_some] at hrebase
+                  | none =>
+                    simp [core.option.Option.is_some] at hrebase
+                    obtain ⟨rfl, rfl⟩ := hrebase
+                    have hnr : DenseTree packing_factor new_right i2.val
+                        i5.val := by
+                      simpa [applyIntraRebaseAction] using hright_pres
+                    have hnew_dense : DenseTree packing_factor
+                        (Tree.Node hash left new_right) current_depth.val
+                        len.val := by
+                      rw [hdepth_val, hlen_val]
+                      exact DenseTree.node packing_factor hash left new_right
+                        i2.val left_len.val i5.val hleft_dense' hnr hside_pos
+                        hside_full
+                    refine ⟨by simpa [applyIntraRebaseAction] using hnew_dense,
+                      ?_⟩
+                    intro key subtree hmem
+                    rcases insert_entries_subset intra_key_eq_spec hins key
+                      subtree hmem with ⟨rfl, rfl⟩ | hold
+                    · simpa [← hlen_cap] using hnew_dense
+                    · exact hmap2 key subtree hold
+              | Replace new_left =>
+                have hnl : DenseTree packing_factor new_left i2.val
+                    left_len.val := by
+                  simpa [applyIntraRebaseAction] using hleft_pres
+                cases right_action with
+                | Noop =>
+                  simp [std.collections.hash.map.HashMap.insert] at hrebase
+                  rw [result_bind_eq_ok_iff] at hrebase
+                  obtain ⟨⟨existing, known3⟩, hins, hrebase⟩ := hrebase
+                  cases existing with
+                  | some prev => simp [core.option.Option.is_some] at hrebase
+                  | none =>
+                    simp [core.option.Option.is_some] at hrebase
+                    obtain ⟨rfl, rfl⟩ := hrebase
+                    have hnew_dense : DenseTree packing_factor
+                        (Tree.Node hash new_left right) current_depth.val
+                        len.val := by
+                      rw [hdepth_val, hlen_val]
+                      exact DenseTree.node packing_factor hash new_left right
+                        i2.val left_len.val i5.val hnl hright_dense' hside_pos
+                        hside_full
+                    refine ⟨by simpa [applyIntraRebaseAction] using hnew_dense,
+                      ?_⟩
+                    intro key subtree hmem
+                    rcases insert_entries_subset intra_key_eq_spec hins key
+                      subtree hmem with ⟨rfl, rfl⟩ | hold
+                    · simpa [← hlen_cap] using hnew_dense
+                    · exact hmap2 key subtree hold
+                | Replace new_right =>
+                  simp [std.collections.hash.map.HashMap.insert] at hrebase
+                  rw [result_bind_eq_ok_iff] at hrebase
+                  obtain ⟨⟨existing, known3⟩, hins, hrebase⟩ := hrebase
+                  cases existing with
+                  | some prev => simp [core.option.Option.is_some] at hrebase
+                  | none =>
+                    simp [core.option.Option.is_some] at hrebase
+                    obtain ⟨rfl, rfl⟩ := hrebase
+                    have hnr : DenseTree packing_factor new_right i2.val
+                        i5.val := by
+                      simpa [applyIntraRebaseAction] using hright_pres
+                    have hnew_dense : DenseTree packing_factor
+                        (Tree.Node hash new_left new_right) current_depth.val
+                        len.val := by
+                      rw [hdepth_val, hlen_val]
+                      exact DenseTree.node packing_factor hash new_left
+                        new_right i2.val left_len.val i5.val hnl hnr hside_pos
+                        hside_full
+                    refine ⟨by simpa [applyIntraRebaseAction] using hnew_dense,
+                      ?_⟩
+                    intro key subtree hmem
+                    rcases insert_entries_subset intra_key_eq_spec hins key
+                      subtree hmem with ⟨rfl, rfl⟩ | hold
+                    · simpa [← hlen_cap] using hnew_dense
+                    · exact hmap2 key subtree hold
+      · -- The subtree is partial: recurse without touching the map.
+        rw [if_neg hfull] at hrebase
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨i2, hi2, hrebase⟩ := hrebase
+        have hi2_val := usize_sub_one_val hi2
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨i3, hi3, hrebase⟩ := hrebase
+        have hi3_val := usize_add_val hi3
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨child_capacity, hcc, hrebase⟩ := hrebase
+        have hcc_val := usize_shift_left_one_val hcc
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨left_len, hmin, hrebase⟩ := hrebase
+        have hmin_val := length_min_val hmin
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨i5, hi5, hrebase⟩ := hrebase
+        have hi5_val := usize_sub_val hi5
+        have hchild : child_depth = i2.val := by omega
+        subst hchild
+        have hcc_cap : child_capacity.val =
+            subtreeCapacity packing_factor i2.val := by
+          rw [PackingLayout.subtreeCapacity_eq_two_pow hlayout, hcc_val,
+            hi3_val, Nat.add_comm]
+        have hleft_cap := hleft_dense.length_le_capacity
+        have hleft_len_val : left_len.val = left_n := by
+          rcases Nat.eq_zero_or_pos right_n with hr0 | hrpos
+          · rcases hmin_val with ⟨h1, h2⟩ | ⟨h1, h2⟩ <;> omega
+          · have hfull_left := hleft_full hrpos
+            rcases hmin_val with ⟨h1, h2⟩ | ⟨h1, h2⟩ <;> omega
+        have hi5_len_val : i5.val = right_n := by omega
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨⟨left_result, known1⟩, hrec_left, hrebase⟩ := hrebase
+        simp at hrebase
+        rw [result_bind_eq_ok_iff] at hrebase
+        obtain ⟨left_flow, hbranch_left, hrebase⟩ := hrebase
+        cases left_flow with
+        | Break residual =>
+          simp at hrebase
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨r2, hres, hrebase⟩ := hrebase
+          simp only [ok.injEq, Prod.mk.injEq] at hrebase
+          obtain ⟨rfl, -⟩ := hrebase
+          exact (residual_cannot_return_ok hres).elim
+        | Continue left_action =>
+          simp at hrebase
+          have hleft_ok := try_branch_continue_eq hbranch_left
+          subst hleft_ok
+          have hleft_dense' : DenseTree packing_factor left i2.val
+              left_len.val := by rwa [hleft_len_val]
+          obtain ⟨hleft_pres, hmap1⟩ := ih i2.val (by omega) left
+            known_subtrees i2 left_len left_action known1 (Nat.le_refl _)
+            hleft_dense' hmap hrec_left
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨⟨right_result, known2⟩, hrec_right, hrebase⟩ := hrebase
+          simp at hrebase
+          rw [result_bind_eq_ok_iff] at hrebase
+          obtain ⟨right_flow, hbranch_right, hrebase⟩ := hrebase
+          cases right_flow with
+          | Break residual =>
+            simp at hrebase
+            rw [result_bind_eq_ok_iff] at hrebase
+            obtain ⟨r2, hres, hrebase⟩ := hrebase
+            simp only [ok.injEq, Prod.mk.injEq] at hrebase
+            obtain ⟨rfl, -⟩ := hrebase
+            exact (residual_cannot_return_ok hres).elim
+          | Continue right_action =>
+            simp at hrebase
+            have hright_ok := try_branch_continue_eq hbranch_right
+            subst hright_ok
+            have hright_dense' : DenseTree packing_factor right i2.val
+                i5.val := by rwa [hi5_len_val]
+            obtain ⟨hright_pres, hmap2⟩ := ih i2.val (by omega) right known1
+              i2 i5 right_action known2 (Nat.le_refl _) hright_dense' hmap1
+              hrec_right
+            have hdepth_val : current_depth.val = i2.val + 1 := hi2_val
+            have hlen_val : len.val = left_len.val + i5.val := by omega
+            have hside_pos : 0 < left_len.val := by omega
+            have hside_full : 0 < i5.val →
+                left_len.val = subtreeCapacity packing_factor i2.val := by
+              intro hpos5
+              have := hleft_full (by omega)
+              omega
+            cases left_action with
+            | Noop =>
+              cases right_action with
+              | Noop =>
+                simp at hrebase
+                obtain ⟨rfl, rfl⟩ := hrebase
+                exact ⟨hdense, hmap2⟩
+              | Replace new_right =>
+                simp at hrebase
+                obtain ⟨rfl, rfl⟩ := hrebase
+                have hnr : DenseTree packing_factor new_right i2.val
+                    i5.val := by
+                  simpa [applyIntraRebaseAction] using hright_pres
+                refine ⟨?_, hmap2⟩
+                have hnew_dense : DenseTree packing_factor
+                    (Tree.Node hash left new_right) current_depth.val
+                    len.val := by
+                  rw [hdepth_val, hlen_val]
+                  exact DenseTree.node packing_factor hash left new_right
+                    i2.val left_len.val i5.val hleft_dense' hnr hside_pos
+                    hside_full
+                simpa [applyIntraRebaseAction] using hnew_dense
+            | Replace new_left =>
+              have hnl : DenseTree packing_factor new_left i2.val
+                  left_len.val := by
+                simpa [applyIntraRebaseAction] using hleft_pres
+              cases right_action with
+              | Noop =>
+                simp at hrebase
+                obtain ⟨rfl, rfl⟩ := hrebase
+                refine ⟨?_, hmap2⟩
+                have hnew_dense : DenseTree packing_factor
+                    (Tree.Node hash new_left right) current_depth.val
+                    len.val := by
+                  rw [hdepth_val, hlen_val]
+                  exact DenseTree.node packing_factor hash new_left right
+                    i2.val left_len.val i5.val hnl hright_dense' hside_pos
+                    hside_full
+                simpa [applyIntraRebaseAction] using hnew_dense
+              | Replace new_right =>
+                simp at hrebase
+                obtain ⟨rfl, rfl⟩ := hrebase
+                have hnr : DenseTree packing_factor new_right i2.val
+                    i5.val := by
+                  simpa [applyIntraRebaseAction] using hright_pres
+                refine ⟨?_, hmap2⟩
+                have hnew_dense : DenseTree packing_factor
+                    (Tree.Node hash new_left new_right) current_depth.val
+                    len.val := by
+                  rw [hdepth_val, hlen_val]
+                  exact DenseTree.node packing_factor hash new_left new_right
+                    i2.val left_len.val i5.val hnl hnr hside_pos hside_full
+                simpa [applyIntraRebaseAction] using hnew_dense
+
+/-- A successful translated intra-rebase preserves density: replacements are
+    drawn only from the full-subtree map, so the represented dense prefix is
+    unchanged. -/
+theorem intra_rebase_preserves_dense {T : Type} (ValueInst : Value T)
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    {orig : Tree T} {known_subtrees updated_map : IntraRebaseMap T}
+    {current_depth : Std.Usize} {len : utils.Length}
+    {action : tree.IntraRebaseAction (Tree T)}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor orig current_depth.val len.val)
+    (hmap : FullDenseMap packing_factor known_subtrees)
+    (hrebase : Tree.intra_rebase ValueInst orig known_subtrees current_depth
+      packing_depth len = ok (core.result.Result.Ok action, updated_map)) :
+    DenseTree packing_factor (applyIntraRebaseAction orig action)
+      current_depth.val len.val ∧
+      FullDenseMap packing_factor updated_map :=
+  intra_rebase_preserves_dense_aux ValueInst hlayout current_depth.val orig
+    known_subtrees current_depth len action updated_map (Nat.le_refl _)
+    hdense hmap hrebase
 
 end milhouse.tree

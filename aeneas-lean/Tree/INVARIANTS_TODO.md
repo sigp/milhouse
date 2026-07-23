@@ -85,11 +85,15 @@ all remaining capacity is represented by `Zero` padding.
 - [x] `Tree.rebase_on` preserves density when both inputs represent the same
       dense prefix (`rebase_on_is_positional`,
       `rebase_on_preserves_dense`).
-- [ ] Blocked on an implementation invariant: strengthen `Tree.intra_rebase`
-      so replacement candidates carry equal represented lengths, then prove it
-      preserves density. The current `(depth, hash)` key admits a
-      length-changing replacement even inside a dense tree
-      (`intraRebaseKey_allows_length_changing_replacement`).
+- [x] `Tree.intra_rebase` preserves density: the represented length is
+      plumbed top-down (mirroring `rebase_on`) and only full subtrees are
+      stored in or replaced from the `(depth, hash)` map, so a replacement
+      cannot change the represented length (`FullDenseMap`,
+      `intra_rebase_preserves_dense`). The prior `(depth, hash)`-only keying
+      admitted a length-changing replacement (a partial subtree whose `Zero`
+      padding hashes like materialized zeros); in a dense tree at most one
+      subtree per depth is partial, so restricting to full subtrees forgoes
+      only the unsound rebases.
 
 ## Packing and machine arithmetic
 
