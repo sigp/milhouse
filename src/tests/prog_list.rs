@@ -2,7 +2,7 @@
 
 use crate::progressive_tree::ProgressiveTree;
 use crate::{Arc, ProgressiveList, Tree};
-use tree_hash::{Hash256, TreeHash};
+use tree_hash::TreeHash;
 
 /// Lengths spanning several progressive subtrees and packing boundaries.
 const TEST_LENGTHS: &[usize] = &[0, 1, 2, 3, 4, 5, 8, 16, 17, 20, 21, 64, 65, 100, 129];
@@ -67,51 +67,6 @@ fn get_mut_matches_fresh() {
             assert_eq!(list.tree_hash_root(), expected.tree_hash_root());
         }
     }
-}
-
-#[test]
-fn replace_and_append_in_one_batch() {
-    // Mix replaces (existing indices) and appends (new indices) in a single `apply_updates`.
-    let mut list = build(10);
-
-    *list.get_mut(0).unwrap() = 100;
-    *list.get_mut(9).unwrap() = 109;
-    list.push(10).unwrap();
-    list.push(11).unwrap();
-
-    assert_eq!(list.len(), 12);
-    list.apply_updates().unwrap();
-
-    let mut expected_vec: Vec<u64> = (0..10).collect();
-    expected_vec[0] = 100;
-    expected_vec[9] = 109;
-    expected_vec.push(10);
-    expected_vec.push(11);
-    let expected = ProgressiveList::<u64>::new(expected_vec).unwrap();
-
-    assert_eq!(list.to_vec(), expected.to_vec());
-    assert_eq!(list.tree_hash_root(), expected.tree_hash_root());
-}
-
-#[test]
-fn get_cow_and_iter_cow() {
-    let mut list = build(5);
-
-    {
-        let c = list.get_cow(2).unwrap();
-        assert_eq!(*c, 2);
-        *c.into_mut().unwrap() = 22;
-    }
-    assert_eq!(list.get(2).copied(), Some(22));
-
-    {
-        let mut iter = list.iter_cow();
-        while let Some((index, v)) = iter.next_cow() {
-            *v.into_mut().unwrap() = (index * 10) as u64;
-        }
-    }
-    list.apply_updates().unwrap();
-    assert_eq!(list.to_vec(), vec![0, 10, 20, 30, 40]);
 }
 
 #[test]
@@ -221,15 +176,19 @@ fn rebase_unequal_lists_keeps_correct_values() {
 }
 
 #[test]
-fn rebase_with_pending_updates_applies_first() {
+fn rebase_with_pending_updates_preserves_updates() {
     let base = build(10);
     let mut orig = build(10);
 
     *orig.get_mut(3).unwrap() = 333;
     assert!(orig.has_pending_updates());
 
+    // Like `List::rebase_on`, rebasing only touches the backing tree: pending updates survive.
     orig.rebase_on(&base).unwrap();
-    assert!(!orig.has_pending_updates());
+    assert!(orig.has_pending_updates());
+    assert_eq!(orig.get(3).copied(), Some(333));
+
+    orig.apply_updates().unwrap();
 
     let mut expected_vec: Vec<u64> = (0..10).collect();
     expected_vec[3] = 333;
@@ -239,51 +198,25 @@ fn rebase_with_pending_updates_applies_first() {
 }
 
 #[test]
-fn mutation_matches_fresh_hash256() {
-    // Exercise an unpacked element type (no `PackedLeaf`).
-    let n = 40usize;
-    let mk = |i: usize| Hash256::repeat_byte(i as u8);
+fn pop_front_with_pending_updates() {
+    let mut list = build(4);
+    list.push(4).unwrap();
+    *list.get_mut(0).unwrap() = 100;
+    assert!(list.has_pending_updates());
 
-    let mut list = ProgressiveList::<Hash256>::new((0..n).map(mk).collect()).unwrap();
-    *list.get_mut(37).unwrap() = Hash256::repeat_byte(0xff);
-    list.apply_updates().unwrap();
+    // The rebuild merges pending updates without applying them into a throwaway tree.
+    list.pop_front(2).unwrap();
+    assert_eq!(list.to_vec(), vec![2, 3, 4]);
+    assert!(!list.has_pending_updates());
 
-    let mut expected_vec: Vec<Hash256> = (0..n).map(mk).collect();
-    expected_vec[37] = Hash256::repeat_byte(0xff);
-    let expected = ProgressiveList::<Hash256>::new(expected_vec).unwrap();
-
-    assert_eq!(list.to_vec(), expected.to_vec());
+    let expected = ProgressiveList::<u64>::new(vec![2, 3, 4]).unwrap();
     assert_eq!(list.tree_hash_root(), expected.tree_hash_root());
 }
 
-#[test]
-fn bulk_update_then_apply() {
-    use crate::update_map::MaxMap;
-    use vec_map::VecMap;
-
-    let mut list = build(8);
-
-    let mut updates: MaxMap<VecMap<u64>> = MaxMap::default();
-    crate::UpdateMap::insert(&mut updates, 2, 222);
-    crate::UpdateMap::insert(&mut updates, 8, 888); // append
-
-    list.bulk_update(updates).unwrap();
-    assert_eq!(list.len(), 9);
-    list.apply_updates().unwrap();
-
-    let mut expected_vec: Vec<u64> = (0..8).collect();
-    expected_vec[2] = 222;
-    expected_vec.push(888);
-    let expected = ProgressiveList::<u64>::new(expected_vec).unwrap();
-    assert_eq!(list.to_vec(), expected.to_vec());
-    assert_eq!(list.tree_hash_root(), expected.tree_hash_root());
-}
-
-/// Regression test for a pure-replace `apply_updates` whose highest changed index lives in a deep
-/// progressive subtree. The spine-extent decision is driven by the largest *updated* index, which
-/// must be discovered from the entries themselves: CoW replaces via `get_mut` do not extend
-/// `MaxMap`'s append-only `max_index`, so relying on it would stop the walk short and silently drop
-/// the deep updates.
+/// Regression test for a replace-only `apply_updates` whose highest changed index lives in a deep
+/// spine subtree. The largest updated index must be found by scanning the map: `MaxMap`'s
+/// `max_index` does not see replaces made via `get_mut`, so trusting it would stop the spine walk
+/// short and silently drop the deep updates.
 #[test]
 fn replace_in_deep_subtree_then_apply_matches_fresh() {
     // 130 elements spans several progressive subtrees for `u64`.

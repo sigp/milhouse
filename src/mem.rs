@@ -1,5 +1,4 @@
-use crate::progressive_tree::ProgressiveTree;
-use crate::{Arc, List, ProgressiveList, Tree, UpdateMap, Value, Vector};
+use crate::{Arc, List, Tree, UpdateMap, Value, Vector};
 use alloy_primitives::FixedBytes;
 use std::collections::HashMap;
 use typenum::Unsigned;
@@ -156,44 +155,6 @@ impl<T: Value + MemorySize, N: Unsigned, U: UpdateMap<T>> MemorySize for Vector<
         // TODO(memsize): This approximates the size of the UpdateMap, and assumes that `T` is not
         // recursive. In most practical cases the update map should be empty anyway.
         std::mem::size_of::<Self>() + self.interface.updates.len() * std::mem::size_of::<T>()
-    }
-}
-
-impl<T: Value + MemorySize> MemorySize for ProgressiveTree<T> {
-    fn self_pointer(&self) -> usize {
-        self as *const _ as usize
-    }
-
-    fn subtrees(&self) -> Vec<&dyn MemorySize> {
-        match self {
-            // Recurse into the binary (left) subtree and the progressive (right) spine. These have
-            // different types, but both `Arc`s implement `MemorySize`.
-            ProgressiveTree::ProgressiveNode { left, right, .. } => vec![left, right],
-            // A zero terminator holds no nested pointers.
-            ProgressiveTree::ProgressiveZero => vec![],
-        }
-    }
-
-    fn intrinsic_size(&self) -> usize {
-        // The `left`/`right` `Arc`s are counted separately via `subtrees`, and the cached `hash` is
-        // stored inline, so there are no extra allocations to account for here.
-        std::mem::size_of::<Self>()
-    }
-}
-
-impl<T: Value + MemorySize, U: UpdateMap<T>> MemorySize for ProgressiveList<T, U> {
-    fn self_pointer(&self) -> usize {
-        self as *const _ as usize
-    }
-
-    fn subtrees(&self) -> Vec<&dyn MemorySize> {
-        vec![&self.tree]
-    }
-
-    fn intrinsic_size(&self) -> usize {
-        // This approximates the size of the UpdateMap, and assumes that `T` is not recursive. In
-        // most practical cases the update map should be empty anyway.
-        std::mem::size_of::<Self>() + self.updates.len() * std::mem::size_of::<T>()
     }
 }
 

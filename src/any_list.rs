@@ -234,12 +234,28 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> AnyList<T, N, U> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.as_ref().is_empty()
+    }
+
     pub fn get(&self, index: usize) -> Option<&T> {
         self.as_ref().get(index)
     }
 
     pub fn iter(&self) -> AnyListIter<'_, T, U> {
         self.as_ref().iter()
+    }
+
+    pub fn iter_from(&self, index: usize) -> Result<AnyListIter<'_, T, U>, Error> {
+        self.as_ref().iter_from(index)
+    }
+
+    pub fn has_pending_updates(&self) -> bool {
+        self.as_ref().has_pending_updates()
     }
 
     pub fn to_vec(&self) -> Vec<T> {

@@ -6,7 +6,7 @@ use crate::{
 };
 use educe::Educe;
 use itertools::process_results;
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _, ser::SerializeSeq};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::convert::TryFrom;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
@@ -84,6 +84,10 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
         let index = self.len();
+        // A list of length `usize::MAX` cannot grow: the new length would overflow.
+        if index == usize::MAX {
+            return Err(Error::ListFull { len: index });
+        }
         self.updates.insert(index, value);
         Ok(())
     }
@@ -101,10 +105,6 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     /// Apply all pending updates to the backing tree.
-    ///
-    /// Updates are applied in ascending index order, which means appends (indices `>= length`)
-    /// land at the end of the list one at a time, while replaces (indices `< length`) update
-    /// existing leaves in place. The list never has gaps, so this ordering is well-defined.
     pub fn apply_updates(&mut self) -> Result<(), Error> {
         if self.updates.is_empty() {
             return Ok(());
@@ -113,22 +113,22 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
         let updates = std::mem::take(&mut self.updates);
         let new_length = updated_length(self.length, &updates);
 
-        // Apply every pending update in a single walk of the spine, rather than re-walking it once
-        // per update.
-        self.tree = Arc::new(
-            self.tree
-                .with_updated_leaves(&updates, self.length.as_usize())?,
-        );
-        self.length = new_length;
-        Ok(())
-    }
-
-    pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
-        if !self.updates.is_empty() {
-            return Err(Error::BulkUpdateUnclean);
+        // Apply all updates in a single walk of the spine. On failure, restore the pending
+        // updates so an error does not silently discard them.
+        match self
+            .tree
+            .with_updated_leaves(&updates, self.length.as_usize())
+        {
+            Ok(tree) => {
+                self.tree = Arc::new(tree);
+                self.length = new_length;
+                Ok(())
+            }
+            Err(e) => {
+                self.updates = updates;
+                Err(e)
+            }
         }
-        self.updates = updates;
-        Ok(())
     }
 
     pub fn iter(&self) -> ProgressiveListIter<'_, T, U> {
@@ -196,8 +196,6 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     ///
     /// Errors if `n > self.len()`.
     pub fn pop_front(&mut self, n: usize) -> Result<(), Error> {
-        self.apply_updates()?;
-
         if n == 0 {
             return Ok(());
         }
@@ -208,9 +206,9 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
             });
         }
 
-        // Removing from the front re-indexes every element across the progressive subtrees, so
-        // there is nothing to share with the old tree; rebuild from the remaining elements. The
-        // remaining iterator is streamed straight into the builder to avoid a temporary `Vec`.
+        // Removing from the front re-indexes every element, so nothing can be shared with the
+        // old tree; rebuild from the remaining elements. The iterator includes pending updates,
+        // so there is no need to apply them first.
         *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
 
         Ok(())
@@ -224,11 +222,11 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
         Ok(rebased)
     }
 
-    /// Rebase `self` onto `base`, sharing memory between equal subtrees. Pending updates on `self`
-    /// are applied first; `base` is used as-is.
+    /// Rebase `self` onto `base`, sharing memory between equal subtrees.
+    ///
+    /// Only the backing trees are rebased: pending updates on `self` are left untouched, matching
+    /// the behaviour of `List::rebase_on`. `base` is used as-is.
     pub fn rebase_on(&mut self, base: &Self) -> Result<(), Error> {
-        self.apply_updates()?;
-
         self.tree = ProgressiveTree::rebase_on(
             &self.tree,
             &base.tree,
@@ -292,11 +290,8 @@ impl<T: Value + Serialize, U: UpdateMap<T>> Serialize for ProgressiveList<T, U> 
     where
         S: Serializer,
     {
-        let mut seq = serializer.serialize_seq(Some(self.len()))?;
-        for e in self {
-            seq.serialize_element(e)?;
-        }
-        seq.end()
+        // `collect_seq` passes our iterator's exact `size_hint` as the sequence length hint.
+        serializer.collect_seq(self)
     }
 }
 
@@ -364,18 +359,18 @@ where
         if bytes.is_empty() {
             Ok(ProgressiveList::empty())
         } else if <T as Decode>::is_ssz_fixed_len() {
-            process_results(
-                bytes
-                    .chunks(<T as Decode>::ssz_fixed_len())
-                    .map(T::from_ssz_bytes),
-                |iter| {
-                    ProgressiveList::try_from_iter(iter).map_err(|e| {
-                        ssz::DecodeError::BytesInvalid(format!(
-                            "Error building ssz ProgressiveList: {e:?}"
-                        ))
-                    })
-                },
-            )?
+            let fixed_len = <T as Decode>::ssz_fixed_len();
+            if fixed_len == 0 {
+                // Match `List`'s handling of zero-sized items; `chunks(0)` would panic.
+                return Err(ssz::DecodeError::ZeroLengthItem);
+            }
+            process_results(bytes.chunks(fixed_len).map(T::from_ssz_bytes), |iter| {
+                ProgressiveList::try_from_iter(iter).map_err(|e| {
+                    ssz::DecodeError::BytesInvalid(format!(
+                        "Error building ssz ProgressiveList: {e:?}"
+                    ))
+                })
+            })?
         } else {
             ssz::decode_list_of_variable_length_items(bytes, None)
         }
@@ -391,10 +386,8 @@ where
     where
         D: Deserializer<'de>,
     {
-        // Deserialize into a `Vec` first for simplicity; a custom visitor that fed the builder
-        // directly would avoid the intermediate allocation.
-        Self::try_from_iter(Vec::deserialize(deserializer)?)
-            .map_err(|e| D::Error::custom(format!("{e:?}")))
+        // Stream elements straight into the builder, without an intermediate `Vec`.
+        deserializer.deserialize_seq(crate::serde::ProgressiveListVisitor::default())
     }
 }
 

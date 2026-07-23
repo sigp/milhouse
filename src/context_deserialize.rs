@@ -54,13 +54,12 @@ where
     where
         D: Deserializer<'de>,
     {
-        // First deserialize as a Vec.
-        // This is not the most efficient implementation as it allocates a temporary Vec. In future
-        // we could write a more performant implementation using `ProgressiveList::builder()`.
+        // Deserialize as a `Vec` first. Unlike the plain serde impl this cannot easily stream into
+        // the builder, because threading `context` through a visitor requires `DeserializeSeed`.
         let vec = Vec::<T>::context_deserialize(deserializer, context)?;
 
-        // Then convert to List, which will check the length.
-        ProgressiveList::try_from(vec)
-            .map_err(|e| serde::de::Error::custom(format!("Failed to create List: {:?}", e)))
+        ProgressiveList::try_from(vec).map_err(|e| {
+            serde::de::Error::custom(format!("Failed to create ProgressiveList: {:?}", e))
+        })
     }
 }

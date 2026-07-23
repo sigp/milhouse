@@ -157,11 +157,10 @@ impl<T: Value> Tree<T> {
 
     /// Apply a batch of `updates` to the leaves of this (sub)tree.
     ///
-    /// `prefix` is the local index of the leftmost leaf under `self`, used to navigate the tree.
-    /// `offset` is added to every local index when *reading* from `updates`, so that a subtree can
-    /// be updated from a map keyed by global indices without copying it: pass `offset` equal to the
-    /// global index of this subtree's first leaf, with `prefix == 0`. For a top-level update of a
-    /// whole `List`/`Vector` both are `0`.
+    /// `prefix` is the local index of the leftmost leaf under `self`. `offset` is added to local
+    /// indices when reading from `updates`, so a subtree can be updated from a map keyed by
+    /// global indices: pass the subtree's starting index as `offset` with `prefix == 0`. Both are
+    /// `0` for a whole `List`/`Vector`.
     pub fn with_updated_leaves<U: UpdateMap<T>>(
         &self,
         updates: &U,

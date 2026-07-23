@@ -8,6 +8,7 @@ mod packed;
 mod pop_front;
 mod prog;
 mod prog_list;
+mod prog_spec;
 mod proptest;
 mod repeat;
 mod serde;
