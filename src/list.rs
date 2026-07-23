@@ -362,6 +362,8 @@ impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             &self.interface.backing.tree,
             &mut known_subtrees,
             self.interface.backing.depth,
+            self.interface.backing.packing_depth,
+            self.interface.backing.length,
         )? {
             self.interface.backing.tree = new_tree;
         }

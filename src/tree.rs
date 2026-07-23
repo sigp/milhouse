@@ -424,6 +424,18 @@ impl<T: Value> Tree<T> {
     ///   method returns.
     /// - `current_depth`: The depth of the tree `orig`. This will be decremented as we recurse
     ///   down the tree towards the leaves.
+    /// - `packing_depth`: The extra depth contributed by leaf packing, i.e. the base-2 log of the
+    ///   packing factor. Constant throughout the traversal.
+    /// - `len`: The number of values represented by `orig`, in the sense of the dense left prefix
+    ///   maintained by lists and vectors. Split between the children as we recurse.
+    ///
+    /// Only subtrees that are *full* (`len` equal to the subtree's value capacity) are recorded
+    /// in `known_subtrees` and eligible for replacement. A subtree with virtual `Zero` padding
+    /// can share a hash with a full subtree whose trailing values are zero, so replacing based on
+    /// hash alone could change the represented length. Full subtrees at equal depth always
+    /// represent equal lengths, making their replacement length-safe. In a tree with a dense left
+    /// prefix this restriction loses nothing: at each depth at most one subtree is partial, so a
+    /// partial subtree never has an identically-shaped twin to share with.
     ///
     /// Presently leaves are left untouched by this procedure, so it will only produce savings in
     /// trees with equal internal nodes (i.e. equal subtrees with at least two leaves/packed leaves
@@ -434,6 +446,8 @@ impl<T: Value> Tree<T> {
         orig: &Arc<Self>,
         known_subtrees: &mut HashMap<(usize, Hash256), Arc<Self>>,
         current_depth: usize,
+        packing_depth: usize,
+        len: Length,
     ) -> Result<IntraRebaseAction<Self>, Error> {
         match &**orig {
             Self::Leaf(_) | Self::PackedLeaf(_) | Self::Zero(_) => Ok(IntraRebaseAction::Noop),
@@ -445,14 +459,35 @@ impl<T: Value> Tree<T> {
                     return Err(Error::IntraRebaseZeroHash);
                 }
 
-                if let Some(known_subtree) = known_subtrees.get(&(current_depth, hash)) {
-                    // Node is already known from elsewhere in the tree. We can replace it without
-                    // looking at further subtrees.
-                    return Ok(IntraRebaseAction::Replace(known_subtree.clone()));
+                let capacity = 1usize << (current_depth + packing_depth);
+                let is_full = len.as_usize() == capacity;
+
+                if is_full {
+                    if let Some(known_subtree) = known_subtrees.get(&(current_depth, hash)) {
+                        // Node is already known from elsewhere in the tree. We can replace it
+                        // without looking at further subtrees.
+                        return Ok(IntraRebaseAction::Replace(known_subtree.clone()));
+                    }
                 }
 
-                let left_action = Self::intra_rebase(left, known_subtrees, current_depth - 1)?;
-                let right_action = Self::intra_rebase(right, known_subtrees, current_depth - 1)?;
+                let child_capacity = 1usize << (current_depth - 1 + packing_depth);
+                let left_len = std::cmp::min(len, Length(child_capacity));
+                let right_len = Length(len.as_usize() - left_len.as_usize());
+
+                let left_action = Self::intra_rebase(
+                    left,
+                    known_subtrees,
+                    current_depth - 1,
+                    packing_depth,
+                    left_len,
+                )?;
+                let right_action = Self::intra_rebase(
+                    right,
+                    known_subtrees,
+                    current_depth - 1,
+                    packing_depth,
+                    right_len,
+                )?;
 
                 let action = match (left_action, right_action) {
                     (IntraRebaseAction::Noop, IntraRebaseAction::Noop) => IntraRebaseAction::Noop,
@@ -468,20 +503,23 @@ impl<T: Value> Tree<T> {
                     ) => IntraRebaseAction::Replace(Self::node(new_left, new_right, hash)),
                 };
 
-                // Add the new version of this node to the known subtrees.
-                let new_subtree = match &action {
-                    // `orig` has not been seen in this traversal and will not change, so we add it
-                    // to the map.
-                    IntraRebaseAction::Noop => orig.clone(),
-                    IntraRebaseAction::Replace(new) => new.clone(),
-                };
-                let existing_entry = known_subtrees.insert((current_depth, hash), new_subtree);
+                // Add the new version of this node to the known subtrees, but only if it is
+                // full: partial subtrees must not be replacement candidates.
+                if is_full {
+                    let new_subtree = match &action {
+                        // `orig` has not been seen in this traversal and will not change, so we
+                        // add it to the map.
+                        IntraRebaseAction::Noop => orig.clone(),
+                        IntraRebaseAction::Replace(new) => new.clone(),
+                    };
+                    let existing_entry = known_subtrees.insert((current_depth, hash), new_subtree);
 
-                // We should not add any identical node to the `known_subtrees` more than once.
-                // This indicates an error in this method's implementation or the map passed in not
-                // being empty.
-                if existing_entry.is_some() {
-                    return Err(Error::IntraRebaseRepeatVisit);
+                    // We should not add any identical node to the `known_subtrees` more than
+                    // once. This indicates an error in this method's implementation or the map
+                    // passed in not being empty.
+                    if existing_entry.is_some() {
+                        return Err(Error::IntraRebaseRepeatVisit);
+                    }
                 }
 
                 Ok(action)
