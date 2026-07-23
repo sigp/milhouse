@@ -136,14 +136,6 @@ where
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
-        if !self.updates.is_empty() {
-            return Err(Error::BulkUpdateUnclean);
-        }
-        self.updates = updates;
-        Ok(())
-    }
 }
 
 #[cfg(test)]
