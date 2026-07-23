@@ -1163,4 +1163,20 @@ theorem intra_rebase_preserves_dense {T : Type} (ValueInst : Value T)
     known_subtrees current_depth len action updated_map (Nat.le_refl _)
     hdense hmap hrebase
 
+/-- Density preservation for the top-level intra-rebase call: starting from
+    the empty `known_subtrees` map, no premise about the map is needed. -/
+theorem intra_rebase_empty_preserves_dense {T : Type} (ValueInst : Value T)
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    {orig : Tree T} {updated_map : IntraRebaseMap T}
+    {current_depth : Std.Usize} {len : utils.Length}
+    {action : tree.IntraRebaseAction (Tree T)}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor orig current_depth.val len.val)
+    (hrebase : Tree.intra_rebase ValueInst orig [] current_depth
+      packing_depth len = ok (core.result.Result.Ok action, updated_map)) :
+    DenseTree packing_factor (applyIntraRebaseAction orig action)
+      current_depth.val len.val :=
+  (intra_rebase_preserves_dense ValueInst hlayout hdense
+    (FullDenseMap.empty packing_factor) hrebase).1
+
 end milhouse.tree
