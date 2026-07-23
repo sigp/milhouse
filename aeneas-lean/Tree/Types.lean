@@ -99,7 +99,7 @@ structure tree_hash.TreeHash (Self : Type) where
     32#usize)
 
 /-- [milhouse::error::Error]
-    Source: 'src/error.rs', lines 4:0-37:1
+    Source: 'src/error.rs', lines 4:0-36:1
     Visibility: public -/
 @[discriminant isize]
 inductive error.Error where
@@ -129,7 +129,6 @@ inductive error.Error where
 | BuilderStackEmptyFinalize : error.Error
 | BuilderStackLeftover : error.Error
 | BuilderFull : error.Error
-| BulkUpdateUnclean : error.Error
 | CowMissingEntry : error.Error
 | LevelIterPendingUpdates : error.Error
 | IntraRebaseZeroHash : error.Error

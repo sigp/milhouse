@@ -77,7 +77,7 @@ all remaining capacity is represented by `Zero` padding.
 - [ ] Prove `repeat_list`, list/vector construction, decoding, and `pop_front`
       return dense backing trees.
 - [ ] Define the `Interface` invariant for pending updates, including the
-      contiguous-extension condition needed by `bulk_update`.
+      contiguous-extension condition on the pending update map.
 - [ ] Connect cached list/vector length and depth fields to `DenseTree`.
 
 ## Structural sharing
