@@ -1394,14 +1394,15 @@ def tree.Tree.rebase_on
 partial_fixpoint
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::intra_rebase]:
-    Source: 'src/tree.rs', lines 433:4-491:5
+    Source: 'src/tree.rs', lines 445:4-529:5
     Visibility: public -/
 def tree.Tree.intra_rebase
   {T : Type} (ValueInst : Value T) (orig : triomphe.arc.Arc (tree.Tree T))
   (known_subtrees : std.collections.hash.map.HashMap (Std.Usize ×
   (alloy_primitives.bits.fixed.FixedBytes 32#usize)) (triomphe.arc.Arc
   (tree.Tree T)) std.hash.random.RandomState Global)
-  (current_depth : Std.Usize) :
+  (current_depth : Std.Usize) (packing_depth : Std.Usize) (len : utils.Length)
+  :
   Result ((core.result.Result (tree.IntraRebaseAction (tree.Tree T))
     error.Error) × (std.collections.hash.map.HashMap (Std.Usize ×
     (alloy_primitives.bits.fixed.FixedBytes 32#usize)) (triomphe.arc.Arc
@@ -1430,31 +1431,162 @@ def tree.Tree.intra_rebase
         ok (core.result.Result.Err error.Error.IntraRebaseZeroHash,
           known_subtrees)
       else
-        let o ←
-          std.collections.hash.map.HashMap.get (Pair.Insts.CoreCmpEq
-            core.cmp.EqUsize
-            (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq 32#usize))
-            (Pair.Insts.CoreHashHash Usize.Insts.CoreHashHash
-            (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
-            32#usize))
-            std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
-            (core.borrow.Borrow.Blanket (Std.Usize ×
-            (alloy_primitives.bits.fixed.FixedBytes 32#usize)))
-            (Pair.Insts.CoreHashHash Usize.Insts.CoreHashHash
-            (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
-            32#usize)) (Pair.Insts.CoreCmpEq core.cmp.EqUsize
-            (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq 32#usize))
-            known_subtrees (current_depth, hash1)
-        match o with
-        | none =>
-          let i ← current_depth - 1#usize
+        let i ← current_depth + packing_depth
+        let capacity ← 1#usize <<< i
+        let i1 ← utils.Length.as_usize len
+        if i1 = capacity
+        then
+          let o ←
+            std.collections.hash.map.HashMap.get (Pair.Insts.CoreCmpEq
+              core.cmp.EqUsize
+              (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
+              32#usize)) (Pair.Insts.CoreHashHash Usize.Insts.CoreHashHash
+              (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
+              32#usize))
+              std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
+              (core.borrow.Borrow.Blanket (Std.Usize ×
+              (alloy_primitives.bits.fixed.FixedBytes 32#usize)))
+              (Pair.Insts.CoreHashHash Usize.Insts.CoreHashHash
+              (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
+              32#usize)) (Pair.Insts.CoreCmpEq core.cmp.EqUsize
+              (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
+              32#usize)) known_subtrees (current_depth, hash1)
+          match o with
+          | none =>
+            let i2 ← current_depth - 1#usize
+            let i3 ← i2 + packing_depth
+            let child_capacity ← 1#usize <<< i3
+            let left_len ←
+              core.cmp.min utils.Length.Insts.CoreCmpOrd len child_capacity
+            let i4 ← utils.Length.as_usize left_len
+            let i5 ← i1 - i4
+            let (r, known_subtrees1) ←
+              tree.Tree.intra_rebase ValueInst left known_subtrees i2
+                packing_depth left_len
+            let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+            match cf with
+            | core.ops.control_flow.ControlFlow.Continue val =>
+              let (r1, known_subtrees2) ←
+                tree.Tree.intra_rebase ValueInst right known_subtrees1 i2
+                  packing_depth i5
+              let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+              match cf1 with
+              | core.ops.control_flow.ControlFlow.Continue val1 =>
+                match val with
+                | tree.IntraRebaseAction.Noop =>
+                  let action ←
+                    match val1 with
+                    | tree.IntraRebaseAction.Noop =>
+                      ok tree.IntraRebaseAction.Noop
+                    | tree.IntraRebaseAction.Replace new_right =>
+                      do
+                      let a ←
+                        triomphe.arc.Arc.Insts.CoreCloneClone.clone left
+                      let a1 ← tree.Tree.node ValueInst a new_right hash1
+                      ok (tree.IntraRebaseAction.Replace a1)
+                  let new_subtree ←
+                    match action with
+                    | tree.IntraRebaseAction.Noop =>
+                      triomphe.arc.Arc.Insts.CoreCloneClone.clone orig
+                    | tree.IntraRebaseAction.Replace new =>
+                      triomphe.arc.Arc.Insts.CoreCloneClone.clone new
+                  let (existing_entry, known_subtrees3) ←
+                    std.collections.hash.map.HashMap.insert
+                      (Pair.Insts.CoreCmpEq core.cmp.EqUsize
+                      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
+                      32#usize)) (Pair.Insts.CoreHashHash
+                      Usize.Insts.CoreHashHash
+                      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
+                      32#usize))
+                      std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
+                      known_subtrees2 (current_depth, hash1) new_subtree
+                  let b1 := core.option.Option.is_some existing_entry
+                  if b1
+                  then
+                    ok (core.result.Result.Err
+                      error.Error.IntraRebaseRepeatVisit, known_subtrees3)
+                  else ok (core.result.Result.Ok action, known_subtrees3)
+                | tree.IntraRebaseAction.Replace new_left =>
+                  match val1 with
+                  | tree.IntraRebaseAction.Noop =>
+                    let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
+                    let new ← tree.Tree.node ValueInst new_left a hash1
+                    let new_subtree ←
+                      triomphe.arc.Arc.Insts.CoreCloneClone.clone new
+                    let (existing_entry, known_subtrees3) ←
+                      std.collections.hash.map.HashMap.insert
+                        (Pair.Insts.CoreCmpEq core.cmp.EqUsize
+                        (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
+                        32#usize)) (Pair.Insts.CoreHashHash
+                        Usize.Insts.CoreHashHash
+                        (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
+                        32#usize))
+                        std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
+                        known_subtrees2 (current_depth, hash1) new_subtree
+                    let b1 := core.option.Option.is_some existing_entry
+                    if b1
+                    then
+                      ok (core.result.Result.Err
+                        error.Error.IntraRebaseRepeatVisit, known_subtrees3)
+                    else
+                      ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace
+                        new), known_subtrees3)
+                  | tree.IntraRebaseAction.Replace new_right =>
+                    let new ←
+                      tree.Tree.node ValueInst new_left new_right hash1
+                    let new_subtree ←
+                      triomphe.arc.Arc.Insts.CoreCloneClone.clone new
+                    let (existing_entry, known_subtrees3) ←
+                      std.collections.hash.map.HashMap.insert
+                        (Pair.Insts.CoreCmpEq core.cmp.EqUsize
+                        (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
+                        32#usize)) (Pair.Insts.CoreHashHash
+                        Usize.Insts.CoreHashHash
+                        (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
+                        32#usize))
+                        std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
+                        known_subtrees2 (current_depth, hash1) new_subtree
+                    let b1 := core.option.Option.is_some existing_entry
+                    if b1
+                    then
+                      ok (core.result.Result.Err
+                        error.Error.IntraRebaseRepeatVisit, known_subtrees3)
+                    else
+                      ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace
+                        new), known_subtrees3)
+              | core.ops.control_flow.ControlFlow.Break residual =>
+                let r2 ←
+                  core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                    (tree.IntraRebaseAction (tree.Tree T))
+                    (core.convert.FromSame error.Error) residual
+                ok (r2, known_subtrees2)
+            | core.ops.control_flow.ControlFlow.Break residual =>
+              let r1 ←
+                core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                  (tree.IntraRebaseAction (tree.Tree T)) (core.convert.FromSame
+                  error.Error) residual
+              ok (r1, known_subtrees1)
+          | some known_subtree =>
+            let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone known_subtree
+            ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace a),
+              known_subtrees)
+        else
+          let i2 ← current_depth - 1#usize
+          let i3 ← i2 + packing_depth
+          let child_capacity ← 1#usize <<< i3
+          let left_len ←
+            core.cmp.min utils.Length.Insts.CoreCmpOrd len child_capacity
+          let i4 ← utils.Length.as_usize left_len
+          let i5 ← i1 - i4
           let (r, known_subtrees1) ←
-            tree.Tree.intra_rebase ValueInst left known_subtrees i
+            tree.Tree.intra_rebase ValueInst left known_subtrees i2
+              packing_depth left_len
           let cf ← core.result.Result.Insts.CoreOpsTry.branch r
           match cf with
           | core.ops.control_flow.ControlFlow.Continue val =>
             let (r1, known_subtrees2) ←
-              tree.Tree.intra_rebase ValueInst right known_subtrees1 i
+              tree.Tree.intra_rebase ValueInst right known_subtrees1 i2
+                packing_depth i5
             let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
             match cf1 with
             | core.ops.control_flow.ControlFlow.Continue val1 =>
@@ -1469,75 +1601,18 @@ def tree.Tree.intra_rebase
                     let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
                     let a1 ← tree.Tree.node ValueInst a new_right hash1
                     ok (tree.IntraRebaseAction.Replace a1)
-                let new_subtree ←
-                  match action with
-                  | tree.IntraRebaseAction.Noop =>
-                    triomphe.arc.Arc.Insts.CoreCloneClone.clone orig
-                  | tree.IntraRebaseAction.Replace new =>
-                    triomphe.arc.Arc.Insts.CoreCloneClone.clone new
-                let (existing_entry, known_subtrees3) ←
-                  std.collections.hash.map.HashMap.insert (Pair.Insts.CoreCmpEq
-                    core.cmp.EqUsize
-                    (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
-                    32#usize)) (Pair.Insts.CoreHashHash
-                    Usize.Insts.CoreHashHash
-                    (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
-                    32#usize))
-                    std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
-                    known_subtrees2 (current_depth, hash1) new_subtree
-                let b1 := core.option.Option.is_some existing_entry
-                if b1
-                then
-                  ok (core.result.Result.Err
-                    error.Error.IntraRebaseRepeatVisit, known_subtrees3)
-                else ok (core.result.Result.Ok action, known_subtrees3)
+                ok (core.result.Result.Ok action, known_subtrees2)
               | tree.IntraRebaseAction.Replace new_left =>
                 match val1 with
                 | tree.IntraRebaseAction.Noop =>
                   let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
                   let new ← tree.Tree.node ValueInst new_left a hash1
-                  let new_subtree ←
-                    triomphe.arc.Arc.Insts.CoreCloneClone.clone new
-                  let (existing_entry, known_subtrees3) ←
-                    std.collections.hash.map.HashMap.insert
-                      (Pair.Insts.CoreCmpEq core.cmp.EqUsize
-                      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
-                      32#usize)) (Pair.Insts.CoreHashHash
-                      Usize.Insts.CoreHashHash
-                      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
-                      32#usize))
-                      std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
-                      known_subtrees2 (current_depth, hash1) new_subtree
-                  let b1 := core.option.Option.is_some existing_entry
-                  if b1
-                  then
-                    ok (core.result.Result.Err
-                      error.Error.IntraRebaseRepeatVisit, known_subtrees3)
-                  else
-                    ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace
-                      new), known_subtrees3)
+                  ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace
+                    new), known_subtrees2)
                 | tree.IntraRebaseAction.Replace new_right =>
                   let new ← tree.Tree.node ValueInst new_left new_right hash1
-                  let new_subtree ←
-                    triomphe.arc.Arc.Insts.CoreCloneClone.clone new
-                  let (existing_entry, known_subtrees3) ←
-                    std.collections.hash.map.HashMap.insert
-                      (Pair.Insts.CoreCmpEq core.cmp.EqUsize
-                      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpEq
-                      32#usize)) (Pair.Insts.CoreHashHash
-                      Usize.Insts.CoreHashHash
-                      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash
-                      32#usize))
-                      std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
-                      known_subtrees2 (current_depth, hash1) new_subtree
-                  let b1 := core.option.Option.is_some existing_entry
-                  if b1
-                  then
-                    ok (core.result.Result.Err
-                      error.Error.IntraRebaseRepeatVisit, known_subtrees3)
-                  else
-                    ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace
-                      new), known_subtrees3)
+                  ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace
+                    new), known_subtrees2)
             | core.ops.control_flow.ControlFlow.Break residual =>
               let r2 ←
                 core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
@@ -1550,10 +1625,6 @@ def tree.Tree.intra_rebase
                 (tree.IntraRebaseAction (tree.Tree T)) (core.convert.FromSame
                 error.Error) residual
             ok (r1, known_subtrees1)
-        | some known_subtree =>
-          let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone known_subtree
-          ok (core.result.Result.Ok (tree.IntraRebaseAction.Replace a),
-            known_subtrees)
     else
       ok (core.result.Result.Err error.Error.IntraRebaseZeroDepth,
         known_subtrees)
