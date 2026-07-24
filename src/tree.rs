@@ -5,7 +5,6 @@ use ethereum_hashing::{ZERO_HASHES, hash32_concat};
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::ops::ControlFlow;
 use tree_hash::Hash256;
 
 #[derive(Debug, Educe)]
@@ -183,16 +182,8 @@ impl<T: Value> Tree<T> {
                 let right_prefix = prefix | (1 << (new_depth + packing_depth));
                 let right_subtree_end = prefix + (1 << (depth + packing_depth));
 
-                let mut has_left_updates = false;
-                updates.for_each_range(left_prefix, right_prefix, |_, _| {
-                    has_left_updates = true;
-                    ControlFlow::Break(())
-                })?;
-                let mut has_right_updates = false;
-                updates.for_each_range(right_prefix, right_subtree_end, |_, _| {
-                    has_right_updates = true;
-                    ControlFlow::Break(())
-                })?;
+                let has_left_updates = updates.has_any_in_range(left_prefix, right_prefix);
+                let has_right_updates = updates.has_any_in_range(right_prefix, right_subtree_end);
 
                 // Must have some updates else this recursive branch is a complete waste of time.
                 if !has_left_updates && !has_right_updates {
