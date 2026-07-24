@@ -27,8 +27,13 @@ all remaining capacity is represented by `Zero` padding.
       (`DenseTree.eq_zero_of_length_zero`).
 - [x] Full length implies that the tree contains no `Zero` padding
       (`DenseTree.noZero_of_full`).
-- [ ] For `index < len`, `get_recursive` returns a materialized value.
-- [ ] For `len <= index < capacity`, `get_recursive` returns `none`.
+- [x] For `index < len`, `get_recursive` returns a materialized value
+      (`DenseTree.get_recursive_some`, via the modulo-form
+      `DenseTree.get_recursive_spec_of_mod`).
+- [x] For `len <= index < capacity`, `get_recursive` returns `none`
+      (`DenseTree.get_recursive_none`). Both forms consume the routing-shift
+      bound `depth + packing_depth <= numBits`, to be supplied by the
+      container-level bound tracked below.
 - [x] `DenseTree` plus `index <= len` implies
       `updateIndexWithinLength`, discharging the roundtrip side condition
       (`DenseTree.updateIndexWithinLength`,
@@ -103,6 +108,7 @@ all remaining capacity is represented by `Zero` padding.
       (`PackingLayout.leafCapacity_pos`,
       `PackingLayout.subtreeCapacity_pos`).
 - [ ] Add the container-level bound needed to prove every routing shift fits
-      in `Usize`; successful-update proofs already invert checked shifts.
+      in `Usize`; successful-update proofs already invert checked shifts, and
+      the dense read lemmas consume it as the `hbits` hypothesis.
 - [x] Bridge `subtreeCapacity` to `1 << (depth + packing_depth)` using
       `factor_is_power` (`PackingLayout.subtreeCapacity_eq_two_pow`).

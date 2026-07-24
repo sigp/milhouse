@@ -261,6 +261,37 @@ theorem PackingLayout.unwrap_opt_packing_depth_eq {T : Type}
         0#usize = packing_depth := by
   cases h <;> simp [core.option.Option.unwrap_or]
 
+/-- If the optional packing-factor query succeeds with `some factor`, the
+    underlying trait method returned that factor. -/
+theorem tree_hash_packing_factor_eq_of_opt_some {T : Type}
+    {thi : tree_hash.TreeHash T} {factor : Std.Usize}
+    (h : utils.opt_packing_factor thi = ok (some factor)) :
+    thi.tree_hash_packing_factor = ok factor := by
+  unfold utils.opt_packing_factor at h
+  cases htht : thi.tree_hash_type with
+  | fail e => rw [htht] at h; simp at h
+  | div => rw [htht] at h; simp at h
+  | ok tht =>
+    rw [htht] at h
+    cases tht <;> simp at h
+    cases hfactor : thi.tree_hash_packing_factor with
+    | fail e => rw [hfactor] at h; simp at h
+    | div => rw [hfactor] at h; simp at h
+    | ok actual =>
+      rw [hfactor] at h
+      simp at h
+      exact congrArg ok h
+
+/-- A packed layout exposes its packing factor through the raw trait method
+    used by `PackedLeaf.single` and tree updates. -/
+theorem PackingLayout.tree_hash_packing_factor_eq {T : Type}
+    {ValueInst : Value T} {factor packing_depth : Std.Usize}
+    (h : PackingLayout ValueInst (some factor) packing_depth) :
+    ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor = ok factor := by
+  cases h with
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    exact tree_hash_packing_factor_eq_of_opt_some factor_eq
+
 /-- The logical length of a dense tree never exceeds its subtree capacity. -/
 theorem DenseTree.length_le_capacity {T : Type}
     {packing_factor : Option Std.Usize} {tree : Tree T} {depth len : Nat}
@@ -630,6 +661,264 @@ theorem DenseTree.updateIndexWithinLength {T : Type}
     rw [hindex_eq, Nat.mod_self]
     omega
 
+/-! ## Dense reads -/
+
+/-- Subtraction of one from a positive `Usize` succeeds. -/
+private theorem usize_sub_one_succeeds {x : Std.Usize} (h : 0 < x.val) :
+    ∃ predecessor, x - 1#usize = ok predecessor ∧
+      x.val = predecessor.val + 1 := by
+  have hsub := UScalar.sub_equiv x 1#usize
+  cases heq : x - 1#usize with
+  | fail e => rw [heq] at hsub; scalar_tac
+  | div => rw [heq] at hsub; simp at hsub
+  | ok predecessor =>
+    rw [heq] at hsub
+    obtain ⟨-, hval, -⟩ := hsub
+    exact ⟨predecessor, rfl, by scalar_tac⟩
+
+/-- Addition succeeds when the mathematical sum stays in bounds. -/
+private theorem usize_add_succeeds {x y : Std.Usize}
+    (h : x.val + y.val < 2 ^ System.Platform.numBits) :
+    ∃ sum, x + y = ok sum ∧ sum.val = x.val + y.val := by
+  have hadd := UScalar.add_equiv x y
+  cases heq : x + y with
+  | fail e => rw [heq] at hadd; simp at hadd; scalar_tac
+  | div => rw [heq] at hadd; simp at hadd
+  | ok sum =>
+    rw [heq] at hadd
+    simp at hadd
+    exact ⟨sum, rfl, by omega⟩
+
+/-- Right shift succeeds for shift amounts below the word size. -/
+private theorem usize_shift_right_succeeds (x : Std.Usize)
+    {shift : Std.Usize} (h : shift.val < System.Platform.numBits) :
+    ∃ shifted, x >>> shift = ok shifted ∧
+      shifted.val = x.val >>> shift.val := by
+  have hspec := Std.Usize.ShiftRight_spec x shift h
+  cases heq : x >>> shift with
+  | fail e => rw [heq] at hspec; simp at hspec
+  | div => rw [heq] at hspec; simp at hspec
+  | ok shifted =>
+    rw [heq] at hspec
+    exact ⟨shifted, rfl, hspec.1⟩
+
+/-- Remainder by a positive divisor succeeds. -/
+private theorem usize_rem_succeeds (x : Std.Usize) {factor : Std.Usize}
+    (h : 0 < factor.val) :
+    ∃ remainder, x % factor = ok remainder ∧
+      remainder.val = x.val % factor.val := by
+  have hspec := Std.Usize.rem_bv_spec x (Nat.ne_of_gt h)
+  cases heq : x % factor with
+  | fail e => rw [heq] at hspec; simp at hspec
+  | div => rw [heq] at hspec; simp at hspec
+  | ok remainder =>
+    rw [heq] at hspec
+    exact ⟨remainder, rfl, hspec.1⟩
+
+/-- Reads on a dense tree are characterized by the dense length: an index
+    (reduced modulo the subtree capacity, so the statement recurses through
+    subtrees) below the length reads a materialized value, and an index at or
+    above it reads `none`. `hbits` bounds the routing shifts checked by the
+    translated code; containers guarantee it from their type-level maximum
+    lengths. -/
+theorem DenseTree.get_recursive_spec_of_mod {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize} {tree : Tree T} {depth len : Nat}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor tree depth len)
+    (machine_depth : Std.Usize) (hdepth : machine_depth.val = depth)
+    (hbits : depth + packing_depth.val ≤ System.Platform.numBits)
+    (index : Std.Usize) :
+    (index.val % subtreeCapacity packing_factor depth < len →
+      ∃ value, Tree.get_recursive ValueInst tree index machine_depth
+        packing_depth = ok (some value)) ∧
+    (len ≤ index.val % subtreeCapacity packing_factor depth →
+      Tree.get_recursive ValueInst tree index machine_depth packing_depth =
+        ok none) := by
+  induction hdense generalizing machine_depth with
+  | zero packing_factor zero_depth =>
+    constructor
+    · intro h
+      omega
+    · intro h
+      unfold Tree.get_recursive
+      simp
+  | leaf l =>
+    have hzero : machine_depth = 0#usize := by scalar_tac
+    subst hzero
+    constructor
+    · intro h
+      refine ⟨l.value, ?_⟩
+      unfold Tree.get_recursive
+      simp [triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref]
+    · intro h
+      simp [subtreeCapacity, leafCapacity] at h
+      omega
+  | packed factor pl values_nonempty values_fit =>
+    have hzero : machine_depth = 0#usize := by scalar_tac
+    subst hzero
+    have hfactor := hlayout.tree_hash_packing_factor_eq
+    have hfactor_pos : 0 < factor.val := by
+      simpa [leafCapacity] using hlayout.leafCapacity_pos
+    obtain ⟨sub, hrem, hsub⟩ := usize_rem_succeeds index hfactor_pos
+    have hcap : subtreeCapacity (some factor) 0 = factor.val := by
+      simp [subtreeCapacity, leafCapacity]
+    constructor
+    · intro h
+      rw [hcap] at h
+      have hlt : sub.val < pl.values.val.length := by omega
+      refine ⟨pl.values.val[sub.val], ?_⟩
+      unfold Tree.get_recursive
+      simp [hfactor, hrem, core.slice.Slice.get, alloc.vec.Vec.deref,
+        List.getElem?_eq_getElem hlt]
+    · intro h
+      rw [hcap] at h
+      have hge : pl.values.val.length ≤ sub.val := by omega
+      unfold Tree.get_recursive
+      simp [hfactor, hrem, core.slice.Slice.get, alloc.vec.Vec.deref, hge]
+  | node packing_factor rl left right child_depth left_len right_len
+      left_dense right_dense left_nonempty left_full_before_right
+      ihleft ihright =>
+    have hdepth_pos : machine_depth > 0#usize := by scalar_tac
+    obtain ⟨nd, hnd, hnd_val⟩ := usize_sub_one_succeeds
+      (show 0 < machine_depth.val by scalar_tac)
+    have hnd_depth : nd.val = child_depth := by omega
+    have hnumbits : System.Platform.numBits < 2 ^ System.Platform.numBits :=
+      Nat.lt_two_pow_self
+    obtain ⟨sh, hsh, hsh_val⟩ := usize_add_succeeds
+      (x := nd) (y := packing_depth) (by omega)
+    have hsh_bound : sh.val < System.Platform.numBits := by omega
+    obtain ⟨shifted, hshr, hshifted⟩ := usize_shift_right_succeeds index
+      hsh_bound
+    have hchild_capacity :
+        subtreeCapacity packing_factor child_depth = 2 ^ sh.val := by
+      rw [hlayout.subtreeCapacity_eq_two_pow]
+      congr 1
+      omega
+    have hparent_capacity :
+        subtreeCapacity packing_factor (child_depth + 1) =
+          2 ^ (sh.val + 1) := by
+      rw [hlayout.subtreeCapacity_eq_two_pow]
+      congr 1
+      omega
+    have hleft_bound := left_dense.length_le_capacity
+    have hright_bound := right_dense.length_le_capacity
+    by_cases hbit : (shifted &&& 1#usize) = 0#usize
+    · -- The read routes into the left child.
+      have hroute := (routing_bit_zero_iff hshr).mp hbit
+      rw [← hchild_capacity, ← hparent_capacity] at hroute
+      have hchild_mod :
+          index.val % subtreeCapacity packing_factor child_depth =
+            index.val % subtreeCapacity packing_factor (child_depth + 1) := by
+        rw [hchild_capacity, hparent_capacity, pow_succ]
+        refine mod_child_eq_parent_of_lt index.val (2 ^ sh.val)
+          (Nat.two_pow_pos sh.val) ?_
+        rw [← pow_succ, ← hparent_capacity, ← hchild_capacity]
+        exact hroute
+      obtain ⟨ih_some, ih_none⟩ := ihleft hlayout nd hnd_depth (by omega)
+      constructor
+      · intro h
+        have hlocal :
+            index.val % subtreeCapacity packing_factor child_depth <
+              left_len := by
+          by_cases hright_pos : 0 < right_len
+          · have := left_full_before_right hright_pos
+            omega
+          · omega
+        obtain ⟨value, hvalue⟩ := ih_some hlocal
+        refine ⟨value, ?_⟩
+        unfold Tree.get_recursive
+        rw [if_pos hdepth_pos]
+        simp only [hnd, hsh, hshr, lift, bind_tc_ok,
+          triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref, if_pos hbit]
+        exact hvalue
+      · intro h
+        have hlocal : left_len ≤
+            index.val % subtreeCapacity packing_factor child_depth := by
+          omega
+        unfold Tree.get_recursive
+        rw [if_pos hdepth_pos]
+        simp only [hnd, hsh, hshr, lift, bind_tc_ok,
+          triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref, if_pos hbit]
+        exact ih_none hlocal
+    · -- The read routes into the right child.
+      have hroute : ¬ index.val % (2 ^ (sh.val + 1)) < 2 ^ sh.val := by
+        intro hlt
+        exact hbit ((routing_bit_zero_iff hshr).mpr hlt)
+      have hparent_route :
+          subtreeCapacity packing_factor child_depth ≤
+            index.val % subtreeCapacity packing_factor (child_depth + 1) := by
+        rw [hchild_capacity, hparent_capacity]
+        omega
+      have hchild_mod :
+          index.val % subtreeCapacity packing_factor child_depth =
+            index.val % subtreeCapacity packing_factor (child_depth + 1) -
+              subtreeCapacity packing_factor child_depth := by
+        rw [hchild_capacity, hparent_capacity, pow_succ]
+        exact mod_child_eq_parent_sub_of_not_lt index.val (2 ^ sh.val)
+          (Nat.two_pow_pos sh.val) (by simpa [pow_succ] using hroute)
+      obtain ⟨ih_some, ih_none⟩ := ihright hlayout nd hnd_depth (by omega)
+      constructor
+      · intro h
+        have hright_pos : 0 < right_len := by
+          by_contra hzero
+          omega
+        have hleft_full := left_full_before_right hright_pos
+        have hlocal :
+            index.val % subtreeCapacity packing_factor child_depth <
+              right_len := by
+          omega
+        obtain ⟨value, hvalue⟩ := ih_some hlocal
+        refine ⟨value, ?_⟩
+        unfold Tree.get_recursive
+        rw [if_pos hdepth_pos]
+        simp only [hnd, hsh, hshr, lift, bind_tc_ok,
+          triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref, if_neg hbit]
+        exact hvalue
+      · intro h
+        have hlocal : right_len ≤
+            index.val % subtreeCapacity packing_factor child_depth := by
+          by_cases hright_pos : 0 < right_len
+          · have := left_full_before_right hright_pos
+            omega
+          · omega
+        unfold Tree.get_recursive
+        rw [if_pos hdepth_pos]
+        simp only [hnd, hsh, hshr, lift, bind_tc_ok,
+          triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref, if_neg hbit]
+        exact ih_none hlocal
+
+/-- For `index < len`, `get_recursive` on a dense tree returns a
+    materialized value. -/
+theorem DenseTree.get_recursive_some {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth depth : Std.Usize}
+    {tree : Tree T} {len : Nat}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor tree depth.val len)
+    (hbits : depth.val + packing_depth.val ≤ System.Platform.numBits)
+    (index : Std.Usize) (hindex : index.val < len) :
+    ∃ value, Tree.get_recursive ValueInst tree index depth packing_depth =
+      ok (some value) := by
+  apply (hdense.get_recursive_spec_of_mod hlayout depth rfl hbits index).1
+  have hcap := hdense.length_le_capacity
+  rw [Nat.mod_eq_of_lt (by omega)]
+  exact hindex
+
+/-- For `len ≤ index < capacity`, `get_recursive` on a dense tree returns
+    `none`. -/
+theorem DenseTree.get_recursive_none {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth depth : Std.Usize}
+    {tree : Tree T} {len : Nat}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor tree depth.val len)
+    (hbits : depth.val + packing_depth.val ≤ System.Platform.numBits)
+    (index : Std.Usize) (hlen : len ≤ index.val)
+    (hcap : index.val < subtreeCapacity packing_factor depth.val) :
+    Tree.get_recursive ValueInst tree index depth packing_depth = ok none := by
+  apply (hdense.get_recursive_spec_of_mod hlayout depth rfl hbits index).2
+  rw [Nat.mod_eq_of_lt hcap]
+  exact hlen
+
 /-- Length zero is represented canonically by a `Zero` node. -/
 theorem DenseTree.eq_zero_of_length_zero {T : Type}
     {packing_factor : Option Std.Usize} {tree : Tree T} {depth len : Nat}
@@ -686,37 +975,6 @@ theorem DenseTree.noZero_of_full {T : Type} {ValueInst : Value T}
       (ihleft hlayout hleftfull) (ihright hlayout hrightfull')
 
 /-! ## Initial preservation lemmas -/
-
-/-- If the optional packing-factor query succeeds with `some factor`, the
-    underlying trait method returned that factor. -/
-theorem tree_hash_packing_factor_eq_of_opt_some {T : Type}
-    {thi : tree_hash.TreeHash T} {factor : Std.Usize}
-    (h : utils.opt_packing_factor thi = ok (some factor)) :
-    thi.tree_hash_packing_factor = ok factor := by
-  unfold utils.opt_packing_factor at h
-  cases htht : thi.tree_hash_type with
-  | fail e => rw [htht] at h; simp at h
-  | div => rw [htht] at h; simp at h
-  | ok tht =>
-    rw [htht] at h
-    cases tht <;> simp at h
-    cases hfactor : thi.tree_hash_packing_factor with
-    | fail e => rw [hfactor] at h; simp at h
-    | div => rw [hfactor] at h; simp at h
-    | ok actual =>
-      rw [hfactor] at h
-      simp at h
-      exact congrArg ok h
-
-/-- A packed layout exposes its packing factor through the raw trait method
-    used by `PackedLeaf.single` and tree updates. -/
-theorem PackingLayout.tree_hash_packing_factor_eq {T : Type}
-    {ValueInst : Value T} {factor packing_depth : Std.Usize}
-    (h : PackingLayout ValueInst (some factor) packing_depth) :
-    ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor = ok factor := by
-  cases h with
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
-    exact tree_hash_packing_factor_eq_of_opt_some factor_eq
 
 /-- Inversion for the translated vector push operation. -/
 private theorem vec_push_eq_ok {T : Type} {values : alloc.vec.Vec T}
