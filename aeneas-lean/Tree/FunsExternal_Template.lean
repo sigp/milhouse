@@ -72,6 +72,15 @@ axiom core.option.Option.is_none_or
   core.ops.function.FnOnce T1 T Bool) :
   Option T → T1 → Result Bool
 
+/-- [core::option::{core::option::Option<T>}::unwrap_or_default]:
+    Source: '/rustc/library/core/src/option.rs', lines 1090:4-1092:27
+    Name pattern: [core::option::{core::option::Option<@T>}::unwrap_or_default]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<@T>}::unwrap_or_default"]
+axiom core.option.Option.unwrap_or_default
+  {T : Type} (defaultDefaultInst : core.default.Default T) :
+  Option T → Result T
+
 /-- [core::option::{core::option::Option<T>}::map]:
     Source: '/rustc/library/core/src/option.rs', lines 1157:4-1159:53
     Name pattern: [core::option::{core::option::Option<@T>}::map]
@@ -82,6 +91,14 @@ axiom core.option.Option.map
   core.ops.function.FnOnce F T U) :
   Option T → F → Result (Option U)
 
+/-- [core::option::{core::option::Option<T>}::ok_or]:
+    Source: '/rustc/library/core/src/option.rs', lines 1334:4-1334:73
+    Name pattern: [core::option::{core::option::Option<@T>}::ok_or]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<@T>}::ok_or"]
+axiom core.option.Option.ok_or
+  {T : Type} {E : Type} : Option T → E → Result (core.result.Result T E)
+
 /-- [core::option::{core::option::Option<(T, U)>}::unzip]:
     Source: '/rustc/library/core/src/option.rs', lines 2111:4-2111:48
     Name pattern: [core::option::{core::option::Option<(@T, @U)>}::unzip]
@@ -89,6 +106,24 @@ axiom core.option.Option.map
 @[rust_fun "core::option::{core::option::Option<(@T, @U)>}::unzip"]
 axiom core.option.OptionPair.unzip
   {T : Type} {U : Type} : Option (T × U) → Result ((Option T) × (Option U))
+
+/-- [core::option::{core::option::Option<&'_0 T>}::copied]:
+    Source: '/rustc/library/core/src/option.rs', lines 2135:4-2137:16
+    Name pattern: [core::option::{core::option::Option<&'0 @T>}::copied]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<&'0 @T>}::copied"]
+axiom core.option.OptionShared0T.copied
+  {T : Type} (markerCopyInst : core.marker.Copy T) :
+  Option T → Result (Option T)
+
+/-- [core::option::{core::option::Option<&'_0 T>}::cloned]:
+    Source: '/rustc/library/core/src/option.rs', lines 2161:4-2163:17
+    Name pattern: [core::option::{core::option::Option<&'0 @T>}::cloned]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<&'0 @T>}::cloned"]
+axiom core.option.OptionShared0T.cloned
+  {T : Type} (cloneCloneInst : core.clone.Clone T) :
+  Option T → Result (Option T)
 
 /-- [core::option::{impl core::ops::try_trait::Try for core::option::Option<T>}::branch]:
     Source: '/rustc/library/core/src/option.rs', lines 2779:4-2779:64
@@ -120,6 +155,27 @@ axiom Pair.Insts.CoreCmpPartialEqPair.eq
   {U : Type} {T : Type} (cmpPartialEqInst : core.cmp.PartialEq U U)
   (cmpPartialEqInst1 : core.cmp.PartialEq T T) :
   (U × T) → (U × T) → Result Bool
+
+/-- [core::tuple::{impl core::cmp::PartialOrd<(U, T)> for (U, T)}::partial_cmp]:
+    Source: '/rustc/library/core/src/tuple.rs', lines 69:16-69:76
+    Name pattern: [core::tuple::{core::cmp::PartialOrd<(@U, @T), (@U, @T)>}::partial_cmp]
+    Visibility: public -/
+@[rust_fun
+  "core::tuple::{core::cmp::PartialOrd<(@U, @T), (@U, @T)>}::partial_cmp"]
+axiom Pair.Insts.CoreCmpPartialOrdPair.partial_cmp
+  {U : Type} {T : Type} (cmpPartialOrdInst : core.cmp.PartialOrd U U)
+  (cmpPartialOrdInst1 : core.cmp.PartialOrd T T) :
+  (U × T) → (U × T) → Result (Option Ordering)
+
+/-- [core::tuple::{impl core::cmp::Ord for (U, T)}::cmp]:
+    Source: '/rustc/library/core/src/tuple.rs', lines 114:16-114:60
+    Name pattern: [core::tuple::{core::cmp::Ord<(@U, @T)>}::cmp]
+    Visibility: public -/
+@[rust_fun "core::tuple::{core::cmp::Ord<(@U, @T)>}::cmp"]
+axiom Pair.Insts.CoreCmpOrd.cmp
+  {U : Type} {T : Type} (cmpOrdInst : core.cmp.Ord U) (cmpOrdInst1 :
+  core.cmp.Ord T) :
+  (U × T) → (U × T) → Result Ordering
 
 /-- [std::collections::hash::map::{std::collections::hash::map::HashMap<K, V, S, A>}::get]:
     Source: '/rustc/library/std/src/collections/hash/map.rs', lines 1035:4-1038:21
@@ -178,6 +234,29 @@ axiom
   std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher.build_hasher
   : std.hash.random.RandomState → Result std.hash.random.DefaultHasher
 
+/-- [alloc::collections::btree::map::{alloc::collections::btree::map::BTreeMap<K, V, A>}::get]:
+    Source: '/rustc/library/alloc/src/collections/btree/map.rs', lines 717:4-720:15
+    Name pattern: [alloc::collections::btree::map::{alloc::collections::btree::map::BTreeMap<@K, @V, @A>}::get]
+    Visibility: public -/
+@[rust_fun
+  "alloc::collections::btree::map::{alloc::collections::btree::map::BTreeMap<@K, @V, @A>}::get"]
+axiom alloc.collections.btree.map.BTreeMap.get
+  {K : Type} {V : Type} {A : Type} {Q : Type} (corecloneCloneInst :
+  core.clone.Clone A) (coreborrowBorrowInst : core.borrow.Borrow K Q)
+  (corecmpOrdInst : core.cmp.Ord K) (corecmpOrdInst1 : core.cmp.Ord Q) :
+  alloc.collections.btree.map.BTreeMap K V A → Q → Result (Option V)
+
+/-- [alloy_primitives::bits::fixed::{impl core::clone::Clone for alloy_primitives::bits::fixed::FixedBytes<N>}::clone]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-primitives-1.0.0/src/bits/fixed.rs', lines 16:4-16:9
+    Name pattern: [alloy_primitives::bits::fixed::{core::clone::Clone<alloy_primitives::bits::fixed::FixedBytes<@N>>}::clone]
+    Visibility: public -/
+@[rust_fun
+  "alloy_primitives::bits::fixed::{core::clone::Clone<alloy_primitives::bits::fixed::FixedBytes<@N>>}::clone"]
+axiom alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCloneClone.clone
+  {N : Std.Usize} :
+  alloy_primitives.bits.fixed.FixedBytes N → Result
+    (alloy_primitives.bits.fixed.FixedBytes N)
+
 /-- [alloy_primitives::bits::fixed::{impl core::cmp::PartialEq<alloy_primitives::bits::fixed::FixedBytes<N>> for alloy_primitives::bits::fixed::FixedBytes<N>}::eq]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-primitives-1.0.0/src/bits/fixed.rs', lines 18:4-18:13
     Name pattern: [alloy_primitives::bits::fixed::{core::cmp::PartialEq<alloy_primitives::bits::fixed::FixedBytes<@N>, alloy_primitives::bits::fixed::FixedBytes<@N>>}::eq]
@@ -209,6 +288,15 @@ axiom
 axiom alloy_primitives.bits.fixed.FixedBytes.Insts.CoreHashHash.hash
   {__H : Type} {N : Std.Usize} (corehashHasherInst : core.hash.Hasher __H) :
   alloy_primitives.bits.fixed.FixedBytes N → __H → Result __H
+
+/-- [alloy_primitives::bits::fixed::{impl core::default::Default for alloy_primitives::bits::fixed::FixedBytes<N>}::default]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-primitives-1.0.0/src/bits/fixed.rs', lines 41:4-41:24
+    Name pattern: [alloy_primitives::bits::fixed::{core::default::Default<alloy_primitives::bits::fixed::FixedBytes<@N>>}::default]
+    Visibility: public -/
+@[rust_fun
+  "alloy_primitives::bits::fixed::{core::default::Default<alloy_primitives::bits::fixed::FixedBytes<@N>>}::default"]
+axiom alloy_primitives.bits.fixed.FixedBytes.Insts.CoreDefaultDefault.default
+  (N : Std.Usize) : Result (alloy_primitives.bits.fixed.FixedBytes N)
 
 /-- [alloy_primitives::bits::fixed::{alloy_primitives::bits::fixed::FixedBytes<N>}::ZERO]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-primitives-1.0.0/src/bits/fixed.rs', lines 337:4-337:24

@@ -35,6 +35,23 @@ axiom std.hash.random.RandomState : Type
 @[rust_type "std::hash::random::DefaultHasher"]
 axiom std.hash.random.DefaultHasher : Type
 
+/-- [alloc::collections::btree::map::entry::VacantEntry]
+    Source: '/rustc/library/alloc/src/collections/btree/map/entry.rs', lines 47:0-52:1
+    Name pattern: [alloc::collections::btree::map::entry::VacantEntry]
+    Visibility: public -/
+@[rust_type "alloc::collections::btree::map::entry::VacantEntry"
+  (mutRegions := #[0])]
+axiom alloc.collections.btree.map.entry.VacantEntry (K : Type) (V : Type) (A :
+  Type) : Type
+
+/-- [alloc::collections::btree::map::BTreeMap]
+    Source: '/rustc/library/alloc/src/collections/btree/map.rs', lines 189:0-193:1
+    Name pattern: [alloc::collections::btree::map::BTreeMap]
+    Visibility: public -/
+@[rust_type "alloc::collections::btree::map::BTreeMap"]
+axiom alloc.collections.btree.map.BTreeMap (K : Type) (V : Type) (A : Type) :
+  Type
+
 /-- [lock_api::GuardNoSend]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lock_api-0.4.12/src/lib.rs', lines 103:0-103:22
     Name pattern: [lock_api::GuardNoSend]
@@ -84,4 +101,11 @@ axiom ssz.decode.DecodeError : Type
     Visibility: public -/
 @[rust_type "triomphe::arc::Arc"]
 axiom triomphe.arc.Arc (T : Type) : Type
+
+/-- [vec_map::VacantEntry]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vec_map-0.8.2/src/lib.rs', lines 80:0-80:33
+    Name pattern: [vec_map::VacantEntry]
+    Visibility: public -/
+@[rust_type "vec_map::VacantEntry" (mutRegions := #[0])]
+axiom vec_map.VacantEntry (V : Type) : Type
 

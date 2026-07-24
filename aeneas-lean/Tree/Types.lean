@@ -98,6 +98,33 @@ structure tree_hash.TreeHash (Self : Type) where
   tree_hash_root : Self → Result (alloy_primitives.bits.fixed.FixedBytes
     32#usize)
 
+/-- [milhouse::cow::VecCow]
+    Source: 'src/cow.rs', lines 91:0-99:1
+    Visibility: public -/
+@[discriminant isize]
+inductive cow.VecCow (T : Type) where
+| Immutable : T → Option (vec_map.VacantEntry T) → cow.VecCow T
+| Mutable : T → cow.VecCow T
+
+/-- [milhouse::cow::BTreeCow]
+    Source: 'src/cow.rs', lines 43:0-51:1
+    Visibility: public -/
+@[discriminant isize]
+inductive cow.BTreeCow (T : Type) where
+| Immutable :
+  T →
+  Option (alloc.collections.btree.map.entry.VacantEntry Std.Usize T Global) →
+  cow.BTreeCow T
+| Mutable : T → cow.BTreeCow T
+
+/-- [milhouse::cow::Cow]
+    Source: 'src/cow.rs', lines 5:0-8:1
+    Visibility: public -/
+@[discriminant isize]
+inductive cow.Cow (T : Type) where
+| BTree : cow.BTreeCow T → cow.Cow T
+| Vec : cow.VecCow T → cow.Cow T
+
 /-- [milhouse::error::Error]
     Source: 'src/error.rs', lines 4:0-36:1
     Visibility: public -/
@@ -154,15 +181,41 @@ structure Value (Self : Type) where
   corecloneCloneInst : core.clone.Clone Self
 
 /-- [milhouse::packed_leaf::PackedLeaf]
-    Source: 'src/packed_leaf.rs', lines 10:0-15:1
+    Source: 'src/packed_leaf.rs', lines 9:0-14:1
     Visibility: public -/
 structure packed_leaf.PackedLeaf (T : Type) where
   hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
     (alloy_primitives.bits.fixed.FixedBytes 32#usize)
   values : alloc.vec.Vec T
 
+/-- Trait declaration: [milhouse::update_map::UpdateMap]
+    Source: 'src/update_map.rs', lines 9:0-41:1
+    Visibility: public -/
+structure update_map.UpdateMap (Self : Type) (T : Type) where
+  coredefaultDefaultInst : core.default.Default Self
+  corecloneCloneInst : core.clone.Clone Self
+  get : Self → Std.Usize → Result (Option T)
+  get_mut_with : forall {F : Type} (coreopsfunctionFnOncePTupleUsizeOptionInst
+    : core.ops.function.FnOnce F Std.Usize (Option T)), Self → Std.Usize →
+    F → Result ((Option T) × (Option T → Self))
+  get_cow_with : forall {F : Type}
+    (coreopsfunctionFnOncePTupleUsizeOptionSharedPInst :
+    core.ops.function.FnOnce F Std.Usize (Option T)) (corecloneCloneInst1 :
+    core.clone.Clone T), Self → Std.Usize → F → Result ((Option (cow.Cow
+    T)) × (Option (cow.Cow T) → Self))
+  insert : Self → Std.Usize → T → Result ((Option T) × Self)
+  for_each_range : forall {F : Type} {E : Type}
+    (coreopsfunctionFnMutPPairUsizeShared0EControlFlowTupleResultTuplePInst :
+    core.ops.function.FnMut F (Std.Usize × T)
+    (core.ops.control_flow.ControlFlow Unit (core.result.Result Unit E))), Self
+    → Std.Usize → Std.Usize → F → Result (core.result.Result Unit E)
+  has_any_in_range : Self → Std.Usize → Std.Usize → Result Bool
+  max_index : Self → Result (Option Std.Usize)
+  len : Self → Result Std.Usize
+  is_empty : Self → Result Bool
+
 /-- [milhouse::tree::Tree]
-    Source: 'src/tree.rs', lines 14:0-27:1
+    Source: 'src/tree.rs', lines 13:0-26:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.Tree (T : Type) where
@@ -177,7 +230,7 @@ inductive tree.Tree (T : Type) where
 | Zero : Std.Usize → tree.Tree T
 
 /-- [milhouse::tree::RebaseAction]
-    Source: 'src/tree.rs', lines 253:0-262:1
+    Source: 'src/tree.rs', lines 246:0-255:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.RebaseAction (T : Type) where
@@ -187,7 +240,7 @@ inductive tree.RebaseAction (T : Type) where
 | EqualReplace : triomphe.arc.Arc T → tree.RebaseAction T
 
 /-- [milhouse::tree::IntraRebaseAction]
-    Source: 'src/tree.rs', lines 264:0-267:1
+    Source: 'src/tree.rs', lines 257:0-260:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.IntraRebaseAction (T : Type) where
@@ -201,12 +254,12 @@ inductive tree.IntraRebaseAction (T : Type) where
 def utils.Length := Std.Usize
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure#1]
-    Source: 'src/tree.rs', lines 324:25-337:21 -/
+    Source: 'src/tree.rs', lines 317:25-330:21 -/
 @[reducible]
 def tree.Tree.rebase_on.closure_1 (T : Type) := Std.Usize
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure]
-    Source: 'src/tree.rs', lines 317:42-317:97 -/
+    Source: 'src/tree.rs', lines 310:42-310:97 -/
 @[reducible]
 def tree.Tree.rebase_on.closure (T : Type) := Unit
 

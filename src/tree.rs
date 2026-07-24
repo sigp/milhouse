@@ -172,8 +172,10 @@ impl<T: Value> Tree<T> {
                     .ok_or(Error::LeafUpdateMissing { index })?;
                 Ok(Self::leaf_with_hash(value, hash))
             }
-            Self::PackedLeaf(packed_leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
-                packed_leaf.update(prefix, hash, updates)?,
+            // Binder named `pl` rather than `packed_leaf`: the latter shadows the
+            // `packed_leaf` module namespace in the Aeneas-generated Lean.
+            Self::PackedLeaf(pl) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
+                pl.update(prefix, hash, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
@@ -206,8 +208,8 @@ impl<T: Value> Tree<T> {
             Self::Zero(zero_depth) if *zero_depth == depth => {
                 if depth == 0 {
                     if opt_packing_factor::<T>().is_some() {
-                        let packed_leaf = PackedLeaf::empty().update(prefix, hash, updates)?;
-                        Ok(Arc::new(Self::PackedLeaf(packed_leaf)))
+                        let pl = PackedLeaf::empty().update(prefix, hash, updates)?;
+                        Ok(Arc::new(Self::PackedLeaf(pl)))
                     } else {
                         let index = prefix;
                         let value = updates

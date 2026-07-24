@@ -16,9 +16,9 @@
 #   pointer in its type (`LazyLock`), neither of which Aeneas supports yet.
 # - `UpdateMap::is_empty` is excluded: provided trait method that triggers
 #   an Aeneas internal error.
-# - `Tree::with_updated_leaves` and `PackedLeaf::update` are excluded: their
-#   `FnMut` closures are translated with a mismatched calling convention
-#   (Aeneas Lean-backend bug).
+# - `Tree::with_updated_leaves` and `PackedLeaf::update` are included since
+#   their `FnMut` closures were replaced by closure-free code (the Aeneas
+#   Lean backend mistranslates `FnMut` calling conventions).
 # - Tree's derived `Debug`/`PartialEq` impls are excluded: recursive trait
 #   impls are emitted with forward references (Aeneas Lean-backend bug).
 # - serde/ssz/hashing/mem are opaque: signatures only, modelled by hand in
@@ -41,8 +41,6 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --opaque 'milhouse::serde' \
     --exclude 'milhouse::tree::_::tree_hash' \
     --exclude 'milhouse::update_map::UpdateMap::is_empty' \
-    --exclude 'milhouse::tree::_::with_updated_leaves' \
-    --exclude 'milhouse::packed_leaf::_::update' \
     --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
     --exclude 'milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<_>> for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \
