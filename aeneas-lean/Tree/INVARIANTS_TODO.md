@@ -71,11 +71,14 @@ all remaining capacity is represented by `Zero` padding.
 - [x] Define a dense update-map predicate: updates below the old length are
       replacements and extensions cover the complete interval
       `[old_len, new_len)` (`DenseUpdateDomain`).
-- [ ] Prove `with_updated_leaves` preserves `DenseTree` under the dense
-      update-map predicate (`DenseUpdateDomain`). The function is now in the
-      extracted subset: its `FnMut` obstructions were refactored away on the
-      Rust side (`UpdateMap::has_any_in_range` existence checks and an index
-      loop in `PackedLeaf::update`).
+- [x] `with_updated_leaves` preserves `DenseTree` under the dense update-map
+      predicate (`with_updated_leaves_preserves_dense`). Premises beyond
+      `DenseUpdateDomain` itself: the new length is positive and within the
+      subtree capacity, and the two abstract `UpdateMap` methods are lawful
+      on the answers they return (`get` reflects the update set,
+      `has_any_in_range` decides its restriction to a range). The proof goes
+      through a windowed auxiliary statement (aligned prefix, per-subtree
+      lengths) and a scan-position invariant for the packed-leaf update loop.
 
 ## Builders and container boundaries
 

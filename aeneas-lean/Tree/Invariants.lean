@@ -1424,7 +1424,7 @@ private theorem with_updated_leaf_preserves_dense_aux {T : Type}
         left_dense right_dense shape =>
       unfold Tree.with_updated_leaf at hupdate
       have hdepth_pos : depth > 0#usize := by scalar_tac
-      rw [if_pos hdepth_pos] at hupdate
+      simp only [if_pos hdepth_pos] at hupdate
       rw [hlayout.opt_packing_depth_eq] at hupdate
       have hunwrap := hlayout.unwrap_opt_packing_depth_eq
       simp [hunwrap, lift,
@@ -1727,5 +1727,888 @@ theorem with_updated_leaf_preserves_dense {T : Type}
     rw [hindex_eq, Nat.mod_self]
     omega
   exact hupdate
+
+/-! ## Bulk update preservation -/
+
+/-- Setting a single clear bit is addition: `a ||| 2^s = a + 2^s` when `a`
+    is aligned past bit `s`. Bridges the translated `prefix | (1 << shift)`
+    to the arithmetic form used by the dense split. -/
+private theorem or_two_pow_aligned {a s : Nat} (h : a % 2 ^ (s + 1) = 0) :
+    a ||| 2 ^ s = a + 2 ^ s := by
+  obtain ⟨q, rfl⟩ := Nat.dvd_of_mod_eq_zero h
+  apply Nat.eq_of_testBit_eq
+  intro i
+  have hsum : 2 ^ (s + 1) * q + 2 ^ s = (2 * q + 1) <<< s := by
+    rw [Nat.shiftLeft_eq]
+    ring
+  have hshift : 2 ^ (s + 1) * q = q <<< (s + 1) := by
+    rw [Nat.shiftLeft_eq, Nat.mul_comm]
+  rw [hsum, hshift]
+  simp only [Nat.testBit_or, Nat.testBit_shiftLeft, Nat.testBit_two_pow]
+  rcases Nat.lt_trichotomy i s with hlt | heq | hgt
+  · have h1 : ¬ (s + 1 ≤ i) := by omega
+    have h2 : ¬ (s ≤ i) := by omega
+    have h3 : ¬ (s = i) := by omega
+    simp [h1, h2, h3]
+  · subst heq
+    have h1 : ¬ (i + 1 ≤ i) := by omega
+    simp [h1, Nat.testBit_zero]
+    try omega
+  · have h1 : s + 1 ≤ i := by omega
+    have h2 : s ≤ i := by omega
+    have h3 : ¬ (s = i) := by omega
+    simp only [h1, h2, h3, decide_true, decide_false, Bool.true_and,
+      Bool.or_false]
+    obtain ⟨j, hj⟩ : ∃ j, i - s = j + 1 := ⟨i - s - 1, by omega⟩
+    rw [hj, Nat.testBit_add_one]
+    have hdiv : (2 * q + 1) / 2 = q := by omega
+    rw [hdiv]
+    congr 1
+    omega
+
+/-- Bitwise-or on `Usize` is bitwise-or of the values. -/
+private theorem usize_or_val (x y : Std.Usize) :
+    (x ||| y).val = x.val ||| y.val := by
+  show (UScalar.or x y).val = x.val ||| y.val
+  simp only [UScalar.or, UScalar.val]
+  simp [BitVec.toNat_or]
+
+/-- Alignment descends to the half capacity. -/
+private theorem mod_half_eq_zero {p h : Nat} (hp : p % (h * 2) = 0) :
+    p % h = 0 :=
+  Nat.mod_eq_zero_of_dvd
+    (Nat.dvd_trans ⟨2, rfl⟩ (Nat.dvd_of_mod_eq_zero hp))
+
+/-- A successful `1 << shift` is exactly the power of two. -/
+private theorem usize_shift_left_one_val {shift shifted : Std.Usize}
+    (h : 1#usize <<< shift = ok shifted) :
+    shifted.val = 2 ^ shift.val := by
+  have hbound : shift.val < UScalarTy.Usize.numBits := by
+    change UScalar.shiftLeft 1#usize shift.val = ok shifted at h
+    unfold UScalar.shiftLeft at h
+    split at h
+    · assumption
+    · simp at h
+  have hspec := UScalar.ShiftLeft_spec 1#usize shift
+    (UScalar.size UScalarTy.Usize) hbound rfl
+  rw [h] at hspec
+  obtain ⟨hval, -⟩ := hspec
+  have hone : (1#usize).val = 1 := by simp
+  rw [hval, hone, Nat.one_shiftLeft, UScalar.size_def]
+  exact Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) hbound)
+
+/-- One unfolding of the translated packed-leaf update loop. -/
+private theorem update_loop_step {T U : Type}
+    (thi : tree_hash.TreeHash T) (cloneInst : core.clone.Clone T)
+    (mapInst : update_map.UpdateMap U T) (updates : U)
+    (updated : packed_leaf.PackedLeaf T) (factor end1 index : Std.Usize) :
+    packed_leaf.PackedLeaf.update_loop thi cloneInst mapInst updates updated
+      factor end1 index =
+      match packed_leaf.PackedLeaf.update_loop.body thi cloneInst mapInst
+          updates factor end1 updated index with
+      | ok (.cont (u, i)) => packed_leaf.PackedLeaf.update_loop thi cloneInst
+          mapInst updates u factor end1 i
+      | ok (.done b) => ok b
+      | fail e => fail e
+      | div => div := by
+  conv_lhs => unfold packed_leaf.PackedLeaf.update_loop
+  conv_lhs => unfold Aeneas.Std.loop
+  cases hb : packed_leaf.PackedLeaf.update_loop.body thi cloneInst mapInst
+      updates factor end1 updated index with
+  | fail e => simp [hb]
+  | div => simp [hb]
+  | ok cf =>
+    cases cf with
+    | cont x =>
+      obtain ⟨u, i⟩ := x
+      simp [hb]
+      rfl
+    | done b => simp [hb]
+
+/-- Length of the packed-leaf bulk-update loop result. With a `get` that
+    reflects the logical update set and a dense update window, a successful
+    loop drives the value count from the old to the new dense length. The
+    length invariant is carried as a three-way disjunction on the scan
+    position. -/
+private theorem update_loop_length {T U : Type}
+    {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
+    {mapInst : update_map.UpdateMap U T} {updates : U}
+    {has_update : Nat → Prop}
+    (hget : ∀ (i : Std.Usize) (found : Option T),
+      mapInst.get updates i = ok found →
+      (found.isSome = true ↔ has_update i.val))
+    {factor end1 : Std.Usize} {window old_len new_len : Nat}
+    (hend : end1.val = window + factor.val)
+    (halign : window % factor.val = 0)
+    (hfactor_pos : 0 < factor.val)
+    (hmono : old_len ≤ new_len)
+    (hcomplete : ∀ i, old_len ≤ i → i < new_len → has_update (window + i))
+    (hbounded : ∀ i, i < factor.val → has_update (window + i) → i < new_len)
+    (hnew_cap : new_len ≤ factor.val) :
+    ∀ (fuel : Nat) (updated : packed_leaf.PackedLeaf T) (index : Std.Usize)
+      (result : packed_leaf.PackedLeaf T),
+      end1.val - index.val ≤ fuel →
+      window ≤ index.val → index.val ≤ end1.val →
+      ((index.val - window ≤ old_len ∧
+          updated.values.val.length = old_len) ∨
+        (old_len ≤ index.val - window ∧ index.val - window ≤ new_len ∧
+          updated.values.val.length = index.val - window) ∨
+        (new_len ≤ index.val - window ∧
+          updated.values.val.length = new_len)) →
+      packed_leaf.PackedLeaf.update_loop thi cloneInst mapInst updates
+        updated factor end1 index = ok (core.result.Result.Ok result) →
+      result.values.val.length = new_len := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro updated index result hfuel hlo hhi hlen hloop
+    have hstop : ¬ index < end1 := by scalar_tac
+    rw [update_loop_step] at hloop
+    unfold packed_leaf.PackedLeaf.update_loop.body at hloop
+    rw [if_neg hstop] at hloop
+    simp at hloop
+    subst hloop
+    omega
+  | succ fuel ihfuel =>
+    intro updated index result hfuel hlo hhi hlen hloop
+    rw [update_loop_step] at hloop
+    by_cases hlt : index < end1
+    case neg =>
+      unfold packed_leaf.PackedLeaf.update_loop.body at hloop
+      rw [if_neg hlt] at hloop
+      simp at hloop
+      subst hloop
+      have hk : index.val - window = factor.val := by scalar_tac
+      omega
+    case pos =>
+    have hklt : index.val - window < factor.val := by scalar_tac
+    cases hb : packed_leaf.PackedLeaf.update_loop.body thi cloneInst mapInst
+        updates factor end1 updated index with
+    | fail e => rw [hb] at hloop; simp at hloop
+    | div => rw [hb] at hloop; simp at hloop
+    | ok cf =>
+    rw [hb] at hloop
+    unfold packed_leaf.PackedLeaf.update_loop.body at hb
+    rw [if_pos hlt] at hb
+    rw [result_bind_eq_ok_iff] at hb
+    obtain ⟨found, hgeteq, hb⟩ := hb
+    have hiff := hget index found hgeteq
+    cases found with
+    | none =>
+      have hno_update : ¬ has_update index.val := by
+        intro hup
+        simpa using hiff.mpr hup
+      rw [result_bind_eq_ok_iff] at hb
+      obtain ⟨index1, hplus, hb⟩ := hb
+      have hplus_val := usize_add_val hplus
+      simp at hplus_val
+      simp at hb
+      subst hb
+      simp at hloop
+      have hnot_pending :
+          ¬ (old_len ≤ index.val - window ∧
+              index.val - window < new_len) := by
+        rintro ⟨h1, h2⟩
+        refine hno_update ?_
+        have hcov := hcomplete (index.val - window) h1 h2
+        have hidx : window + (index.val - window) = index.val := by omega
+        rwa [hidx] at hcov
+      refine ihfuel updated index1 result (by scalar_tac) (by scalar_tac)
+        (by scalar_tac) (by omega) hloop
+    | some value =>
+      have hup : has_update index.val := hiff.mp (by simp)
+      have hup_bound : index.val - window < new_len := by
+        refine hbounded (index.val - window) hklt ?_
+        have hidx : window + (index.val - window) = index.val := by omega
+        rwa [hidx]
+      rw [result_bind_eq_ok_iff] at hb
+      obtain ⟨sub, hrem, hb⟩ := hb
+      have hsub_val : sub.val = index.val - window := by
+        obtain ⟨r, hr, hrval⟩ := usize_rem_succeeds index hfactor_pos
+        rw [hrem] at hr
+        cases hr
+        have hidx : index.val = window + (index.val - window) := by omega
+        rw [hidx, Nat.add_mod, halign, Nat.zero_add,
+          Nat.mod_eq_of_lt (Nat.mod_lt _ hfactor_pos),
+          Nat.mod_eq_of_lt hklt] at hrval
+        omega
+      rw [result_bind_eq_ok_iff] at hb
+      obtain ⟨cloned, hclone, hb⟩ := hb
+      rw [result_bind_eq_ok_iff] at hb
+      obtain ⟨⟨r, updated1⟩, hins, hb⟩ := hb
+      cases r with
+      | Err e =>
+        simp [core.result.Result.Insts.CoreOpsTry.branch,
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+          core.convert.FromSame.from] at hb
+        subst hb
+        simp at hloop
+      | Ok u =>
+        cases u
+        simp [core.result.Result.Insts.CoreOpsTry.branch] at hb
+        rw [result_bind_eq_ok_iff] at hb
+        obtain ⟨index1, hplus, hb⟩ := hb
+        have hplus_val := usize_add_val hplus
+        simp at hplus_val
+        simp at hb
+        subst hb
+        simp at hloop
+        obtain ⟨hlen1, hsub_le⟩ := packedLeaf_insert_mut_length hins
+        rw [hsub_val] at hlen1 hsub_le
+        refine ihfuel updated1 index1 result (by scalar_tac) (by scalar_tac)
+          (by scalar_tac) ?_ hloop
+        split at hlen1 <;> omega
+
+/-- A successful bulk update of a `Leaf` returns a `Leaf`. -/
+private theorem with_updated_leaves_leaf_shape {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {l : leaf.Leaf T} {prefix1 depth : Std.Usize}
+    {hashes : Option (alloc.collections.btree.map.BTreeMap
+      (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
+    {updated : triomphe.arc.Arc (Tree T)}
+    (hupdate : Tree.with_updated_leaves ValueInst mapInst (Tree.Leaf l)
+      updates prefix1 depth hashes = ok (core.result.Result.Ok updated)) :
+    ∃ leaf', updated = Tree.Leaf leaf' := by
+  unfold Tree.with_updated_leaves at hupdate
+  rw [result_bind_eq_ok_iff] at hupdate
+  obtain ⟨opt, hopt, hupdate⟩ := hupdate
+  rw [result_bind_eq_ok_iff] at hupdate
+  obtain ⟨hash, hhash, hupdate⟩ := hupdate
+  by_cases hdepth : depth = 0#usize
+  · subst hdepth
+    simp only [↓reduceIte] at hupdate
+    rw [result_bind_eq_ok_iff] at hupdate
+    obtain ⟨found, hfound, hupdate⟩ := hupdate
+    rw [result_bind_eq_ok_iff] at hupdate
+    obtain ⟨cloned, hcloned, hupdate⟩ := hupdate
+    cases cloned with
+    | none =>
+      simp [core.option.Option.ok_or,
+        core.result.Result.Insts.CoreOpsTry.branch,
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+        core.convert.FromSame.from] at hupdate
+    | some value =>
+      simp [core.option.Option.ok_or,
+        core.result.Result.Insts.CoreOpsTry.branch, Tree.leaf_with_hash,
+        leaf.Leaf.with_hash, lock_api.rwlock.RwLock.new,
+        triomphe.arc.Arc.new] at hupdate
+      exact ⟨_, hupdate.symm⟩
+  · simp [hdepth] at hupdate
+
+/-- A successful bulk update of a packed leaf yields the window's new dense
+    length, provided `get` reflects the logical update set on the window. -/
+private theorem packedLeaf_update_length {T U : Type}
+    {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
+    {mapInst : update_map.UpdateMap U T} {updates : U}
+    {has_update : Nat → Prop}
+    (hget : ∀ (i : Std.Usize) (found : Option T),
+      mapInst.get updates i = ok found →
+      (found.isSome = true ↔ has_update i.val))
+    {pl result : packed_leaf.PackedLeaf T} {prefix1 : Std.Usize}
+    {hash : alloy_primitives.bits.fixed.FixedBytes 32#usize}
+    {factor : Std.Usize} {new_len : Nat}
+    (hfactor : thi.tree_hash_packing_factor = ok factor)
+    (hfactor_pos : 0 < factor.val)
+    (halign : prefix1.val % factor.val = 0)
+    (hmono : pl.values.val.length ≤ new_len)
+    (hcomplete : ∀ i, pl.values.val.length ≤ i → i < new_len →
+      has_update (prefix1.val + i))
+    (hbounded : ∀ i, i < factor.val → has_update (prefix1.val + i) →
+      i < new_len)
+    (hnew_cap : new_len ≤ factor.val)
+    (hupdate : packed_leaf.PackedLeaf.update thi cloneInst mapInst pl prefix1
+      hash updates = ok (core.result.Result.Ok result)) :
+    result.values.val.length = new_len := by
+  unfold packed_leaf.PackedLeaf.update at hupdate
+  simp only [lock_api.rwlock.RwLock.new, bind_tc_ok] at hupdate
+  rw [result_bind_eq_ok_iff] at hupdate
+  obtain ⟨values, hvalues, hupdate⟩ := hupdate
+  have hvalues_len : values.val.length = pl.values.val.length :=
+    Aeneas.Std.Slice.clone_length hvalues
+  rw [hfactor] at hupdate
+  simp only [bind_tc_ok] at hupdate
+  rw [result_bind_eq_ok_iff] at hupdate
+  obtain ⟨end1, hend1, hupdate⟩ := hupdate
+  have hend1_val := usize_add_val hend1
+  refine update_loop_length hget hend1_val halign hfactor_pos hmono
+    hcomplete hbounded hnew_cap (end1.val - prefix1.val)
+    { hash := hash, values := values } prefix1 result (Nat.le_refl _)
+    (Nat.le_refl _) (by omega) ?_ hupdate
+  left
+  exact ⟨by omega, hvalues_len⟩
+
+/-- Bulk-update preservation, by induction on depth with the `Zero`
+    expansion tie-breaker. The update window premises are stated relative to
+    the subtree's aligned prefix. -/
+private theorem with_updated_leaves_preserves_dense_aux {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {has_update : Nat → Prop}
+    (hget : ∀ (i : Std.Usize) (found : Option T),
+      mapInst.get updates i = ok found →
+      (found.isSome = true ↔ has_update i.val))
+    (hrange : ∀ (lo hi : Std.Usize) (r : Bool),
+      mapInst.has_any_in_range updates lo hi = ok r →
+      (r = true ↔ ∃ j, lo.val ≤ j ∧ j < hi.val ∧ has_update j))
+    (hashes : Option (alloc.collections.btree.map.BTreeMap
+      (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)) :
+    ∀ (n : Nat) (depth prefix1 : Std.Usize) (self : Tree T)
+      (updated : triomphe.arc.Arc (Tree T)) (tree_depth old_len new_len : Nat),
+      2 * depth.val + updateZbit self ≤ n →
+      depth.val = tree_depth →
+      UpdateReady packing_factor self tree_depth old_len →
+      prefix1.val % subtreeCapacity packing_factor tree_depth = 0 →
+      old_len ≤ new_len →
+      0 < new_len →
+      new_len ≤ subtreeCapacity packing_factor tree_depth →
+      (∀ i, old_len ≤ i → i < new_len → has_update (prefix1.val + i)) →
+      (∀ i, i < subtreeCapacity packing_factor tree_depth →
+        has_update (prefix1.val + i) → i < new_len) →
+      Tree.with_updated_leaves ValueInst mapInst self updates prefix1 depth
+        hashes = ok (core.result.Result.Ok updated) →
+      DenseTree packing_factor updated tree_depth new_len := by
+  have leaf_case : ∀ (l : leaf.Leaf T) (prefix1 depth : Std.Usize)
+      (updated : triomphe.arc.Arc (Tree T)) (new_len : Nat),
+      0 < new_len → new_len ≤ subtreeCapacity none 0 →
+      Tree.with_updated_leaves ValueInst mapInst (Tree.Leaf l) updates prefix1
+        depth hashes = ok (core.result.Result.Ok updated) →
+      DenseTree none updated 0 new_len := by
+    intro l prefix1 depth updated new_len hpos hcap hupdate
+    obtain ⟨leaf', rfl⟩ := with_updated_leaves_leaf_shape hupdate
+    have hone : subtreeCapacity none 0 = 1 := by
+      simp [subtreeCapacity, leafCapacity]
+    have hnew_one : new_len = 1 := by omega
+    rw [hnew_one]
+    exact DenseTree.leaf leaf'
+  intro n
+  induction n with
+  | zero =>
+    intro depth prefix1 self updated tree_depth old_len new_len hmeasure
+      hdepth_eq hready halign hmono hpos hcap hcomplete hbounded hupdate
+    cases hready with
+    | zero packing_factor zero_depth => simp [updateZbit] at hmeasure
+    | leaf l =>
+      exact leaf_case l prefix1 depth updated new_len hpos hcap hupdate
+    | packed factor pl hnonempty hfit =>
+      have hdepth0 : depth = 0#usize := by scalar_tac
+      subst hdepth0
+      unfold Tree.with_updated_leaves at hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨opt, hopt, hupdate⟩ := hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨hash, hhash, hupdate⟩ := hupdate
+      simp only [↓reduceIte] at hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨res, hres, hupdate⟩ := hupdate
+      cases res with
+      | Err e =>
+        simp [core.result.Result.Insts.CoreOpsTry.branch,
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+          core.convert.FromSame.from] at hupdate
+      | Ok pl' =>
+        simp [core.result.Result.Insts.CoreOpsTry.branch,
+          triomphe.arc.Arc.new] at hupdate
+        subst hupdate
+        have hfactor := hlayout.tree_hash_packing_factor_eq
+        have hfactor_pos : 0 < factor.val := by
+          simpa [leafCapacity] using hlayout.leafCapacity_pos
+        have hcapf : subtreeCapacity (some factor) 0 = factor.val := by
+          simp [subtreeCapacity, leafCapacity]
+        have hlen := packedLeaf_update_length hget hfactor hfactor_pos
+          (by rwa [hcapf] at halign) hmono hcomplete
+          (by rw [← hcapf]; exact hbounded) (by omega) hres
+        rw [← hlen] at hpos hcap ⊢
+        exact DenseTree.packed factor pl' hpos (by rwa [hcapf] at hcap)
+    | node packing_factor rl left right child_depth left_len right_len
+        left_dense right_dense shape =>
+      simp [updateZbit] at hmeasure
+      omega
+  | succ n ih =>
+    intro depth prefix1 self updated tree_depth old_len new_len hmeasure
+      hdepth_eq hready halign hmono hpos hcap hcomplete hbounded hupdate
+    cases hready with
+    | leaf l =>
+      exact leaf_case l prefix1 depth updated new_len hpos hcap hupdate
+    | packed factor pl hnonempty hfit =>
+      have hdepth0 : depth = 0#usize := by scalar_tac
+      subst hdepth0
+      unfold Tree.with_updated_leaves at hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨opt, hopt, hupdate⟩ := hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨hash, hhash, hupdate⟩ := hupdate
+      simp only [↓reduceIte] at hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨res, hres, hupdate⟩ := hupdate
+      cases res with
+      | Err e =>
+        simp [core.result.Result.Insts.CoreOpsTry.branch,
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+          core.convert.FromSame.from] at hupdate
+      | Ok pl' =>
+        simp [core.result.Result.Insts.CoreOpsTry.branch,
+          triomphe.arc.Arc.new] at hupdate
+        subst hupdate
+        have hfactor := hlayout.tree_hash_packing_factor_eq
+        have hfactor_pos : 0 < factor.val := by
+          simpa [leafCapacity] using hlayout.leafCapacity_pos
+        have hcapf : subtreeCapacity (some factor) 0 = factor.val := by
+          simp [subtreeCapacity, leafCapacity]
+        have hlen := packedLeaf_update_length hget hfactor hfactor_pos
+          (by rwa [hcapf] at halign) hmono hcomplete
+          (by rw [← hcapf]; exact hbounded) (by omega) hres
+        rw [← hlen] at hpos hcap ⊢
+        exact DenseTree.packed factor pl' hpos (by rwa [hcapf] at hcap)
+    | zero packing_factor zero_depth =>
+      have hz : zero_depth = depth := by scalar_tac
+      subst hz
+      unfold Tree.with_updated_leaves at hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨opt, hopt, hupdate⟩ := hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨hash, hhash, hupdate⟩ := hupdate
+      simp only [↓reduceIte] at hupdate
+      by_cases hdepth0 : zero_depth = 0#usize
+      · subst hdepth0
+        simp only [↓reduceIte] at hupdate
+        have h0v : (0#usize).val = 0 := by simp
+        simp only [h0v] at halign hcap hbounded ⊢
+        rw [hlayout.opt_packing_factor_eq] at hupdate
+        simp only [bind_tc_ok] at hupdate
+        cases hpf : packing_factor with
+        | some factor =>
+          rw [hpf] at hupdate
+          simp only [core.option.Option.is_some, Option.isSome_some,
+            if_true] at hupdate
+          rw [result_bind_eq_ok_iff] at hupdate
+          obtain ⟨pl0, hpl0, hupdate⟩ := hupdate
+          rw [result_bind_eq_ok_iff] at hupdate
+          obtain ⟨res, hres, hupdate⟩ := hupdate
+          cases res with
+          | Err e =>
+            simp [core.result.Result.Insts.CoreOpsTry.branch,
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+              core.convert.FromSame.from] at hupdate
+          | Ok pl' =>
+            simp [core.result.Result.Insts.CoreOpsTry.branch,
+              triomphe.arc.Arc.new] at hupdate
+            subst hupdate
+            rw [hpf] at hlayout halign hcap hbounded
+            have hfactor := hlayout.tree_hash_packing_factor_eq
+            have hpl0_len : pl0.values.val.length = 0 := by
+              unfold packed_leaf.PackedLeaf.empty at hpl0
+              rw [hfactor] at hpl0
+              simp [alloy_primitives.bits.fixed.FixedBytes.ZERO,
+                lock_api.rwlock.RwLock.new] at hpl0
+              subst hpl0
+              simp [alloc.vec.Vec.with_capacity, alloc.vec.Vec.new]
+            have hfactor_pos : 0 < factor.val := by
+              simpa [leafCapacity] using hlayout.leafCapacity_pos
+            have hcapf : subtreeCapacity (some factor) 0 = factor.val := by
+              simp [subtreeCapacity, leafCapacity]
+            have hlen := packedLeaf_update_length hget hfactor hfactor_pos
+              (by rwa [hcapf] at halign) (by omega)
+              (by rw [hpl0_len]; intro j h1 h2
+                  exact hcomplete j (by omega) h2)
+              (by rw [← hcapf]; exact hbounded) (by omega) hres
+            rw [← hlen] at hpos hcap ⊢
+            exact DenseTree.packed factor pl' hpos (by rwa [hcapf] at hcap)
+        | none =>
+          rw [hpf] at hupdate
+          simp only [core.option.Option.is_some, Option.isSome_none,
+            Bool.false_eq_true, if_false] at hupdate
+          rw [result_bind_eq_ok_iff] at hupdate
+          obtain ⟨found, hfound, hupdate⟩ := hupdate
+          rw [result_bind_eq_ok_iff] at hupdate
+          obtain ⟨cloned, hcloned, hupdate⟩ := hupdate
+          cases cloned with
+          | none =>
+            simp [core.option.Option.ok_or,
+              core.result.Result.Insts.CoreOpsTry.branch,
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+              core.convert.FromSame.from] at hupdate
+          | some value =>
+            simp [core.option.Option.ok_or,
+              core.result.Result.Insts.CoreOpsTry.branch, Tree.leaf_with_hash,
+              leaf.Leaf.with_hash, lock_api.rwlock.RwLock.new,
+              triomphe.arc.Arc.new] at hupdate
+            subst hupdate
+            rw [hpf] at hcap
+            have hone : subtreeCapacity none 0 = 1 := by
+              simp [subtreeCapacity, leafCapacity]
+            have hnew_one : new_len = 1 := by omega
+            rw [hnew_one]
+            exact DenseTree.leaf _
+      · simp only [if_neg hdepth0] at hupdate
+        rw [result_bind_eq_ok_iff] at hupdate
+        obtain ⟨i, hi, hupdate⟩ := hupdate
+        have hi_val := usize_sub_one_val hi
+        simp only [Tree.zero, triomphe.arc.Arc.new,
+          triomphe.arc.Arc.Insts.CoreCloneClone.clone, Tree.node,
+          lock_api.rwlock.RwLock.new,
+          triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
+          bind_tc_ok] at hupdate
+        refine ih zero_depth prefix1
+          (Tree.Node hash (Tree.Zero i) (Tree.Zero i)) updated
+          zero_depth.val 0 new_len ?_ rfl ?_ halign (by omega) hpos hcap
+          (by intro j h1 h2; exact hcomplete j (by omega) h2) hbounded hupdate
+        · simp only [updateZbit] at hmeasure ⊢
+          omega
+        · have hnode := UpdateReady.node (T := T) packing_factor hash
+            (Tree.Zero i) (Tree.Zero i) i.val 0 0
+            (DenseTree.zero packing_factor i)
+            (DenseTree.zero packing_factor i) (Or.inl ⟨rfl, rfl⟩)
+          have htd : zero_depth.val = i.val + 1 := by omega
+          rw [htd]
+          simpa using hnode
+    | node packing_factor rl left right child_depth left_len right_len
+        left_dense right_dense shape =>
+      unfold Tree.with_updated_leaves at hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨opt, hopt, hupdate⟩ := hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨hash, hhash, hupdate⟩ := hupdate
+      have hdepth_pos : depth > 0#usize := by scalar_tac
+      simp only [if_pos hdepth_pos] at hupdate
+      rw [hlayout.opt_packing_depth_eq] at hupdate
+      have hunwrap := hlayout.unwrap_opt_packing_depth_eq
+      simp only [hunwrap, lift, bind_tc_ok,
+        triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
+        triomphe.arc.Arc.Insts.CoreCloneClone.clone] at hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨new_depth, hnew_depth, hupdate⟩ := hupdate
+      have hnd_val := usize_sub_one_val hnew_depth
+      have hnd_depth : new_depth.val = child_depth := by omega
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨i, hi, hupdate⟩ := hupdate
+      have hi_val := usize_add_val hi
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨i1, hi1, hupdate⟩ := hupdate
+      have hi1_val := usize_shift_left_one_val hi1
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨i2, hi2, hupdate⟩ := hupdate
+      have hi2_val := usize_add_val hi2
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨i3, hi3, hupdate⟩ := hupdate
+      have hi3_val := usize_shift_left_one_val hi3
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨rse, hrse, hupdate⟩ := hupdate
+      have hrse_val := usize_add_val hrse
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨bl, hbl, hupdate⟩ := hupdate
+      rw [result_bind_eq_ok_iff] at hupdate
+      obtain ⟨br, hbr, hupdate⟩ := hupdate
+      have hchild_capacity :
+          subtreeCapacity packing_factor child_depth = 2 ^ i.val := by
+        rw [hlayout.subtreeCapacity_eq_two_pow]
+        congr 1
+        omega
+      have hparent_capacity :
+          subtreeCapacity packing_factor (child_depth + 1) =
+            2 ^ (i.val + 1) := by
+        rw [hlayout.subtreeCapacity_eq_two_pow]
+        congr 1
+        omega
+      have hcap_succ : subtreeCapacity packing_factor (child_depth + 1) =
+          subtreeCapacity packing_factor child_depth * 2 := by
+        simp [subtreeCapacity, pow_succ, Nat.mul_assoc]
+      have hchild_cap_pos := hlayout.subtreeCapacity_pos child_depth
+      have hleft_bound := left_dense.length_le_capacity
+      have hright_bound := right_dense.length_le_capacity
+      have halign' : prefix1.val % (2 ^ (i.val + 1)) = 0 := by
+        rw [← hparent_capacity]
+        exact halign
+      have hor : prefix1.val ||| 2 ^ i.val = prefix1.val + 2 ^ i.val :=
+        or_two_pow_aligned halign'
+      have hrp_val : (prefix1 ||| i1).val = prefix1.val + 2 ^ i.val := by
+        rw [usize_or_val, hi1_val, hor]
+      have hrse_val' : rse.val = prefix1.val + 2 ^ (i.val + 1) := by
+        rw [hrse_val, hi3_val]
+        congr 2
+        omega
+      have hbl_iff := hrange _ _ _ hbl
+      have hbr_iff := hrange _ _ _ hbr
+      have hleft_window : bl = true ↔
+          ∃ off, off < subtreeCapacity packing_factor child_depth ∧
+            has_update (prefix1.val + off) := by
+        rw [hbl_iff, hchild_capacity]
+        constructor
+        · rintro ⟨j, hj1, hj2, hj3⟩
+          rw [hrp_val] at hj2
+          refine ⟨j - prefix1.val, by omega, ?_⟩
+          have hj : prefix1.val + (j - prefix1.val) = j := by omega
+          rwa [hj]
+        · rintro ⟨off, hoff1, hoff2⟩
+          exact ⟨prefix1.val + off, by omega, by rw [hrp_val]; omega, hoff2⟩
+      have hright_window : br = true ↔
+          ∃ off, subtreeCapacity packing_factor child_depth ≤ off ∧
+            off < subtreeCapacity packing_factor (child_depth + 1) ∧
+            has_update (prefix1.val + off) := by
+        rw [hbr_iff, hchild_capacity, hparent_capacity]
+        constructor
+        · rintro ⟨j, hj1, hj2, hj3⟩
+          rw [hrp_val] at hj1
+          rw [hrse_val'] at hj2
+          refine ⟨j - prefix1.val, by omega, by omega, ?_⟩
+          have hj : prefix1.val + (j - prefix1.val) = j := by omega
+          rwa [hj]
+        · rintro ⟨off, hoff1, hoff2, hoff3⟩
+          exact ⟨prefix1.val + off, by rw [hrp_val]; omega,
+            by rw [hrse_val']; omega, hoff3⟩
+      obtain ⟨nlL, nlR, hnl_sum, hnlL_le, hnl_shape⟩ :
+          ∃ nl nr, new_len = nl + nr ∧
+            nl ≤ subtreeCapacity packing_factor child_depth ∧
+            ((nr = 0 ∧ nl = new_len) ∨
+              nl = subtreeCapacity packing_factor child_depth) := by
+        by_cases hle : new_len ≤ subtreeCapacity packing_factor child_depth
+        · exact ⟨new_len, 0, by omega, hle, Or.inl ⟨rfl, rfl⟩⟩
+        · exact ⟨subtreeCapacity packing_factor child_depth,
+            new_len - subtreeCapacity packing_factor child_depth, by omega,
+            Nat.le_refl _, Or.inr rfl⟩
+      have hold_split :
+          left_len ≤ subtreeCapacity packing_factor child_depth ∧
+            (right_len = 0 ∨
+              left_len = subtreeCapacity packing_factor child_depth) := by
+        rcases shape with ⟨h1, h2⟩ | ⟨h1, h2⟩
+        · exact ⟨by omega, Or.inl h2⟩
+        · by_cases hr : 0 < right_len
+          · exact ⟨hleft_bound, Or.inr (h2 hr)⟩
+          · exact ⟨hleft_bound, Or.inl (by omega)⟩
+      have hside_full : 0 < nlR →
+          nlL = subtreeCapacity packing_factor child_depth := by
+        rcases hnl_shape with ⟨h3, h4⟩ | h3 <;> omega
+      have hnlL_pos : 0 < nlL := by
+        rcases hnl_shape with ⟨h3, h4⟩ | h3 <;> omega
+      have hL_old_le : left_len ≤ nlL := by
+        rcases hnl_shape with ⟨h3, h4⟩ | h3 <;>
+          rcases hold_split.2 with h5 | h5 <;> omega
+      have hL_complete : ∀ off, left_len ≤ off → off < nlL →
+          has_update (prefix1.val + off) := by
+        intro off h1 h2
+        rcases hold_split.2 with h3 | h3
+        · exact hcomplete off (by omega) (by omega)
+        · omega
+      have hL_bounded : ∀ off,
+          off < subtreeCapacity packing_factor child_depth →
+          has_update (prefix1.val + off) → off < nlL := by
+        intro off h1 h2
+        have hb := hbounded off (by omega) h2
+        rcases hnl_shape with ⟨h3, h4⟩ | h3 <;> omega
+      have hR_old_le : right_len ≤ nlR := by
+        rcases hold_split.2 with h3 | h3
+        · omega
+        · rcases hnl_shape with ⟨h4, h5⟩ | h4 <;> omega
+      have hR_complete : ∀ off, right_len ≤ off → off < nlR →
+          has_update ((prefix1 ||| i1).val + off) := by
+        intro off h1 h2
+        have hj := hcomplete
+          (subtreeCapacity packing_factor child_depth + off)
+          (by omega) (by rcases hnl_shape with ⟨h3, h4⟩ | h3 <;> omega)
+        have heq : prefix1.val +
+            (subtreeCapacity packing_factor child_depth + off) =
+            (prefix1 ||| i1).val + off := by
+          rw [hrp_val, hchild_capacity]
+          omega
+        rwa [heq] at hj
+      have hR_bounded : ∀ off,
+          off < subtreeCapacity packing_factor child_depth →
+          has_update ((prefix1 ||| i1).val + off) → off < nlR := by
+        intro off h1 h2
+        have heq : (prefix1 ||| i1).val + off =
+            prefix1.val +
+              (subtreeCapacity packing_factor child_depth + off) := by
+          rw [hrp_val, hchild_capacity]
+          omega
+        rw [heq] at h2
+        have hb := hbounded
+          (subtreeCapacity packing_factor child_depth + off)
+          (by omega) h2
+        rcases hnl_shape with ⟨h3, h4⟩ | h3 <;> omega
+      have hR_cap : nlR ≤ subtreeCapacity packing_factor child_depth := by
+        rcases hnl_shape with ⟨h3, h4⟩ | h3 <;> omega
+      have halign_left :
+          prefix1.val % subtreeCapacity packing_factor child_depth = 0 := by
+        apply mod_half_eq_zero
+        rwa [← hcap_succ]
+      have halign_right : (prefix1 ||| i1).val %
+          subtreeCapacity packing_factor child_depth = 0 := by
+        rw [hrp_val, ← hchild_capacity, Nat.add_mod_right]
+        exact halign_left
+      have hmeasure_child : ∀ t : Tree T,
+          2 * new_depth.val + updateZbit t ≤ n := by
+        intro t
+        have := updateZbit_le_one t
+        simp only [updateZbit] at hmeasure
+        omega
+      cases bl with
+      | false =>
+        have hno_left : ¬ ∃ off,
+            off < subtreeCapacity packing_factor child_depth ∧
+            has_update (prefix1.val + off) := by
+          intro hex
+          simpa using hleft_window.mpr hex
+        have hnlL_eq : nlL = left_len := by
+          by_contra hne
+          have hlt : left_len < nlL := by omega
+          exact hno_left ⟨left_len, by omega,
+            hL_complete left_len (Nat.le_refl _) hlt⟩
+        cases br with
+        | false => simp at hupdate
+        | true =>
+          simp only [Bool.false_eq_true, if_false, if_true] at hupdate
+          rw [result_bind_eq_ok_iff] at hupdate
+          obtain ⟨r, hr, hupdate⟩ := hupdate
+          cases r with
+          | Err e =>
+            simp [core.result.Result.Insts.CoreOpsTry.branch,
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+              core.convert.FromSame.from] at hupdate
+          | Ok new_right =>
+            simp [core.result.Result.Insts.CoreOpsTry.branch, Tree.node,
+              lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
+            subst hupdate
+            have hR_pos : 0 < nlR := by
+              obtain ⟨off, hoff1, hoff2, hoff3⟩ := hright_window.mp rfl
+              have heq : prefix1.val + off =
+                  (prefix1 ||| i1).val +
+                    (off - subtreeCapacity packing_factor child_depth) := by
+                rw [hrp_val, ← hchild_capacity]
+                omega
+              rw [heq] at hoff3
+              have := hR_bounded
+                (off - subtreeCapacity packing_factor child_depth)
+                (by omega) hoff3
+              omega
+            have hdense_right := ih new_depth (prefix1 ||| i1) right
+              new_right child_depth right_len nlR (hmeasure_child right)
+              hnd_depth (UpdateReady.ofDense right_dense) halign_right
+              hR_old_le hR_pos hR_cap hR_complete hR_bounded hr
+            rw [hnl_sum]
+            exact DenseTree.node packing_factor hash left new_right
+              child_depth nlL nlR (hnlL_eq ▸ left_dense) hdense_right
+              hnlL_pos hside_full
+      | true =>
+        simp only [if_true] at hupdate
+        rw [result_bind_eq_ok_iff] at hupdate
+        obtain ⟨r, hr, hupdate⟩ := hupdate
+        cases r with
+        | Err e =>
+          simp [core.result.Result.Insts.CoreOpsTry.branch,
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+            core.convert.FromSame.from] at hupdate
+        | Ok new_left =>
+          simp only [core.result.Result.Insts.CoreOpsTry.branch,
+            bind_tc_ok] at hupdate
+          have hdense_left := ih new_depth prefix1 left new_left child_depth
+            left_len nlL (hmeasure_child left) hnd_depth
+            (UpdateReady.ofDense left_dense) halign_left hL_old_le hnlL_pos
+            hnlL_le hL_complete hL_bounded hr
+          cases br with
+          | false =>
+            have hno_right : ¬ ∃ off,
+                subtreeCapacity packing_factor child_depth ≤ off ∧
+                off < subtreeCapacity packing_factor (child_depth + 1) ∧
+                has_update (prefix1.val + off) := by
+              intro hex
+              simpa using hright_window.mpr hex
+            have hnlR_eq : nlR = right_len := by
+              by_contra hne
+              have hlt : right_len < nlR := by omega
+              have hup := hR_complete right_len (Nat.le_refl _) hlt
+              have heq : (prefix1 ||| i1).val + right_len =
+                  prefix1.val +
+                    (subtreeCapacity packing_factor child_depth +
+                      right_len) := by
+                rw [hrp_val, hchild_capacity]
+                omega
+              rw [heq] at hup
+              exact hno_right
+                ⟨subtreeCapacity packing_factor child_depth + right_len,
+                  by omega, by omega, hup⟩
+            simp only [Bool.false_eq_true, if_false] at hupdate
+            simp [Tree.node, lock_api.rwlock.RwLock.new,
+              triomphe.arc.Arc.new] at hupdate
+            subst hupdate
+            rw [hnl_sum]
+            exact DenseTree.node packing_factor hash new_left right
+              child_depth nlL nlR hdense_left (hnlR_eq ▸ right_dense)
+              hnlL_pos hside_full
+          | true =>
+            simp only [if_true] at hupdate
+            rw [result_bind_eq_ok_iff] at hupdate
+            obtain ⟨r1, hr1, hupdate⟩ := hupdate
+            cases r1 with
+            | Err e =>
+              simp [core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+                core.convert.FromSame.from] at hupdate
+            | Ok new_right =>
+              simp [Tree.node,
+                lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
+              subst hupdate
+              have hR_pos : 0 < nlR := by
+                obtain ⟨off, hoff1, hoff2, hoff3⟩ := hright_window.mp rfl
+                have heq : prefix1.val + off =
+                    (prefix1 ||| i1).val +
+                      (off - subtreeCapacity packing_factor child_depth) := by
+                  rw [hrp_val, ← hchild_capacity]
+                  omega
+                rw [heq] at hoff3
+                have := hR_bounded
+                  (off - subtreeCapacity packing_factor child_depth)
+                  (by omega) hoff3
+                omega
+              have hdense_right := ih new_depth (prefix1 ||| i1) right
+                new_right child_depth right_len nlR (hmeasure_child right)
+                hnd_depth (UpdateReady.ofDense right_dense) halign_right
+                hR_old_le hR_pos hR_cap hR_complete hR_bounded hr1
+              rw [hnl_sum]
+              exact DenseTree.node packing_factor hash new_left new_right
+                child_depth nlL nlR hdense_left hdense_right hnlL_pos
+                hside_full
+
+/-- **Bulk-update preservation.** A successful `with_updated_leaves` from
+    the root prefix on a dense tree is dense at the new length of the update
+    domain. Besides the packing layout and the input density, the premises
+    are: the update domain itself, its two feasibility bounds (a positive new
+    length, since a Zero tree with no updates would otherwise produce a
+    non-canonical empty packed leaf, and the subtree capacity bound), and
+    lawfulness of the two `UpdateMap` methods on the answers they actually
+    return: `get` reflects the update set, `has_any_in_range` decides its
+    restriction to a range. -/
+theorem with_updated_leaves_preserves_dense {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) {updates : U}
+    {packing_factor : Option Std.Usize} {packing_depth depth : Std.Usize}
+    {tree : Tree T} {updated : triomphe.arc.Arc (Tree T)}
+    {old_len new_len : Nat} {has_update : Nat → Prop}
+    {hashes : Option (alloc.collections.btree.map.BTreeMap
+      (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : DenseTree packing_factor tree depth.val old_len)
+    (hdomain : DenseUpdateDomain old_len new_len has_update)
+    (hnew_pos : 0 < new_len)
+    (hnew_cap : new_len ≤ subtreeCapacity packing_factor depth.val)
+    (hget : ∀ (i : Std.Usize) (found : Option T),
+      mapInst.get updates i = ok found →
+      (found.isSome = true ↔ has_update i.val))
+    (hrange : ∀ (lo hi : Std.Usize) (r : Bool),
+      mapInst.has_any_in_range updates lo hi = ok r →
+      (r = true ↔ ∃ j, lo.val ≤ j ∧ j < hi.val ∧ has_update j))
+    (hupdate : Tree.with_updated_leaves ValueInst mapInst tree updates
+      0#usize depth hashes = ok (core.result.Result.Ok updated)) :
+    DenseTree packing_factor updated depth.val new_len := by
+  obtain ⟨hmono, hcomplete, hbounded⟩ := hdomain
+  refine with_updated_leaves_preserves_dense_aux ValueInst mapInst updates
+    hlayout hget hrange hashes (2 * depth.val + updateZbit tree) depth
+    0#usize tree updated depth.val old_len new_len (Nat.le_refl _) rfl
+    (UpdateReady.ofDense hdense) (by simp) hmono hnew_pos hnew_cap ?_ ?_
+    hupdate
+  · intro j h1 h2
+    simpa using hcomplete j h1 h2
+  · intro j hj hup
+    exact hbounded j (by simpa using hup)
 
 end milhouse.tree
