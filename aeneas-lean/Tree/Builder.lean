@@ -330,6 +330,38 @@ theorem BuilderStack.ne_nil_of_length_pos {T : Type}
   | left child_prefix fits_left ih => exact ih hpos
   | right => simp
 
+/-- Every physical stack entry represents a dense subtree; its depth and
+    logical length are recovered existentially from the stack shape. -/
+theorem BuilderStack.entry_dense {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {root_depth total : Nat}
+    (hstack : BuilderStack packing_factor base_depth stack root_depth total)
+    {entry : utils.MaybeArced (Tree T)} (hentry : entry ∈ stack) :
+    ∃ depth len,
+      DenseTree packing_factor (maybeArcedTree entry) depth len := by
+  induction hstack with
+  | empty => simp at hentry
+  | base only_entry len dense nonempty =>
+    simp at hentry
+    subst entry
+    exact ⟨base_depth, len, dense⟩
+  | full only_entry depth base_le_depth dense capacity_nonempty =>
+    simp at hentry
+    subst entry
+    exact ⟨depth, subtreeCapacity packing_factor depth, dense⟩
+  | segment only_entry depth len base_le_depth dense nonempty
+      full_or_unaligned =>
+    simp at hentry
+    subst entry
+    exact ⟨depth, len, dense⟩
+  | left child_prefix fits_left ih => exact ih hentry
+  | right left depth right_len left_dense right_prefix right_nonempty
+      right_not_full ih =>
+    simp at hentry
+    rcases hentry with rfl | hright
+    · exact ⟨depth, subtreeCapacity packing_factor depth, left_dense⟩
+    · exact ih hright
+
 theorem BuilderStack.raise_left {T : Type}
     {packing_factor : Option Std.Usize} {base_depth : Nat}
     {stack : List (utils.MaybeArced (Tree T))} {depth len : Nat}
@@ -1384,6 +1416,26 @@ private theorem vec_pop_append_last {A X : Type}
     rw [hreverse] at hcons
     cases hcons
     simp [rest]
+
+private theorem vec_pop_some_values {A X : Type}
+    (source rest : alloc.vec.Vec X) (last : X)
+    (hpop : alloc.vec.Vec.pop A source = ok (some last, rest)) :
+    source.val = rest.val ++ [last] := by
+  unfold alloc.vec.Vec.pop at hpop
+  split at hpop
+  · simp at hpop
+  · rename_i head tail hreverse
+    simp at hpop
+    obtain ⟨rfl, hrest⟩ := hpop
+    have hsource : source.val = tail.reverse ++ [head] := by
+      calc
+        source.val = source.val.reverse.reverse := by simp
+        _ = (head :: tail).reverse := by rw [hreverse]
+        _ = tail.reverse ++ [head] := by simp
+    have hrest_values : tail.reverse = rest.val :=
+      congrArg Subtype.val hrest
+    rw [hrest_values] at hsource
+    exact hsource
 
 private theorem vec_push_values {X : Type} (items : alloc.vec.Vec X) (last : X)
     {result : alloc.vec.Vec X}
