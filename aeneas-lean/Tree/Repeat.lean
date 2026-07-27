@@ -430,4 +430,46 @@ private theorem repeat_list_loop_preserves_layer {T : Type}
       subst result
       simpa [heq] using hlayer
 
+/-! ## Container boundary -/
+
+/-- `List::from_parts` records its tree, depth, and length unchanged, and
+    caches exactly the packing depth supplied by the valid layout. -/
+private theorem list_from_parts_fields {T N U : Type}
+    {ValueInst : Value T}
+    (UnsignedInst : typenum.marker_traits.Unsigned N)
+    (UpdateMapInst : update_map.UpdateMap U T)
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (tree : Tree T) (depth length : Std.Usize) {result : list.List T N U}
+    (hparts : list.List.from_parts ValueInst UnsignedInst UpdateMapInst
+      tree depth length = ok result) :
+    result.interface.backing.tree = tree ∧
+      result.interface.backing.depth = depth ∧
+      result.interface.backing.length = length ∧
+      result.interface.backing.packing_depth = packing_depth := by
+  unfold list.List.from_parts at hparts
+  cases hlayout with
+  | unpacked factor_eq depth_eq =>
+    rw [depth_eq] at hparts
+    simp [core.option.Option.unwrap_or] at hparts
+    unfold interface.Interface.new at hparts
+    cases hdefault : UpdateMapInst.coredefaultDefaultInst.default with
+    | fail error => simp [hdefault, lift] at hparts
+    | div => simp [hdefault, lift] at hparts
+    | ok updates =>
+      simp [hdefault, lift] at hparts
+      subst result
+      simp
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    rw [depth_eq] at hparts
+    simp [core.option.Option.unwrap_or] at hparts
+    unfold interface.Interface.new at hparts
+    cases hdefault : UpdateMapInst.coredefaultDefaultInst.default with
+    | fail error => simp [hdefault, lift] at hparts
+    | div => simp [hdefault, lift] at hparts
+    | ok updates =>
+      simp [hdefault, lift] at hparts
+      subst result
+      simp
+
 end milhouse.tree
