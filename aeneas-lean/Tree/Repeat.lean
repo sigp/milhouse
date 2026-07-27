@@ -472,4 +472,104 @@ private theorem list_from_parts_fields {T N U : Type}
       subst result
       simp
 
+private def repeatListFinalize {T N U : Type}
+    (ValueInst : Value T)
+    (UnsignedInst : typenum.marker_traits.Unsigned N)
+    (UpdateMapInst : update_map.UpdateMap U T)
+    (tree_depth n : Std.Usize) (layer : List (Tree T × Std.Usize)) :
+    Result (core.result.Result (list.List T N U) error.Error) := do
+  let layer1 ← repeat.repeat_list_loop ValueInst
+    { start := 0#usize, «end» := tree_depth } layer
+  let (entry, rest) ←
+    smallvec.SmallVec.pop (Array.Insts.SmallvecArray
+      ((triomphe.arc.Arc (Tree T)) × Std.Usize) 2#usize) layer1
+  let root_count ← core.option.Option.ok_or entry
+    error.Error.BuilderStackEmptyFinalize
+  let branch ← core.result.Result.Insts.CoreOpsTry.branch root_count
+  match branch with
+  | .Continue (root, count) =>
+    let empty ← smallvec.SmallVec.is_empty (Array.Insts.SmallvecArray
+      ((triomphe.arc.Arc (Tree T)) × Std.Usize) 2#usize) rest
+    if empty then
+      if count != 1#usize then
+        ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+      else
+        let result ← list.List.from_parts ValueInst UnsignedInst
+          UpdateMapInst root tree_depth n
+        ok (core.result.Result.Ok result)
+    else
+      ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+  | .Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      (list.List T N U) (core.convert.FromSame error.Error) residual
+
+/-- Finalizing a valid repeated layer returns a list whose cached fields and
+    dense backing tree all describe the represented logical length. -/
+private theorem repeatListFinalize_returns_dense {T N U : Type}
+    {ValueInst : Value T}
+    (UnsignedInst : typenum.marker_traits.Unsigned N)
+    (UpdateMapInst : update_map.UpdateMap U T)
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (tree_depth n : Std.Usize) (layer : List (Tree T × Std.Usize))
+    (hlayer : RepeatLayer packing_factor 0 n.val layer)
+    {result : list.List T N U}
+    (hfinalize : repeatListFinalize ValueInst UnsignedInst UpdateMapInst
+      tree_depth n layer = ok (core.result.Result.Ok result)) :
+    result.interface.backing.length = n ∧
+      result.interface.backing.packing_depth = packing_depth ∧
+      DenseTree packing_factor result.interface.backing.tree
+        result.interface.backing.depth.val n.val := by
+  unfold repeatListFinalize at hfinalize
+  cases hloop : repeat.repeat_list_loop ValueInst
+      { start := 0#usize, «end» := tree_depth } layer with
+  | fail error => simp [hloop] at hfinalize
+  | div => simp [hloop] at hfinalize
+  | ok final_layer =>
+    have hfinal_layer := repeat_list_loop_preserves_layer hlayout
+      tree_depth.val { start := 0#usize, «end» := tree_depth }
+      layer final_layer n.val (by simp) (by simp) hlayer hloop
+    cases hfinal_layer with
+    | single tree count depth len total hdense hlen hcount htotal hone_full =>
+      by_cases hcount_one : count = 1#usize
+      · subst count
+        cases hparts : list.List.from_parts ValueInst UnsignedInst
+            UpdateMapInst tree tree_depth n with
+        | fail error =>
+          simp [hloop, smallvec.SmallVec.pop,
+            core.option.Option.ok_or,
+            core.result.Result.Insts.CoreOpsTry.branch,
+            smallvec.SmallVec.is_empty, hparts] at hfinalize
+        | div =>
+          simp [hloop, smallvec.SmallVec.pop,
+            core.option.Option.ok_or,
+            core.result.Result.Insts.CoreOpsTry.branch,
+            smallvec.SmallVec.is_empty, hparts] at hfinalize
+        | ok built =>
+          simp [hloop, smallvec.SmallVec.pop,
+            core.option.Option.ok_or,
+            core.result.Result.Insts.CoreOpsTry.branch,
+            smallvec.SmallVec.is_empty, hparts] at hfinalize
+          subst built
+          obtain ⟨htree, hdepth, hlength, hpacking⟩ :=
+            list_from_parts_fields UnsignedInst UpdateMapInst hlayout tree
+              tree_depth n hparts
+          refine ⟨hlength, hpacking, ?_⟩
+          rw [htree, hdepth]
+          simp at htotal
+          simpa [htotal] using hdense
+      · have hcount_val_ne : count.val ≠ 1 := by
+          intro hval
+          exact hcount_one (UScalar.eq_of_val_eq (by simpa using hval))
+        simp [hloop, smallvec.SmallVec.pop,
+          core.option.Option.ok_or,
+          core.result.Result.Insts.CoreOpsTry.branch,
+          smallvec.SmallVec.is_empty, hcount_val_ne] at hfinalize
+    | split repeated lonely count depth lonely_len total hrepeated hlonely
+        hcount hlonely_pos hlonely_partial htotal =>
+      simp [hloop, smallvec.SmallVec.pop,
+        core.option.Option.ok_or,
+        core.result.Result.Insts.CoreOpsTry.branch,
+        smallvec.SmallVec.is_empty] at hfinalize
+
 end milhouse.tree
