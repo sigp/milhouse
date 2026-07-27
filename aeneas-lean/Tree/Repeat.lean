@@ -487,7 +487,9 @@ private def repeatListFinalize {T N U : Type}
     error.Error.BuilderStackEmptyFinalize
   let branch ← core.result.Result.Insts.CoreOpsTry.branch root_count
   match branch with
-  | .Continue (root, count) =>
+  | .Continue val =>
+    let (root, count) := val
+    do
     let empty ← smallvec.SmallVec.is_empty (Array.Insts.SmallvecArray
       ((triomphe.arc.Arc (Tree T)) × Std.Usize) 2#usize) rest
     if empty then
@@ -746,5 +748,27 @@ private theorem repeatInitialLayer_preserves {T : Type}
                     rw [hrepeated_val, hlonely_val]
                     have hdecomp := Nat.mod_add_div n.val factor.val
                     simpa [Nat.add_comm] using hdecomp.symm
+
+/-- After exposing the two proof-side helpers, the non-empty translated
+    function is exactly initial-layer construction followed by finalization. -/
+private theorem repeat_list_nonempty_eq {T N U : Type}
+    (ValueInst : Value T)
+    (UnsignedInst : typenum.marker_traits.Unsigned N)
+    (UpdateMapInst : update_map.UpdateMap U T)
+    (elem : T) (n : Std.Usize) (hn : n ≠ 0#usize) :
+    repeat.repeat_list ValueInst UnsignedInst UpdateMapInst elem n = (do
+      let packing_factor ←
+        utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
+      let tree_depth ← list.List.depth ValueInst UnsignedInst UpdateMapInst
+      let layer ← repeatInitialLayer ValueInst elem n packing_factor
+      repeatListFinalize ValueInst UnsignedInst UpdateMapInst tree_depth n
+        layer) := by
+  unfold repeat.repeat_list repeatInitialLayer repeatListFinalize
+  simp [hn, usize_zero_add_one, usize_one_add_one,
+    smallvec.SmallVec.new, smallvec.SmallVec.inline_size,
+    Array.Insts.SmallvecArray.size, smallvec.SmallVec.push,
+    smallvec.SmallVec.from_vec, triomphe.arc.Arc.new]
+  intros
+  rfl
 
 end milhouse.tree
