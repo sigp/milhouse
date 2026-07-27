@@ -86,6 +86,13 @@ axiom core.option.Option.is_none_or
   core.ops.function.FnOnce T1 T Bool) :
   Option T → T1 → Result Bool
 
+/-- [core::option::{core::option::Option<T>}::as_ref]:
+    Source: '/rustc/library/core/src/option.rs', lines 741:4-741:44
+    Name pattern: [core::option::{core::option::Option<@T>}::as_ref]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<@T>}::as_ref"]
+axiom core.option.Option.as_ref {T : Type} : Option T → Result (Option T)
+
 /-- [core::option::{core::option::Option<T>}::unwrap_or_default]:
     Source: '/rustc/library/core/src/option.rs', lines 1090:4-1092:27
     Name pattern: [core::option::{core::option::Option<@T>}::unwrap_or_default]
@@ -104,6 +111,16 @@ axiom core.option.Option.map
   {T : Type} {U : Type} {F : Type} (opsfunctionFnOnceFTupleTUInst :
   core.ops.function.FnOnce F T U) :
   Option T → F → Result (Option U)
+
+/-- [core::option::{core::option::Option<T>}::map_or]:
+    Source: '/rustc/library/core/src/option.rs', lines 1221:4-1224:28
+    Name pattern: [core::option::{core::option::Option<@T>}::map_or]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<@T>}::map_or"]
+axiom core.option.Option.map_or
+  {T : Type} {U : Type} {F : Type} (opsfunctionFnOnceFTupleTUInst :
+  core.ops.function.FnOnce F T U) :
+  Option T → U → F → Result U
 
 /-- [core::option::{core::option::Option<T>}::ok_or]:
     Source: '/rustc/library/core/src/option.rs', lines 1334:4-1334:73
@@ -459,6 +476,76 @@ axiom
 axiom
   parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend.INIT
   : Result parking_lot.raw_rwlock.RawRwLock
+
+/-- [smallvec::{smallvec::SmallVec<A, Clause0_Item>}::new]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 779:4-779:31
+    Name pattern: [smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::new]
+    Visibility: public -/
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::new"]
+axiom smallvec.SmallVec.new
+  {A : Type} {Clause0_Item : Type} (ArrayInst : smallvec.Array A Clause0_Item)
+  :
+  Result (smallvec.SmallVec A Clause0_Item)
+
+/-- [smallvec::{smallvec::SmallVec<A, Clause0_Item>}::from_vec]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 825:4-825:57
+    Name pattern: [smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::from_vec]
+    Visibility: public -/
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::from_vec"]
+axiom smallvec.SmallVec.from_vec
+  {A : Type} {Clause0_Item : Type} (ArrayInst : smallvec.Array A Clause0_Item)
+  :
+  alloc.vec.Vec Clause0_Item → Result (smallvec.SmallVec A Clause0_Item)
+
+/-- [smallvec::{smallvec::SmallVec<A, Clause0_Item>}::inline_size]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 946:4-946:38
+    Name pattern: [smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::inline_size]
+    Visibility: public -/
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::inline_size"]
+axiom smallvec.SmallVec.inline_size
+  {A : Type} {Clause0_Item : Type} (ArrayInst : smallvec.Array A Clause0_Item)
+  :
+  smallvec.SmallVec A Clause0_Item → Result Std.Usize
+
+/-- [smallvec::{smallvec::SmallVec<A, Clause0_Item>}::is_empty]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 958:4-958:34
+    Name pattern: [smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::is_empty]
+    Visibility: public -/
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::is_empty"]
+axiom smallvec.SmallVec.is_empty
+  {A : Type} {Clause0_Item : Type} (ArrayInst : smallvec.Array A Clause0_Item)
+  :
+  smallvec.SmallVec A Clause0_Item → Result Bool
+
+/-- [smallvec::{smallvec::SmallVec<A, Clause0_Item>}::push]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 1114:4-1114:42
+    Name pattern: [smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::push]
+    Visibility: public -/
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::push"]
+axiom smallvec.SmallVec.push
+  {A : Type} {Clause0_Item : Type} (ArrayInst : smallvec.Array A Clause0_Item)
+  :
+  smallvec.SmallVec A Clause0_Item → Clause0_Item → Result
+    (smallvec.SmallVec A Clause0_Item)
+
+/-- [smallvec::{smallvec::SmallVec<A, Clause0_Item>}::pop]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 1130:4-1130:44
+    Name pattern: [smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::pop]
+    Visibility: public -/
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::pop"]
+axiom smallvec.SmallVec.pop
+  {A : Type} {Clause0_Item : Type} (ArrayInst : smallvec.Array A Clause0_Item)
+  :
+  smallvec.SmallVec A Clause0_Item → Result ((Option Clause0_Item) ×
+    (smallvec.SmallVec A Clause0_Item))
+
+/-- [smallvec::{impl smallvec::Array<T> for [T; N]}::size]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 2409:4-2409:22
+    Name pattern: [smallvec::{smallvec::Array<[@T; @N], @T>}::size]
+    Visibility: public -/
+@[rust_fun "smallvec::{smallvec::Array<[@T; @N], @T>}::size"]
+axiom Array.Insts.SmallvecArray.size
+  (T : Type) (N : Std.Usize) : Result Std.Usize
 
 /-- [triomphe::arc::{triomphe::arc::Arc<T>}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/triomphe-0.1.14/src/arc.rs', lines 80:4-80:31

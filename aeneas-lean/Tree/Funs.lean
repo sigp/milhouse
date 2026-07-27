@@ -209,6 +209,15 @@ def parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend :
     parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend.unlock_exclusive
 }
 
+/-- Trait implementation: [smallvec::{impl smallvec::Array<T> for [T; N]}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 2406:0-2406:47
+    Name pattern: [smallvec::Array<[@T; @N], @T>] -/
+@[reducible, rust_trait_impl "smallvec::Array<[@T; @N], @T>"]
+def Array.Insts.SmallvecArray (T : Type) (N : Std.Usize) : smallvec.Array
+  (Array T N) T := {
+  size := Array.Insts.SmallvecArray.size T N
+}
+
 /-- [milhouse::utils::opt_packing_factor]:
     Source: 'src/utils.rs', lines 67:0-72:1
     Visibility: public -/
@@ -1119,6 +1128,55 @@ def builder.Builder.finish
             ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
             (core.convert.FromSame error.Error) residual
 
+/-- [milhouse::interface::ImmList::is_empty]:
+    Source: 'src/interface.rs', lines 18:4-20:5
+    Visibility: public -/
+@[trait_default]
+def interface.ImmList.is_empty.default
+  {Self : Type} {T : Type} (ImmListInst : interface.ImmList Self T)
+  (self : Self) :
+  Result Bool
+  := do
+  let l ← ImmListInst.len self
+  let i ← utils.Length.as_usize l
+  ok (i = 0#usize)
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::new]:
+    Source: 'src/interface.rs', lines 56:4-62:5
+    Visibility: public -/
+def interface.Interface.new
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (backing : B) :
+  Result (interface.Interface T B U)
+  := do
+  let t ← update_mapUpdateMapInst.coredefaultDefaultInst.default
+  ok { backing, updates := t, _phantom := () }
+
+/-- [milhouse::iter::{milhouse::iter::Iter<'a, T>}::from_index]:
+    Source: 'src/iter.rs', lines 25:4-37:5
+    Visibility: public -/
+def iter.Iter.from_index
+  {T : Type} (ValueInst : Value T) (index : Std.Usize) (root : tree.Tree T)
+  (depth : Std.Usize) (length : utils.Length) :
+  Result (iter.Iter T)
+  := do
+  let stack := alloc.vec.Vec.with_capacity (tree.Tree T) depth
+  let stack1 ← alloc.vec.Vec.push stack root
+  let o ← utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
+  let i ← lift (core.option.Option.unwrap_or o 0#usize)
+  let o1 ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+  let i1 ← lift (core.option.Option.unwrap_or o1 0#usize)
+  ok
+    {
+      stack := stack1,
+      index,
+      full_depth := depth,
+      packing_factor := i,
+      packing_depth := i1,
+      length
+    }
+
 /-- [milhouse::leaf::{impl core::clone::Clone for milhouse::leaf::Leaf<T>}::clone]:
     Source: 'src/leaf.rs', lines 21:4-26:5
     Visibility: public -/
@@ -1141,45 +1199,139 @@ def leaf.Leaf.Insts.CoreCloneClone.clone
   let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone self.value
   ok { hash := rl, value := a }
 
-/-- [milhouse::packed_leaf::{impl core::clone::Clone for milhouse::packed_leaf::PackedLeaf<T>}::clone]:
-    Source: 'src/packed_leaf.rs', lines 20:4-25:5
+/-- [milhouse::utils::compute_level]:
+    Source: 'src/utils.rs', lines 54:0-65:1
     Visibility: public -/
-def packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
-  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
-  : core.clone.Clone T) (self : packed_leaf.PackedLeaf T) :
-  Result (packed_leaf.PackedLeaf T)
+def utils.compute_level
+  (index : Std.Usize) (depth : Std.Usize) (packing_depth : Std.Usize) :
+  Result Std.Usize
   := do
-  let rlrg ←
-    lock_api.rwlock.RwLock.read
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      self.hash
-  let fb ←
-    lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      rlrg
-  let rl ←
-    lock_api.rwlock.RwLock.new
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      fb
-  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
-  ok { hash := rl, values := v }
+  let raw_level ←
+    if index = 0#usize
+    then depth + packing_depth
+    else
+      do
+      let i ← core.num.Usize.trailing_zeros index
+      ok (UScalar.cast .Usize i)
+  if raw_level < packing_depth
+  then ok 0#usize
+  else ok raw_level
 
-/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::empty]:
-    Source: 'src/packed_leaf.rs', lines 50:4-55:5
+/-- [milhouse::level_iter::{milhouse::level_iter::LevelIter<'a, T>}::from_index]:
+    Source: 'src/level_iter.rs', lines 41:4-59:5
     Visibility: public -/
-def packed_leaf.PackedLeaf.empty
-  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
-  : core.clone.Clone T) :
-  Result (packed_leaf.PackedLeaf T)
+def level_iter.LevelIter.from_index
+  {T : Type} (ValueInst : Value T) (index : Std.Usize)
+  (root : triomphe.arc.Arc (tree.Tree T)) (depth : Std.Usize)
+  (length : utils.Length) :
+  Result (level_iter.LevelIter T)
   := do
-  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+  let stack :=
+    alloc.vec.Vec.with_capacity (triomphe.arc.Arc (tree.Tree T)) depth
+  let stack1 ← alloc.vec.Vec.push stack root
+  let o ← utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
+  let packing_factor ← lift (core.option.Option.unwrap_or o 0#usize)
+  let o1 ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+  let packing_depth ← lift (core.option.Option.unwrap_or o1 0#usize)
+  let level ← utils.compute_level index depth packing_depth
+  ok
+    {
+      stack := stack1,
+      index,
+      level,
+      full_depth := depth,
+      packing_factor,
+      packing_depth,
+      length
+    }
+
+/-- [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}::call_once]:
+    Source: 'src/utils.rs', lines 87:41-89:5 -/
+def
+  utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength.call_once
+  {U : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (c : utils.updated_length.closure U T) (tupled_args : Std.Usize) :
+  Result utils.Length
+  := do
+  let i ← tupled_args + 1#usize
+  let i1 ← utils.Length.as_usize c
+  let i2 ← core.cmp.max core.cmp.OrdUsize i i1
+  ok i2
+
+/-- Trait implementation: [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}]
+    Source: 'src/utils.rs', lines 87:41-89:5 -/
+@[reducible]
+def utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength {U
+  : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  core.ops.function.FnOnce (utils.updated_length.closure U T) Std.Usize
+  utils.Length := {
+  call_once :=
+    utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength.call_once
+    update_mapUpdateMapInst
+}
+
+/-- [milhouse::utils::updated_length]:
+    Source: 'src/utils.rs', lines 86:0-90:1
+    Visibility: public -/
+def utils.updated_length
+  {U : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (prev_len : utils.Length) (updates : U) :
+  Result utils.Length
+  := do
+  let o ← update_mapUpdateMapInst.max_index updates
+  core.option.Option.map_or
+    (utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength
+    update_mapUpdateMapInst) o prev_len prev_len
+
+/-- [milhouse::utils::opt_hash]:
+    Source: 'src/utils.rs', lines 93:0-99:1
+    Visibility: public -/
+def utils.opt_hash
+  (hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize ×
+  Std.Usize) (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global))
+  (depth : Std.Usize) (prefix1 : Std.Usize) :
+  Result (Option (alloy_primitives.bits.fixed.FixedBytes 32#usize))
+  := do
+  let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch hashes
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue val =>
+    let o ←
+      alloc.collections.btree.map.BTreeMap.get core.core.clone.CloneGlobal
+        (core.borrow.Borrow.Blanket (Std.Usize × Std.Usize))
+        (Pair.Insts.CoreCmpOrd core.cmp.OrdUsize core.cmp.OrdUsize)
+        (Pair.Insts.CoreCmpOrd core.cmp.OrdUsize core.cmp.OrdUsize) val (depth,
+        prefix1)
+    core.option.OptionShared0T.copied
+      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreMarkerCopy 32#usize) o
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) residual
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf_with_hash]:
+    Source: 'src/tree.rs', lines 64:4-66:5
+    Visibility: public -/
+def tree.Tree.leaf_with_hash
+  {T : Type} (ValueInst : Value T) (value : T)
+  (hash : alloy_primitives.bits.fixed.FixedBytes 32#usize) :
+  Result (triomphe.arc.Arc (tree.Tree T))
+  := do
+  let l ← leaf.Leaf.with_hash value hash
+  triomphe.arc.Arc.new (tree.Tree.Leaf l)
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::node]:
+    Source: 'src/tree.rs', lines 48:4-54:5
+    Visibility: public -/
+def tree.Tree.node
+  {T : Type} (ValueInst : Value T) (left : triomphe.arc.Arc (tree.Tree T))
+  (right : triomphe.arc.Arc (tree.Tree T))
+  (hash : alloy_primitives.bits.fixed.FixedBytes 32#usize) :
+  Result (triomphe.arc.Arc (tree.Tree T))
+  := do
   let rl ←
     lock_api.rwlock.RwLock.new
       parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      fb
-  let i ← tree_hashTreeHashInst.tree_hash_packing_factor
-  let v := alloc.vec.Vec.with_capacity T i
-  ok { hash := rl, values := v }
+      hash
+  triomphe.arc.Arc.new (tree.Tree.Node rl left right)
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::insert_mut]:
     Source: 'src/packed_leaf.rs', lines 111:4-126:5
@@ -1216,34 +1368,6 @@ def packed_leaf.PackedLeaf.insert_mut
       let rl := get_mut_back fb
       ok (core.result.Result.Err (error.Error.PackedLeafOutOfBounds sub_index
         i2), { self with hash := rl })
-
-/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::insert_at_index]:
-    Source: 'src/packed_leaf.rs', lines 75:4-83:5
-    Visibility: public -/
-def packed_leaf.PackedLeaf.insert_at_index
-  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
-  : core.clone.Clone T) (self : packed_leaf.PackedLeaf T) (index : Std.Usize)
-  (value : T) :
-  Result (core.result.Result (packed_leaf.PackedLeaf T) error.Error)
-  := do
-  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
-  let rl ←
-    lock_api.rwlock.RwLock.new
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      fb
-  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
-  let i ← tree_hashTreeHashInst.tree_hash_packing_factor
-  let sub_index ← index % i
-  let (r, updated) ←
-    packed_leaf.PackedLeaf.insert_mut tree_hashTreeHashInst corecloneCloneInst
-      { hash := rl, values := v } sub_index value
-  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
-  match cf with
-  | core.ops.control_flow.ControlFlow.Continue _ =>
-    ok (core.result.Result.Ok updated)
-  | core.ops.control_flow.ControlFlow.Break residual =>
-    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
-      (packed_leaf.PackedLeaf T) (core.convert.FromSame error.Error) residual
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::update]: loop body 0:
     Source: 'src/packed_leaf.rs', lines 102:8-109:5
@@ -1321,314 +1445,22 @@ def packed_leaf.PackedLeaf.update
     update_mapUpdateMapInst updates { hash := rl, values := v } packing_factor
     end1 prefix1
 
-/-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
-    Source: 'src/tree.rs', lines 10:16-10:21
+/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::empty]:
+    Source: 'src/packed_leaf.rs', lines 50:4-55:5
     Visibility: public -/
-def tree.Tree.Insts.CoreHashHash.hash
-  {T : Type} {H : Type} (ValueInst : Value T) (corehashHashLeafInst :
-  core.hash.Hash (leaf.Leaf T)) (corehashHashPackedLeafInst : core.hash.Hash
-  (packed_leaf.PackedLeaf T)) (corehashHashArcTreeInst : core.hash.Hash
-  (triomphe.arc.Arc (tree.Tree T))) (corehashHashUsizeInst : core.hash.Hash
-  Std.Usize) (corehashHasherInst : core.hash.Hasher H) (self : tree.Tree T)
-  (state : H) :
-  Result H
+def packed_leaf.PackedLeaf.empty
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) :
+  Result (packed_leaf.PackedLeaf T)
   := do
-  match self with
-  | tree.Tree.Leaf _0 =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 0#usize state
-    corehashHashLeafInst.hash corehashHasherInst _0 state1
-  | tree.Tree.PackedLeaf _0 =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 1#usize state
-    corehashHashPackedLeafInst.hash corehashHasherInst _0 state1
-  | tree.Tree.Node _ v_left v_right =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 2#usize state
-    let state2 ←
-      corehashHashArcTreeInst.hash corehashHasherInst v_left state1
-    corehashHashArcTreeInst.hash corehashHasherInst v_right state2
-  | tree.Tree.Zero _0 =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 3#usize state
-    Usize.Insts.CoreHashHash.hash corehashHasherInst _0 state1
-
-/-- Trait implementation: [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}]
-    Source: 'src/tree.rs', lines 10:16-10:21 -/
-@[reducible]
-def tree.Tree.Insts.CoreHashHash {T : Type} (ValueInst : Value T)
-  (corehashHashLeafInst : core.hash.Hash (leaf.Leaf T))
-  (corehashHashPackedLeafInst : core.hash.Hash (packed_leaf.PackedLeaf T))
-  (corehashHashArcTreeInst : core.hash.Hash (triomphe.arc.Arc (tree.Tree T)))
-  (corehashHashUsizeInst : core.hash.Hash Std.Usize) : core.hash.Hash
-  (tree.Tree T) := {
-  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
-    tree.Tree.Insts.CoreHashHash.hash ValueInst corehashHashLeafInst
-    corehashHashPackedLeafInst corehashHashArcTreeInst Usize.Insts.CoreHashHash
-    corehashHasherInst
-}
-
-/-- [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}::clone]:
-    Source: 'src/tree.rs', lines 29:4-40:5
-    Visibility: public -/
-def tree.Tree.Insts.CoreCloneClone.clone
-  {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
-  Result (tree.Tree T)
-  := do
-  match self with
-  | tree.Tree.Leaf l =>
-    let l1 ←
-      leaf.Leaf.Insts.CoreCloneClone.clone ValueInst.corecloneCloneInst l
-    ok (tree.Tree.Leaf l1)
-  | tree.Tree.PackedLeaf pl =>
-    let pl1 ←
-      packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
-        ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst pl
-    ok (tree.Tree.PackedLeaf pl1)
-  | tree.Tree.Node hash left right =>
-    let rlrg ←
-      lock_api.rwlock.RwLock.read
-        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-        hash
-    let fb ←
-      lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
-        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-        rlrg
-    let rl ←
-      lock_api.rwlock.RwLock.new
-        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-        fb
-    let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
-    let a1 ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
-    ok (tree.Tree.Node rl a a1)
-  | tree.Tree.Zero _ => ok self
-
-/-- Trait implementation: [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}]
-    Source: 'src/tree.rs', lines 28:0-41:1 -/
-@[reducible]
-def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
-  core.clone.Clone (tree.Tree T) := {
-  clone := tree.Tree.Insts.CoreCloneClone.clone ValueInst
-}
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::empty]:
-    Source: 'src/tree.rs', lines 44:4-46:5
-    Visibility: public -/
-def tree.Tree.empty
-  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
-  Result (triomphe.arc.Arc (tree.Tree T))
-  := do
-  tree.Tree.zero ValueInst depth
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::node]:
-    Source: 'src/tree.rs', lines 48:4-54:5
-    Visibility: public -/
-def tree.Tree.node
-  {T : Type} (ValueInst : Value T) (left : triomphe.arc.Arc (tree.Tree T))
-  (right : triomphe.arc.Arc (tree.Tree T))
-  (hash : alloy_primitives.bits.fixed.FixedBytes 32#usize) :
-  Result (triomphe.arc.Arc (tree.Tree T))
-  := do
+  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
   let rl ←
     lock_api.rwlock.RwLock.new
       parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      hash
-  triomphe.arc.Arc.new (tree.Tree.Node rl left right)
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf]:
-    Source: 'src/tree.rs', lines 60:4-62:5
-    Visibility: public -/
-def tree.Tree.leaf
-  {T : Type} (ValueInst : Value T) (value : T) :
-  Result (triomphe.arc.Arc (tree.Tree T))
-  := do
-  let l ← leaf.Leaf.new value
-  triomphe.arc.Arc.new (tree.Tree.Leaf l)
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf_with_hash]:
-    Source: 'src/tree.rs', lines 64:4-66:5
-    Visibility: public -/
-def tree.Tree.leaf_with_hash
-  {T : Type} (ValueInst : Value T) (value : T)
-  (hash : alloy_primitives.bits.fixed.FixedBytes 32#usize) :
-  Result (triomphe.arc.Arc (tree.Tree T))
-  := do
-  let l ← leaf.Leaf.with_hash value hash
-  triomphe.arc.Arc.new (tree.Tree.Leaf l)
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero_unboxed]:
-    Source: 'src/tree.rs', lines 76:4-78:5
-    Visibility: public -/
-def tree.Tree.zero_unboxed
-  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
-  Result (tree.Tree T)
-  := do
-  ok (tree.Tree.Zero depth)
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::get_recursive]:
-    Source: 'src/tree.rs', lines 84:4-103:5
-    Visibility: public -/
-def tree.Tree.get_recursive
-  {T : Type} (ValueInst : Value T) (self : tree.Tree T) (index : Std.Usize)
-  (depth : Std.Usize) (packing_depth : Std.Usize) :
-  Result (Option T)
-  := do
-  match self with
-  | tree.Tree.Leaf l =>
-    if depth = 0#usize
-    then
-      let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref l.value
-      ok (some t)
-    else ok none
-  | tree.Tree.PackedLeaf pl =>
-    if depth = 0#usize
-    then
-      let s := alloc.vec.Vec.deref pl.values
-      let i ← ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor
-      let i1 ← index % i
-      core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice T) s i1
-    else ok none
-  | tree.Tree.Node _ left right =>
-    if depth > 0#usize
-    then
-      let new_depth ← depth - 1#usize
-      let i ← new_depth + packing_depth
-      let i1 ← index >>> i
-      let i2 ← lift (i1 &&& 1#usize)
-      if i2 = 0#usize
-      then
-        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
-        tree.Tree.get_recursive ValueInst t index new_depth packing_depth
-      else
-        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
-        tree.Tree.get_recursive ValueInst t index new_depth packing_depth
-    else ok none
-  | tree.Tree.Zero _ => ok none
-partial_fixpoint
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::with_updated_leaf]:
-    Source: 'src/tree.rs', lines 108:4-155:5
-    Visibility: public -/
-def tree.Tree.with_updated_leaf
-  {T : Type} (ValueInst : Value T) (self : tree.Tree T) (index : Std.Usize)
-  (new_value : T) (depth : Std.Usize) :
-  Result (core.result.Result (triomphe.arc.Arc (tree.Tree T)) error.Error)
-  := do
-  match self with
-  | tree.Tree.Leaf _ =>
-    if depth = 0#usize
-    then
-      let a ← tree.Tree.leaf ValueInst new_value
-      ok (core.result.Result.Ok a)
-    else ok (core.result.Result.Err error.Error.UpdateLeafError)
-  | tree.Tree.PackedLeaf leaf =>
-    if depth = 0#usize
-    then
-      let r ←
-        packed_leaf.PackedLeaf.insert_at_index ValueInst.tree_hashTreeHashInst
-          ValueInst.corecloneCloneInst leaf index new_value
-      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
-      match cf with
-      | core.ops.control_flow.ControlFlow.Continue val =>
-        let a ← triomphe.arc.Arc.new (tree.Tree.PackedLeaf val)
-        ok (core.result.Result.Ok a)
-      | core.ops.control_flow.ControlFlow.Break residual =>
-        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
-          (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame error.Error)
-          residual
-    else ok (core.result.Result.Err error.Error.UpdateLeafError)
-  | tree.Tree.Node _ left right =>
-    if depth > 0#usize
-    then
-      let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
-      let packing_depth ← lift (core.option.Option.unwrap_or o 0#usize)
-      let new_depth ← depth - 1#usize
-      let i ← new_depth + packing_depth
-      let i1 ← index >>> i
-      let i2 ← lift (i1 &&& 1#usize)
-      if i2 = 0#usize
-      then
-        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
-        let r ←
-          tree.Tree.with_updated_leaf ValueInst t index new_value new_depth
-        let cf ← core.result.Result.Insts.CoreOpsTry.branch r
-        match cf with
-        | core.ops.control_flow.ControlFlow.Continue val =>
-          let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
-          let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
-          let a1 ← tree.Tree.node ValueInst val a fb
-          ok (core.result.Result.Ok a1)
-        | core.ops.control_flow.ControlFlow.Break residual =>
-          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
-            (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame
-            error.Error) residual
-      else
-        let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
-        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
-        let r ←
-          tree.Tree.with_updated_leaf ValueInst t index new_value new_depth
-        let cf ← core.result.Result.Insts.CoreOpsTry.branch r
-        match cf with
-        | core.ops.control_flow.ControlFlow.Continue val =>
-          let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
-          let a1 ← tree.Tree.node ValueInst a val fb
-          ok (core.result.Result.Ok a1)
-        | core.ops.control_flow.ControlFlow.Break residual =>
-          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
-            (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame
-            error.Error) residual
-    else ok (core.result.Result.Err error.Error.UpdateLeafError)
-  | tree.Tree.Zero zero_depth =>
-    if zero_depth = depth
-    then
-      if depth = 0#usize
-      then
-        let o ← utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
-        let b := core.option.Option.is_some o
-        if b
-        then
-          let pl ←
-            packed_leaf.PackedLeaf.single ValueInst.tree_hashTreeHashInst
-              ValueInst.corecloneCloneInst new_value
-          let a ← triomphe.arc.Arc.new (tree.Tree.PackedLeaf pl)
-          ok (core.result.Result.Ok a)
-        else
-          let a ← tree.Tree.leaf ValueInst new_value
-          ok (core.result.Result.Ok a)
-      else
-        let i ← depth - 1#usize
-        let new_zero ← tree.Tree.zero ValueInst i
-        let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone new_zero
-        let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
-        let a1 ← tree.Tree.node ValueInst a new_zero fb
-        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref a1
-        tree.Tree.with_updated_leaf ValueInst t index new_value depth
-    else ok (core.result.Result.Err error.Error.UpdateLeafError)
-partial_fixpoint
-
-/-- [milhouse::utils::opt_hash]:
-    Source: 'src/utils.rs', lines 93:0-99:1
-    Visibility: public -/
-def utils.opt_hash
-  (hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize ×
-  Std.Usize) (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global))
-  (depth : Std.Usize) (prefix1 : Std.Usize) :
-  Result (Option (alloy_primitives.bits.fixed.FixedBytes 32#usize))
-  := do
-  let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch hashes
-  match cf with
-  | core.ops.control_flow.ControlFlow.Continue val =>
-    let o ←
-      alloc.collections.btree.map.BTreeMap.get core.core.clone.CloneGlobal
-        (core.borrow.Borrow.Blanket (Std.Usize × Std.Usize))
-        (Pair.Insts.CoreCmpOrd core.cmp.OrdUsize core.cmp.OrdUsize)
-        (Pair.Insts.CoreCmpOrd core.cmp.OrdUsize core.cmp.OrdUsize) val (depth,
-        prefix1)
-    core.option.OptionShared0T.copied
-      (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreMarkerCopy 32#usize) o
-  | core.ops.control_flow.ControlFlow.Break residual =>
-    core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
-      (alloy_primitives.bits.fixed.FixedBytes 32#usize) residual
+      fb
+  let i ← tree_hashTreeHashInst.tree_hash_packing_factor
+  let v := alloc.vec.Vec.with_capacity T i
+  ok { hash := rl, values := v }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::with_updated_leaves]:
     Source: 'src/tree.rs', lines 157:4-230:5
@@ -1801,6 +1633,1148 @@ def tree.Tree.with_updated_leaves
           updates prefix1 depth hashes
     else ok (core.result.Result.Err error.Error.UpdateLeavesError)
 partial_fixpoint
+
+/-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::update]:
+    Source: 'src/list.rs', lines 306:4-324:5
+    Visibility: public -/
+def list.ListInner.Insts.MilhouseInterfaceMutList.update
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : list.ListInner T N) (updates : U)
+  (hash_updates : Option (alloc.collections.btree.map.BTreeMap (Std.Usize ×
+  Std.Usize) (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)) :
+  Result ((core.result.Result Unit error.Error) × (list.ListInner T N))
+  := do
+  let o ← update_mapUpdateMapInst.max_index updates
+  match o with
+  | none => ok (core.result.Result.Ok (), self)
+  | some max_index =>
+    let i ← typenummarker_traitsUnsignedInst.to_usize
+    if max_index >= i
+    then ok (core.result.Result.Err error.Error.InvalidListUpdate, self)
+    else
+      let l ←
+        utils.updated_length update_mapUpdateMapInst self.length updates
+      let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+      let o1 ← core.option.Option.as_ref hash_updates
+      let r ←
+        tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
+          updates 0#usize self.depth o1
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        ok (core.result.Result.Ok (), { self with tree := val, length := l })
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        let r1 ←
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            Unit (core.convert.FromSame error.Error) residual
+        ok (r1, { self with length := l })
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf]:
+    Source: 'src/tree.rs', lines 60:4-62:5
+    Visibility: public -/
+def tree.Tree.leaf
+  {T : Type} (ValueInst : Value T) (value : T) :
+  Result (triomphe.arc.Arc (tree.Tree T))
+  := do
+  let l ← leaf.Leaf.new value
+  triomphe.arc.Arc.new (tree.Tree.Leaf l)
+
+/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::insert_at_index]:
+    Source: 'src/packed_leaf.rs', lines 75:4-83:5
+    Visibility: public -/
+def packed_leaf.PackedLeaf.insert_at_index
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) (self : packed_leaf.PackedLeaf T) (index : Std.Usize)
+  (value : T) :
+  Result (core.result.Result (packed_leaf.PackedLeaf T) error.Error)
+  := do
+  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+  let rl ←
+    lock_api.rwlock.RwLock.new
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      fb
+  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
+  let i ← tree_hashTreeHashInst.tree_hash_packing_factor
+  let sub_index ← index % i
+  let (r, updated) ←
+    packed_leaf.PackedLeaf.insert_mut tree_hashTreeHashInst corecloneCloneInst
+      { hash := rl, values := v } sub_index value
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ =>
+    ok (core.result.Result.Ok updated)
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      (packed_leaf.PackedLeaf T) (core.convert.FromSame error.Error) residual
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::with_updated_leaf]:
+    Source: 'src/tree.rs', lines 108:4-155:5
+    Visibility: public -/
+def tree.Tree.with_updated_leaf
+  {T : Type} (ValueInst : Value T) (self : tree.Tree T) (index : Std.Usize)
+  (new_value : T) (depth : Std.Usize) :
+  Result (core.result.Result (triomphe.arc.Arc (tree.Tree T)) error.Error)
+  := do
+  match self with
+  | tree.Tree.Leaf _ =>
+    if depth = 0#usize
+    then
+      let a ← tree.Tree.leaf ValueInst new_value
+      ok (core.result.Result.Ok a)
+    else ok (core.result.Result.Err error.Error.UpdateLeafError)
+  | tree.Tree.PackedLeaf leaf =>
+    if depth = 0#usize
+    then
+      let r ←
+        packed_leaf.PackedLeaf.insert_at_index ValueInst.tree_hashTreeHashInst
+          ValueInst.corecloneCloneInst leaf index new_value
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        let a ← triomphe.arc.Arc.new (tree.Tree.PackedLeaf val)
+        ok (core.result.Result.Ok a)
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame error.Error)
+          residual
+    else ok (core.result.Result.Err error.Error.UpdateLeafError)
+  | tree.Tree.Node _ left right =>
+    if depth > 0#usize
+    then
+      let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+      let packing_depth ← lift (core.option.Option.unwrap_or o 0#usize)
+      let new_depth ← depth - 1#usize
+      let i ← new_depth + packing_depth
+      let i1 ← index >>> i
+      let i2 ← lift (i1 &&& 1#usize)
+      if i2 = 0#usize
+      then
+        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+        let r ←
+          tree.Tree.with_updated_leaf ValueInst t index new_value new_depth
+        let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
+          let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+          let a1 ← tree.Tree.node ValueInst val a fb
+          ok (core.result.Result.Ok a1)
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame
+            error.Error) residual
+      else
+        let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
+        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+        let r ←
+          tree.Tree.with_updated_leaf ValueInst t index new_value new_depth
+        let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+          let a1 ← tree.Tree.node ValueInst a val fb
+          ok (core.result.Result.Ok a1)
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame
+            error.Error) residual
+    else ok (core.result.Result.Err error.Error.UpdateLeafError)
+  | tree.Tree.Zero zero_depth =>
+    if zero_depth = depth
+    then
+      if depth = 0#usize
+      then
+        let o ← utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
+        let b := core.option.Option.is_some o
+        if b
+        then
+          let pl ←
+            packed_leaf.PackedLeaf.single ValueInst.tree_hashTreeHashInst
+              ValueInst.corecloneCloneInst new_value
+          let a ← triomphe.arc.Arc.new (tree.Tree.PackedLeaf pl)
+          ok (core.result.Result.Ok a)
+        else
+          let a ← tree.Tree.leaf ValueInst new_value
+          ok (core.result.Result.Ok a)
+      else
+        let i ← depth - 1#usize
+        let new_zero ← tree.Tree.zero ValueInst i
+        let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone new_zero
+        let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+        let a1 ← tree.Tree.node ValueInst a new_zero fb
+        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref a1
+        tree.Tree.with_updated_leaf ValueInst t index new_value depth
+    else ok (core.result.Result.Err error.Error.UpdateLeafError)
+partial_fixpoint
+
+/-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::len]:
+    Source: 'src/list.rs', lines 265:4-267:5
+    Visibility: public -/
+def list.ListInner.Insts.MilhouseInterfaceImmList.len
+  {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
+  : typenum.marker_traits.Unsigned N) (self : list.ListInner T N) :
+  Result utils.Length
+  := do
+  ok self.length
+
+/-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::replace]:
+    Source: 'src/list.rs', lines 291:4-304:5
+    Visibility: public -/
+def list.ListInner.Insts.MilhouseInterfaceMutList.replace
+  {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
+  : typenum.marker_traits.Unsigned N) (self : list.ListInner T N)
+  (index : Std.Usize) (value : T) :
+  Result ((core.result.Result Unit error.Error) × (list.ListInner T N))
+  := do
+  let l ←
+    list.ListInner.Insts.MilhouseInterfaceImmList.len ValueInst
+      typenummarker_traitsUnsignedInst self
+  let i ← utils.Length.as_usize l
+  if index > i
+  then
+    let i1 ← utils.Length.as_usize l
+    ok (core.result.Result.Err (error.Error.OutOfBoundsUpdate index i1), self)
+  else
+    let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+    let r ← tree.Tree.with_updated_leaf ValueInst t index value self.depth
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let i1 ← utils.Length.as_usize self.length
+      if index = i1
+      then
+        let (i2, as_mut_back) ← utils.Length.as_mut self.length
+        let i3 ← i2 + 1#usize
+        let l1 := as_mut_back i3
+        ok (core.result.Result.Ok (), { self with tree := val, length := l1 })
+      else ok (core.result.Result.Ok (), { self with tree := val })
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Unit (core.convert.FromSame error.Error) residual
+      ok (r1, self)
+
+/-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::validate_push]:
+    Source: 'src/list.rs', lines 283:4-289:5
+    Visibility: public -/
+def list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
+  {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
+  : typenum.marker_traits.Unsigned N) (current_len : Std.Usize) :
+  Result (core.result.Result Unit error.Error)
+  := do
+  let i ← typenummarker_traitsUnsignedInst.to_usize
+  if current_len = i
+  then ok (core.result.Result.Err (error.Error.ListFull current_len))
+  else ok (core.result.Result.Ok ())
+
+/-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::level_iter_from]:
+    Source: 'src/list.rs', lines 273:4-275:5
+    Visibility: public -/
+def list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from
+  {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
+  : typenum.marker_traits.Unsigned N) (self : list.ListInner T N)
+  (index : Std.Usize) :
+  Result (level_iter.LevelIter T)
+  := do
+  level_iter.LevelIter.from_index ValueInst index self.tree self.depth
+    self.length
+
+/-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::iter_from]:
+    Source: 'src/list.rs', lines 269:4-271:5
+    Visibility: public -/
+def list.ListInner.Insts.MilhouseInterfaceImmList.iter_from
+  {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
+  : typenum.marker_traits.Unsigned N) (self : list.ListInner T N)
+  (index : Std.Usize) :
+  Result (iter.Iter T)
+  := do
+  let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+  iter.Iter.from_index ValueInst index t self.depth self.length
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::get_recursive]:
+    Source: 'src/tree.rs', lines 84:4-103:5
+    Visibility: public -/
+def tree.Tree.get_recursive
+  {T : Type} (ValueInst : Value T) (self : tree.Tree T) (index : Std.Usize)
+  (depth : Std.Usize) (packing_depth : Std.Usize) :
+  Result (Option T)
+  := do
+  match self with
+  | tree.Tree.Leaf l =>
+    if depth = 0#usize
+    then
+      let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref l.value
+      ok (some t)
+    else ok none
+  | tree.Tree.PackedLeaf pl =>
+    if depth = 0#usize
+    then
+      let s := alloc.vec.Vec.deref pl.values
+      let i ← ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor
+      let i1 ← index % i
+      core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice T) s i1
+    else ok none
+  | tree.Tree.Node _ left right =>
+    if depth > 0#usize
+    then
+      let new_depth ← depth - 1#usize
+      let i ← new_depth + packing_depth
+      let i1 ← index >>> i
+      let i2 ← lift (i1 &&& 1#usize)
+      if i2 = 0#usize
+      then
+        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+        tree.Tree.get_recursive ValueInst t index new_depth packing_depth
+      else
+        let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+        tree.Tree.get_recursive ValueInst t index new_depth packing_depth
+    else ok none
+  | tree.Tree.Zero _ => ok none
+partial_fixpoint
+
+/-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::get]:
+    Source: 'src/list.rs', lines 256:4-263:5
+    Visibility: public -/
+def list.ListInner.Insts.MilhouseInterfaceImmList.get
+  {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
+  : typenum.marker_traits.Unsigned N) (self : list.ListInner T N)
+  (index : Std.Usize) :
+  Result (Option T)
+  := do
+  let l ←
+    list.ListInner.Insts.MilhouseInterfaceImmList.len ValueInst
+      typenummarker_traitsUnsignedInst self
+  let i ← utils.Length.as_usize l
+  if index < i
+  then
+    let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+    tree.Tree.get_recursive ValueInst t index self.depth self.packing_depth
+  else ok none
+
+/-- Trait implementation: [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}]
+    Source: 'src/list.rs', lines 255:0-276:1 -/
+@[reducible]
+impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
+  (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
+  typenum.marker_traits.Unsigned N) : interface.ImmList (list.ListInner T N) T
+  := {
+  ValueInst := ValueInst1
+  get := list.ListInner.Insts.MilhouseInterfaceImmList.get ValueInst1
+    typenummarker_traitsUnsignedInst
+  len := list.ListInner.Insts.MilhouseInterfaceImmList.len ValueInst1
+    typenummarker_traitsUnsignedInst
+  is_empty := interface.ImmList.is_empty.default
+    (list.ListInner.Insts.MilhouseInterfaceImmList ValueInst1
+    typenummarker_traitsUnsignedInst)
+  iter_from := list.ListInner.Insts.MilhouseInterfaceImmList.iter_from
+    ValueInst1 typenummarker_traitsUnsignedInst
+  level_iter_from :=
+    list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from ValueInst1
+    typenummarker_traitsUnsignedInst
+}
+
+/-- Trait implementation: [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}]
+    Source: 'src/list.rs', lines 278:0-325:1 -/
+@[reducible]
+def list.ListInner.Insts.MilhouseInterfaceMutList {T : Type} {N : Type}
+  (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
+  typenum.marker_traits.Unsigned N) : interface.MutList (list.ListInner T N) T
+  := {
+  ImmListInst := list.ListInner.Insts.MilhouseInterfaceImmList ValueInst1
+    typenummarker_traitsUnsignedInst
+  ValueInst := ValueInst1
+  validate_push := list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
+    ValueInst1 typenummarker_traitsUnsignedInst
+  replace := list.ListInner.Insts.MilhouseInterfaceMutList.replace ValueInst1
+    typenummarker_traitsUnsignedInst
+  update := fun {U : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T)
+    => list.ListInner.Insts.MilhouseInterfaceMutList.update ValueInst1
+    typenummarker_traitsUnsignedInst update_mapUpdateMapInst
+}
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::from_parts]:
+    Source: 'src/list.rs', lines 56:4-67:5 -/
+def list.List.from_parts
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (tree : triomphe.arc.Arc (tree.Tree T)) (depth : Std.Usize)
+  (length : utils.Length) :
+  Result (list.List T N U)
+  := do
+  let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+  let packing_depth ← lift (core.option.Option.unwrap_or o 0#usize)
+  let i ←
+    interface.Interface.new ValueInst
+      (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+      typenummarker_traitsUnsignedInst) update_mapUpdateMapInst
+      { tree, length, depth, packing_depth, _phantom := () }
+  ok { interface := i }
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::empty]:
+    Source: 'src/tree.rs', lines 44:4-46:5
+    Visibility: public -/
+def tree.Tree.empty
+  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
+  Result (triomphe.arc.Arc (tree.Tree T))
+  := do
+  tree.Tree.zero ValueInst depth
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::depth]:
+    Source: 'src/list.rs', lines 198:4-204:5 -/
+def list.List.depth
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  Result Std.Usize
+  := do
+  let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+  match o with
+  | none => let i ← typenummarker_traitsUnsignedInst.to_usize
+            utils.int_log i
+  | some packing_bits =>
+    let i ← typenummarker_traitsUnsignedInst.to_usize
+    let i1 ← utils.int_log i
+    ok (core.num.Usize.saturating_sub i1 packing_bits)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::empty]:
+    Source: 'src/list.rs', lines 69:4-74:5
+    Visibility: public -/
+def list.List.empty
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  Result (list.List T N U)
+  := do
+  let depth ←
+    list.List.depth ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst
+  let tree ← tree.Tree.empty ValueInst depth
+  list.List.from_parts ValueInst typenummarker_traitsUnsignedInst
+    update_mapUpdateMapInst tree depth 0#usize
+
+/-- [milhouse::packed_leaf::{impl core::clone::Clone for milhouse::packed_leaf::PackedLeaf<T>}::clone]:
+    Source: 'src/packed_leaf.rs', lines 20:4-25:5
+    Visibility: public -/
+def packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) (self : packed_leaf.PackedLeaf T) :
+  Result (packed_leaf.PackedLeaf T)
+  := do
+  let rlrg ←
+    lock_api.rwlock.RwLock.read
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      self.hash
+  let fb ←
+    lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      rlrg
+  let rl ←
+    lock_api.rwlock.RwLock.new
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      fb
+  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
+  ok { hash := rl, values := v }
+
+/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::repeat]:
+    Source: 'src/packed_leaf.rs', lines 67:4-73:5
+    Visibility: public -/
+def packed_leaf.PackedLeaf.repeat
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) (value : T) (n : Std.Usize) :
+  Result (packed_leaf.PackedLeaf T)
+  := do
+  let i ← tree_hashTreeHashInst.tree_hash_packing_factor
+  massert (n <= i)
+  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+  let rl ←
+    lock_api.rwlock.RwLock.new
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      fb
+  let v ← alloc.vec.from_elem corecloneCloneInst value n
+  ok { hash := rl, values := v }
+
+/-- [milhouse::repeat::repeat_list]: loop body 0:
+    Source: 'src/repeat.rs', lines 44:4-109:5
+    Visibility: public -/
+@[rust_loop_body]
+def repeat.repeat_list_loop.body
+  {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.Usize)
+  (layer : smallvec.SmallVec (Array ((triomphe.arc.Arc (tree.Tree T)) ×
+  Std.Usize) 2#usize) ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize)) :
+  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (smallvec.SmallVec
+    (Array ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize))) (smallvec.SmallVec (Array
+    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ((triomphe.arc.Arc
+    (tree.Tree T)) × Std.Usize)))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (done layer)
+  | some depth =>
+    let (right, layer1) ←
+      smallvec.SmallVec.pop (Array.Insts.SmallvecArray ((triomphe.arc.Arc
+        (tree.Tree T)) × Std.Usize) 2#usize) layer
+    let (left, _) ←
+      smallvec.SmallVec.pop (Array.Insts.SmallvecArray ((triomphe.arc.Arc
+        (tree.Tree T)) × Std.Usize) 2#usize) layer1
+    match left with
+    | none =>
+      match right with
+      | none => fail panic
+      | some p =>
+        let (repeat_leaf, repeat_count) := p
+        match repeat_count.val with
+        | 1 =>
+          let count ← 0#usize + 1#usize
+          let vec ←
+            smallvec.SmallVec.new (Array.Insts.SmallvecArray ((triomphe.arc.Arc
+              (tree.Tree T)) × Std.Usize) 2#usize)
+          let i ←
+            smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+          if count <= i
+          then
+            let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+            let a1 ← tree.Tree.zero ValueInst depth
+            let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+            let a2 ← tree.Tree.node ValueInst a a1 fb
+            let vec1 ←
+              smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+                (a2, 1#usize)
+            ok (cont (iter1, vec1))
+          else
+            let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+            let a1 ← tree.Tree.zero ValueInst depth
+            let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+            let a2 ← tree.Tree.node ValueInst a a1 fb
+            let y ←
+              lift (Std.Array.to_slice (Array.make 1#usize [ (a2, 1#usize) ] :
+                Array ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 1#usize))
+            let ret := alloc.slice.Slice.into_vec y
+            let new_layer ←
+              smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+            ok (cont (iter1, new_layer))
+        | _ =>
+          let b ← core.num.Usize.is_multiple_of repeat_count 2#usize
+          if b
+          then
+            let count ← 0#usize + 1#usize
+            let vec ←
+              smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+            let i ←
+              smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+            if count <= i
+            then
+              let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+              let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+              let a1 ← tree.Tree.node ValueInst a a fb
+              let i1 ← repeat_count / 2#usize
+              let vec1 ←
+                smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+                  (a1, i1)
+              ok (cont (iter1, vec1))
+            else
+              let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+              let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+              let a1 ← tree.Tree.node ValueInst a a fb
+              let i1 ← repeat_count / 2#usize
+              let y ←
+                lift (Std.Array.to_slice (Array.make 1#usize [ (a1, i1) ] :
+                  Array ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize)
+                  1#usize))
+              let ret := alloc.slice.Slice.into_vec y
+              let new_layer ←
+                smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+              ok (cont (iter1, new_layer))
+          else
+            let i ← 0#usize + 1#usize
+            let count ← i + 1#usize
+            let vec ←
+              smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+            let i1 ←
+              smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+            if count <= i1
+            then
+              let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+              let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+              let a1 ← tree.Tree.node ValueInst a a fb
+              let i2 ← repeat_count / 2#usize
+              let vec1 ←
+                smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+                  (a1, i2)
+              let a2 ← tree.Tree.zero ValueInst depth
+              let a3 ← tree.Tree.node ValueInst a a2 fb
+              let vec2 ←
+                smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec1
+                  (a3, 1#usize)
+              ok (cont (iter1, vec2))
+            else
+              let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+              let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+              let a1 ← tree.Tree.node ValueInst a a fb
+              let i2 ← repeat_count / 2#usize
+              let a2 ← tree.Tree.zero ValueInst depth
+              let a3 ← tree.Tree.node ValueInst a a2 fb
+              let y ←
+                lift (Std.Array.to_slice
+                  (Array.make 2#usize [ (a1, i2), (a3, 1#usize) ] : Array
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize))
+              let ret := alloc.slice.Slice.into_vec y
+              let new_layer ←
+                smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+              ok (cont (iter1, new_layer))
+    | some p =>
+      match right with
+      | none => fail panic
+      | some p1 =>
+        let (repeat_leaf, repeat_count) := p
+        match repeat_count.val with
+        | 1 =>
+          let (lonely_leaf, i) := p1
+          match i.val with
+          | 1 =>
+            let count ← 0#usize + 1#usize
+            let vec ←
+              smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+            let i1 ←
+              smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+            if count <= i1
+            then
+              let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+              let a1 ←
+                triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+              let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+              let a2 ← tree.Tree.node ValueInst a a1 fb
+              let vec1 ←
+                smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+                  (a2, 1#usize)
+              ok (cont (iter1, vec1))
+            else
+              let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+              let a1 ←
+                triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+              let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+              let a2 ← tree.Tree.node ValueInst a a1 fb
+              let y ←
+                lift (Std.Array.to_slice (Array.make 1#usize [ (a2, 1#usize) ]
+                  : Array ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize)
+                  1#usize))
+              let ret := alloc.slice.Slice.into_vec y
+              let new_layer ←
+                smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+              ok (cont (iter1, new_layer))
+          | _ =>
+            match i.val with
+            | 1 =>
+              let b ← core.num.Usize.is_multiple_of 1#usize 2#usize
+              if b
+              then
+                let i1 ← 0#usize + 1#usize
+                let count ← i1 + 1#usize
+                let vec ←
+                  smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                let i2 ←
+                  smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    vec
+                if count <= i2
+                then
+                  let a ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                  let fb ←
+                    alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                  let a1 ← tree.Tree.node ValueInst a a fb
+                  let i3 ← 1#usize / 2#usize
+                  let vec1 ←
+                    smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                      vec (a1, i3)
+                  let a2 ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                  let a3 ← tree.Tree.zero ValueInst depth
+                  let a4 ← tree.Tree.node ValueInst a2 a3 fb
+                  let vec2 ←
+                    smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                      vec1 (a4, 1#usize)
+                  ok (cont (iter1, vec2))
+                else
+                  let a ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                  let fb ←
+                    alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                  let a1 ← tree.Tree.node ValueInst a a fb
+                  let i3 ← 1#usize / 2#usize
+                  let a2 ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                  let a3 ← tree.Tree.zero ValueInst depth
+                  let a4 ← tree.Tree.node ValueInst a2 a3 fb
+                  let y ←
+                    lift (Std.Array.to_slice
+                      (Array.make 2#usize [ (a1, i3), (a4, 1#usize) ] : Array
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize))
+                  let ret := alloc.slice.Slice.into_vec y
+                  let new_layer ←
+                    smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                      ret
+                  ok (cont (iter1, new_layer))
+              else
+                let i1 ← 0#usize + 1#usize
+                let count ← i1 + 1#usize
+                let vec ←
+                  smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                let i2 ←
+                  smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    vec
+                if count <= i2
+                then
+                  let a ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                  let fb ←
+                    alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                  let a1 ← tree.Tree.node ValueInst a a fb
+                  let i3 ← 1#usize / 2#usize
+                  let vec1 ←
+                    smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                      vec (a1, i3)
+                  let a2 ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                  let a3 ← tree.Tree.node ValueInst a a2 fb
+                  let vec2 ←
+                    smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                      vec1 (a3, 1#usize)
+                  ok (cont (iter1, vec2))
+                else
+                  let a ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                  let fb ←
+                    alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                  let a1 ← tree.Tree.node ValueInst a a fb
+                  let i3 ← 1#usize / 2#usize
+                  let a2 ←
+                    triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                  let a3 ← tree.Tree.node ValueInst a a2 fb
+                  let y ←
+                    lift (Std.Array.to_slice
+                      (Array.make 2#usize [ (a1, i3), (a3, 1#usize) ] : Array
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize))
+                  let ret := alloc.slice.Slice.into_vec y
+                  let new_layer ←
+                    smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                      ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                      ret
+                  ok (cont (iter1, new_layer))
+            | _ => fail panic
+        | _ =>
+          let (lonely_leaf, i) := p1
+          match i.val with
+          | 1 =>
+            let b ← core.num.Usize.is_multiple_of repeat_count 2#usize
+            if b
+            then
+              let i1 ← 0#usize + 1#usize
+              let count ← i1 + 1#usize
+              let vec ←
+                smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+              let i2 ←
+                smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+              if count <= i2
+              then
+                let a ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                let a1 ← tree.Tree.node ValueInst a a fb
+                let i3 ← repeat_count / 2#usize
+                let vec1 ←
+                  smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    vec (a1, i3)
+                let a2 ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                let a3 ← tree.Tree.zero ValueInst depth
+                let a4 ← tree.Tree.node ValueInst a2 a3 fb
+                let vec2 ←
+                  smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    vec1 (a4, 1#usize)
+                ok (cont (iter1, vec2))
+              else
+                let a ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                let a1 ← tree.Tree.node ValueInst a a fb
+                let i3 ← repeat_count / 2#usize
+                let a2 ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                let a3 ← tree.Tree.zero ValueInst depth
+                let a4 ← tree.Tree.node ValueInst a2 a3 fb
+                let y ←
+                  lift (Std.Array.to_slice
+                    (Array.make 2#usize [ (a1, i3), (a4, 1#usize) ] : Array
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize))
+                let ret := alloc.slice.Slice.into_vec y
+                let new_layer ←
+                  smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    ret
+                ok (cont (iter1, new_layer))
+            else
+              let i1 ← 0#usize + 1#usize
+              let count ← i1 + 1#usize
+              let vec ←
+                smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+              let i2 ←
+                smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+              if count <= i2
+              then
+                let a ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                let a1 ← tree.Tree.node ValueInst a a fb
+                let i3 ← repeat_count / 2#usize
+                let vec1 ←
+                  smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    vec (a1, i3)
+                let a2 ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                let a3 ← tree.Tree.node ValueInst a a2 fb
+                let vec2 ←
+                  smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    vec1 (a3, 1#usize)
+                ok (cont (iter1, vec2))
+              else
+                let a ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone repeat_leaf
+                let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+                let a1 ← tree.Tree.node ValueInst a a fb
+                let i3 ← repeat_count / 2#usize
+                let a2 ←
+                  triomphe.arc.Arc.Insts.CoreCloneClone.clone lonely_leaf
+                let a3 ← tree.Tree.node ValueInst a a2 fb
+                let y ←
+                  lift (Std.Array.to_slice
+                    (Array.make 2#usize [ (a1, i3), (a3, 1#usize) ] : Array
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize))
+                let ret := alloc.slice.Slice.into_vec y
+                let new_layer ←
+                  smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                    ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+                    ret
+                ok (cont (iter1, new_layer))
+          | _ => fail panic
+
+/-- [milhouse::repeat::repeat_list]: loop 0:
+    Source: 'src/repeat.rs', lines 44:4-109:5
+    Visibility: public -/
+@[rust_loop]
+def repeat.repeat_list_loop
+  {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.Usize)
+  (layer : smallvec.SmallVec (Array ((triomphe.arc.Arc (tree.Tree T)) ×
+  Std.Usize) 2#usize) ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize)) :
+  Result (smallvec.SmallVec (Array ((triomphe.arc.Arc (tree.Tree T)) ×
+    Std.Usize) 2#usize) ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize))
+  := do
+  loop
+    (fun (iter1, layer1) => repeat.repeat_list_loop.body ValueInst iter1
+      layer1)
+    (iter, layer)
+
+/-- [milhouse::repeat::repeat_list]:
+    Source: 'src/repeat.rs', lines 8:0-117:1
+    Visibility: public -/
+def repeat.repeat_list
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (elem : T)
+  (n : Std.Usize) :
+  Result (core.result.Result (list.List T N U) error.Error)
+  := do
+  if n = 0#usize
+  then
+    let l ←
+      list.List.empty ValueInst typenummarker_traitsUnsignedInst
+        update_mapUpdateMapInst
+    ok (core.result.Result.Ok l)
+  else
+    let packing_factor ←
+      utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
+    let tree_depth ←
+      list.List.depth ValueInst typenummarker_traitsUnsignedInst
+        update_mapUpdateMapInst
+    let layer ←
+      match packing_factor with
+      | none =>
+        do
+        let count ← 0#usize + 1#usize
+        let vec ←
+          smallvec.SmallVec.new (Array.Insts.SmallvecArray ((triomphe.arc.Arc
+            (tree.Tree T)) × Std.Usize) 2#usize)
+        let i ←
+          smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+            ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+        if count <= i
+        then
+          let l ← leaf.Leaf.new elem
+          let a ← triomphe.arc.Arc.new (tree.Tree.Leaf l)
+          smallvec.SmallVec.push (Array.Insts.SmallvecArray ((triomphe.arc.Arc
+            (tree.Tree T)) × Std.Usize) 2#usize) vec (a, n)
+        else
+          let l ← leaf.Leaf.new elem
+          let a ← triomphe.arc.Arc.new (tree.Tree.Leaf l)
+          let y ←
+            lift (Std.Array.to_slice (Array.make 1#usize [ (a, n) ] : Array
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 1#usize))
+          let ret := alloc.slice.Slice.into_vec y
+          smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+            ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+      | some packing_factor1 =>
+        do
+        let repeat_count ← n / packing_factor1
+        let lonely_count ← n % packing_factor1
+        let t ← ValueInst.corecloneCloneInst.clone elem
+        let pl ←
+          packed_leaf.PackedLeaf.repeat ValueInst.tree_hashTreeHashInst
+            ValueInst.corecloneCloneInst t packing_factor1
+        let repeat_leaf ← triomphe.arc.Arc.new (tree.Tree.PackedLeaf pl)
+        let pl1 ←
+          packed_leaf.PackedLeaf.repeat ValueInst.tree_hashTreeHashInst
+            ValueInst.corecloneCloneInst elem lonely_count
+        let lonely_leaf ← triomphe.arc.Arc.new (tree.Tree.PackedLeaf pl1)
+        match repeat_count.val with
+        | 0 => match lonely_count.val with
+               | 0 => fail panic
+               | _ => ok ()
+        | _ => ok ()
+        match lonely_count.val with
+        | 0 =>
+          let count ← 0#usize + 1#usize
+          let vec ←
+            smallvec.SmallVec.new (Array.Insts.SmallvecArray ((triomphe.arc.Arc
+              (tree.Tree T)) × Std.Usize) 2#usize)
+          let i ←
+            smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+          if count <= i
+          then
+            smallvec.SmallVec.push (Array.Insts.SmallvecArray
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+              (repeat_leaf, repeat_count)
+          else
+            let y ←
+              lift (Std.Array.to_slice
+                (Array.make 1#usize [ (repeat_leaf, repeat_count) ] : Array
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 1#usize))
+            let ret := alloc.slice.Slice.into_vec y
+            smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+        | _ =>
+          match repeat_count.val with
+          | 0 =>
+            let count ← 0#usize + 1#usize
+            let vec ←
+              smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+            let i ←
+              smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+            if count <= i
+            then
+              smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+                (lonely_leaf, 1#usize)
+            else
+              let y ←
+                lift (Std.Array.to_slice
+                  (Array.make 1#usize [ (lonely_leaf, 1#usize) ] : Array
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 1#usize))
+              let ret := alloc.slice.Slice.into_vec y
+              smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+          | _ =>
+            let i ← 0#usize + 1#usize
+            let count ← i + 1#usize
+            let vec ←
+              smallvec.SmallVec.new (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize)
+            let i1 ←
+              smallvec.SmallVec.inline_size (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+            if count <= i1
+            then
+              let vec1 ←
+                smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec
+                  (repeat_leaf, repeat_count)
+              smallvec.SmallVec.push (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) vec1
+                (lonely_leaf, 1#usize)
+            else
+              let y ←
+                lift (Std.Array.to_slice
+                  (Array.make 2#usize [
+                     (repeat_leaf, repeat_count), (lonely_leaf, 1#usize)
+                     ] : Array ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize)
+                  2#usize))
+              let ret := alloc.slice.Slice.into_vec y
+              smallvec.SmallVec.from_vec (Array.Insts.SmallvecArray
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) ret
+    let layer1 ←
+      repeat.repeat_list_loop ValueInst
+        { start := 0#usize, «end» := tree_depth } layer
+    let (o, layer2) ←
+      smallvec.SmallVec.pop (Array.Insts.SmallvecArray ((triomphe.arc.Arc
+        (tree.Tree T)) × Std.Usize) 2#usize) layer1
+    let r ← core.option.Option.ok_or o error.Error.BuilderStackEmptyFinalize
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let (root, count) := val
+      let b ←
+        smallvec.SmallVec.is_empty (Array.Insts.SmallvecArray
+          ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize) 2#usize) layer2
+      if b
+      then
+        if count != 1#usize
+        then ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+        else
+          let l ←
+            list.List.from_parts ValueInst typenummarker_traitsUnsignedInst
+              update_mapUpdateMapInst root tree_depth n
+          ok (core.result.Result.Ok l)
+      else ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        (list.List T N U) (core.convert.FromSame error.Error) residual
+
+/-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
+    Source: 'src/tree.rs', lines 10:16-10:21
+    Visibility: public -/
+def tree.Tree.Insts.CoreHashHash.hash
+  {T : Type} {H : Type} (ValueInst : Value T) (corehashHashLeafInst :
+  core.hash.Hash (leaf.Leaf T)) (corehashHashPackedLeafInst : core.hash.Hash
+  (packed_leaf.PackedLeaf T)) (corehashHashArcTreeInst : core.hash.Hash
+  (triomphe.arc.Arc (tree.Tree T))) (corehashHashUsizeInst : core.hash.Hash
+  Std.Usize) (corehashHasherInst : core.hash.Hasher H) (self : tree.Tree T)
+  (state : H) :
+  Result H
+  := do
+  match self with
+  | tree.Tree.Leaf _0 =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 0#usize state
+    corehashHashLeafInst.hash corehashHasherInst _0 state1
+  | tree.Tree.PackedLeaf _0 =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 1#usize state
+    corehashHashPackedLeafInst.hash corehashHasherInst _0 state1
+  | tree.Tree.Node _ v_left v_right =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 2#usize state
+    let state2 ←
+      corehashHashArcTreeInst.hash corehashHasherInst v_left state1
+    corehashHashArcTreeInst.hash corehashHasherInst v_right state2
+  | tree.Tree.Zero _0 =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 3#usize state
+    Usize.Insts.CoreHashHash.hash corehashHasherInst _0 state1
+
+/-- Trait implementation: [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}]
+    Source: 'src/tree.rs', lines 10:16-10:21 -/
+@[reducible]
+def tree.Tree.Insts.CoreHashHash {T : Type} (ValueInst : Value T)
+  (corehashHashLeafInst : core.hash.Hash (leaf.Leaf T))
+  (corehashHashPackedLeafInst : core.hash.Hash (packed_leaf.PackedLeaf T))
+  (corehashHashArcTreeInst : core.hash.Hash (triomphe.arc.Arc (tree.Tree T)))
+  (corehashHashUsizeInst : core.hash.Hash Std.Usize) : core.hash.Hash
+  (tree.Tree T) := {
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
+    tree.Tree.Insts.CoreHashHash.hash ValueInst corehashHashLeafInst
+    corehashHashPackedLeafInst corehashHashArcTreeInst Usize.Insts.CoreHashHash
+    corehashHasherInst
+}
+
+/-- [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}::clone]:
+    Source: 'src/tree.rs', lines 29:4-40:5
+    Visibility: public -/
+def tree.Tree.Insts.CoreCloneClone.clone
+  {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
+  Result (tree.Tree T)
+  := do
+  match self with
+  | tree.Tree.Leaf l =>
+    let l1 ←
+      leaf.Leaf.Insts.CoreCloneClone.clone ValueInst.corecloneCloneInst l
+    ok (tree.Tree.Leaf l1)
+  | tree.Tree.PackedLeaf pl =>
+    let pl1 ←
+      packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
+        ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst pl
+    ok (tree.Tree.PackedLeaf pl1)
+  | tree.Tree.Node hash left right =>
+    let rlrg ←
+      lock_api.rwlock.RwLock.read
+        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+        hash
+    let fb ←
+      lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
+        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+        rlrg
+    let rl ←
+      lock_api.rwlock.RwLock.new
+        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+        fb
+    let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
+    let a1 ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
+    ok (tree.Tree.Node rl a a1)
+  | tree.Tree.Zero _ => ok self
+
+/-- Trait implementation: [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}]
+    Source: 'src/tree.rs', lines 28:0-41:1 -/
+@[reducible]
+def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
+  core.clone.Clone (tree.Tree T) := {
+  clone := tree.Tree.Insts.CoreCloneClone.clone ValueInst
+}
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero_unboxed]:
+    Source: 'src/tree.rs', lines 76:4-78:5
+    Visibility: public -/
+def tree.Tree.zero_unboxed
+  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
+  Result (tree.Tree T)
+  := do
+  ok (tree.Tree.Zero depth)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::compute_len]:
     Source: 'src/tree.rs', lines 236:4-243:5

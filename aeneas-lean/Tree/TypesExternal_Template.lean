@@ -13,6 +13,13 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
+/-- [core::mem::maybe_uninit::MaybeUninit]
+    Source: '/rustc/library/core/src/mem/maybe_uninit.rs', lines 355:0-355:24
+    Name pattern: [core::mem::maybe_uninit::MaybeUninit]
+    Visibility: public -/
+@[rust_type "core::mem::maybe_uninit::MaybeUninit"]
+axiom core.mem.maybe_uninit.MaybeUninit (T : Type) : Type
+
 /-- [std::collections::hash::map::HashMap]
     Source: '/rustc/library/std/src/collections/hash/map.rs', lines 246:0-251:1
     Name pattern: [std::collections::hash::map::HashMap]

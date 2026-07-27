@@ -137,6 +137,11 @@ def core.num.Usize.checked_next_power_of_two (x : Std.Usize) :
 
 /-! ## core::option -/
 
+/-- [core::option::{core::option::Option<T>}::as_ref]: references are erased
+    by the functional model. -/
+@[rust_fun "core::option::{core::option::Option<@T>}::as_ref"]
+def core.option.Option.as_ref {T : Type} : Option T → Result (Option T) := ok
+
 /-- [core::option::{core::option::Option<T>}::is_none_or]: -/
 @[rust_fun "core::option::{core::option::Option<@T>}::is_none_or"]
 def core.option.Option.is_none_or
@@ -170,6 +175,17 @@ def core.option.Option.map
     | some x => do
       let y ← opsfunctionFnOnceFTupleTUInst.call_once f x
       ok (some y)
+
+/-- [core::option::{core::option::Option<T>}::map_or]: -/
+@[rust_fun "core::option::{core::option::Option<@T>}::map_or"]
+def core.option.Option.map_or
+  {T : Type} {U : Type} {F : Type} (opsfunctionFnOnceFTupleTUInst :
+  core.ops.function.FnOnce F T U) :
+  Option T → U → F → Result U :=
+  fun o default f =>
+    match o with
+    | none => ok default
+    | some x => opsfunctionFnOnceFTupleTUInst.call_once f x
 
 /-- [core::option::{core::option::Option<T>}::ok_or]: -/
 @[rust_fun "core::option::{core::option::Option<@T>}::ok_or"]
@@ -544,6 +560,56 @@ def
   parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend.INIT
   : Result parking_lot.raw_rwlock.RawRwLock :=
   ok ()
+
+/-! ## smallvec
+
+`SmallVec<A>` is modelled as the list of initialized elements. The inline
+capacity only controls allocation in Rust and is not observable here. -/
+
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::new"]
+def smallvec.SmallVec.new
+  {A : Type} {Clause0_Item : Type} (_ : smallvec.Array A Clause0_Item) :
+  Result (smallvec.SmallVec A Clause0_Item) := ok []
+
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::from_vec"]
+def smallvec.SmallVec.from_vec
+  {A : Type} {Clause0_Item : Type} (_ : smallvec.Array A Clause0_Item) :
+  alloc.vec.Vec Clause0_Item → Result (smallvec.SmallVec A Clause0_Item) :=
+  fun values => ok values.val
+
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::inline_size"]
+def smallvec.SmallVec.inline_size
+  {A : Type} {Clause0_Item : Type} (ArrayInst :
+  smallvec.Array A Clause0_Item) :
+  smallvec.SmallVec A Clause0_Item → Result Std.Usize :=
+  fun _ => ArrayInst.size
+
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::is_empty"]
+def smallvec.SmallVec.is_empty
+  {A : Type} {Clause0_Item : Type} (_ : smallvec.Array A Clause0_Item) :
+  smallvec.SmallVec A Clause0_Item → Result Bool :=
+  fun values => ok values.isEmpty
+
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::push"]
+def smallvec.SmallVec.push
+  {A : Type} {Clause0_Item : Type} (_ : smallvec.Array A Clause0_Item) :
+  smallvec.SmallVec A Clause0_Item → Clause0_Item → Result
+    (smallvec.SmallVec A Clause0_Item) :=
+  fun values value => ok (values ++ [value])
+
+@[rust_fun "smallvec::{smallvec::SmallVec<@A, @Clause0_Item>}::pop"]
+def smallvec.SmallVec.pop
+  {A : Type} {Clause0_Item : Type} (_ : smallvec.Array A Clause0_Item) :
+  smallvec.SmallVec A Clause0_Item → Result
+    ((Option Clause0_Item) × smallvec.SmallVec A Clause0_Item) :=
+  fun values =>
+    match values.reverse with
+    | [] => ok (none, [])
+    | value :: rest => ok (some value, rest.reverse)
+
+@[rust_fun "smallvec::{smallvec::Array<[@T; @N], @T>}::size"]
+def Array.Insts.SmallvecArray.size
+  (T : Type) (N : Std.Usize) : Result Std.Usize := ok N
 
 /-! ## triomphe
 

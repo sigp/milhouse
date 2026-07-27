@@ -32,6 +32,13 @@ structure core.hash.BuildHasher (Self : Type) (Self_Hasher : Type) where
   HasherInst : core.hash.Hasher Self_Hasher
   build_hasher : Self → Result Self_Hasher
 
+/-- [core::marker::PhantomData]
+    Source: '/rustc/library/core/src/marker.rs', lines 811:0-811:39
+    Name pattern: [core::marker::PhantomData]
+    Visibility: public -/
+@[reducible, rust_type "core::marker::PhantomData"]
+def core.marker.PhantomData (T : Type) := Unit
+
 /-- [alloy_primitives::bits::fixed::FixedBytes]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-primitives-1.0.0/src/bits/fixed.rs', lines 35:0-35:37
     Name pattern: [alloy_primitives::bits::fixed::FixedBytes]
@@ -53,6 +60,14 @@ structure lock_api.rwlock.RawRwLock (Self : Type) (Self_GuardMarker : Type)
   lock_exclusive : Self → Result Unit
   try_lock_exclusive : Self → Result Bool
   unlock_exclusive : Self → Result Unit
+
+/-- Trait declaration: [smallvec::Array]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.13.2/src/lib.rs', lines 2321:0-2321:22
+    Name pattern: [smallvec::Array]
+    Visibility: public -/
+@[rust_trait "smallvec::Array"]
+structure smallvec.Array (Self : Type) (Self_Item : Type) where
+  size : Result Std.Usize
 
 /-- Trait declaration: [ssz::decode::Decode]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/decode.rs', lines 100:0-100:23
@@ -97,6 +112,45 @@ structure tree_hash.TreeHash (Self : Type) where
   tree_hash_packing_factor : Result Std.Usize
   tree_hash_root : Self → Result (alloy_primitives.bits.fixed.FixedBytes
     32#usize)
+
+/-- Trait declaration: [typenum::sealed::Sealed]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.17.0/src/lib.rs', lines 180:4-180:20
+    Name pattern: [typenum::sealed::Sealed]
+    Visibility: public -/
+@[rust_trait "typenum::sealed::Sealed"]
+structure typenum.sealed.Sealed (Self : Type) where
+
+/-- Trait declaration: [typenum::marker_traits::Unsigned]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.17.0/src/marker_traits.rs', lines 59:0-59:53
+    Name pattern: [typenum::marker_traits::Unsigned]
+    Visibility: public -/
+@[rust_trait "typenum::marker_traits::Unsigned"
+  (parentClauses := ["sealedSealedInst", "coremarkerCopyInst", "coredefaultDefaultInst"])
+  (consts := ["U8", "U16", "U32", "U64", "USIZE", "I8", "I16", "I32", "I64", "ISIZE"])]
+structure typenum.marker_traits.Unsigned (Self : Type) where
+  U8 : Result Std.U8
+  U16 : Result Std.U16
+  U32 : Result Std.U32
+  U64 : Result Std.U64
+  USIZE : Result Std.Usize
+  I8 : Result Std.I8
+  I16 : Result Std.I16
+  I32 : Result Std.I32
+  I64 : Result Std.I64
+  ISIZE : Result Std.Isize
+  sealedSealedInst : typenum.sealed.Sealed Self
+  coremarkerCopyInst : core.marker.Copy Self
+  coredefaultDefaultInst : core.default.Default Self
+  to_u8 : Result Std.U8
+  to_u16 : Result Std.U16
+  to_u32 : Result Std.U32
+  to_u64 : Result Std.U64
+  to_usize : Result Std.Usize
+  to_i8 : Result Std.I8
+  to_i16 : Result Std.I16
+  to_i32 : Result Std.I32
+  to_i64 : Result Std.I64
+  to_isize : Result Std.Isize
 
 /-- [milhouse::utils::Length]
     Source: 'src/utils.rs', lines 25:0-25:29
@@ -229,6 +283,40 @@ inductive cow.Cow (T : Type) where
 | BTree : cow.BTreeCow T → cow.Cow T
 | Vec : cow.VecCow T → cow.Cow T
 
+/-- [milhouse::level_iter::LevelIter]
+    Source: 'src/level_iter.rs', lines 8:0-27:1
+    Visibility: public -/
+structure level_iter.LevelIter (T : Type) where
+  stack : alloc.vec.Vec (triomphe.arc.Arc (tree.Tree T))
+  index : Std.Usize
+  level : Std.Usize
+  full_depth : Std.Usize
+  packing_factor : Std.Usize
+  packing_depth : Std.Usize
+  length : utils.Length
+
+/-- [milhouse::iter::Iter]
+    Source: 'src/iter.rs', lines 7:0-22:1
+    Visibility: public -/
+structure iter.Iter (T : Type) where
+  stack : alloc.vec.Vec (tree.Tree T)
+  index : Std.Usize
+  full_depth : Std.Usize
+  packing_factor : Std.Usize
+  packing_depth : Std.Usize
+  length : utils.Length
+
+/-- Trait declaration: [milhouse::interface::ImmList]
+    Source: 'src/interface.rs', lines 13:0-25:1
+    Visibility: public -/
+structure interface.ImmList (Self : Type) (T : Type) where
+  ValueInst : Value T
+  get : Self → Std.Usize → Result (Option T)
+  len : Self → Result utils.Length
+  is_empty : Self → Result Bool
+  iter_from : Self → Std.Usize → Result (iter.Iter T)
+  level_iter_from : Self → Std.Usize → Result (level_iter.LevelIter T)
+
 /-- Trait declaration: [milhouse::update_map::UpdateMap]
     Source: 'src/update_map.rs', lines 9:0-41:1
     Visibility: public -/
@@ -254,6 +342,49 @@ structure update_map.UpdateMap (Self : Type) (T : Type) where
   max_index : Self → Result (Option Std.Usize)
   len : Self → Result Std.Usize
   is_empty : Self → Result Bool
+
+/-- Trait declaration: [milhouse::interface::MutList]
+    Source: 'src/interface.rs', lines 27:0-35:1
+    Visibility: public -/
+structure interface.MutList (Self : Type) (T : Type) where
+  ImmListInst : interface.ImmList Self T
+  ValueInst : Value T
+  validate_push : Std.Usize → Result (core.result.Result Unit error.Error)
+  replace : Self → Std.Usize → T → Result ((core.result.Result Unit
+    error.Error) × Self)
+  update : forall {U : Type} (update_mapUpdateMapInst : update_map.UpdateMap U
+    T), Self → U → Option (alloc.collections.btree.map.BTreeMap (Std.Usize
+    × Std.Usize) (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global) →
+    Result ((core.result.Result Unit error.Error) × Self)
+
+/-- [milhouse::interface::Interface]
+    Source: 'src/interface.rs', lines 39:0-48:1
+    Visibility: public -/
+structure interface.Interface (T : Type) (B : Type) (U : Type) where
+  backing : B
+  updates : U
+  _phantom : core.marker.PhantomData T
+
+/-- [milhouse::list::ListInner]
+    Source: 'src/list.rs', lines 41:0-49:1
+    Visibility: public -/
+structure list.ListInner (T : Type) (N : Type) where
+  tree : triomphe.arc.Arc (tree.Tree T)
+  length : utils.Length
+  depth : Std.Usize
+  packing_depth : Std.Usize
+  _phantom : core.marker.PhantomData N
+
+/-- [milhouse::list::List]
+    Source: 'src/list.rs', lines 30:0-32:1
+    Visibility: public -/
+structure list.List (T : Type) (N : Type) (U : Type) where
+  interface : interface.Interface T (list.ListInner T N) U
+
+/-- [milhouse::utils::updated_length::closure]
+    Source: 'src/utils.rs', lines 87:41-89:5 -/
+@[reducible]
+def utils.updated_length.closure (U : Type) (T : Type) := utils.Length
 
 /-- [milhouse::tree::RebaseAction]
     Source: 'src/tree.rs', lines 246:0-255:1

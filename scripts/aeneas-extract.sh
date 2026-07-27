@@ -34,6 +34,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
 "$CHARON" cargo --preset=aeneas \
     --start-from 'milhouse::tree' \
     --start-from 'milhouse::builder' \
+    --start-from 'milhouse::repeat::repeat_list' \
     --opaque 'ethereum_hashing' \
     --opaque 'tree_hash' \
     --opaque 'ssz' \

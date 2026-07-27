@@ -71,9 +71,15 @@ def lock_api.rwlock.RwLockReadGuard (R : Type) (T : Type)
 @[reducible, rust_type "parking_lot::raw_rwlock::RawRwLock"]
 def parking_lot.raw_rwlock.RawRwLock : Type := Unit
 
+/-- [core::mem::maybe_uninit::MaybeUninit]
+    Initialization state is internal to `SmallVec`; translated code only
+    observes initialized elements. -/
+@[reducible, rust_type "core::mem::maybe_uninit::MaybeUninit"]
+def core.mem.maybe_uninit.MaybeUninit (T : Type) : Type := T
+
 /-- [smallvec::SmallVec]
     The inline-capacity optimization is invisible; a `SmallVec` is its
-    elements. No operation on it is reachable in the extracted subset. -/
+    elements. -/
 @[reducible, rust_type "smallvec::SmallVec"]
 def smallvec.SmallVec (A : Type) (Clause0_Item : Type) : Type :=
   List Clause0_Item
