@@ -1425,6 +1425,124 @@ private theorem push_node_merge_count_eq {T : Type}
     rw [usize_trailing_zeros_padic hnext_pos hvalues, hnext_units]
     exact hcount.symm
 
+/-- Successful internal-node insertion preserves the canonical Builder stack.
+    The three premises beyond the invariant are exactly the caller protocol:
+    `push_node` is not used for packed level zero, the supplied node describes
+    its reported logical length, and the current cursor starts on a level
+    boundary. Capacity and machine-arithmetic facts follow from success. -/
+theorem builder_push_node_preserves_invariant {T : Type}
+    {ValueInst : Value T} {self result : builder.Builder T}
+    (hinvariant : BuilderInvariant ValueInst self)
+    (hnode_level : self.level.val ≠ 0 ∨ self.packing_factor = none)
+    (node : triomphe.arc.Arc (Tree T)) (len : Std.Usize)
+    (hnode : DenseTree self.packing_factor node
+      (if self.level.val = 0 then 0
+        else self.level.val - self.packing_depth.val) len.val)
+    (hlen : 0 < len.val)
+    (haligned : self.length.val % subtreeCapacity self.packing_factor
+      (if self.level.val = 0 then 0
+        else self.level.val - self.packing_depth.val) = 0)
+    (hpush : builder.Builder.push_node ValueInst self node len =
+      ok (core.result.Result.Ok (), result)) :
+    BuilderInvariant ValueInst result := by
+  unfold builder.Builder.push_node at hpush
+  simp only [utils.Length.as_usize, bind_tc_ok] at hpush
+  cases hchecked : Usize.checked_add self.length len with
+  | none =>
+    rw [hchecked] at hpush
+    simp [lift] at hpush
+  | some new_length =>
+    rw [hchecked] at hpush
+    simp only [lift, bind_tc_ok] at hpush
+    by_cases hgreater : new_length > self.capacity
+    · rw [if_pos hgreater] at hpush
+      simp at hpush
+    · rw [if_neg hgreater] at hpush
+      cases hshift : self.length >>> self.level with
+      | fail error => simp [hshift] at hpush
+      | div => simp [hshift] at hpush
+      | ok index_on_level =>
+        simp only [hshift, bind_tc_ok] at hpush
+        cases hnext : index_on_level + 1#usize with
+        | fail error => simp [hnext] at hpush
+        | div => simp [hnext] at hpush
+        | ok next_index_on_level =>
+          simp only [hnext, bind_tc_ok] at hpush
+          cases hvalues :
+              (if self.level = 0#usize then
+                do
+                  let zeros ←
+                    core.num.Usize.trailing_zeros next_index_on_level
+                  ok (core.num.U32.saturating_sub zeros
+                    (UScalar.cast .U32 self.packing_depth))
+              else core.num.Usize.trailing_zeros next_index_on_level) with
+          | fail error => simp [hvalues] at hpush
+          | div => simp [hvalues] at hpush
+          | ok values_to_merge =>
+            simp only [hvalues, bind_tc_ok] at hpush
+            cases hloop : builder.Builder.push_node_loop ValueInst
+                { start := 0#u32, «end» := values_to_merge } self.stack
+                (utils.MaybeArced.Arced node) with
+            | fail error => simp [hloop] at hpush
+            | div => simp [hloop] at hpush
+            | ok loop_result =>
+              obtain ⟨loop_stack, loop_top⟩ := loop_result
+              simp only [hloop, bind_tc_ok] at hpush
+              cases hstack_push : alloc.vec.Vec.push loop_stack loop_top with
+              | fail error => simp [hstack_push] at hpush
+              | div => simp [hstack_push] at hpush
+              | ok final_stack =>
+                simp [hstack_push, utils.Length.as_mut] at hpush
+                subst result
+                have hnew_length := usize_checked_add_value hchecked
+                have hnew_le : new_length.val ≤ self.capacity.val := by
+                  scalar_tac
+                have hfits : self.length.val + len.val ≤
+                    subtreeCapacity self.packing_factor self.depth.val := by
+                  rw [← hnew_length,
+                    ← BuilderInvariant.builder_capacity_matches hinvariant]
+                  exact hnew_le
+                obtain ⟨count, plan_stack, plan_top, plan_depth, plan_len,
+                    hplan, hcarry, hcanonical, _⟩ :=
+                  BuilderStack.append_subtree
+                    (BuilderInvariant.layout hinvariant)
+                    (BuilderInvariant.stack_dense hinvariant) hnode hlen
+                    haligned hfits
+                have hvalues_full :
+                    (if self.level = 0#usize then
+                      do
+                        let zeros ← core.num.Usize.trailing_zeros
+                          next_index_on_level
+                        let packing_depth ←
+                          lift (UScalar.cast .U32 self.packing_depth)
+                        ok (core.num.U32.saturating_sub zeros packing_depth)
+                    else core.num.Usize.trailing_zeros next_index_on_level) =
+                      ok values_to_merge := by
+                  simpa only [lift, bind_tc_ok] using hvalues
+                have hmerge_count := push_node_merge_count_eq hinvariant
+                  hnode_level hcarry hshift hnext hvalues_full
+                obtain ⟨hloop_stack, hloop_top⟩ :=
+                  push_node_loop_follows_merge_plan hplan
+                    { start := 0#u32, «end» := values_to_merge }
+                    self.stack (utils.MaybeArced.Arced node) loop_stack
+                    loop_top (by simp [hmerge_count]) rfl rfl hloop
+                have hfinal_stack := vec_push_values loop_stack loop_top
+                  hstack_push
+                have hcanonical_final : BuilderStack self.packing_factor
+                    (if self.level.val = 0 then 0
+                      else self.level.val - self.packing_depth.val)
+                    final_stack.val self.depth.val
+                    (self.length.val + len.val) := by
+                  apply hcanonical.rewrap
+                  rw [hfinal_stack, hloop_stack]
+                  simp [hloop_top]
+                refine ⟨@BuilderInvariant.layout T ValueInst self hinvariant,
+                  @BuilderInvariant.level_valid T ValueInst self hinvariant,
+                  @BuilderInvariant.level_bounded T ValueInst self hinvariant,
+                  @BuilderInvariant.builder_capacity_matches T ValueInst self
+                    hinvariant, ?_⟩
+                simpa [hnew_length] using hcanonical_final
+
 private theorem push_loop1_eq_loop0 {T : Type} (ValueInst : Value T)
     (iter : core.ops.range.Range Std.U32)
     (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
