@@ -1124,6 +1124,72 @@ private theorem aligned_window_unique {unit start first second : Nat}
         Nat.mul_le_mul_left unit (Nat.succ_le_iff.mpr hunits)
     omega
 
+private theorem BuilderInvariant.finish_cursor_normalized {T : Type}
+    {ValueInst : Value T} {self : builder.Builder T}
+    (hinvariant : BuilderInvariant ValueInst self)
+    {level_capacity next_index : Std.Usize}
+    (hlevel_capacity : 1#usize <<< self.level = ok level_capacity)
+    (hnext_index : core.num.Usize.div_ceil self.length level_capacity =
+      ok next_index)
+    (hready : self.level.val ≠ 0 ∨
+      self.length.val % subtreeCapacity self.packing_factor
+        (if self.level.val = 0 then 0
+          else self.level.val - self.packing_depth.val) = 0) :
+    ∃ physical_len,
+      BuilderNormalizedStack self.packing_factor
+          (if self.level.val = 0 then 0
+            else self.level.val - self.packing_depth.val)
+          self.stack.val self.depth.val self.length.val physical_len ∧
+        physical_len = next_index.val * 2 ^ self.level.val := by
+  obtain ⟨physical_len, hnormalized, hphysical_aligned, hphysical_lower,
+      hphysical_upper⟩ :=
+    (@BuilderInvariant.stack_normalized T ValueInst self hinvariant) hready
+  have hlevel_capacity_value :=
+    usize_shift_left_one_value hlevel_capacity
+  have hquotient := usize_div_ceil_value
+    (by rw [hlevel_capacity_value]; positivity) hnext_index
+  rw [hlevel_capacity_value] at hquotient
+  have hrounded := nat_div_ceil_bounds
+    (Nat.two_pow_pos self.level.val) hquotient
+  by_cases hlevel : self.level.val = 0
+  · have hlength_aligned : self.length.val %
+        subtreeCapacity self.packing_factor 0 = 0 := by
+      simpa [hlevel] using hready.resolve_left (not_not.mpr hlevel)
+    have hcapacity_pos :=
+      (BuilderInvariant.layout hinvariant).subtreeCapacity_pos 0
+    have hphysical_eq : physical_len = self.length.val := by
+      apply aligned_window_unique hcapacity_pos
+      · simpa [hlevel] using hphysical_aligned
+      · exact hlength_aligned
+      · exact hphysical_lower
+      · simpa [hlevel] using hphysical_upper
+      · exact Nat.le_refl _
+      · omega
+    have hnext_eq : next_index.val = self.length.val := by
+      simpa [hlevel, Nat.mod_one] using hquotient
+    exact ⟨physical_len, hnormalized, by simp [hphysical_eq, hnext_eq,
+      hlevel]⟩
+  · have hbase_capacity := hinvariant.base_capacity_eq_pow_level
+      (Or.inl hlevel)
+    have hbase_capacity' : subtreeCapacity self.packing_factor
+        (self.level.val - self.packing_depth.val) =
+          2 ^ self.level.val := by
+      simpa [hlevel] using hbase_capacity
+    have hphysical_aligned' : physical_len % 2 ^ self.level.val = 0 := by
+      simpa [hlevel, hbase_capacity'] using hphysical_aligned
+    have hphysical_upper' : physical_len <
+        self.length.val + 2 ^ self.level.val := by
+      simpa [hlevel, hbase_capacity'] using hphysical_upper
+    have hrounded_aligned :
+        (next_index.val * 2 ^ self.level.val) % 2 ^ self.level.val = 0 := by
+      simp
+    have hphysical_eq : physical_len =
+        next_index.val * 2 ^ self.level.val := by
+      exact aligned_window_unique (Nat.two_pow_pos self.level.val)
+        hphysical_aligned' hrounded_aligned hphysical_lower
+        hphysical_upper' hrounded.1 hrounded.2
+    exact ⟨physical_len, hnormalized, hphysical_eq⟩
+
 /-- Successful construction starts with the empty canonical stack. -/
 theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
     {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
