@@ -572,4 +572,179 @@ private theorem repeatListFinalize_returns_dense {T N U : Type}
         core.result.Result.Insts.CoreOpsTry.branch,
         smallvec.SmallVec.is_empty] at hfinalize
 
+private def repeatInitialLayer {T : Type} (ValueInst : Value T) (elem : T)
+    (n : Std.Usize) (packing_factor : Option Std.Usize) :
+    Result (List (Tree T × Std.Usize)) :=
+  match packing_factor with
+  | none => do
+    let leaf ← leaf.Leaf.new elem
+    let tree ← triomphe.arc.Arc.new (Tree.Leaf leaf)
+    ok [(tree, n)]
+  | some factor => do
+    let repeated_count ← n / factor
+    let lonely_count ← n % factor
+    let cloned ← ValueInst.corecloneCloneInst.clone elem
+    let repeated_leaf ← packed_leaf.PackedLeaf.repeat
+      ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst cloned factor
+    let repeated ← triomphe.arc.Arc.new (Tree.PackedLeaf repeated_leaf)
+    let lonely_leaf ← packed_leaf.PackedLeaf.repeat
+      ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst elem
+        lonely_count
+    let lonely ← triomphe.arc.Arc.new (Tree.PackedLeaf lonely_leaf)
+    match repeated_count.val with
+    | 0 => match lonely_count.val with
+           | 0 => fail Error.panic
+           | _ => ok ()
+    | _ => ok ()
+    match lonely_count.val with
+    | 0 => ok [(repeated, repeated_count)]
+    | _ =>
+      match repeated_count.val with
+      | 0 => ok [(lonely, 1#usize)]
+      | _ => ok [(repeated, repeated_count), (lonely, 1#usize)]
+
+/-- The leaf layer created by `repeat_list` is a valid repeated layer. The
+    only non-layout premise is the branch condition `n != 0`. -/
+private theorem repeatInitialLayer_preserves {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (elem : T) (n : Std.Usize) (hn : n ≠ 0#usize)
+    {layer : List (Tree T × Std.Usize)}
+    (hinitial : repeatInitialLayer ValueInst elem n packing_factor = ok layer) :
+    RepeatLayer packing_factor 0 n.val layer := by
+  have hn_pos : 0 < n.val := by
+    have hn_val : n.val ≠ 0 := by
+      intro hzero
+      apply hn
+      exact UScalar.eq_of_val_eq (by simpa using hzero)
+    omega
+  cases hlayout with
+  | unpacked factor_eq depth_eq =>
+    unfold repeatInitialLayer at hinitial
+    simp [leaf.Leaf.new, leaf.Leaf.with_hash,
+      alloy_primitives.bits.fixed.FixedBytes.ZERO,
+      lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hinitial
+    subst layer
+    apply RepeatLayer.single _ n 0 1 n.val
+    · exact DenseTree.leaf _
+    · omega
+    · exact hn_pos
+    · simp
+    · right
+      simp [subtreeCapacity, leafCapacity]
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    have hfactor_pos : 0 < factor.val := by
+      simpa [leafCapacity, factor_is_power] using
+        (PackingLayout.packed factor packing_depth factor_eq depth_eq
+          factor_is_power).leafCapacity_pos
+    unfold repeatInitialLayer at hinitial
+    cases hdiv : n / factor with
+    | fail error => simp [hdiv] at hinitial
+    | div => simp [hdiv] at hinitial
+    | ok repeated_count =>
+      obtain ⟨expected, hexpected, hexpected_val⟩ :=
+        UScalar.div_spec n (y := factor) (by omega)
+      rw [hdiv] at hexpected
+      simp at hexpected
+      subst expected
+      have hrepeated_val : repeated_count.val = n.val / factor.val := by
+        simpa using hexpected_val
+      cases hrem : n % factor with
+      | fail error => simp [hdiv, hrem] at hinitial
+      | div => simp [hdiv, hrem] at hinitial
+      | ok lonely_count =>
+        have hrem_spec := UScalar.rem_spec n (y := factor) (by omega)
+        rw [hrem] at hrem_spec
+        simp at hrem_spec
+        have hlonely_val : lonely_count.val = n.val % factor.val := by
+          simpa using hrem_spec
+        cases hclone : ValueInst.corecloneCloneInst.clone elem with
+        | fail error => simp [hdiv, hrem, hclone] at hinitial
+        | div => simp [hdiv, hrem, hclone] at hinitial
+        | ok cloned =>
+          cases hrepeated_leaf : packed_leaf.PackedLeaf.repeat
+              ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst
+              cloned factor with
+          | fail error =>
+            simp [hdiv, hrem, hclone, hrepeated_leaf] at hinitial
+          | div =>
+            simp [hdiv, hrem, hclone, hrepeated_leaf] at hinitial
+          | ok repeated_leaf =>
+            have hrepeated_dense := packedLeaf_repeat_preserves_dense
+              ValueInst
+              (PackingLayout.packed factor packing_depth factor_eq depth_eq
+                factor_is_power) cloned hfactor_pos hrepeated_leaf
+            cases hlonely_leaf : packed_leaf.PackedLeaf.repeat
+                ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst
+                elem lonely_count with
+            | fail error =>
+              simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
+                triomphe.arc.Arc.new] at hinitial
+            | div =>
+              simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
+                triomphe.arc.Arc.new] at hinitial
+            | ok lonely_leaf =>
+              by_cases hrepeated_zero : repeated_count.val = 0
+              · by_cases hlonely_zero : lonely_count.val = 0
+                · simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
+                    hrepeated_zero, hlonely_zero, triomphe.arc.Arc.new] at hinitial
+                · have hlonely_pos : 0 < lonely_count.val := by omega
+                  have hlonely_dense := packedLeaf_repeat_preserves_dense
+                    ValueInst
+                    (PackingLayout.packed factor packing_depth factor_eq
+                      depth_eq factor_is_power) elem hlonely_pos hlonely_leaf
+                  simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
+                    hrepeated_zero, hlonely_zero, triomphe.arc.Arc.new] at hinitial
+                  subst layer
+                  apply RepeatLayer.single _ 1#usize 0 lonely_count.val n.val
+                  · exact hlonely_dense
+                  · exact hlonely_pos
+                  · simp
+                  · have hone_val : (1#usize).val = 1 := by rfl
+                    rw [hone_val, Nat.mul_one]
+                    rw [hrepeated_val] at hrepeated_zero
+                    rw [hlonely_val]
+                    have hdecomp := Nat.mod_add_div n.val factor.val
+                    rw [hrepeated_zero, Nat.mul_zero, Nat.add_zero] at hdecomp
+                    exact hdecomp.symm
+                  · exact Or.inl (by simp)
+              · have hrepeated_pos : 0 < repeated_count.val := by omega
+                by_cases hlonely_zero : lonely_count.val = 0
+                · simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
+                    hrepeated_zero, hlonely_zero, triomphe.arc.Arc.new] at hinitial
+                  subst layer
+                  apply RepeatLayer.single _ repeated_count 0 factor.val n.val
+                  · exact hrepeated_dense
+                  · exact hfactor_pos
+                  · exact hrepeated_pos
+                  · rw [hlonely_val] at hlonely_zero
+                    rw [hrepeated_val]
+                    have hdecomp := Nat.mod_add_div n.val factor.val
+                    rw [hlonely_zero, Nat.zero_add] at hdecomp
+                    exact hdecomp.symm
+                  · exact Or.inr (by simp [subtreeCapacity, leafCapacity])
+                · have hlonely_pos : 0 < lonely_count.val := by omega
+                  have hlonely_dense := packedLeaf_repeat_preserves_dense
+                    ValueInst
+                    (PackingLayout.packed factor packing_depth factor_eq
+                      depth_eq factor_is_power) elem hlonely_pos hlonely_leaf
+                  simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
+                    hrepeated_zero, hlonely_zero, triomphe.arc.Arc.new] at hinitial
+                  subst layer
+                  apply RepeatLayer.split _ _ repeated_count 0
+                    lonely_count.val n.val
+                  · simpa [subtreeCapacity, leafCapacity] using
+                      hrepeated_dense
+                  · exact hlonely_dense
+                  · exact hrepeated_pos
+                  · exact hlonely_pos
+                  · simp [subtreeCapacity, leafCapacity]
+                    rw [hlonely_val]
+                    exact Nat.mod_lt _ hfactor_pos
+                  · simp [subtreeCapacity, leafCapacity]
+                    rw [hrepeated_val, hlonely_val]
+                    have hdecomp := Nat.mod_add_div n.val factor.val
+                    simpa [Nat.add_comm] using hdecomp.symm
+
 end milhouse.tree
