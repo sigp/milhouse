@@ -475,6 +475,33 @@ private theorem u32_saturating_sub_value (left right : Std.U32) :
     Nat.mod_eq_of_lt]
   exact (Nat.sub_le left.val right.val).trans_lt left.hBounds
 
+private theorem PackingLayout.packing_depth_lt_u32 {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth) :
+    packing_depth.val < 2 ^ 32 := by
+  cases hlayout with
+  | unpacked => simp
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    have hdepth_bits : packing_depth.val < System.Platform.numBits := by
+      by_contra hnot_lt
+      have hpow_le : 2 ^ System.Platform.numBits ≤
+          2 ^ packing_depth.val :=
+        Nat.pow_le_pow_right (by omega) (by omega)
+      rw [← factor_is_power] at hpow_le
+      exact (Nat.not_le_of_gt factor.hBounds) hpow_le
+    have hbits : System.Platform.numBits < 2 ^ 32 := by native_decide
+    omega
+
+private theorem PackingLayout.packing_depth_cast_u32 {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth) :
+    (UScalar.cast .U32 packing_depth).val = packing_depth.val := by
+  rw [UScalar.cast_val_eq]
+  apply Nat.mod_eq_of_lt
+  simpa using hlayout.packing_depth_lt_u32
+
 private theorem usize_shift_left_one_value {shift shifted : Std.Usize}
     (h : 1#usize <<< shift = ok shifted) :
     shifted.val = 2 ^ shift.val := by
@@ -1604,6 +1631,58 @@ private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
   | unpacked => rfl
   | packed factor packing_depth factor_eq depth_eq factor_is_power =>
     simp at hfactor
+
+private theorem push_full_base_merge_count_eq {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {root_depth total count : Nat}
+    (hcarry : BuilderCarryCount packing_factor 0 root_depth total count)
+    {next_index : Std.Usize} {zeros : Std.U32}
+    (hnext : next_index.val = total + subtreeCapacity packing_factor 0)
+    (hzeros : core.num.Usize.trailing_zeros next_index = ok zeros) :
+    (core.num.U32.saturating_sub zeros
+      (UScalar.cast .U32 packing_depth)).val = count := by
+  obtain ⟨units, htotal, hcount⟩ := hcarry.eq_padic_units hlayout
+  have hcapacity := hlayout.subtreeCapacity_eq_two_pow 0
+  have hnext_units : next_index.val =
+      2 ^ packing_depth.val * (units + 1) := by
+    rw [hnext, htotal, hcapacity]
+    simp [Nat.mul_add]
+  have hnext_pos : 0 < next_index.val := by
+    rw [hnext_units]
+    positivity
+  have hzero_value := usize_trailing_zeros_padic hnext_pos hzeros
+  rw [u32_saturating_sub_value,
+    hlayout.packing_depth_cast_u32, hzero_value, hnext_units,
+    padicValNat.mul (by positivity) (by omega), padicValNat.prime_pow,
+    hcount]
+  omega
+
+private theorem push_partial_base_merge_count_zero {T : Type}
+    {ValueInst : Value T} {factor packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst (some factor) packing_depth)
+    {next_index : Std.Usize} {zeros : Std.U32}
+    (hnext_pos : 0 < next_index.val)
+    (hpartial : next_index.val % factor.val ≠ 0)
+    (hzeros : core.num.Usize.trailing_zeros next_index = ok zeros) :
+    (core.num.U32.saturating_sub zeros
+      (UScalar.cast .U32 packing_depth)).val = 0 := by
+  have hfactor := hlayout.subtreeCapacity_eq_two_pow 0
+  simp [subtreeCapacity, leafCapacity] at hfactor
+  have hnot_dvd : ¬2 ^ packing_depth.val ∣ next_index.val := by
+    rw [← hfactor]
+    exact fun hdvd => hpartial (Nat.mod_eq_zero_of_dvd hdvd)
+  have hvaluation_lt :
+      padicValNat 2 next_index.val < packing_depth.val := by
+    by_contra hnot_lt
+    have hdvd : 2 ^ packing_depth.val ∣ next_index.val :=
+      (pow_dvd_pow 2 (by omega)).trans pow_padicValNat_dvd
+    exact hnot_dvd hdvd
+  rw [u32_saturating_sub_value,
+    hlayout.packing_depth_cast_u32,
+    usize_trailing_zeros_padic hnext_pos hzeros]
+  omega
 
 private theorem push_node_merge_count_eq {T : Type}
     {ValueInst : Value T} {self : builder.Builder T}
