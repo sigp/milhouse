@@ -40,12 +40,40 @@ axiom Pair.Insts.CoreHashHash.hash
   core.hash.Hash B) (HasherInst : core.hash.Hasher S) :
   (T × B) → S → Result S
 
+/-- [core::iter::traits::iterator::Iterator::size_hint]:
+    Source: '/rustc/library/core/src/iter/traits/iterator.rs', lines 189:4-189:49
+    Name pattern: [core::iter::traits::iterator::Iterator::size_hint]
+    Visibility: public -/
+@[trait_default, rust_fun "core::iter::traits::iterator::Iterator::size_hint"]
+axiom core.iter.traits.iterator.Iterator.size_hint.default
+  {Self : Type} {Clause0_Item : Type} (IteratorInst :
+  core.iter.traits.iterator.Iterator Self Clause0_Item) :
+  Self → Result (Std.Usize × (Option Std.Usize))
+
+/-- [core::marker::{impl core::clone::Clone for core::marker::PhantomData<T>}::clone]:
+    Source: '/rustc/library/core/src/marker.rs', lines 848:4-848:27
+    Name pattern: [core::marker::{core::clone::Clone<core::marker::PhantomData<@T>>}::clone]
+    Visibility: public -/
+@[rust_fun
+  "core::marker::{core::clone::Clone<core::marker::PhantomData<@T>>}::clone"]
+axiom core.marker.PhantomData.Insts.CoreCloneClone.clone
+  {T : Type} : core.marker.PhantomData T → Result (core.marker.PhantomData T)
+
 /-- [core::mem::size_of]:
     Source: '/rustc/library/core/src/mem/mod.rs', lines 373:0-373:34
     Name pattern: [core::mem::size_of]
     Visibility: public -/
 @[rust_fun "core::mem::size_of"]
 axiom core.mem.size_of (T : Type) : Result Std.Usize
+
+/-- [core::mem::take]:
+    Source: '/rustc/library/core/src/mem/mod.rs', lines 849:0-849:56
+    Name pattern: [core::mem::take]
+    Visibility: public -/
+@[rust_fun "core::mem::take"]
+axiom core.mem.take
+  {T : Type} (defaultDefaultInst : core.default.Default T) :
+  T → Result (T × T)
 
 /-- [core::num::{usize}::trailing_zeros]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 177:8-177:48
@@ -276,6 +304,17 @@ axiom alloc.collections.btree.map.BTreeMap.get
   core.clone.Clone A) (coreborrowBorrowInst : core.borrow.Borrow K Q)
   (corecmpOrdInst : core.cmp.Ord K) (corecmpOrdInst1 : core.cmp.Ord Q) :
   alloc.collections.btree.map.BTreeMap K V A → Q → Result (Option V)
+
+/-- [alloc::vec::into_iter::{impl core::iter::traits::iterator::Iterator<T> for alloc::vec::into_iter::IntoIter<T, A>}::size_hint]:
+    Source: '/rustc/library/alloc/src/vec/into_iter.rs', lines 273:4-273:49
+    Name pattern: [alloc::vec::into_iter::{core::iter::traits::iterator::Iterator<alloc::vec::into_iter::IntoIter<@T, @A>, @T>}::size_hint]
+    Visibility: public -/
+@[rust_fun
+  "alloc::vec::into_iter::{core::iter::traits::iterator::Iterator<alloc::vec::into_iter::IntoIter<@T, @A>, @T>}::size_hint"]
+axiom
+  alloc.vec.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.size_hint
+  {T : Type} {A : Type} :
+  alloc.vec.into_iter.IntoIter T → Result (Std.Usize × (Option Std.Usize))
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::pop]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2850:4-2850:38
@@ -589,4 +628,23 @@ axiom triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref
 axiom triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.eq
   {T : Type} (corecmpPartialEqInst : core.cmp.PartialEq T T) :
   triomphe.arc.Arc T → triomphe.arc.Arc T → Result Bool
+
+/-- [triomphe::arc::{impl core::convert::AsRef<T> for triomphe::arc::Arc<T>}::as_ref]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/triomphe-0.1.14/src/arc.rs', lines 761:4-761:26
+    Name pattern: [triomphe::arc::{core::convert::AsRef<triomphe::arc::Arc<@T>, @T>}::as_ref]
+    Visibility: public -/
+@[rust_fun
+  "triomphe::arc::{core::convert::AsRef<triomphe::arc::Arc<@T>, @T>}::as_ref"]
+axiom triomphe.arc.Arc.Insts.CoreConvertAsRef.as_ref
+  {T : Type} : triomphe.arc.Arc T → Result T
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::intra_rebase]:
+    Source: 'src/list.rs', lines 405:4-422:5
+    Visibility: public -/
+axiom list.List.intra_rebase
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  list.List T N U → Result ((core.result.Result Unit error.Error) ×
+    (list.List T N U))
 

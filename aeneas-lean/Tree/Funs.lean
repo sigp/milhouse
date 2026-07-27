@@ -84,12 +84,14 @@ def Pair.Insts.CoreCmpPartialOrdPair {U : Type} {T : Type} (cmpPartialOrdInst :
     Source: '/rustc/library/core/src/tuple.rs', lines 111:12-111:62
     Name pattern: [core::cmp::Ord<(@U, @T)>] -/
 @[reducible, rust_trait_impl "core::cmp::Ord<(@U, @T)>"]
-def Pair.Insts.CoreCmpOrd {U : Type} {T : Type} (cmpOrdInst : core.cmp.Ord U)
-  (cmpOrdInst1 : core.cmp.Ord T) : core.cmp.Ord (U × T) := {
+impl_def Pair.Insts.CoreCmpOrd {U : Type} {T : Type} (cmpOrdInst : core.cmp.Ord
+  U) (cmpOrdInst1 : core.cmp.Ord T) : core.cmp.Ord (U × T) := {
   eqInst := Pair.Insts.CoreCmpEq cmpOrdInst.eqInst cmpOrdInst1.eqInst
   partialOrdInst := Pair.Insts.CoreCmpPartialOrdPair cmpOrdInst.partialOrdInst
     cmpOrdInst1.partialOrdInst
   cmp := Pair.Insts.CoreCmpOrd.cmp cmpOrdInst cmpOrdInst1
+  min := core.cmp.Ord.min.trait_default (Pair.Insts.CoreCmpOrd cmpOrdInst
+    cmpOrdInst1)
 }
 
 /-- Trait implementation: [std::hash::random::{impl core::hash::Hasher for std::hash::random::DefaultHasher}]
@@ -1141,6 +1143,22 @@ def interface.ImmList.is_empty.default
   let i ← utils.Length.as_usize l
   ok (i = 0#usize)
 
+/-- [milhouse::interface::{impl core::clone::Clone for milhouse::interface::Interface<T, B, U>}::clone]:
+    Source: 'src/interface.rs', lines 37:27-37:32
+    Visibility: public -/
+def interface.Interface.Insts.CoreCloneClone.clone
+  {T : Type} {B : Type} {U : Type} (corecloneCloneInst : core.clone.Clone T)
+  (corecloneCloneInst1 : core.clone.Clone B) (corecloneCloneInst2 :
+  core.clone.Clone U) (ValueInst : Value T) (MutListInst : interface.MutList B
+  T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) :
+  Result (interface.Interface T B U)
+  := do
+  let t ← corecloneCloneInst1.clone self.backing
+  let t1 ← corecloneCloneInst2.clone self.updates
+  let pd ← core.marker.PhantomData.Insts.CoreCloneClone.clone self._phantom
+  ok { backing := t, updates := t1, _phantom := pd }
+
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::new]:
     Source: 'src/interface.rs', lines 56:4-62:5
     Visibility: public -/
@@ -1152,6 +1170,373 @@ def interface.Interface.new
   := do
   let t ← update_mapUpdateMapInst.coredefaultDefaultInst.default
   ok { backing, updates := t, _phantom := () }
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::interface::{milhouse::interface::Interface<T, B, U>[TraitClause0, TraitClause1, TraitClause2]}::get_mut::closure<'_0, T, B, U>}::call_once]:
+    Source: 'src/interface.rs', lines 70:31-70:67 -/
+def
+  interface.Interface.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (c : interface.Interface.get_mut.closure T B U) (tupled_args : Std.Usize) :
+  Result (Option T)
+  := do
+  let o ← MutListInst.ImmListInst.get c tupled_args
+  core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o
+
+/-- Trait implementation: [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::interface::{milhouse::interface::Interface<T, B, U>[TraitClause0, TraitClause1, TraitClause2]}::get_mut::closure<'_0, T, B, U>}]
+    Source: 'src/interface.rs', lines 70:31-70:67 -/
+@[reducible]
+def
+  interface.Interface.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  core.ops.function.FnOnce (interface.Interface.get_mut.closure T B U)
+  Std.Usize (Option T) := {
+  call_once :=
+    interface.Interface.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
+    ValueInst MutListInst update_mapUpdateMapInst
+}
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut]:
+    Source: 'src/interface.rs', lines 68:4-71:5
+    Visibility: public -/
+def interface.Interface.get_mut
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) (idx : Std.Usize) :
+  Result ((Option T) × (Option T → interface.Interface T B U))
+  := do
+  let (o, get_mut_with_back) ←
+    update_mapUpdateMapInst.get_mut_with
+      (interface.Interface.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
+      ValueInst MutListInst update_mapUpdateMapInst) self.updates idx
+      self.backing
+  let back :=
+    fun o1 => let t := get_mut_with_back o1
+              { self with updates := t }
+  ok (o, back)
+
+/-- [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}::call_once]:
+    Source: 'src/utils.rs', lines 87:41-89:5 -/
+def
+  utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength.call_once
+  {U : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (c : utils.updated_length.closure U T) (tupled_args : Std.Usize) :
+  Result utils.Length
+  := do
+  let i ← tupled_args + 1#usize
+  let i1 ← utils.Length.as_usize c
+  let i2 ← core.cmp.max core.cmp.OrdUsize i i1
+  ok i2
+
+/-- Trait implementation: [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}]
+    Source: 'src/utils.rs', lines 87:41-89:5 -/
+@[reducible]
+def utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength {U
+  : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  core.ops.function.FnOnce (utils.updated_length.closure U T) Std.Usize
+  utils.Length := {
+  call_once :=
+    utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength.call_once
+    update_mapUpdateMapInst
+}
+
+/-- [milhouse::utils::updated_length]:
+    Source: 'src/utils.rs', lines 86:0-90:1
+    Visibility: public -/
+def utils.updated_length
+  {U : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (prev_len : utils.Length) (updates : U) :
+  Result utils.Length
+  := do
+  let o ← update_mapUpdateMapInst.max_index updates
+  core.option.Option.map_or
+    (utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength
+    update_mapUpdateMapInst) o prev_len prev_len
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::len]:
+    Source: 'src/interface.rs', lines 132:4-134:5
+    Visibility: public -/
+def interface.Interface.len
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) :
+  Result Std.Usize
+  := do
+  let l ← MutListInst.ImmListInst.len self.backing
+  let l1 ← utils.updated_length update_mapUpdateMapInst l self.updates
+  utils.Length.as_usize l1
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::push]:
+    Source: 'src/interface.rs', lines 78:4-84:5
+    Visibility: public -/
+def interface.Interface.push
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) (value : T) :
+  Result ((core.result.Result Unit error.Error) × (interface.Interface T B U))
+  := do
+  let index ←
+    interface.Interface.len ValueInst MutListInst update_mapUpdateMapInst self
+  let r ← MutListInst.validate_push index
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ =>
+    let (_, t) ← update_mapUpdateMapInst.insert self.updates index value
+    ok (core.result.Result.Ok (), { self with updates := t })
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    let r1 ←
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        Unit (core.convert.FromSame error.Error) residual
+    ok (r1, self)
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::apply_updates]:
+    Source: 'src/interface.rs', lines 86:4-93:5
+    Visibility: public -/
+def interface.Interface.apply_updates
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) :
+  Result ((core.result.Result Unit error.Error) × (interface.Interface T B U))
+  := do
+  let b ← update_mapUpdateMapInst.is_empty self.updates
+  if b
+  then ok (core.result.Result.Ok (), self)
+  else
+    let (updates, t) ←
+      core.mem.take update_mapUpdateMapInst.coredefaultDefaultInst self.updates
+    let (r, t1) ←
+      MutListInst.update update_mapUpdateMapInst self.backing updates none
+    ok (r, { self with backing := t1, updates := t })
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::has_pending_updates]:
+    Source: 'src/interface.rs', lines 95:4-97:5
+    Visibility: public -/
+def interface.Interface.has_pending_updates
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) :
+  Result Bool
+  := do
+  let b ← update_mapUpdateMapInst.is_empty self.updates
+  ok (¬ b)
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter_from]:
+    Source: 'src/interface.rs', lines 103:4-110:5
+    Visibility: public -/
+def interface.Interface.iter_from
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) (index : Std.Usize) :
+  Result (interface_iter.InterfaceIter T U)
+  := do
+  let i ← MutListInst.ImmListInst.iter_from self.backing index
+  let i1 ←
+    interface.Interface.len ValueInst MutListInst update_mapUpdateMapInst self
+  ok { tree_iter := i, updates := self.updates, index, length := i1 }
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter]:
+    Source: 'src/interface.rs', lines 99:4-101:5
+    Visibility: public -/
+def interface.Interface.iter
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) :
+  Result (interface_iter.InterfaceIter T U)
+  := do
+  interface.Interface.iter_from ValueInst MutListInst update_mapUpdateMapInst
+    self 0#usize
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter_cow_from]:
+    Source: 'src/interface.rs', lines 116:4-122:5
+    Visibility: public -/
+def interface.Interface.iter_cow_from
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) (index : Std.Usize) :
+  Result ((interface_iter.InterfaceIterCow T U) ×
+    (interface_iter.InterfaceIterCow T U → interface.Interface T B U))
+  := do
+  let i ← MutListInst.ImmListInst.iter_from self.backing index
+  let back := fun iic => { self with updates := iic.updates }
+  ok ({ tree_iter := i, updates := self.updates, index }, back)
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter_cow]:
+    Source: 'src/interface.rs', lines 112:4-114:5
+    Visibility: public -/
+def interface.Interface.iter_cow
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) :
+  Result ((interface_iter.InterfaceIterCow T U) ×
+    (interface_iter.InterfaceIterCow T U → interface.Interface T B U))
+  := do
+  let (iic, iter_cow_from_back) ←
+    interface.Interface.iter_cow_from ValueInst MutListInst
+      update_mapUpdateMapInst self 0#usize
+  let back :=
+    fun iic1 => iter_cow_from_back
+      {
+        iic
+          with
+          tree_iter := { iic.tree_iter with stack := iic1.tree_iter.stack },
+          updates := iic1.updates
+      }
+  ok (iic, back)
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::level_iter_from]:
+    Source: 'src/interface.rs', lines 124:4-130:5
+    Visibility: public -/
+def interface.Interface.level_iter_from
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) (index : Std.Usize) :
+  Result (core.result.Result (level_iter.LevelIter T) error.Error)
+  := do
+  let b ←
+    interface.Interface.has_pending_updates ValueInst MutListInst
+      update_mapUpdateMapInst self
+  if b
+  then ok (core.result.Result.Err error.Error.LevelIterPendingUpdates)
+  else
+    let li ← MutListInst.ImmListInst.level_iter_from self.backing index
+    ok (core.result.Result.Ok li)
+
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::is_empty]:
+    Source: 'src/interface.rs', lines 136:4-138:5
+    Visibility: public -/
+def interface.Interface.is_empty
+  {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
+  interface.MutList B T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (self : interface.Interface T B U) :
+  Result Bool
+  := do
+  let i ←
+    interface.Interface.len ValueInst MutListInst update_mapUpdateMapInst self
+  ok (i = 0#usize)
+
+/-- [milhouse::iter::pop_many]: loop body 0:
+    Source: 'src/iter.rs', lines 41:4-44:5 -/
+@[rust_loop_body]
+def iter.pop_many_loop.body
+  {T : Type} (stack : alloc.vec.Vec T) (count : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  if count > 0#usize
+  then
+    let (_, stack1) ← alloc.vec.Vec.pop Global stack
+    let count1 ← count - 1#usize
+    ok (cont (stack1, count1))
+  else ok (done stack)
+
+/-- [milhouse::iter::pop_many]: loop 0:
+    Source: 'src/iter.rs', lines 41:4-44:5 -/
+@[rust_loop]
+def iter.pop_many_loop
+  {T : Type} (stack : alloc.vec.Vec T) (count : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (stack1, count1) => iter.pop_many_loop.body stack1 count1)
+    (stack, count)
+
+/-- [milhouse::iter::pop_many]:
+    Source: 'src/iter.rs', lines 40:0-45:1 -/
+@[reducible]
+def iter.pop_many
+  {T : Type} (stack : alloc.vec.Vec T) (count : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  iter.pop_many_loop stack count
+
+/-- [milhouse::iter::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::iter::Iter<'a, T>}::next]:
+    Source: 'src/iter.rs', lines 50:4-106:5
+    Visibility: public -/
+def iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+  {T : Type} (ValueInst : Value T) (self : iter.Iter T) :
+  Result ((Option T) × (iter.Iter T))
+  := do
+  let i ← utils.Length.as_usize self.length
+  if self.index >= i
+  then ok (none, self)
+  else
+    let (o, v) ← alloc.vec.Vec.pop Global self.stack
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let v1 ← alloc.vec.Vec.push v val
+      match val with
+      | tree.Tree.Leaf l =>
+        let t ← triomphe.arc.Arc.Insts.CoreConvertAsRef.as_ref l.value
+        let i1 ← self.index + 1#usize
+        let i2 ← core.num.Usize.trailing_zeros i1
+        let i3 ← lift (UScalar.cast .Usize i2)
+        let i4 ← i3 + 1#usize
+        let v2 ← iter.pop_many v1 i4
+        ok (some t, { self with stack := v2, index := i1 })
+      | tree.Tree.PackedLeaf pl =>
+        let sub_index ← self.index % self.packing_factor
+        let s := alloc.vec.Vec.deref pl.values
+        let result ←
+          core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice T) s
+            sub_index
+        let i1 ← self.index + 1#usize
+        let i2 ← sub_index + 1#usize
+        if i2 = self.packing_factor
+        then
+          let i3 ← core.num.Usize.trailing_zeros i1
+          let i4 ← lift (UScalar.cast .U32 self.packing_depth)
+          let o1 ← lift (U32.checked_sub i3 i4)
+          let to_pop ←
+            core.option.Option.expect o1 (toStr
+              "index should have at least `packing_depth` trailing zeroes")
+          let i5 ← lift (UScalar.cast .Usize to_pop)
+          let i6 ← i5 + 1#usize
+          let v2 ← iter.pop_many v1 i6
+          ok (result, { self with stack := v2, index := i1 })
+        else ok (result, { self with stack := v1, index := i1 })
+      | tree.Tree.Node _ left right =>
+        let i1 := alloc.vec.Vec.len v1
+        let depth ← self.full_depth - i1
+        let i2 ← depth + self.packing_depth
+        let i3 ← self.index >>> i2
+        let i4 ← lift (i3 &&& 1#usize)
+        if i4 = 0#usize
+        then
+          let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+          let v2 ← alloc.vec.Vec.push v1 t
+          iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst
+            { self with stack := v2 }
+        else
+          let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+          let v2 ← alloc.vec.Vec.push v1 t
+          iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst
+            { self with stack := v2 }
+      | tree.Tree.Zero _ => ok (none, { self with stack := v1 })
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let result ←
+        core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+          T residual
+      ok (result, { self with stack := v })
+partial_fixpoint
+
+/-- [milhouse::interface_iter::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::interface_iter::InterfaceIter<'a, T, U>}::next]:
+    Source: 'src/interface_iter.rs', lines 15:4-27:5
+    Visibility: public -/
+def
+  interface_iter.InterfaceIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : interface_iter.InterfaceIter T U) :
+  Result ((Option T) × (interface_iter.InterfaceIter T U))
+  := do
+  let i ← self.index + 1#usize
+  let (backing_value, i1) ←
+    iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst
+      self.tree_iter
+  let o ← update_mapUpdateMapInst.get self.updates self.index
+  match o with
+  | none => ok (backing_value, { self with tree_iter := i1, index := i })
+  | some _ => ok (o, { self with tree_iter := i1, index := i })
 
 /-- [milhouse::iter::{milhouse::iter::Iter<'a, T>}::from_index]:
     Source: 'src/iter.rs', lines 25:4-37:5
@@ -1245,43 +1630,156 @@ def level_iter.LevelIter.from_index
       length
     }
 
-/-- [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}::call_once]:
-    Source: 'src/utils.rs', lines 87:41-89:5 -/
-def
-  utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength.call_once
-  {U : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T)
-  (c : utils.updated_length.closure U T) (tupled_args : Std.Usize) :
-  Result utils.Length
+/-- [milhouse::level_iter::packed_level_node]:
+    Source: 'src/level_iter.rs', lines 62:0-67:1 -/
+def level_iter.packed_level_node
+  {T : Type} (ValueInst : Value T) (values : alloc.vec.Vec T)
+  (index : Std.Usize) :
+  Result (Option (level_iter.LevelNode T))
   := do
-  let i ← tupled_args + 1#usize
-  let i1 ← utils.Length.as_usize c
-  let i2 ← core.cmp.max core.cmp.OrdUsize i i1
-  ok i2
+  let s := alloc.vec.Vec.deref values
+  let o ←
+    core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice T) s index
+  match o with
+  | none => ok none
+  | some value => ok (some (level_iter.LevelNode.PackedLeaf value))
 
-/-- Trait implementation: [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}]
-    Source: 'src/utils.rs', lines 87:41-89:5 -/
+/-- [milhouse::level_iter::pop_many]: loop body 0:
+    Source: 'src/level_iter.rs', lines 70:4-73:5 -/
+@[rust_loop_body]
+def level_iter.pop_many_loop.body
+  {T : Type} (stack : alloc.vec.Vec T) (count : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec T) × Std.Usize) (alloc.vec.Vec T))
+  := do
+  if count > 0#usize
+  then
+    let (_, stack1) ← alloc.vec.Vec.pop Global stack
+    let count1 ← count - 1#usize
+    ok (cont (stack1, count1))
+  else ok (done stack)
+
+/-- [milhouse::level_iter::pop_many]: loop 0:
+    Source: 'src/level_iter.rs', lines 70:4-73:5 -/
+@[rust_loop]
+def level_iter.pop_many_loop
+  {T : Type} (stack : alloc.vec.Vec T) (count : Std.Usize) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (stack1, count1) => level_iter.pop_many_loop.body stack1 count1)
+    (stack, count)
+
+/-- [milhouse::level_iter::pop_many]:
+    Source: 'src/level_iter.rs', lines 69:0-74:1 -/
 @[reducible]
-def utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength {U
-  : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T) :
-  core.ops.function.FnOnce (utils.updated_length.closure U T) Std.Usize
-  utils.Length := {
-  call_once :=
-    utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength.call_once
-    update_mapUpdateMapInst
-}
-
-/-- [milhouse::utils::updated_length]:
-    Source: 'src/utils.rs', lines 86:0-90:1
-    Visibility: public -/
-def utils.updated_length
-  {U : Type} {T : Type} (update_mapUpdateMapInst : update_map.UpdateMap U T)
-  (prev_len : utils.Length) (updates : U) :
-  Result utils.Length
+def level_iter.pop_many
+  {T : Type} (stack : alloc.vec.Vec T) (count : Std.Usize) :
+  Result (alloc.vec.Vec T)
   := do
-  let o ← update_mapUpdateMapInst.max_index updates
-  core.option.Option.map_or
-    (utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength
-    update_mapUpdateMapInst) o prev_len prev_len
+  level_iter.pop_many_loop stack count
+
+/-- [milhouse::level_iter::{impl core::iter::traits::iterator::Iterator<milhouse::level_iter::LevelNode<'a, T>> for milhouse::level_iter::LevelIter<'a, T>}::next]:
+    Source: 'src/level_iter.rs', lines 79:4-169:5
+    Visibility: public -/
+def level_iter.LevelIter.Insts.CoreIterTraitsIteratorIteratorLevelNode.next
+  {T : Type} (ValueInst : Value T) (self : level_iter.LevelIter T) :
+  Result ((Option (level_iter.LevelNode T)) × (level_iter.LevelIter T))
+  := do
+  let i ← utils.Length.as_usize self.length
+  if self.index >= i
+  then ok (none, self)
+  else
+    let (o, v) ← alloc.vec.Vec.pop Global self.stack
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let v1 ← alloc.vec.Vec.push v val
+      let t ← triomphe.arc.Arc.Insts.CoreConvertAsRef.as_ref val
+      match t with
+      | tree.Tree.Leaf _ =>
+        massert (self.level = 0#usize)
+        let i1 ← self.index + 1#usize
+        let i2 ← core.num.Usize.trailing_zeros i1
+        let i3 ← lift (UScalar.cast .Usize i2)
+        let i4 ← i3 + 1#usize
+        let v2 ← level_iter.pop_many v1 i4
+        ok (some (level_iter.LevelNode.Internal val),
+          { self with stack := v2, index := i1 })
+      | tree.Tree.PackedLeaf pl =>
+        let i1 ← self.full_depth + self.packing_depth
+        let i2 := alloc.vec.Vec.len v1
+        let i3 ← i1 - i2
+        let node_depth ← i3 + 1#usize
+        if node_depth = self.level
+        then
+          let i4 ← 1#usize <<< self.level
+          let i5 ← self.index + i4
+          let i6 ← core.num.Usize.trailing_zeros i5
+          let trailing_zeros ← lift (UScalar.cast .Usize i6)
+          massert (trailing_zeros >= self.level)
+          let i7 ←
+            lift (core.num.Usize.saturating_add trailing_zeros 1#usize)
+          let to_pop ← lift (core.num.Usize.saturating_sub i7 self.level)
+          let v2 ← level_iter.pop_many v1 to_pop
+          ok (some (level_iter.LevelNode.Internal val),
+            { self with stack := v2, index := i5 })
+        else
+          let sub_index ← self.index % self.packing_factor
+          let result ←
+            level_iter.packed_level_node ValueInst pl.values sub_index
+          massert (self.level = 0#usize)
+          let i4 ← self.index + 1#usize
+          let i5 ← sub_index + 1#usize
+          if i5 = self.packing_factor
+          then
+            let i6 ← core.num.Usize.trailing_zeros i4
+            let i7 ← lift (UScalar.cast .U32 self.packing_depth)
+            let o1 ← lift (U32.checked_sub i6 i7)
+            let to_pop ←
+              core.option.Option.expect o1 (toStr
+                "index should have at least `packing_depth` trailing zeroes")
+            let i8 ← lift (UScalar.cast .Usize to_pop)
+            let i9 ← i8 + 1#usize
+            let v2 ← level_iter.pop_many v1 i9
+            ok (result, { self with stack := v2, index := i4 })
+          else ok (result, { self with stack := v1, index := i4 })
+      | tree.Tree.Node _ left right =>
+        let i1 ← self.full_depth + self.packing_depth
+        let i2 := alloc.vec.Vec.len v1
+        let child_depth ← i1 - i2
+        let node_depth ← child_depth + 1#usize
+        if node_depth = self.level
+        then
+          let i3 ← 1#usize <<< self.level
+          let i4 ← self.index + i3
+          let i5 ← core.num.Usize.trailing_zeros i4
+          let trailing_zeros ← lift (UScalar.cast .Usize i5)
+          massert (trailing_zeros >= self.level)
+          let i6 ←
+            lift (core.num.Usize.saturating_add trailing_zeros 1#usize)
+          let to_pop ← lift (core.num.Usize.saturating_sub i6 self.level)
+          let v2 ← level_iter.pop_many v1 to_pop
+          ok (some (level_iter.LevelNode.Internal val),
+            { self with stack := v2, index := i4 })
+        else
+          let i3 ← self.index >>> child_depth
+          let i4 ← lift (i3 &&& 1#usize)
+          if i4 = 0#usize
+          then
+            let v2 ← alloc.vec.Vec.push v1 left
+            level_iter.LevelIter.Insts.CoreIterTraitsIteratorIteratorLevelNode.next
+              ValueInst { self with stack := v2 }
+          else
+            let v2 ← alloc.vec.Vec.push v1 right
+            level_iter.LevelIter.Insts.CoreIterTraitsIteratorIteratorLevelNode.next
+              ValueInst { self with stack := v2 }
+      | tree.Tree.Zero _ => ok (none, { self with stack := v1 })
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let result ←
+        core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+          (level_iter.LevelNode T) residual
+      ok (result, { self with stack := v })
+partial_fixpoint
 
 /-- [milhouse::utils::opt_hash]:
     Source: 'src/utils.rs', lines 93:0-99:1
@@ -1635,7 +2133,7 @@ def tree.Tree.with_updated_leaves
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::update]:
-    Source: 'src/list.rs', lines 306:4-324:5
+    Source: 'src/list.rs', lines 357:4-375:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.update
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -1810,7 +2308,7 @@ def tree.Tree.with_updated_leaf
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::len]:
-    Source: 'src/list.rs', lines 265:4-267:5
+    Source: 'src/list.rs', lines 316:4-318:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.len
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -1820,7 +2318,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.len
   ok self.length
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::replace]:
-    Source: 'src/list.rs', lines 291:4-304:5
+    Source: 'src/list.rs', lines 342:4-355:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.replace
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -1857,7 +2355,7 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.replace
       ok (r1, self)
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::validate_push]:
-    Source: 'src/list.rs', lines 283:4-289:5
+    Source: 'src/list.rs', lines 334:4-340:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -1870,7 +2368,7 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
   else ok (core.result.Result.Ok ())
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::level_iter_from]:
-    Source: 'src/list.rs', lines 273:4-275:5
+    Source: 'src/list.rs', lines 324:4-326:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -1882,7 +2380,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from
     self.length
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::iter_from]:
-    Source: 'src/list.rs', lines 269:4-271:5
+    Source: 'src/list.rs', lines 320:4-322:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.iter_from
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -1935,7 +2433,7 @@ def tree.Tree.get_recursive
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::get]:
-    Source: 'src/list.rs', lines 256:4-263:5
+    Source: 'src/list.rs', lines 307:4-314:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.get
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -1954,7 +2452,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.get
   else ok none
 
 /-- Trait implementation: [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}]
-    Source: 'src/list.rs', lines 255:0-276:1 -/
+    Source: 'src/list.rs', lines 306:0-327:1 -/
 @[reducible]
 impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
   (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
@@ -1976,7 +2474,7 @@ impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
 }
 
 /-- Trait implementation: [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}]
-    Source: 'src/list.rs', lines 278:0-325:1 -/
+    Source: 'src/list.rs', lines 329:0-376:1 -/
 @[reducible]
 def list.ListInner.Insts.MilhouseInterfaceMutList {T : Type} {N : Type}
   (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
@@ -1994,8 +2492,225 @@ def list.ListInner.Insts.MilhouseInterfaceMutList {T : Type} {N : Type}
     typenummarker_traitsUnsignedInst update_mapUpdateMapInst
 }
 
+/-- [milhouse::utils::{impl core::clone::Clone for milhouse::utils::Length}::clone]:
+    Source: 'src/utils.rs', lines 23:48-23:53
+    Visibility: public -/
+def utils.Length.Insts.CoreCloneClone.clone
+  (self : utils.Length) : Result utils.Length := do
+  ok self
+
+/-- [milhouse::list::{impl core::clone::Clone for milhouse::list::ListInner<T, N>}::clone]:
+    Source: 'src/list.rs', lines 34:16-34:21
+    Visibility: public -/
+def list.ListInner.Insts.CoreCloneClone.clone
+  {T : Type} {N : Type} (corecloneCloneInst : core.clone.Clone T) (ValueInst :
+  Value T) (corecloneCloneInst1 : core.clone.Clone N)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (self : list.ListInner T N) :
+  Result (list.ListInner T N)
+  := do
+  let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone self.tree
+  let l ← utils.Length.Insts.CoreCloneClone.clone self.length
+  let i ← lift (core.clone.impls.CloneUsize.clone self.depth)
+  let i1 ← lift (core.clone.impls.CloneUsize.clone self.packing_depth)
+  let pd ← core.marker.PhantomData.Insts.CoreCloneClone.clone self._phantom
+  ok
+    { tree := a, length := l, depth := i, packing_depth := i1, _phantom := pd }
+
+/-- Trait implementation: [milhouse::list::{impl core::clone::Clone for milhouse::list::ListInner<T, N>}]
+    Source: 'src/list.rs', lines 34:16-34:21 -/
+@[reducible]
+def list.ListInner.Insts.CoreCloneClone {T : Type} {N : Type}
+  (corecloneCloneInst : core.clone.Clone T) (ValueInst : Value T)
+  (corecloneCloneInst1 : core.clone.Clone N) (typenummarker_traitsUnsignedInst
+  : typenum.marker_traits.Unsigned N) : core.clone.Clone (list.ListInner T N)
+  := {
+  clone := list.ListInner.Insts.CoreCloneClone.clone corecloneCloneInst
+    ValueInst corecloneCloneInst1 typenummarker_traitsUnsignedInst
+}
+
+/-- [milhouse::list::{impl core::clone::Clone for milhouse::list::List<T, N, U>}::clone]:
+    Source: 'src/list.rs', lines 22:16-22:21
+    Visibility: public -/
+def list.List.Insts.CoreCloneClone.clone
+  {T : Type} {N : Type} {U : Type} (corecloneCloneInst : core.clone.Clone T)
+  (ValueInst : Value T) (corecloneCloneInst1 : core.clone.Clone N)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (corecloneCloneInst2 : core.clone.Clone U) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : list.List T N U) :
+  Result (list.List T N U)
+  := do
+  let i ←
+    interface.Interface.Insts.CoreCloneClone.clone corecloneCloneInst
+      (list.ListInner.Insts.CoreCloneClone corecloneCloneInst ValueInst
+      corecloneCloneInst1 typenummarker_traitsUnsignedInst) corecloneCloneInst2
+      ValueInst (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+      typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+  ok { interface := i }
+
+/-- [milhouse::list::push_all]: loop body 0:
+    Source: 'src/list.rs', lines 55:4-63:5 -/
+@[rust_loop_body]
+def list.push_all_loop.body
+  {T : Type} {T1 : Type} (ValueInst : Value T)
+  (coreitertraitsiteratorIteratorInst : core.iter.traits.iterator.Iterator T1
+  T) (iter : T1) (target : builder.Builder T) :
+  Result (ControlFlow (T1 × (builder.Builder T)) ((core.result.Result Unit
+    error.Error) × (builder.Builder T)))
+  := do
+  let (o, iter1) ← coreitertraitsiteratorIteratorInst.next iter
+  match o with
+  | none => ok (done (core.result.Result.Ok (), target))
+  | some item =>
+    let (r, target1) ← builder.Builder.push ValueInst target item
+    match r with
+    | core.result.Result.Ok _ => ok (cont (iter1, target1))
+    | core.result.Result.Err _ => ok (done (r, target1))
+
+/-- [milhouse::list::push_all]: loop 0:
+    Source: 'src/list.rs', lines 55:4-63:5 -/
+@[rust_loop]
+def list.push_all_loop
+  {T : Type} {T1 : Type} (ValueInst : Value T)
+  (coreitertraitsiteratorIteratorInst : core.iter.traits.iterator.Iterator T1
+  T) (iter : T1) (target : builder.Builder T) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  loop
+    (fun (iter1, target1) => list.push_all_loop.body ValueInst
+      coreitertraitsiteratorIteratorInst iter1 target1)
+    (iter, target)
+
+/-- [milhouse::list::push_all]:
+    Source: 'src/list.rs', lines 51:0-64:1 -/
+@[reducible]
+def list.push_all
+  {T : Type} {T1 : Type} (ValueInst : Value T)
+  (coreitertraitsiteratorIteratorInst : core.iter.traits.iterator.Iterator T1
+  T) (target : builder.Builder T) (iter : T1) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  list.push_all_loop ValueInst coreitertraitsiteratorIteratorInst iter target
+
+/-- [milhouse::list::push_level_node]:
+    Source: 'src/list.rs', lines 66:0-83:1 -/
+def list.push_level_node
+  {T : Type} (ValueInst : Value T) (target : builder.Builder T)
+  (item : level_iter.LevelNode T) (level : Std.Usize) (remaining : Std.Usize) :
+  Result ((core.result.Result Std.Usize error.Error) × (builder.Builder T))
+  := do
+  match item with
+  | level_iter.LevelNode.Internal node =>
+    let i ← 1#usize <<< level
+    let subtree_len ←
+      core.cmp.Ord.min.trait_default core.cmp.OrdUsize i remaining
+    let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone node
+    let (r, target1) ←
+      builder.Builder.push_node ValueInst target a subtree_len
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue _ =>
+      let i1 ← remaining - subtree_len
+      ok (core.result.Result.Ok i1, target1)
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Std.Usize (core.convert.FromSame error.Error) residual
+      ok (r1, target1)
+  | level_iter.LevelNode.PackedLeaf value =>
+    let t ← ValueInst.corecloneCloneInst.clone value
+    let (r, target1) ← builder.Builder.push ValueInst target t
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue _ =>
+      let i ← remaining - 1#usize
+      ok (core.result.Result.Ok i, target1)
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Std.Usize (core.convert.FromSame error.Error) residual
+      ok (r1, target1)
+
+/-- [milhouse::list::push_level_nodes]: loop body 0:
+    Source: 'src/list.rs', lines 91:4-101:5 -/
+@[rust_loop_body]
+def list.push_level_nodes_loop.body
+  {T : Type} (ValueInst : Value T) (level : Std.Usize)
+  (target : builder.Builder T) (iter : level_iter.LevelIter T)
+  (remaining : Std.Usize) :
+  Result (ControlFlow ((builder.Builder T) × (level_iter.LevelIter T) ×
+    Std.Usize) ((core.result.Result Unit error.Error) × (builder.Builder T)))
+  := do
+  let (o, iter1) ←
+    level_iter.LevelIter.Insts.CoreIterTraitsIteratorIteratorLevelNode.next
+      ValueInst iter
+  match o with
+  | none => ok (done (core.result.Result.Ok (), target))
+  | some item =>
+    let (r, target1) ←
+      list.push_level_node ValueInst target item level remaining
+    match r with
+    | core.result.Result.Ok new_remaining =>
+      ok (cont (target1, iter1, new_remaining))
+    | core.result.Result.Err error =>
+      ok (done (core.result.Result.Err error, target1))
+
+/-- [milhouse::list::push_level_nodes]: loop 0:
+    Source: 'src/list.rs', lines 91:4-101:5 -/
+@[rust_loop]
+def list.push_level_nodes_loop
+  {T : Type} (ValueInst : Value T) (target : builder.Builder T)
+  (iter : level_iter.LevelIter T) (level : Std.Usize) (remaining : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  loop
+    (fun (target1, iter1, remaining1) => list.push_level_nodes_loop.body
+      ValueInst level target1 iter1 remaining1)
+    (target, iter, remaining)
+
+/-- [milhouse::list::push_level_nodes]:
+    Source: 'src/list.rs', lines 85:0-102:1 -/
+@[reducible]
+def list.push_level_nodes
+  {T : Type} (ValueInst : Value T) (target : builder.Builder T)
+  (iter : level_iter.LevelIter T) (level : Std.Usize) (remaining : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  list.push_level_nodes_loop ValueInst target iter level remaining
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::depth]:
+    Source: 'src/list.rs', lines 260:4-266:5 -/
+def list.List.depth
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  Result Std.Usize
+  := do
+  let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+  match o with
+  | none => let i ← typenummarker_traitsUnsignedInst.to_usize
+            utils.int_log i
+  | some packing_bits =>
+    let i ← typenummarker_traitsUnsignedInst.to_usize
+    let i1 ← utils.int_log i
+    ok (core.num.Usize.saturating_sub i1 packing_bits)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::builder]:
+    Source: 'src/list.rs', lines 137:4-139:5
+    Visibility: public -/
+def list.List.builder
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  Result (core.result.Result (builder.Builder T) error.Error)
+  := do
+  let i ←
+    list.List.depth ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst
+  builder.Builder.new ValueInst i 0#usize
+
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::from_parts]:
-    Source: 'src/list.rs', lines 56:4-67:5 -/
+    Source: 'src/list.rs', lines 109:4-120:5 -/
 def list.List.from_parts
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
   (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
@@ -2013,6 +2728,67 @@ def list.List.from_parts
       { tree, length, depth, packing_depth, _phantom := () }
   ok { interface := i }
 
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::try_from_iter]:
+    Source: 'src/list.rs', lines 141:4-155:5
+    Visibility: public -/
+def list.List.try_from_iter
+  {T : Type} {N : Type} {U : Type} {T3 : Type} {Clause3_IntoIter : Type}
+  (ValueInst : Value T) (typenummarker_traitsUnsignedInst :
+  typenum.marker_traits.Unsigned N) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (coreitertraitscollectIntoIteratorInst :
+  core.iter.traits.collect.IntoIterator T3 T Clause3_IntoIter) (iter : T3) :
+  Result (core.result.Result (list.List T N U) error.Error)
+  := do
+  let r ←
+    list.List.builder ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue val =>
+    let t ← coreitertraitscollectIntoIteratorInst.into_iter iter
+    let (r1, val1) ←
+      list.push_all ValueInst
+        coreitertraitscollectIntoIteratorInst.iteratorInst val t
+    let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+    match cf1 with
+    | core.ops.control_flow.ControlFlow.Continue _ =>
+      let r2 ← builder.Builder.finish ValueInst val1
+      let cf2 ← core.result.Result.Insts.CoreOpsTry.branch r2
+      match cf2 with
+      | core.ops.control_flow.ControlFlow.Continue val2 =>
+        let (tree, depth, length) := val2
+        let i ← utils.Length.as_usize length
+        let i1 ← typenummarker_traitsUnsignedInst.to_usize
+        if i > i1
+        then ok (core.result.Result.Err error.Error.BuilderFull)
+        else
+          let l ←
+            list.List.from_parts ValueInst typenummarker_traitsUnsignedInst
+              update_mapUpdateMapInst tree depth length
+          ok (core.result.Result.Ok l)
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          (list.List T N U) (core.convert.FromSame error.Error) residual
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        (list.List T N U) (core.convert.FromSame error.Error) residual
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      (list.List T N U) (core.convert.FromSame error.Error) residual
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::new]:
+    Source: 'src/list.rs', lines 105:4-107:5
+    Visibility: public -/
+def list.List.new
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (vec : alloc.vec.Vec T)
+  :
+  Result (core.result.Result (list.List T N U) error.Error)
+  := do
+  list.List.try_from_iter ValueInst typenummarker_traitsUnsignedInst
+    update_mapUpdateMapInst (core.iter.traits.collect.IntoIteratorVec T) vec
+
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::empty]:
     Source: 'src/tree.rs', lines 44:4-46:5
     Visibility: public -/
@@ -2022,25 +2798,8 @@ def tree.Tree.empty
   := do
   tree.Tree.zero ValueInst depth
 
-/-- [milhouse::list::{milhouse::list::List<T, N, U>}::depth]:
-    Source: 'src/list.rs', lines 198:4-204:5 -/
-def list.List.depth
-  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
-  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
-  (update_mapUpdateMapInst : update_map.UpdateMap U T) :
-  Result Std.Usize
-  := do
-  let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
-  match o with
-  | none => let i ← typenummarker_traitsUnsignedInst.to_usize
-            utils.int_log i
-  | some packing_bits =>
-    let i ← typenummarker_traitsUnsignedInst.to_usize
-    let i1 ← utils.int_log i
-    ok (core.num.Usize.saturating_sub i1 packing_bits)
-
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::empty]:
-    Source: 'src/list.rs', lines 69:4-74:5
+    Source: 'src/list.rs', lines 122:4-127:5
     Visibility: public -/
 def list.List.empty
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -2054,29 +2813,6 @@ def list.List.empty
   let tree ← tree.Tree.empty ValueInst depth
   list.List.from_parts ValueInst typenummarker_traitsUnsignedInst
     update_mapUpdateMapInst tree depth 0#usize
-
-/-- [milhouse::packed_leaf::{impl core::clone::Clone for milhouse::packed_leaf::PackedLeaf<T>}::clone]:
-    Source: 'src/packed_leaf.rs', lines 20:4-25:5
-    Visibility: public -/
-def packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
-  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
-  : core.clone.Clone T) (self : packed_leaf.PackedLeaf T) :
-  Result (packed_leaf.PackedLeaf T)
-  := do
-  let rlrg ←
-    lock_api.rwlock.RwLock.read
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      self.hash
-  let fb ←
-    lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      rlrg
-  let rl ←
-    lock_api.rwlock.RwLock.new
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      fb
-  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
-  ok { hash := rl, values := v }
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::repeat]:
     Source: 'src/packed_leaf.rs', lines 67:4-73:5
@@ -2677,123 +3413,502 @@ def repeat.repeat_list
       core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
         (list.List T N U) (core.convert.FromSame error.Error) residual
 
-/-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
-    Source: 'src/tree.rs', lines 10:16-10:21
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::repeat]:
+    Source: 'src/list.rs', lines 129:4-131:5
     Visibility: public -/
-def tree.Tree.Insts.CoreHashHash.hash
-  {T : Type} {H : Type} (ValueInst : Value T) (corehashHashLeafInst :
-  core.hash.Hash (leaf.Leaf T)) (corehashHashPackedLeafInst : core.hash.Hash
-  (packed_leaf.PackedLeaf T)) (corehashHashArcTreeInst : core.hash.Hash
-  (triomphe.arc.Arc (tree.Tree T))) (corehashHashUsizeInst : core.hash.Hash
-  Std.Usize) (corehashHasherInst : core.hash.Hasher H) (self : tree.Tree T)
-  (state : H) :
-  Result H
+def list.List.repeat
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (elem : T)
+  (n : Std.Usize) :
+  Result (core.result.Result (list.List T N U) error.Error)
   := do
-  match self with
-  | tree.Tree.Leaf _0 =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 0#usize state
-    corehashHashLeafInst.hash corehashHasherInst _0 state1
-  | tree.Tree.PackedLeaf _0 =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 1#usize state
-    corehashHashPackedLeafInst.hash corehashHasherInst _0 state1
-  | tree.Tree.Node _ v_left v_right =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 2#usize state
-    let state2 ←
-      corehashHashArcTreeInst.hash corehashHasherInst v_left state1
-    corehashHashArcTreeInst.hash corehashHasherInst v_right state2
-  | tree.Tree.Zero _0 =>
-    let state1 ←
-      Usize.Insts.CoreHashHash.hash corehashHasherInst 3#usize state
-    Usize.Insts.CoreHashHash.hash corehashHasherInst _0 state1
+  repeat.repeat_list ValueInst typenummarker_traitsUnsignedInst
+    update_mapUpdateMapInst elem n
 
-/-- Trait implementation: [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}]
-    Source: 'src/tree.rs', lines 10:16-10:21 -/
-@[reducible]
-def tree.Tree.Insts.CoreHashHash {T : Type} (ValueInst : Value T)
-  (corehashHashLeafInst : core.hash.Hash (leaf.Leaf T))
-  (corehashHashPackedLeafInst : core.hash.Hash (packed_leaf.PackedLeaf T))
-  (corehashHashArcTreeInst : core.hash.Hash (triomphe.arc.Arc (tree.Tree T)))
-  (corehashHashUsizeInst : core.hash.Hash Std.Usize) : core.hash.Hash
-  (tree.Tree T) := {
-  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
-    tree.Tree.Insts.CoreHashHash.hash ValueInst corehashHashLeafInst
-    corehashHashPackedLeafInst corehashHashArcTreeInst Usize.Insts.CoreHashHash
-    corehashHasherInst
-}
-
-/-- [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}::clone]:
-    Source: 'src/tree.rs', lines 29:4-40:5
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::repeat_slow]:
+    Source: 'src/list.rs', lines 133:4-135:5
     Visibility: public -/
-def tree.Tree.Insts.CoreCloneClone.clone
-  {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
-  Result (tree.Tree T)
+def list.List.repeat_slow
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (elem : T)
+  (n : Std.Usize) :
+  Result (core.result.Result (list.List T N U) error.Error)
   := do
-  match self with
-  | tree.Tree.Leaf l =>
-    let l1 ←
-      leaf.Leaf.Insts.CoreCloneClone.clone ValueInst.corecloneCloneInst l
-    ok (tree.Tree.Leaf l1)
-  | tree.Tree.PackedLeaf pl =>
-    let pl1 ←
-      packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
-        ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst pl
-    ok (tree.Tree.PackedLeaf pl1)
-  | tree.Tree.Node hash left right =>
-    let rlrg ←
-      lock_api.rwlock.RwLock.read
-        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-        hash
-    let fb ←
-      lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
-        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-        rlrg
-    let rl ←
-      lock_api.rwlock.RwLock.new
-        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-        fb
-    let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
-    let a1 ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
-    ok (tree.Tree.Node rl a a1)
-  | tree.Tree.Zero _ => ok self
+  let v ← alloc.vec.from_elem ValueInst.corecloneCloneInst elem n
+  list.List.try_from_iter ValueInst typenummarker_traitsUnsignedInst
+    update_mapUpdateMapInst (core.iter.traits.collect.IntoIteratorVec T) v
 
-/-- Trait implementation: [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}]
-    Source: 'src/tree.rs', lines 28:0-41:1 -/
-@[reducible]
-def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
-  core.clone.Clone (tree.Tree T) := {
-  clone := tree.Tree.Insts.CoreCloneClone.clone ValueInst
-}
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero_unboxed]:
-    Source: 'src/tree.rs', lines 76:4-78:5
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::len]:
+    Source: 'src/list.rs', lines 244:4-246:5
     Visibility: public -/
-def tree.Tree.zero_unboxed
-  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
-  Result (tree.Tree T)
-  := do
-  ok (tree.Tree.Zero depth)
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::compute_len]:
-    Source: 'src/tree.rs', lines 236:4-243:5
-    Visibility: public -/
-def tree.Tree.compute_len
-  {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
+def list.List.len
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  :
   Result Std.Usize
   := do
-  match self with
-  | tree.Tree.Leaf _ => ok 1#usize
-  | tree.Tree.PackedLeaf leaf => ok (alloc.vec.Vec.len leaf.values)
-  | tree.Tree.Node _ left right =>
-    let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
-    let i ← tree.Tree.compute_len ValueInst t
-    let t1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
-    let i1 ← tree.Tree.compute_len ValueInst t1
-    i + i1
-  | tree.Tree.Zero _ => ok 0#usize
-partial_fixpoint
+  interface.Interface.len ValueInst
+    (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+    typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter]:
+    Source: 'src/list.rs', lines 180:4-182:5
+    Visibility: public -/
+def list.List.iter
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  :
+  Result (interface_iter.InterfaceIter T U)
+  := do
+  interface.Interface.iter ValueInst
+    (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+    typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::to_vec]: loop body 0:
+    Source: 'src/list.rs', lines 174:8-176:9
+    Visibility: public -/
+@[rust_loop_body]
+def list.List.to_vec_loop.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (values : alloc.vec.Vec T)
+  (iter : interface_iter.InterfaceIter T U) :
+  Result (ControlFlow ((alloc.vec.Vec T) × (interface_iter.InterfaceIter T U))
+    (alloc.vec.Vec T))
+  := do
+  let (o, iter1) ←
+    interface_iter.InterfaceIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+      ValueInst update_mapUpdateMapInst iter
+  match o with
+  | none => ok (done values)
+  | some value =>
+    let t ← ValueInst.corecloneCloneInst.clone value
+    let values1 ← alloc.vec.Vec.push values t
+    ok (cont (values1, iter1))
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::to_vec]: loop 0:
+    Source: 'src/list.rs', lines 174:8-176:9
+    Visibility: public -/
+@[rust_loop]
+def list.List.to_vec_loop
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (values : alloc.vec.Vec T)
+  (iter : interface_iter.InterfaceIter T U) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (values1, iter1) => list.List.to_vec_loop.body ValueInst
+      update_mapUpdateMapInst values1 iter1)
+    (values, iter)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::to_vec]:
+    Source: 'src/list.rs', lines 171:4-178:5
+    Visibility: public -/
+def list.List.to_vec
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  :
+  Result (alloc.vec.Vec T)
+  := do
+  let i ←
+    list.List.len ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst self
+  let values := alloc.vec.Vec.with_capacity T i
+  let iter ←
+    list.List.iter ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst self
+  list.List.to_vec_loop ValueInst update_mapUpdateMapInst values iter
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter_from]:
+    Source: 'src/list.rs', lines 184:4-193:5
+    Visibility: public -/
+def list.List.iter_from
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (index : Std.Usize) :
+  Result (core.result.Result (interface_iter.InterfaceIter T U) error.Error)
+  := do
+  let i ←
+    list.List.len ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst self
+  if index > i
+  then ok (core.result.Result.Err (error.Error.OutOfBoundsIterFrom index i))
+  else
+    let ii ←
+      interface.Interface.iter_from ValueInst
+        (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+        typenummarker_traitsUnsignedInst) update_mapUpdateMapInst
+        self.interface index
+    ok (core.result.Result.Ok ii)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::level_iter_from]:
+    Source: 'src/list.rs', lines 196:4-205:5
+    Visibility: public -/
+def list.List.level_iter_from
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (index : Std.Usize) :
+  Result (core.result.Result (level_iter.LevelIter T) error.Error)
+  := do
+  let i ←
+    list.List.len ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst self
+  if index > i
+  then ok (core.result.Result.Err (error.Error.OutOfBoundsIterFrom index i))
+  else
+    interface.Interface.level_iter_from ValueInst
+      (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+      typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+      index
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter_cow]:
+    Source: 'src/list.rs', lines 207:4-209:5
+    Visibility: public -/
+def list.List.iter_cow
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  :
+  Result ((interface_iter.InterfaceIterCow T U) ×
+    (interface_iter.InterfaceIterCow T U → list.List T N U))
+  := do
+  let (iic, iter_cow_back) ←
+    interface.Interface.iter_cow ValueInst
+      (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+      typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+  let back :=
+    fun iic1 =>
+      let i :=
+        iter_cow_back
+          {
+            iic
+              with
+              tree_iter := { iic.tree_iter with stack := iic1.tree_iter.stack },
+              updates := iic1.updates
+          }
+      ({ interface := i } : list.List T N U)
+  ok (iic, back)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter_cow_from]:
+    Source: 'src/list.rs', lines 211:4-219:5
+    Visibility: public -/
+def list.List.iter_cow_from
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (index : Std.Usize) :
+  Result ((core.result.Result (interface_iter.InterfaceIterCow T U)
+    error.Error) × (core.result.Result (interface_iter.InterfaceIterCow T U)
+    error.Error → list.List T N U))
+  := do
+  let i ←
+    list.List.len ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst self
+  if index > i
+  then
+    let back := fun r => self
+    ok (core.result.Result.Err (error.Error.OutOfBoundsIterFrom index i), back)
+  else
+    let (iic, iter_cow_from_back) ←
+      interface.Interface.iter_cow_from ValueInst
+        (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+        typenummarker_traitsUnsignedInst) update_mapUpdateMapInst
+        self.interface index
+    let back :=
+      fun r =>
+        let (v, t) :=
+          match r with
+          | core.result.Result.Ok (interface_iter.InterfaceIterCow.mk
+            (iter.Iter.mk v1 _ _ _ _ _) t1 _) =>
+            (v1, t1)
+          | _ => (iic.tree_iter.stack, iic.updates)
+        let i1 :=
+          iter_cow_from_back
+            {
+              iic
+                with
+                tree_iter := { iic.tree_iter with stack := v }, updates := t
+            }
+        ({ interface := i1 } : list.List T N U)
+    ok (core.result.Result.Ok iic, back)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::get]:
+    Source: 'src/list.rs', lines 222:4-227:5
+    Visibility: public -/
+def list.List.get
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (index : Std.Usize) :
+  Result (Option T)
+  := do
+  let o ← update_mapUpdateMapInst.get self.interface.updates index
+  match o with
+  | none =>
+    list.ListInner.Insts.MilhouseInterfaceImmList.get ValueInst
+      typenummarker_traitsUnsignedInst self.interface.backing index
+  | some _ => ok o
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::get_mut]:
+    Source: 'src/list.rs', lines 229:4-231:5
+    Visibility: public -/
+def list.List.get_mut
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (index : Std.Usize) :
+  Result ((Option T) × (Option T → list.List T N U))
+  := do
+  let (o, get_mut_back) ←
+    interface.Interface.get_mut ValueInst
+      (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+      typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+      index
+  let back :=
+    fun o1 => let i := get_mut_back o1
+              ({ interface := i } : list.List T N U)
+  ok (o, back)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::get_cow]:
+    Source: 'src/list.rs', lines 233:4-238:5
+    Visibility: public -/
+def list.List.get_cow
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (index : Std.Usize) :
+  Result ((Option (cow.Cow T)) × (Option (cow.Cow T) → list.List T N U))
+  := do
+  let backing_value ←
+    list.ListInner.Insts.MilhouseInterfaceImmList.get ValueInst
+      typenummarker_traitsUnsignedInst self.interface.backing index
+  let (o, get_cow_with_value_back) ←
+    update_mapUpdateMapInst.get_cow_with_value ValueInst.corecloneCloneInst
+      self.interface.updates index backing_value
+  let back :=
+    fun o1 =>
+      let t := get_cow_with_value_back o1
+      ({ interface := { self.interface with updates := t } } : list.List T N U)
+  ok (o, back)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::push]:
+    Source: 'src/list.rs', lines 240:4-242:5
+    Visibility: public -/
+def list.List.push
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (value : T) :
+  Result ((core.result.Result Unit error.Error) × (list.List T N U))
+  := do
+  let (r, i) ←
+    interface.Interface.push ValueInst
+      (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+      typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+      value
+  ok (r, { interface := i })
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::is_empty]:
+    Source: 'src/list.rs', lines 248:4-250:5
+    Visibility: public -/
+def list.List.is_empty
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  :
+  Result Bool
+  := do
+  interface.Interface.is_empty ValueInst
+    (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+    typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::has_pending_updates]:
+    Source: 'src/list.rs', lines 252:4-254:5
+    Visibility: public -/
+def list.List.has_pending_updates
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  :
+  Result Bool
+  := do
+  interface.Interface.has_pending_updates ValueInst
+    (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+    typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::apply_updates]:
+    Source: 'src/list.rs', lines 256:4-258:5
+    Visibility: public -/
+def list.List.apply_updates
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  :
+  Result ((core.result.Result Unit error.Error) × (list.List T N U))
+  := do
+  let (r, i) ←
+    interface.Interface.apply_updates ValueInst
+      (list.ListInner.Insts.MilhouseInterfaceMutList ValueInst
+      typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
+  ok (r, { interface := i })
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]: loop body 0:
+    Source: 'src/list.rs', lines 274:8-276:9
+    Visibility: public -/
+@[rust_loop_body]
+def list.List.pop_front_slow_loop.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (values : alloc.vec.Vec T)
+  (iter : interface_iter.InterfaceIter T U) :
+  Result (ControlFlow ((alloc.vec.Vec T) × (interface_iter.InterfaceIter T U))
+    (alloc.vec.Vec T))
+  := do
+  let (o, iter1) ←
+    interface_iter.InterfaceIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+      ValueInst update_mapUpdateMapInst iter
+  match o with
+  | none => ok (done values)
+  | some value =>
+    let t ← ValueInst.corecloneCloneInst.clone value
+    let values1 ← alloc.vec.Vec.push values t
+    ok (cont (values1, iter1))
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]: loop 0:
+    Source: 'src/list.rs', lines 274:8-276:9
+    Visibility: public -/
+@[rust_loop]
+def list.List.pop_front_slow_loop
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (values : alloc.vec.Vec T)
+  (iter : interface_iter.InterfaceIter T U) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (values1, iter1) => list.List.pop_front_slow_loop.body ValueInst
+      update_mapUpdateMapInst values1 iter1)
+    (values, iter)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]:
+    Source: 'src/list.rs', lines 271:4-279:5
+    Visibility: public -/
+def list.List.pop_front_slow
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (n : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (list.List T N U))
+  := do
+  let r ←
+    list.List.iter_from ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst self n
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue ii =>
+    let values ←
+      list.List.pop_front_slow_loop ValueInst update_mapUpdateMapInst
+        (alloc.vec.Vec.new T) ii
+    let r1 ←
+      list.List.new ValueInst typenummarker_traitsUnsignedInst
+        update_mapUpdateMapInst values
+    let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+    match cf1 with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      ok (core.result.Result.Ok (), val)
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r2 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Unit (core.convert.FromSame error.Error) residual
+      ok (r2, self)
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    let r1 ←
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        Unit (core.convert.FromSame error.Error) residual
+    ok (r1, self)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front]:
+    Source: 'src/list.rs', lines 284:4-303:5
+    Visibility: public -/
+def list.List.pop_front
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (n : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (list.List T N U))
+  := do
+  let (r, self1) ←
+    list.List.apply_updates ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst self
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ =>
+    if n = 0#usize
+    then ok (core.result.Result.Ok (), self1)
+    else
+      let depth ←
+        list.List.depth ValueInst typenummarker_traitsUnsignedInst
+          update_mapUpdateMapInst
+      let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+      let packing_depth ← lift (core.option.Option.unwrap_or o 0#usize)
+      let level ← utils.compute_level n depth packing_depth
+      let r1 ← builder.Builder.new ValueInst depth level
+      let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+      match cf1 with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        let r2 ←
+          list.List.level_iter_from ValueInst typenummarker_traitsUnsignedInst
+            update_mapUpdateMapInst self1 n
+        let cf2 ← core.result.Result.Insts.CoreOpsTry.branch r2
+        match cf2 with
+        | core.ops.control_flow.ControlFlow.Continue li =>
+          let i ←
+            list.List.len ValueInst typenummarker_traitsUnsignedInst
+              update_mapUpdateMapInst self1
+          let remaining ← lift (core.num.Usize.saturating_sub i n)
+          let (r3, val1) ←
+            list.push_level_nodes ValueInst val li level remaining
+          let cf3 ← core.result.Result.Insts.CoreOpsTry.branch r3
+          match cf3 with
+          | core.ops.control_flow.ControlFlow.Continue _ =>
+            let r4 ← builder.Builder.finish ValueInst val1
+            let cf4 ← core.result.Result.Insts.CoreOpsTry.branch r4
+            match cf4 with
+            | core.ops.control_flow.ControlFlow.Continue val2 =>
+              let (tree, depth1, length) := val2
+              let self2 ←
+                list.List.from_parts ValueInst typenummarker_traitsUnsignedInst
+                  update_mapUpdateMapInst tree depth1 length
+              ok (core.result.Result.Ok (), self2)
+            | core.ops.control_flow.ControlFlow.Break residual =>
+              let r5 ←
+                core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                  Unit (core.convert.FromSame error.Error) residual
+              ok (r5, self1)
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            let r4 ←
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                Unit (core.convert.FromSame error.Error) residual
+            ok (r4, self1)
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          let r3 ←
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              Unit (core.convert.FromSame error.Error) residual
+          ok (r3, self1)
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        let r2 ←
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            Unit (core.convert.FromSame error.Error) residual
+        ok (r2, self1)
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    let r1 ←
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        Unit (core.convert.FromSame error.Error) residual
+    ok (r1, self1)
 
 /-- [milhouse::utils::{impl core::cmp::Ord for milhouse::utils::Length}::cmp]:
     Source: 'src/utils.rs', lines 23:43-23:46
@@ -2852,10 +3967,11 @@ def utils.Length.Insts.CoreCmpEq : core.cmp.Eq utils.Length := {
 /-- Trait implementation: [milhouse::utils::{impl core::cmp::Ord for milhouse::utils::Length}]
     Source: 'src/utils.rs', lines 23:43-23:46 -/
 @[reducible]
-def utils.Length.Insts.CoreCmpOrd : core.cmp.Ord utils.Length := {
+impl_def utils.Length.Insts.CoreCmpOrd : core.cmp.Ord utils.Length := {
   eqInst := utils.Length.Insts.CoreCmpEq
   partialOrdInst := utils.Length.Insts.CoreCmpPartialOrdLength
   cmp := utils.Length.Insts.CoreCmpOrd.cmp
+  min := core.cmp.Ord.min.trait_default utils.Length.Insts.CoreCmpOrd
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure#1<'_0, T>}::call_once]:
@@ -3498,6 +4614,221 @@ def tree.Tree.rebase_on
         if b1
         then ok (core.result.Result.Ok (tree.RebaseAction.EqualReplace base))
         else ok (core.result.Result.Ok tree.RebaseAction.NotEqualNoop)
+partial_fixpoint
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase_on]:
+    Source: 'src/list.rs', lines 385:4-401:5
+    Visibility: public -/
+def list.List.rebase_on
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (base : list.List T N U) :
+  Result ((core.result.Result Unit error.Error) × (list.List T N U))
+  := do
+  let i ← self.interface.backing.depth + self.interface.backing.packing_depth
+  let r ←
+    tree.Tree.rebase_on ValueInst self.interface.backing.tree
+      base.interface.backing.tree (some (self.interface.backing.length,
+      base.interface.backing.length)) i
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue val =>
+    match val with
+    | tree.RebaseAction.NotEqualNoop => ok (core.result.Result.Ok (), self)
+    | tree.RebaseAction.NotEqualReplace replacement =>
+      ok (core.result.Result.Ok (),
+        {
+          interface :=
+            {
+              self.interface
+                with
+                backing := { self.interface.backing with tree := replacement }
+            }
+        })
+    | tree.RebaseAction.EqualNoop => ok (core.result.Result.Ok (), self)
+    | tree.RebaseAction.EqualReplace replacement =>
+      let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone replacement
+      ok (core.result.Result.Ok (),
+        {
+          interface :=
+            {
+              self.interface
+                with
+                backing := { self.interface.backing with tree := a }
+            }
+        })
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    let r1 ←
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        Unit (core.convert.FromSame error.Error) residual
+    ok (r1, self)
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase]:
+    Source: 'src/list.rs', lines 379:4-383:5
+    Visibility: public -/
+def list.List.rebase
+  {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
+  (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
+  (update_mapUpdateMapInst : update_map.UpdateMap U T) (self : list.List T N U)
+  (base : list.List T N U) :
+  Result (core.result.Result (list.List T N U) error.Error)
+  := do
+  let rebased ←
+    list.List.Insts.CoreCloneClone.clone ValueInst.corecloneCloneInst ValueInst
+      typenummarker_traitsUnsignedInst.coremarkerCopyInst.cloneInst
+      typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst.corecloneCloneInst update_mapUpdateMapInst self
+  let (r, rebased1) ←
+    list.List.rebase_on ValueInst typenummarker_traitsUnsignedInst
+      update_mapUpdateMapInst rebased base
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ =>
+    ok (core.result.Result.Ok rebased1)
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      (list.List T N U) (core.convert.FromSame error.Error) residual
+
+/-- [milhouse::packed_leaf::{impl core::clone::Clone for milhouse::packed_leaf::PackedLeaf<T>}::clone]:
+    Source: 'src/packed_leaf.rs', lines 20:4-25:5
+    Visibility: public -/
+def packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) (self : packed_leaf.PackedLeaf T) :
+  Result (packed_leaf.PackedLeaf T)
+  := do
+  let rlrg ←
+    lock_api.rwlock.RwLock.read
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      self.hash
+  let fb ←
+    lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      rlrg
+  let rl ←
+    lock_api.rwlock.RwLock.new
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      fb
+  let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
+  ok { hash := rl, values := v }
+
+/-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
+    Source: 'src/tree.rs', lines 10:16-10:21
+    Visibility: public -/
+def tree.Tree.Insts.CoreHashHash.hash
+  {T : Type} {H : Type} (ValueInst : Value T) (corehashHashLeafInst :
+  core.hash.Hash (leaf.Leaf T)) (corehashHashPackedLeafInst : core.hash.Hash
+  (packed_leaf.PackedLeaf T)) (corehashHashArcTreeInst : core.hash.Hash
+  (triomphe.arc.Arc (tree.Tree T))) (corehashHashUsizeInst : core.hash.Hash
+  Std.Usize) (corehashHasherInst : core.hash.Hasher H) (self : tree.Tree T)
+  (state : H) :
+  Result H
+  := do
+  match self with
+  | tree.Tree.Leaf _0 =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 0#usize state
+    corehashHashLeafInst.hash corehashHasherInst _0 state1
+  | tree.Tree.PackedLeaf _0 =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 1#usize state
+    corehashHashPackedLeafInst.hash corehashHasherInst _0 state1
+  | tree.Tree.Node _ v_left v_right =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 2#usize state
+    let state2 ←
+      corehashHashArcTreeInst.hash corehashHasherInst v_left state1
+    corehashHashArcTreeInst.hash corehashHasherInst v_right state2
+  | tree.Tree.Zero _0 =>
+    let state1 ←
+      Usize.Insts.CoreHashHash.hash corehashHasherInst 3#usize state
+    Usize.Insts.CoreHashHash.hash corehashHasherInst _0 state1
+
+/-- Trait implementation: [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}]
+    Source: 'src/tree.rs', lines 10:16-10:21 -/
+@[reducible]
+def tree.Tree.Insts.CoreHashHash {T : Type} (ValueInst : Value T)
+  (corehashHashLeafInst : core.hash.Hash (leaf.Leaf T))
+  (corehashHashPackedLeafInst : core.hash.Hash (packed_leaf.PackedLeaf T))
+  (corehashHashArcTreeInst : core.hash.Hash (triomphe.arc.Arc (tree.Tree T)))
+  (corehashHashUsizeInst : core.hash.Hash Std.Usize) : core.hash.Hash
+  (tree.Tree T) := {
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
+    tree.Tree.Insts.CoreHashHash.hash ValueInst corehashHashLeafInst
+    corehashHashPackedLeafInst corehashHashArcTreeInst Usize.Insts.CoreHashHash
+    corehashHasherInst
+}
+
+/-- [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}::clone]:
+    Source: 'src/tree.rs', lines 29:4-40:5
+    Visibility: public -/
+def tree.Tree.Insts.CoreCloneClone.clone
+  {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
+  Result (tree.Tree T)
+  := do
+  match self with
+  | tree.Tree.Leaf l =>
+    let l1 ←
+      leaf.Leaf.Insts.CoreCloneClone.clone ValueInst.corecloneCloneInst l
+    ok (tree.Tree.Leaf l1)
+  | tree.Tree.PackedLeaf pl =>
+    let pl1 ←
+      packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
+        ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst pl
+    ok (tree.Tree.PackedLeaf pl1)
+  | tree.Tree.Node hash left right =>
+    let rlrg ←
+      lock_api.rwlock.RwLock.read
+        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+        hash
+    let fb ←
+      lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
+        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+        rlrg
+    let rl ←
+      lock_api.rwlock.RwLock.new
+        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+        fb
+    let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
+    let a1 ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
+    ok (tree.Tree.Node rl a a1)
+  | tree.Tree.Zero _ => ok self
+
+/-- Trait implementation: [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}]
+    Source: 'src/tree.rs', lines 28:0-41:1 -/
+@[reducible]
+def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
+  core.clone.Clone (tree.Tree T) := {
+  clone := tree.Tree.Insts.CoreCloneClone.clone ValueInst
+}
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero_unboxed]:
+    Source: 'src/tree.rs', lines 76:4-78:5
+    Visibility: public -/
+def tree.Tree.zero_unboxed
+  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
+  Result (tree.Tree T)
+  := do
+  ok (tree.Tree.Zero depth)
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::compute_len]:
+    Source: 'src/tree.rs', lines 236:4-243:5
+    Visibility: public -/
+def tree.Tree.compute_len
+  {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
+  Result Std.Usize
+  := do
+  match self with
+  | tree.Tree.Leaf _ => ok 1#usize
+  | tree.Tree.PackedLeaf leaf => ok (alloc.vec.Vec.len leaf.values)
+  | tree.Tree.Node _ left right =>
+    let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+    let i ← tree.Tree.compute_len ValueInst t
+    let t1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+    let i1 ← tree.Tree.compute_len ValueInst t1
+    i + i1
+  | tree.Tree.Zero _ => ok 0#usize
 partial_fixpoint
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::intra_rebase]:

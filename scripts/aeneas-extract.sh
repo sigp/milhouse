@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Extract the core tree and builder types to Lean via Charon + Aeneas.
+# Extract the core tree, builder, and high-level List API to Lean via Charon + Aeneas.
 #
 # Produces `tree.llbc` (Charon's LLBC dump) and regenerates the generated
 # files in `aeneas-lean/Tree/` (the hand-written `TypesExternal.lean` and
@@ -23,6 +23,9 @@
 #   impls are emitted with forward references (Aeneas Lean-backend bug).
 # - serde/ssz/hashing/mem are opaque: signatures only, modelled by hand in
 #   `aeneas-lean/Tree/FunsExternal.lean` per the `-split-files` workflow.
+# - List methods are selected individually so its serde/ssz trait impls remain
+#   outside the extraction boundary. `List::intra_rebase` is opaque because its
+#   pointer-sharing and hash-cache effects are intentionally erased in Lean.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -35,12 +38,33 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::tree' \
     --start-from 'milhouse::builder' \
     --start-from 'milhouse::repeat::repeat_list' \
+    --start-from 'milhouse::list::_::new' \
+    --start-from 'milhouse::list::_::empty' \
+    --start-from 'milhouse::list::_::repeat' \
+    --start-from 'milhouse::list::_::repeat_slow' \
+    --start-from 'milhouse::list::_::to_vec' \
+    --start-from 'milhouse::list::_::iter_from' \
+    --start-from 'milhouse::list::_::level_iter_from' \
+    --start-from 'milhouse::list::_::iter_cow' \
+    --start-from 'milhouse::list::_::iter_cow_from' \
+    --start-from 'milhouse::list::_::get' \
+    --start-from 'milhouse::list::_::get_mut' \
+    --start-from 'milhouse::list::_::get_cow' \
+    --start-from 'milhouse::list::_::push' \
+    --start-from 'milhouse::list::_::is_empty' \
+    --start-from 'milhouse::list::_::has_pending_updates' \
+    --start-from 'milhouse::list::_::apply_updates' \
+    --start-from 'milhouse::list::_::pop_front_slow' \
+    --start-from 'milhouse::list::_::pop_front' \
+    --start-from 'milhouse::list::_::rebase' \
+    --start-from 'milhouse::list::_::intra_rebase' \
     --opaque 'ethereum_hashing' \
     --opaque 'tree_hash' \
     --opaque 'ssz' \
     --opaque 'serde' \
     --opaque 'milhouse::mem' \
     --opaque 'milhouse::serde' \
+    --opaque 'milhouse::list::_::intra_rebase' \
     --exclude 'milhouse::tree::_::tree_hash' \
     --exclude 'milhouse::update_map::UpdateMap::is_empty' \
     --exclude 'milhouse::builder::{impl core::fmt::Debug for milhouse::builder::Builder<_>}' \

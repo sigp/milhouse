@@ -96,6 +96,24 @@ def Pair.Insts.CoreHashHash.hash
     let h1 ← HashInst.hash HasherInst p.1 h
     HashInst1.hash HasherInst p.2 h1
 
+/-- [core::marker::{impl core::clone::Clone for core::marker::PhantomData<T>}::clone]:
+    `PhantomData` carries no runtime data, so cloning it is the identity. -/
+@[rust_fun
+  "core::marker::{core::clone::Clone<core::marker::PhantomData<@T>>}::clone"]
+def core.marker.PhantomData.Insts.CoreCloneClone.clone
+  {T : Type} : core.marker.PhantomData T → Result (core.marker.PhantomData T) :=
+  ok
+
+/-- [core::mem::take]: returns the old value and replaces its place with the
+    type's default value. -/
+@[rust_fun "core::mem::take"]
+def core.mem.take
+  {T : Type} (defaultDefaultInst : core.default.Default T) :
+  T → Result (T × T) :=
+  fun value => do
+    let replacement ← defaultDefaultInst.default
+    ok (value, replacement)
+
 /-- [core::mem::size_of]:
     Cannot be defined uniformly in `T`; kept opaque with a spec at the one
     instantiation used (`usize`, in `utils::int_log`). -/
@@ -648,6 +666,13 @@ def triomphe.arc.Arc.Insts.CoreCloneClone.clone
 def triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref
   {T : Type} : triomphe.arc.Arc T → Result T := ok
 
+/-- [triomphe::arc::{impl core::convert::AsRef<T> for triomphe::arc::Arc<T>}::as_ref]:
+    References and `Arc` sharing are both erased, so this is the identity. -/
+@[rust_fun
+  "triomphe::arc::{core::convert::AsRef<triomphe::arc::Arc<@T>, @T>}::as_ref"]
+def triomphe.arc.Arc.Insts.CoreConvertAsRef.as_ref
+  {T : Type} : triomphe.arc.Arc T → Result T := ok
+
 /-- [triomphe::arc::{impl core::cmp::PartialEq<triomphe::arc::Arc<T>> for triomphe::arc::Arc<T>}::ne]:
     Delegates to the pointee's `PartialEq` (as triomphe's impl does). -/
 @[rust_fun
@@ -672,3 +697,17 @@ def triomphe.arc.Arc.Insts.CoreFmtDebug.fmt
   triomphe.arc.Arc T → core.fmt.Formatter → Result ((core.result.Result
     Unit core.fmt.Error) × core.fmt.Formatter) :=
   corefmtDebugInst.fmt
+
+/-! ## milhouse::list -/
+
+/-- [milhouse::list::{milhouse::list::List<T, N, U>}::intra_rebase]:
+    The concrete method only changes pointer sharing and cached hashes for a
+    valid list. Those implementation details are erased by the functional
+    model, so its successful behavior is the identity. -/
+@[rust_fun "milhouse::list::{milhouse::list::List<@T, @N, @U>}::intra_rebase"]
+def list.List.intra_rebase
+  {T : Type} {N : Type} {U : Type} (_ : Value T)
+  (_ : typenum.marker_traits.Unsigned N) (_ : update_map.UpdateMap U T) :
+  list.List T N U → Result ((core.result.Result Unit error.Error) ×
+    (list.List T N U)) :=
+  fun self => ok (core.result.Result.Ok (), self)

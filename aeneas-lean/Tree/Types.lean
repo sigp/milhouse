@@ -318,7 +318,7 @@ structure interface.ImmList (Self : Type) (T : Type) where
   level_iter_from : Self → Std.Usize → Result (level_iter.LevelIter T)
 
 /-- Trait declaration: [milhouse::update_map::UpdateMap]
-    Source: 'src/update_map.rs', lines 9:0-41:1
+    Source: 'src/update_map.rs', lines 9:0-45:1
     Visibility: public -/
 structure update_map.UpdateMap (Self : Type) (T : Type) where
   coredefaultDefaultInst : core.default.Default Self
@@ -332,6 +332,9 @@ structure update_map.UpdateMap (Self : Type) (T : Type) where
     core.ops.function.FnOnce F Std.Usize (Option T)) (corecloneCloneInst1 :
     core.clone.Clone T), Self → Std.Usize → F → Result ((Option (cow.Cow
     T)) × (Option (cow.Cow T) → Self))
+  get_cow_with_value : forall (corecloneCloneInst1 : core.clone.Clone T), Self
+    → Std.Usize → Option T → Result ((Option (cow.Cow T)) × (Option
+    (cow.Cow T) → Self))
   insert : Self → Std.Usize → T → Result ((Option T) × Self)
   for_each_range : forall {F : Type} {E : Type}
     (coreopsfunctionFnMutPPairUsizeShared0EControlFlowTupleResultTuplePInst :
@@ -365,6 +368,41 @@ structure interface.Interface (T : Type) (B : Type) (U : Type) where
   updates : U
   _phantom : core.marker.PhantomData T
 
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::closure]
+    Source: 'src/interface.rs', lines 70:31-70:67 -/
+@[reducible]
+def interface.Interface.get_mut.closure (T : Type) (B : Type) (U : Type) := B
+
+/-- [milhouse::utils::updated_length::closure]
+    Source: 'src/utils.rs', lines 87:41-89:5 -/
+@[reducible]
+def utils.updated_length.closure (U : Type) (T : Type) := utils.Length
+
+/-- [milhouse::interface_iter::InterfaceIter]
+    Source: 'src/interface_iter.rs', lines 5:0-10:1
+    Visibility: public -/
+structure interface_iter.InterfaceIter (T : Type) (U : Type) where
+  tree_iter : iter.Iter T
+  updates : U
+  index : Std.Usize
+  length : Std.Usize
+
+/-- [milhouse::interface_iter::InterfaceIterCow]
+    Source: 'src/interface_iter.rs', lines 38:0-42:1
+    Visibility: public -/
+structure interface_iter.InterfaceIterCow (T : Type) (U : Type) where
+  tree_iter : iter.Iter T
+  updates : U
+  index : Std.Usize
+
+/-- [milhouse::level_iter::LevelNode]
+    Source: 'src/level_iter.rs', lines 35:0-38:1
+    Visibility: public -/
+@[discriminant isize]
+inductive level_iter.LevelNode (T : Type) where
+| Internal : triomphe.arc.Arc (tree.Tree T) → level_iter.LevelNode T
+| PackedLeaf : T → level_iter.LevelNode T
+
 /-- [milhouse::list::ListInner]
     Source: 'src/list.rs', lines 41:0-49:1
     Visibility: public -/
@@ -381,10 +419,15 @@ structure list.ListInner (T : Type) (N : Type) where
 structure list.List (T : Type) (N : Type) (U : Type) where
   interface : interface.Interface T (list.ListInner T N) U
 
-/-- [milhouse::utils::updated_length::closure]
-    Source: 'src/utils.rs', lines 87:41-89:5 -/
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure#1]
+    Source: 'src/tree.rs', lines 317:25-330:21 -/
 @[reducible]
-def utils.updated_length.closure (U : Type) (T : Type) := utils.Length
+def tree.Tree.rebase_on.closure_1 (T : Type) := Std.Usize
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure]
+    Source: 'src/tree.rs', lines 310:42-310:97 -/
+@[reducible]
+def tree.Tree.rebase_on.closure (T : Type) := Unit
 
 /-- [milhouse::tree::RebaseAction]
     Source: 'src/tree.rs', lines 246:0-255:1
@@ -403,15 +446,5 @@ inductive tree.RebaseAction (T : Type) where
 inductive tree.IntraRebaseAction (T : Type) where
 | Noop : tree.IntraRebaseAction T
 | Replace : triomphe.arc.Arc T → tree.IntraRebaseAction T
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure#1]
-    Source: 'src/tree.rs', lines 317:25-330:21 -/
-@[reducible]
-def tree.Tree.rebase_on.closure_1 (T : Type) := Std.Usize
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure]
-    Source: 'src/tree.rs', lines 310:42-310:97 -/
-@[reducible]
-def tree.Tree.rebase_on.closure (T : Type) := Unit
 
 end milhouse

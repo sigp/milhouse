@@ -634,7 +634,8 @@ private theorem length_min_val {x y minimum : utils.Length}
     (minimum.val = x.val ∧ x.val ≤ y.val) ∨
       (minimum.val = y.val ∧ y.val ≤ x.val) := by
   simp only [core.cmp.min, utils.Length.Insts.CoreCmpOrd,
-    core.cmp.Ord.min_body, core.cmp.PartialOrd.lt_body,
+    core.cmp.Ord.min.default, core.cmp.Ord.min_body,
+    core.cmp.PartialOrd.lt_body,
     utils.Length.Insts.CoreCmpPartialOrdLength,
     utils.Length.Insts.CoreCmpPartialOrdLength.partial_cmp,
     utils.Length.Insts.CoreCmpOrd.cmp, core.cmp.impls.OrdUsize.cmp,
