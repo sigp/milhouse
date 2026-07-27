@@ -1354,6 +1354,77 @@ private theorem push_node_loop_follows_merge_plan {T : Type}
     · rfl
     · exact hloop
 
+private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (hfactor : packing_factor = none) : packing_depth.val = 0 := by
+  cases hlayout with
+  | unpacked => rfl
+  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+    simp at hfactor
+
+private theorem push_node_merge_count_eq {T : Type}
+    {ValueInst : Value T} {self : builder.Builder T}
+    (hinvariant : BuilderInvariant ValueInst self)
+    (hnode_level : self.level.val ≠ 0 ∨ self.packing_factor = none)
+    {count : Nat}
+    (hcarry : BuilderCarryCount self.packing_factor
+      (if self.level.val = 0 then 0
+        else self.level.val - self.packing_depth.val)
+      self.depth.val self.length.val count)
+    {index_on_level next_index_on_level : Std.Usize}
+    (hshift : self.length >>> self.level = ok index_on_level)
+    (hnext : index_on_level + 1#usize = ok next_index_on_level)
+    {values_to_merge : Std.U32}
+    (hvalues :
+      (if self.level = 0#usize then
+        do
+          let zeros ← core.num.Usize.trailing_zeros next_index_on_level
+          let packing_depth ← lift (UScalar.cast .U32 self.packing_depth)
+          ok (core.num.U32.saturating_sub zeros packing_depth)
+      else core.num.Usize.trailing_zeros next_index_on_level) =
+        ok values_to_merge) :
+    values_to_merge.val = count := by
+  obtain ⟨units, hlength, hcount⟩ :=
+    hcarry.eq_padic_units (BuilderInvariant.layout hinvariant)
+  have hbase := hinvariant.base_capacity_eq_pow_level hnode_level
+  have hindex := usize_shift_right_value hshift
+  have hindex_units : index_on_level.val = units := by
+    rw [Nat.shiftRight_eq_div_pow, hlength, hbase] at hindex
+    simpa using hindex
+  have hnext_value := usize_add_one_value hnext
+  have hnext_units : next_index_on_level.val = units + 1 := by omega
+  have hnext_pos : 0 < next_index_on_level.val := by omega
+  by_cases hlevel : self.level.val = 0
+  · have hlevel_scalar : self.level = 0#usize :=
+      UScalar.eq_of_val_eq (by simpa using hlevel)
+    have hfactor : self.packing_factor = none := hnode_level.resolve_left
+      (not_not.mpr hlevel)
+    have hpacking_depth :=
+      (BuilderInvariant.layout hinvariant).packing_depth_zero_of_none hfactor
+    rw [if_pos hlevel_scalar] at hvalues
+    cases hzeros : core.num.Usize.trailing_zeros next_index_on_level with
+    | fail error => simp [hzeros] at hvalues
+    | div => simp [hzeros] at hvalues
+    | ok zeros =>
+      simp [hzeros, lift] at hvalues
+      subst values_to_merge
+      rw [u32_saturating_sub_value]
+      have hcast : (UScalar.cast .U32 self.packing_depth).val = 0 := by
+        rw [UScalar.cast_val_eq, hpacking_depth]
+        simp
+      rw [hcast, Nat.sub_zero,
+        usize_trailing_zeros_padic hnext_pos hzeros, hnext_units]
+      exact hcount.symm
+  · have hlevel_scalar : self.level ≠ 0#usize := by
+      intro heq
+      apply hlevel
+      exact congrArg UScalar.val heq
+    rw [if_neg hlevel_scalar] at hvalues
+    rw [usize_trailing_zeros_padic hnext_pos hvalues, hnext_units]
+    exact hcount.symm
+
 private theorem push_loop1_eq_loop0 {T : Type} (ValueInst : Value T)
     (iter : core.ops.range.Range Std.U32)
     (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
