@@ -1960,4 +1960,478 @@ private theorem push_loop_preserves_builder_stack {T : Type}
   rw [hresult_stack]
   exact ⟨hcanonical, by omega⟩
 
+/-- Successful public value insertion preserves the Builder invariant. The
+    sole extra premise says this is the public leaf-level Builder mode; every
+    branch-specific alignment and capacity fact is recovered from the
+    invariant and the successful translated call. -/
+theorem builder_push_preserves_invariant {T : Type}
+    {ValueInst : Value T} {self result : builder.Builder T}
+    (hinvariant : BuilderInvariant ValueInst self)
+    (hlevel : self.level.val = 0)
+    (value : T)
+    (hpush : builder.Builder.push ValueInst self value =
+      ok (core.result.Result.Ok (), result)) :
+    BuilderInvariant ValueInst result := by
+  unfold builder.Builder.push at hpush
+  simp only [utils.Length.as_usize, bind_tc_ok] at hpush
+  by_cases hfull : self.length = self.capacity
+  · rw [if_pos hfull] at hpush
+    simp at hpush
+  · rw [if_neg hfull] at hpush
+    cases hnext : self.length + 1#usize with
+    | fail error => simp [hnext] at hpush
+    | div => simp [hnext] at hpush
+    | ok next_index =>
+      simp only [hnext, bind_tc_ok] at hpush
+      cases hfactor : self.packing_factor with
+      | none =>
+        rw [hfactor] at hpush
+        cases hleaf : Tree.leaf_unboxed ValueInst value with
+        | fail error => simp [hleaf] at hpush
+        | div => simp [hleaf] at hpush
+        | ok leaf =>
+          simp only [hleaf, bind_tc_ok, lift] at hpush
+          cases hzeros : core.num.Usize.trailing_zeros next_index with
+          | fail error => simp [hzeros] at hpush
+          | div => simp [hzeros] at hpush
+          | ok zeros =>
+            simp only [hzeros, bind_tc_ok] at hpush
+            let values_to_merge := core.num.U32.saturating_sub zeros
+              (UScalar.cast .U32 self.packing_depth)
+            cases hloop : builder.Builder.push_loop0 ValueInst
+                { start := 0#u32, «end» := values_to_merge } self.stack
+                self.length leaf with
+            | fail error => simp [values_to_merge, hloop] at hpush
+            | div => simp [values_to_merge, hloop] at hpush
+            | ok loop_result =>
+              obtain ⟨loop_status, loop_stack, loop_length⟩ := loop_result
+              simp [values_to_merge, hloop] at hpush
+              obtain ⟨rfl, rfl⟩ := hpush
+              have hlayout : PackingLayout ValueInst none
+                  self.packing_depth := by
+                simpa [hfactor] using
+                  (@BuilderInvariant.layout T ValueInst self hinvariant)
+              have hstack : BuilderStack none 0 self.stack.val self.depth.val
+                  self.length.val := by
+                simpa [hfactor, hlevel] using
+                  (@BuilderInvariant.stack_dense T ValueInst self hinvariant)
+              obtain ⟨produced_leaf, hproduced, hleaf_dense⟩ :=
+                leaf_unboxed_preserves_dense ValueInst value
+              rw [hleaf] at hproduced
+              cases hproduced
+              have hlength_le := hinvariant.length_le_capacity
+              have hlength_ne : self.length.val ≠ self.capacity.val := by
+                intro heq
+                exact hfull (UScalar.eq_of_val_eq heq)
+              have hcapacity : self.capacity.val =
+                  subtreeCapacity none self.depth.val := by
+                simpa [hfactor] using
+                  (@BuilderInvariant.builder_capacity_matches T ValueInst
+                    self hinvariant)
+              have hfits : self.length.val + 1 ≤
+                  subtreeCapacity none self.depth.val := by
+                rw [← hcapacity]
+                omega
+              obtain ⟨count, plan_stack, plan_top, plan_depth, plan_len,
+                  hplan, hcarry, hcanonical, _⟩ :=
+                hstack.append_subtree hlayout hleaf_dense (by omega)
+                  (by exact Nat.mod_one _) hfits
+              have hnext_value := usize_add_one_value hnext
+              have hnext_cursor : next_index.val = self.length.val +
+                  subtreeCapacity none 0 := by
+                simpa [subtreeCapacity, leafCapacity] using hnext_value
+              have hmerge_count : values_to_merge.val = count := by
+                exact push_full_base_merge_count_eq hlayout hcarry
+                  hnext_cursor hzeros
+              obtain ⟨hresult_stack, hresult_length⟩ :=
+                push_loop_preserves_builder_stack hplan hcanonical
+                  values_to_merge hmerge_count self.stack self.length rfl rfl
+                  hloop
+              refine ⟨hlayout,
+                @BuilderInvariant.level_valid T ValueInst self hinvariant,
+                @BuilderInvariant.level_bounded T ValueInst self hinvariant,
+                hcapacity, ?_⟩
+              simpa [hlevel, hresult_length] using hresult_stack
+      | some factor =>
+        rw [hfactor] at hpush
+        cases hmultiple : core.num.Usize.is_multiple_of self.length factor with
+        | fail error => simp [hmultiple] at hpush
+        | div => simp [hmultiple] at hpush
+        | ok multiple =>
+          simp only [hmultiple, bind_tc_ok] at hpush
+          cases multiple with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte] at hpush
+            cases hpop : alloc.vec.Vec.pop Global self.stack with
+            | fail error => simp [hpop] at hpush
+            | div => simp [hpop] at hpush
+            | ok pop_result =>
+              obtain ⟨popped, base_stack⟩ := pop_result
+              simp only [hpop, bind_tc_ok] at hpush
+              cases popped with
+              | none => simp at hpush
+              | some entry =>
+                cases entry with
+                | Arced tree => simp at hpush
+                | Unarced tree =>
+                  cases tree with
+                  | Leaf leaf => simp at hpush
+                  | Node hash left right => simp at hpush
+                  | Zero depth => simp at hpush
+                  | PackedLeaf leaf =>
+                    change (do
+                      let (push_status, updated_leaf) ←
+                        packed_leaf.PackedLeaf.push
+                          ValueInst.tree_hashTreeHashInst
+                          ValueInst.corecloneCloneInst leaf value
+                      let flow ←
+                        core.result.Result.Insts.CoreOpsTry.branch push_status
+                      match flow with
+                      | core.ops.control_flow.ControlFlow.Continue _ => do
+                        let zeros ←
+                          core.num.Usize.trailing_zeros next_index
+                        let packing_depth ←
+                          lift (UScalar.cast .U32 self.packing_depth)
+                        let values_to_merge ← lift
+                          (core.num.U32.saturating_sub zeros packing_depth)
+                        let (status, stack, length) ←
+                          builder.Builder.push_loop2 ValueInst
+                            { start := 0#u32, «end» := values_to_merge }
+                            base_stack self.length
+                            (Tree.PackedLeaf updated_leaf)
+                        ok (status,
+                          { stack := stack, depth := self.depth,
+                            level := self.level, length := length,
+                            packing_factor := some factor,
+                            packing_depth := self.packing_depth,
+                            capacity := self.capacity })
+                      | core.ops.control_flow.ControlFlow.Break residual => do
+                        let status ←
+                          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                            Unit (core.convert.FromSame error.Error) residual
+                        ok (status,
+                          { stack := base_stack, depth := self.depth,
+                            level := self.level, length := self.length,
+                            packing_factor := some factor,
+                            packing_depth := self.packing_depth,
+                            capacity := self.capacity })) =
+                        ok (core.result.Result.Ok (), result) at hpush
+                    cases hleaf_push : packed_leaf.PackedLeaf.push
+                        ValueInst.tree_hashTreeHashInst
+                        ValueInst.corecloneCloneInst leaf value with
+                    | fail error =>
+                      rw [hleaf_push] at hpush
+                      simp at hpush
+                    | div =>
+                      rw [hleaf_push] at hpush
+                      simp at hpush
+                    | ok push_result =>
+                      rw [hleaf_push] at hpush
+                      simp only [bind_tc_ok] at hpush
+                      obtain ⟨push_status, updated_leaf⟩ := push_result
+                      cases push_status with
+                      | Err error =>
+                        simp [core.result.Result.Insts.CoreOpsTry.branch,
+                          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+                          core.convert.FromSame] at hpush
+                      | Ok success =>
+                        cases success
+                        simp only [
+                          core.result.Result.Insts.CoreOpsTry.branch,
+                          lift] at hpush
+                        cases hzeros :
+                            core.num.Usize.trailing_zeros next_index with
+                        | fail error => simp [hzeros] at hpush
+                        | div => simp [hzeros] at hpush
+                        | ok zeros =>
+                          simp only [hzeros, bind_tc_ok] at hpush
+                          let values_to_merge :=
+                            core.num.U32.saturating_sub zeros
+                              (UScalar.cast .U32 self.packing_depth)
+                          cases hloop : builder.Builder.push_loop2 ValueInst
+                              { start := 0#u32, «end» := values_to_merge }
+                              base_stack self.length
+                              (Tree.PackedLeaf updated_leaf) with
+                          | fail error =>
+                            simp [values_to_merge, hloop] at hpush
+                          | div => simp [values_to_merge, hloop] at hpush
+                          | ok loop_result =>
+                            obtain ⟨loop_status, loop_stack, loop_length⟩ :=
+                              loop_result
+                            simp [values_to_merge, hloop] at hpush
+                            obtain ⟨rfl, rfl⟩ := hpush
+                            have hlayout : PackingLayout ValueInst
+                                (some factor) self.packing_depth := by
+                              simpa [hfactor] using
+                                (@BuilderInvariant.layout T ValueInst self
+                                  hinvariant)
+                            have hstack : BuilderStack (some factor) 0
+                                self.stack.val self.depth.val
+                                self.length.val := by
+                              simpa [hfactor, hlevel] using
+                                (@BuilderInvariant.stack_dense T ValueInst
+                                  self hinvariant)
+                            have hmultiple_spec :=
+                              core.num.Usize.is_multiple_of.spec self.length
+                                factor
+                            rw [hmultiple] at hmultiple_spec
+                            simp at hmultiple_spec
+                            have hunaligned : self.length.val % factor.val ≠
+                                0 := hmultiple_spec
+                            have hpopped := vec_pop_some_values
+                              (A := Global) self.stack base_stack
+                              (utils.MaybeArced.Unarced
+                                (Tree.PackedLeaf leaf)) hpop
+                            have hmember : utils.MaybeArced.Unarced
+                                (Tree.PackedLeaf leaf) ∈ self.stack.val := by
+                              rw [hpopped]
+                              simp
+                            obtain ⟨entry_depth, entry_len, hentry_dense⟩ :=
+                              hstack.entry_dense hmember
+                            cases hentry_dense with
+                            | packed packed_factor packed_leaf
+                                old_nonempty old_fit =>
+                              have hupdated_dense :=
+                                packedLeaf_push_preserves_dense ValueInst
+                                  hlayout
+                                  (DenseTree.packed factor leaf old_nonempty
+                                    old_fit)
+                                  value hleaf_push
+                              have hupdated_fit :=
+                                hupdated_dense.length_le_capacity
+                              have hold_partial : leaf.values.val.length <
+                                  factor.val := by
+                                simpa [subtreeCapacity, leafCapacity] using
+                                  hupdated_fit
+                              obtain ⟨prefix_len, htotal, hprefix_aligned,
+                                  hprefix⟩ :=
+                                hstack.remove_partial_last hlayout hpopped
+                                  (DenseTree.packed factor leaf old_nonempty
+                                    old_fit)
+                                  old_nonempty (by simpa [subtreeCapacity,
+                                    leafCapacity] using hold_partial)
+                              have hlength_le := hinvariant.length_le_capacity
+                              have hlength_ne : self.length.val ≠
+                                  self.capacity.val := by
+                                intro heq
+                                exact hfull (UScalar.eq_of_val_eq heq)
+                              have hcapacity : self.capacity.val =
+                                  subtreeCapacity (some factor)
+                                    self.depth.val := by
+                                simpa [hfactor] using
+                                  (@BuilderInvariant.builder_capacity_matches
+                                    T ValueInst self hinvariant)
+                              have hfits : prefix_len +
+                                  (leaf.values.val.length + 1) ≤
+                                  subtreeCapacity (some factor)
+                                    self.depth.val := by
+                                rw [← hcapacity]
+                                omega
+                              have hnext_value := usize_add_one_value hnext
+                              have hloop0 : builder.Builder.push_loop0
+                                  ValueInst
+                                  { start := 0#u32,
+                                    «end» := values_to_merge }
+                                  base_stack self.length
+                                  (Tree.PackedLeaf updated_leaf) =
+                                    ok (core.result.Result.Ok (), loop_stack,
+                                      loop_length) := by
+                                simpa [push_loop2_eq_loop0] using hloop
+                              have hresult : BuilderStack (some factor) 0
+                                    loop_stack.val self.depth.val
+                                    (self.length.val + 1) ∧
+                                  loop_length.val = self.length.val + 1 := by
+                                by_cases hupdated_full :
+                                    leaf.values.val.length + 1 = factor.val
+                                · obtain ⟨count, plan_stack, plan_top,
+                                      plan_depth, plan_len, hplan, hcarry,
+                                      hcanonical, _⟩ :=
+                                    hprefix.append_subtree hlayout
+                                      hupdated_dense (by omega)
+                                      (by simpa [subtreeCapacity,
+                                        leafCapacity] using hprefix_aligned)
+                                      hfits
+                                  have hnext_cursor : next_index.val =
+                                      prefix_len + subtreeCapacity
+                                        (some factor) 0 := by
+                                    rw [hnext_value, htotal]
+                                    simp [subtreeCapacity, leafCapacity]
+                                    omega
+                                  have hmerge_count : values_to_merge.val =
+                                      count :=
+                                    push_full_base_merge_count_eq hlayout
+                                      hcarry hnext_cursor hzeros
+                                  have hpreserved :=
+                                    push_loop_preserves_builder_stack hplan
+                                      hcanonical values_to_merge hmerge_count
+                                      base_stack self.length rfl rfl hloop0
+                                  simpa [htotal, Nat.add_assoc] using
+                                    hpreserved
+                                · have hupdated_partial :
+                                      leaf.values.val.length + 1 <
+                                        subtreeCapacity (some factor) 0 := by
+                                    simp [subtreeCapacity, leafCapacity]
+                                    omega
+                                  have hcanonical := hprefix.append_partial
+                                    hlayout
+                                    (top := utils.MaybeArced.Unarced
+                                      (Tree.PackedLeaf updated_leaf))
+                                    hupdated_dense (by omega)
+                                    hupdated_partial
+                                    (by simpa [subtreeCapacity,
+                                      leafCapacity] using hprefix_aligned)
+                                    hfits
+                                  have hplan := BuilderMergePlan.done
+                                    (ValueInst := ValueInst) base_stack.val
+                                    (Tree.PackedLeaf updated_leaf) 0
+                                    (leaf.values.val.length + 1)
+                                    hupdated_dense (by omega)
+                                  have hprefix_factor : prefix_len %
+                                      factor.val = 0 := by
+                                    simpa [subtreeCapacity, leafCapacity]
+                                      using hprefix_aligned
+                                  have hupdated_factor_lt :
+                                      leaf.values.val.length + 1 <
+                                        factor.val := by
+                                    simpa [subtreeCapacity, leafCapacity]
+                                      using hupdated_partial
+                                  have hnext_partial : next_index.val %
+                                      factor.val ≠ 0 := by
+                                    rw [hnext_value, htotal, Nat.add_assoc,
+                                      Nat.add_mod, hprefix_factor, zero_add,
+                                      Nat.mod_eq_of_lt hupdated_factor_lt]
+                                    rw [Nat.mod_eq_of_lt hupdated_factor_lt]
+                                    omega
+                                  have hmerge_count : values_to_merge.val =
+                                      0 :=
+                                    push_partial_base_merge_count_zero
+                                      hlayout (by omega) hnext_partial hzeros
+                                  have hpreserved :=
+                                    push_loop_preserves_builder_stack hplan
+                                      hcanonical values_to_merge hmerge_count
+                                      base_stack self.length rfl rfl hloop0
+                                  simpa [htotal, Nat.add_assoc] using
+                                    hpreserved
+                              refine ⟨hlayout,
+                                @BuilderInvariant.level_valid T ValueInst self
+                                  hinvariant,
+                                @BuilderInvariant.level_bounded T ValueInst
+                                  self hinvariant, hcapacity, ?_⟩
+                              simpa [hlevel, hresult.2] using hresult.1
+          | true =>
+            simp only [↓reduceIte] at hpush
+            cases hsingle : packed_leaf.PackedLeaf.single
+                ValueInst.tree_hashTreeHashInst
+                ValueInst.corecloneCloneInst value with
+            | fail error => simp [hsingle] at hpush
+            | div => simp [hsingle] at hpush
+            | ok leaf =>
+              simp only [hsingle, bind_tc_ok, lift] at hpush
+              cases hzeros : core.num.Usize.trailing_zeros next_index with
+              | fail error => simp [hzeros] at hpush
+              | div => simp [hzeros] at hpush
+              | ok zeros =>
+                simp only [hzeros, bind_tc_ok] at hpush
+                let values_to_merge := core.num.U32.saturating_sub zeros
+                  (UScalar.cast .U32 self.packing_depth)
+                cases hloop : builder.Builder.push_loop1 ValueInst
+                    { start := 0#u32, «end» := values_to_merge } self.stack
+                    self.length (Tree.PackedLeaf leaf) with
+                | fail error => simp [values_to_merge, hloop] at hpush
+                | div => simp [values_to_merge, hloop] at hpush
+                | ok loop_result =>
+                  obtain ⟨loop_status, loop_stack, loop_length⟩ := loop_result
+                  simp [values_to_merge, hloop] at hpush
+                  obtain ⟨rfl, rfl⟩ := hpush
+                  have hlayout : PackingLayout ValueInst (some factor)
+                      self.packing_depth := by
+                    simpa [hfactor] using
+                      (@BuilderInvariant.layout T ValueInst self hinvariant)
+                  have hstack : BuilderStack (some factor) 0 self.stack.val
+                      self.depth.val self.length.val := by
+                    simpa [hfactor, hlevel] using
+                      (@BuilderInvariant.stack_dense T ValueInst self
+                        hinvariant)
+                  obtain ⟨produced_leaf, hproduced, hleaf_dense⟩ :=
+                    packedLeaf_single_preserves_dense ValueInst hlayout value
+                  rw [hsingle] at hproduced
+                  cases hproduced
+                  have hmultiple_spec :=
+                    core.num.Usize.is_multiple_of.spec self.length factor
+                  rw [hmultiple] at hmultiple_spec
+                  simp at hmultiple_spec
+                  have haligned : self.length.val % factor.val = 0 :=
+                    hmultiple_spec
+                  have hfactor_pos : 0 < factor.val := by
+                    simpa [leafCapacity] using hlayout.leafCapacity_pos
+                  have hlength_le := hinvariant.length_le_capacity
+                  have hlength_ne : self.length.val ≠ self.capacity.val := by
+                    intro heq
+                    exact hfull (UScalar.eq_of_val_eq heq)
+                  have hcapacity : self.capacity.val =
+                      subtreeCapacity (some factor) self.depth.val := by
+                    simpa [hfactor] using
+                      (@BuilderInvariant.builder_capacity_matches T ValueInst
+                        self hinvariant)
+                  have hfits : self.length.val + 1 ≤
+                      subtreeCapacity (some factor) self.depth.val := by
+                    rw [← hcapacity]
+                    omega
+                  have hnext_value := usize_add_one_value hnext
+                  have hloop0 : builder.Builder.push_loop0 ValueInst
+                      { start := 0#u32, «end» := values_to_merge }
+                      self.stack self.length (Tree.PackedLeaf leaf) =
+                        ok (core.result.Result.Ok (), loop_stack,
+                          loop_length) := by
+                    simpa [push_loop1_eq_loop0] using hloop
+                  have hresult : BuilderStack (some factor) 0
+                        loop_stack.val self.depth.val
+                        (self.length.val + 1) ∧
+                      loop_length.val = self.length.val + 1 := by
+                    by_cases hfactor_one : factor.val = 1
+                    · obtain ⟨count, plan_stack, plan_top, plan_depth,
+                          plan_len, hplan, hcarry, hcanonical, _⟩ :=
+                        hstack.append_subtree hlayout hleaf_dense (by omega)
+                          (by simpa [subtreeCapacity, leafCapacity] using
+                            haligned) hfits
+                      have hnext_cursor : next_index.val = self.length.val +
+                          subtreeCapacity (some factor) 0 := by
+                        simpa [subtreeCapacity, leafCapacity, hfactor_one]
+                          using hnext_value
+                      have hmerge_count : values_to_merge.val = count :=
+                        push_full_base_merge_count_eq hlayout hcarry
+                          hnext_cursor hzeros
+                      exact push_loop_preserves_builder_stack hplan hcanonical
+                        values_to_merge hmerge_count self.stack self.length rfl
+                        rfl hloop0
+                    · have htop_partial : 1 < subtreeCapacity
+                          (some factor) 0 := by
+                        simp [subtreeCapacity, leafCapacity]
+                        omega
+                      have hfactor_gt : 1 < factor.val := by omega
+                      have hcanonical := hstack.append_partial hlayout
+                        (top := utils.MaybeArced.Unarced
+                          (Tree.PackedLeaf leaf)) hleaf_dense (by omega)
+                        htop_partial
+                        (by simpa [subtreeCapacity, leafCapacity] using
+                          haligned) hfits
+                      have hplan := BuilderMergePlan.done
+                        (ValueInst := ValueInst) self.stack.val
+                        (Tree.PackedLeaf leaf) 0 1 hleaf_dense (by omega)
+                      have hnext_partial : next_index.val % factor.val ≠ 0 := by
+                        rw [hnext_value, Nat.add_mod, haligned, zero_add,
+                          Nat.mod_eq_of_lt hfactor_gt]
+                        simpa using hfactor_one
+                      have hmerge_count : values_to_merge.val = 0 :=
+                        push_partial_base_merge_count_zero hlayout
+                          (by omega) hnext_partial hzeros
+                      exact push_loop_preserves_builder_stack hplan hcanonical
+                        values_to_merge hmerge_count self.stack self.length rfl
+                        rfl hloop0
+                  refine ⟨hlayout,
+                    @BuilderInvariant.level_valid T ValueInst self hinvariant,
+                    @BuilderInvariant.level_bounded T ValueInst self
+                      hinvariant, hcapacity, ?_⟩
+                  simpa [hlevel, hresult.2] using hresult.1
+
 end milhouse.tree
