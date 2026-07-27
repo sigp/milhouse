@@ -2356,6 +2356,33 @@ private theorem finish_level_loop_step {T : Type} (ValueInst : Value T)
       rfl
     | done result => simp [hbody]
 
+private theorem finish_packed_leaf_loop_step {T : Type}
+    (ValueInst : Value T) (self : builder.Builder T)
+    (next_index_on_level i : Std.Usize) :
+    builder.Builder.finish_packed_leaf_loop ValueInst self
+        next_index_on_level i =
+      match builder.Builder.finish_packed_leaf_loop.body ValueInst
+          next_index_on_level self i with
+      | ok (.cont (self1, i1)) =>
+        builder.Builder.finish_packed_leaf_loop ValueInst self1
+          next_index_on_level i1
+      | ok (.done result) => ok result
+      | fail error => fail error
+      | div => div := by
+  conv_lhs => unfold builder.Builder.finish_packed_leaf_loop
+  conv_lhs => unfold Aeneas.Std.loop
+  cases hbody : builder.Builder.finish_packed_leaf_loop.body ValueInst
+      next_index_on_level self i with
+  | fail error => simp [hbody]
+  | div => simp [hbody]
+  | ok flow =>
+    cases flow with
+    | cont state =>
+      obtain ⟨self1, i1⟩ := state
+      simp [hbody]
+      rfl
+    | done result => simp [hbody]
+
 private theorem finish_tree_loop_step {T : Type} (ValueInst : Value T)
     (self : builder.Builder T) (next_index_on_level : Std.Usize) :
     builder.Builder.finish_tree_loop ValueInst self next_index_on_level =
@@ -2708,6 +2735,153 @@ private theorem push_node_loop_follows_merge_plan {T : Type}
     · exact hrest
     · rfl
     · exact hloop
+
+private theorem finish_packed_leaf_loop_follows_merge_plan {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {count cursor start root_depth packing_depth : Nat}
+    {input_stack : List (utils.MaybeArced (Tree T))} {input_top : Tree T}
+    {final_stack : List (utils.MaybeArced (Tree T))}
+    {final_top : Tree T} {final_depth final_len : Nat}
+    (hplan : BuilderMergePlan ValueInst packing_factor count input_stack
+      input_top final_stack final_top final_depth final_len)
+    (hbits : BuilderMergeBits cursor start count root_depth packing_depth) :
+    ∀ (self : builder.Builder T) (next_index_on_level i : Std.Usize)
+      (result_stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+      (result_depth result_level : Std.Usize) (result_length : utils.Length)
+      (result_factor : Option Std.Usize)
+      (result_packing_depth result_capacity : Std.Usize),
+      self.depth.val = root_depth →
+      self.packing_depth.val = packing_depth →
+      cursor = next_index_on_level.val →
+      i.val = start →
+      self.stack.val = input_stack ++
+        [utils.MaybeArced.Unarced input_top] →
+      builder.Builder.finish_packed_leaf_loop ValueInst self
+          next_index_on_level i =
+        ok (core.result.Result.Ok (), result_stack, result_depth, result_level,
+          result_length, result_factor, result_packing_depth,
+          result_capacity) →
+      result_stack.val = final_stack ++
+          [utils.MaybeArced.Unarced final_top] ∧
+        result_depth = self.depth ∧ result_level = self.level ∧
+        result_length = self.length ∧ result_factor = self.packing_factor ∧
+        result_packing_depth = self.packing_depth ∧
+        result_capacity = self.capacity := by
+  induction hplan generalizing start with
+  | done plan_stack top depth len top_dense top_nonempty =>
+    intro self next_index i result_stack result_depth result_level result_length
+      result_factor result_packing_depth result_capacity hdepth hpacking_depth
+      hcursor hi hstack hloop
+    rw [finish_packed_leaf_loop_step] at hloop
+    unfold builder.Builder.finish_packed_leaf_loop.body at hloop
+    by_cases hlt : i < self.depth
+    · simp only [hlt, ↓reduceIte, bind_tc_ok] at hloop
+      cases hadd : i + self.packing_depth with
+      | fail error => simp [hadd] at hloop
+      | div => simp [hadd] at hloop
+      | ok shift =>
+        simp only [hadd, bind_tc_ok] at hloop
+        cases hright : next_index >>> shift with
+        | fail error => simp [hright] at hloop
+        | div => simp [hright] at hloop
+        | ok shifted =>
+          have hshift_value := usize_add_value hadd
+          have hshifted_value := usize_shift_right_value hright
+          have hmerge_stop := hbits.stop
+          have hlt_value : start < root_depth := by scalar_tac
+          have hstop_nat :
+              ((cursor >>> (start + packing_depth)) &&& 1) = 0 := by
+            rcases hmerge_stop with hroot | hbit
+            · omega
+            · simpa using hbit
+          have hbit : (shifted &&& 1#usize) = 0#usize := by
+            apply UScalar.eq_of_val_eq
+            simpa [hshifted_value, hshift_value, hcursor, hi,
+              hpacking_depth] using hstop_nat
+          simp [hright, hbit] at hloop
+          obtain ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hloop
+          exact ⟨hstack, rfl, rfl, rfl, rfl, rfl, rfl⟩
+    · simp [hlt] at hloop
+      obtain ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hloop
+      exact ⟨hstack, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  | @step base_stack left top merged depth top_len remaining_count final_stack
+      final_top final_depth final_len left_dense top_dense top_nonempty merge_eq
+      remaining ih =>
+    intro self next_index i result_stack result_depth result_level result_length
+      result_factor result_packing_depth result_capacity hdepth hpacking_depth
+      hcursor hi hstack hloop
+    have hmerge_zero := hbits.merge 0 (by omega)
+    have hlt : i < self.depth := by scalar_tac
+    rw [finish_packed_leaf_loop_step] at hloop
+    unfold builder.Builder.finish_packed_leaf_loop.body at hloop
+    simp only [hlt, ↓reduceIte, bind_tc_ok] at hloop
+    cases hadd_shift : i + self.packing_depth with
+    | fail error => simp [hadd_shift] at hloop
+    | div => simp [hadd_shift] at hloop
+    | ok shift =>
+      simp only [hadd_shift, bind_tc_ok] at hloop
+      cases hright_shift : next_index >>> shift with
+      | fail error => simp [hright_shift] at hloop
+      | div => simp [hright_shift] at hloop
+      | ok shifted =>
+        have hshift_value := usize_add_value hadd_shift
+        have hshifted_value := usize_shift_right_value hright_shift
+        have hbit : (shifted &&& 1#usize) = 1#usize := by
+          apply UScalar.eq_of_val_eq
+          simpa [hshifted_value, hshift_value, hcursor, hi,
+            hpacking_depth] using hmerge_zero.2
+        have hsource_values : self.stack.val =
+            (base_stack ++ [left]) ++
+              [utils.MaybeArced.Unarced top] := hstack
+        obtain ⟨after_top, hpop_top, hafter_top⟩ :=
+          vec_pop_append_last (A := Global) self.stack
+            (base_stack ++ [left]) (utils.MaybeArced.Unarced top)
+            hsource_values
+        obtain ⟨after_left, hpop_left, hafter_left⟩ :=
+          vec_pop_append_last (A := Global) after_top base_stack left
+            hafter_top
+        simp [hright_shift, hbit, lift, hpop_top, hpop_left,
+          core.option.Option.ok_or,
+          core.result.Result.Insts.CoreOpsTry.branch,
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+          maybeArced_arced, merge_eq] at hloop
+        cases hpush : alloc.vec.Vec.push after_left
+            (utils.MaybeArced.Unarced merged) with
+        | fail error => simp [hpush] at hloop
+        | div => simp [hpush] at hloop
+        | ok pushed =>
+          simp only [hpush, bind_tc_ok] at hloop
+          cases hnext : i + 1#usize with
+          | fail error => simp [hnext] at hloop
+          | div => simp [hnext] at hloop
+          | ok next_i =>
+            simp only [hnext, bind_tc_ok] at hloop
+            have hpushed := vec_push_values after_left
+              (utils.MaybeArced.Unarced merged) hpush
+            have hpushed_values : pushed.val =
+                base_stack ++ [utils.MaybeArced.Unarced merged] := by
+              simpa [hafter_left] using hpushed
+            have hnext_value := usize_add_one_value hnext
+            have hi_next : next_i.val = start + 1 := by omega
+            let next_self := { self with stack := pushed }
+            have htail_bits : BuilderMergeBits cursor (start + 1)
+                remaining_count root_depth packing_depth := by
+              constructor
+              · intro offset hoffset
+                have hmerge := hbits.merge (offset + 1) (by omega)
+                simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+                  hmerge
+              · simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+                  hbits.stop
+            apply ih htail_bits next_self next_index next_i result_stack
+              result_depth result_level result_length result_factor
+              result_packing_depth result_capacity
+            · exact hdepth
+            · exact hpacking_depth
+            · exact hcursor
+            · exact hi_next
+            · exact hpushed_values
+            · exact hloop
 
 private theorem finish_level_loop_follows_merge_plan {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
