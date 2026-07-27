@@ -263,8 +263,7 @@ def MAX_TREE_DEPTH : Result Std.Usize := do
   i - 1#usize
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::new]:
-    Source: 'src/builder.rs', lines 21:4-37:5
-    Visibility: public -/
+    Source: 'src/builder.rs', lines 21:4-37:5 -/
 def builder.Builder.new
   {T : Type} (ValueInst : Value T) (depth : Std.Usize) (level : Std.Usize) :
   Result (core.result.Result (builder.Builder T) error.Error)

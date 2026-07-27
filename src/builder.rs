@@ -18,7 +18,7 @@ pub struct Builder<T: Value> {
 }
 
 impl<T: Value> Builder<T> {
-    pub fn new(depth: usize, level: usize) -> Result<Self, Error> {
+    pub(crate) fn new(depth: usize, level: usize) -> Result<Self, Error> {
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         if depth.saturating_add(packing_depth) > MAX_TREE_DEPTH {
             Err(Error::BuilderInvalidDepth { depth })
