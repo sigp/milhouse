@@ -80,6 +80,43 @@ inductive BuilderStack {T : Type} (packing_factor : Option Std.Usize)
       BuilderStack packing_factor base_depth (left :: right_stack) (depth + 1)
         (subtreeCapacity packing_factor depth + right_len)
 
+/-- A carry-normalized view of a Builder stack. `physical_len` counts the
+    base-capacity slots occupied by the stack, while `logical_len` counts only
+    materialized values. A partial final subtree therefore occupies its full
+    physical capacity. -/
+inductive BuilderNormalizedStack {T : Type}
+    (packing_factor : Option Std.Usize) (base_depth : Nat) :
+    List (utils.MaybeArced (Tree T)) → Nat → Nat → Nat → Prop where
+  | empty (depth : Nat) (base_le_depth : base_depth ≤ depth) :
+      BuilderNormalizedStack packing_factor base_depth [] depth 0 0
+  | single (entry : utils.MaybeArced (Tree T)) (depth len : Nat)
+      (base_le_depth : base_depth ≤ depth)
+      (dense : DenseTree packing_factor (maybeArcedTree entry) depth len)
+      (nonempty : 0 < len) :
+      BuilderNormalizedStack packing_factor base_depth [entry] depth len
+        (subtreeCapacity packing_factor depth)
+  | left {stack : List (utils.MaybeArced (Tree T))}
+      {depth logical_len physical_len : Nat}
+      (child : BuilderNormalizedStack packing_factor base_depth stack depth
+        logical_len physical_len)
+      (physical_fits : physical_len ≤
+        subtreeCapacity packing_factor depth) :
+      BuilderNormalizedStack packing_factor base_depth stack (depth + 1)
+        logical_len physical_len
+  | right (left : utils.MaybeArced (Tree T))
+      {right_stack : List (utils.MaybeArced (Tree T))}
+      (depth right_logical right_physical : Nat)
+      (left_dense : DenseTree packing_factor (maybeArcedTree left) depth
+        (subtreeCapacity packing_factor depth))
+      (right : BuilderNormalizedStack packing_factor base_depth right_stack
+        depth right_logical right_physical)
+      (right_nonempty : 0 < right_logical)
+      (right_physical_not_full : right_physical <
+        subtreeCapacity packing_factor depth) :
+      BuilderNormalizedStack packing_factor base_depth (left :: right_stack)
+        (depth + 1) (subtreeCapacity packing_factor depth + right_logical)
+        (subtreeCapacity packing_factor depth + right_physical)
+
 theorem BuilderStack.length_le_capacity {T : Type}
     {packing_factor : Option Std.Usize}
     {base_depth : Nat}
@@ -164,6 +201,151 @@ private theorem aligned_add_le {unit total limit added : Nat}
     _ = unit * (total_units + 1) := by simp [Nat.mul_add]
     _ ≤ unit * limit_units :=
       Nat.mul_le_mul_left unit (Nat.succ_le_iff.mpr hunits)
+
+theorem BuilderNormalizedStack.physical_le_capacity {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))}
+    {root_depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor base_depth stack root_depth
+      logical_len physical_len) :
+    physical_len ≤ subtreeCapacity packing_factor root_depth := by
+  induction h with
+  | empty => simp
+  | single => exact Nat.le_refl _
+  | left child physical_fits ih =>
+    rw [subtreeCapacity_succ]
+    omega
+  | right left depth right_logical right_physical left_dense right
+      right_nonempty right_physical_not_full ih =>
+    rw [subtreeCapacity_succ]
+    omega
+
+theorem BuilderNormalizedStack.raise_left {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))}
+    {depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor base_depth stack depth
+      logical_len physical_len) (extra : Nat) :
+    BuilderNormalizedStack packing_factor base_depth stack (depth + extra)
+      logical_len physical_len := by
+  induction extra with
+  | zero => simpa using h
+  | succ extra ih =>
+    rw [Nat.add_succ]
+    exact BuilderNormalizedStack.left ih ih.physical_le_capacity
+
+/-- An aligned canonical logical stack is already carry-normalized, with
+    physical and logical cursors equal. -/
+theorem BuilderStack.normalized_of_aligned {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {root_depth total : Nat}
+    (hstack : BuilderStack packing_factor base_depth stack root_depth total)
+    (haligned : total % subtreeCapacity packing_factor base_depth = 0) :
+    BuilderNormalizedStack packing_factor base_depth stack root_depth total
+      total := by
+  have hbase_pos := hlayout.subtreeCapacity_pos base_depth
+  induction hstack with
+  | empty depth base_le_depth =>
+    exact BuilderNormalizedStack.empty depth base_le_depth
+  | base entry len dense nonempty =>
+    have hfit := dense.length_le_capacity
+    have hdvd := Nat.dvd_of_mod_eq_zero haligned
+    have hbase_le : subtreeCapacity packing_factor base_depth ≤ len :=
+      Nat.le_of_dvd nonempty hdvd
+    have hlen : len = subtreeCapacity packing_factor base_depth := by omega
+    simpa [hlen] using BuilderNormalizedStack.single
+      (packing_factor := packing_factor) (base_depth := base_depth) entry
+      base_depth len (Nat.le_refl _) dense nonempty
+  | full entry depth base_le_depth dense capacity_nonempty =>
+    exact BuilderNormalizedStack.single entry depth
+      (subtreeCapacity packing_factor depth) base_le_depth dense
+      capacity_nonempty
+  | segment entry depth len base_le_depth dense nonempty
+      full_or_final_partial =>
+    rcases full_or_final_partial with hfull | hpartial
+    · simpa [hfull] using BuilderNormalizedStack.single
+        (packing_factor := packing_factor) (base_depth := base_depth) entry
+        depth len base_le_depth dense nonempty
+    · exact (hpartial.2 haligned).elim
+  | @left child_stack child_depth child_len child_prefix child_fits ih =>
+    exact BuilderNormalizedStack.left (ih haligned) child_fits
+  | @right left right_stack child_depth right_len left_dense right_prefix
+      right_nonempty right_not_full ih =>
+    have hbase_dvd_child :
+        subtreeCapacity packing_factor base_depth ∣
+          subtreeCapacity packing_factor child_depth := by
+      rw [subtreeCapacity_eq_mul_pow_of_le packing_factor
+        right_prefix.base_le_depth]
+      exact dvd_mul_right _ _
+    have htotal_dvd : subtreeCapacity packing_factor base_depth ∣
+        subtreeCapacity packing_factor child_depth + right_len :=
+      Nat.dvd_of_mod_eq_zero haligned
+    have hright_dvd :
+        subtreeCapacity packing_factor base_depth ∣ right_len := by
+      have hsub := Nat.dvd_sub htotal_dvd hbase_dvd_child
+      simpa using hsub
+    have hright_aligned : right_len %
+        subtreeCapacity packing_factor base_depth = 0 :=
+      Nat.mod_eq_zero_of_dvd hright_dvd
+    exact BuilderNormalizedStack.right left child_depth right_len right_len
+      left_dense (ih hright_aligned) right_nonempty right_not_full
+
+theorem BuilderStack.normalized_cursor_of_aligned {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {root_depth total : Nat}
+    (hstack : BuilderStack packing_factor base_depth stack root_depth total)
+    (haligned : total % subtreeCapacity packing_factor base_depth = 0) :
+    ∃ physical_len,
+      BuilderNormalizedStack packing_factor base_depth stack root_depth total
+          physical_len ∧
+        physical_len % subtreeCapacity packing_factor base_depth = 0 ∧
+        total ≤ physical_len ∧
+        physical_len < total + subtreeCapacity packing_factor base_depth := by
+  exact ⟨total, hstack.normalized_of_aligned hlayout haligned, haligned,
+    Nat.le_refl _, by have := hlayout.subtreeCapacity_pos base_depth; omega⟩
+
+theorem BuilderNormalizedStack.rewrap {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack replacement : List (utils.MaybeArced (Tree T))}
+    {root_depth logical_len physical_len : Nat}
+    (hstack : BuilderNormalizedStack packing_factor base_depth stack root_depth
+      logical_len physical_len)
+    (hsame : stack.map maybeArcedTree = replacement.map maybeArcedTree) :
+    BuilderNormalizedStack packing_factor base_depth replacement root_depth
+      logical_len physical_len := by
+  induction hstack generalizing replacement with
+  | empty depth base_le_depth =>
+    have hreplacement : replacement = [] := by simpa using hsame.symm
+    subst replacement
+    exact BuilderNormalizedStack.empty depth base_le_depth
+  | single entry depth len base_le_depth dense nonempty =>
+    cases replacement with
+    | nil => simp at hsame
+    | cons replacement tail =>
+      have hparts : maybeArcedTree entry = maybeArcedTree replacement ∧
+          tail = [] := by simpa using hsame
+      obtain ⟨htree, rfl⟩ := hparts
+      exact BuilderNormalizedStack.single replacement depth len base_le_depth
+        (by simpa [← htree] using dense) nonempty
+  | left child physical_fits ih =>
+    exact BuilderNormalizedStack.left (ih hsame) physical_fits
+  | @right left right_stack depth right_logical right_physical left_dense
+      right right_nonempty right_physical_not_full ih =>
+    cases replacement with
+    | nil => simp at hsame
+    | cons replacement replacement_tail =>
+      have hparts : maybeArcedTree left = maybeArcedTree replacement ∧
+          right_stack.map maybeArcedTree =
+            replacement_tail.map maybeArcedTree := by simpa using hsame
+      obtain ⟨hleft, htail⟩ := hparts
+      exact BuilderNormalizedStack.right replacement depth right_logical
+        right_physical (by simpa [← hleft] using left_dense) (ih htail)
+        right_nonempty right_physical_not_full
 
 private theorem natTrailingZeros_eq_padicValNat :
     ∀ fuel n : Nat, 0 < n → padicValNat 2 n ≤ fuel →
@@ -451,6 +633,24 @@ structure BuilderInvariant {T : Type} (ValueInst : Value T)
   stack_dense : BuilderStack self.packing_factor
     (if self.level.val = 0 then 0 else self.level.val - self.packing_depth.val)
     self.stack.val self.depth.val self.length.val
+  stack_normalized :
+    (self.level.val ≠ 0 ∨
+      self.length.val % subtreeCapacity self.packing_factor
+        (if self.level.val = 0 then 0
+          else self.level.val - self.packing_depth.val) = 0) →
+      ∃ physical_len,
+        BuilderNormalizedStack self.packing_factor
+            (if self.level.val = 0 then 0
+              else self.level.val - self.packing_depth.val)
+            self.stack.val self.depth.val self.length.val physical_len ∧
+          physical_len % subtreeCapacity self.packing_factor
+            (if self.level.val = 0 then 0
+              else self.level.val - self.packing_depth.val) = 0 ∧
+          self.length.val ≤ physical_len ∧
+          physical_len < self.length.val +
+            subtreeCapacity self.packing_factor
+              (if self.level.val = 0 then 0
+                else self.level.val - self.packing_depth.val)
 
 theorem BuilderInvariant.length_le_capacity {T : Type}
     {ValueInst : Value T} {self : builder.Builder T}
@@ -588,7 +788,7 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
             simp [hcapacity] at hnew
             subst self
             refine ⟨PackingLayout.unpacked factor_eq depth_eq, hlevel,
-              hlevel_bound, ?_, ?_⟩
+              hlevel_bound, ?_, ?_, ?_⟩
             · have hsum_val := UScalar.add_equiv depth 0#usize
               rw [hsum] at hsum_val
               have hcapacity_val := usize_shift_left_one_value hcapacity
@@ -599,6 +799,18 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
                 [] depth.val 0
               apply BuilderStack.empty depth.val
               split <;> omega
+            · intro _
+              let base_depth :=
+                if level.val = 0 then 0 else level.val - (0#usize).val
+              have hbase_le : base_depth ≤ depth.val := by
+                dsimp [base_depth]
+                split <;> omega
+              have hnormalized := BuilderNormalizedStack.empty
+                (T := T) (packing_factor := none) depth.val hbase_le
+              refine ⟨0, hnormalized, by simp, by simp, ?_⟩
+              have hpos := PackingLayout.subtreeCapacity_pos
+                (PackingLayout.unpacked factor_eq depth_eq) base_depth
+              simpa [base_depth] using hpos
   | packed factor packing_depth factor_eq depth_eq factor_is_power =>
     simp [builder.Builder.new, depth_eq, factor_eq, lift] at hnew
     cases hmax : MAX_TREE_DEPTH with
@@ -622,7 +834,7 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
             simp [hcapacity] at hnew
             subst self
             refine ⟨PackingLayout.packed factor packing_depth factor_eq
-              depth_eq factor_is_power, hlevel, hlevel_bound, ?_, ?_⟩
+              depth_eq factor_is_power, hlevel, hlevel_bound, ?_, ?_, ?_⟩
             · change capacity.val = subtreeCapacity (some factor) depth.val
               have hsum_val := UScalar.add_equiv depth packing_depth
               rw [hsum] at hsum_val
@@ -636,6 +848,19 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
                   level.val - packing_depth.val) [] depth.val 0
               apply BuilderStack.empty depth.val
               split <;> omega
+            · intro _
+              let base_depth := if level.val = 0 then 0 else
+                level.val - packing_depth.val
+              have hbase_le : base_depth ≤ depth.val := by
+                dsimp [base_depth]
+                split <;> omega
+              have hnormalized := BuilderNormalizedStack.empty
+                (T := T) (packing_factor := some factor) depth.val hbase_le
+              refine ⟨0, hnormalized, by simp, by simp, ?_⟩
+              have hpos := PackingLayout.subtreeCapacity_pos
+                (PackingLayout.packed factor packing_depth factor_eq depth_eq
+                  factor_is_power) base_depth
+              simpa [base_depth] using hpos
 
 /-! ## Value insertion -/
 
@@ -912,6 +1137,10 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
         BuilderStack packing_factor base_depth
           (final_stack ++ [utils.MaybeArced.Unarced final_top]) root_depth
           (total + top_len) ∧
+        BuilderNormalizedStack packing_factor base_depth
+          (final_stack ++ [utils.MaybeArced.Unarced final_top]) root_depth
+          (total + top_len)
+          (total + subtreeCapacity packing_factor base_depth) ∧
         (total + subtreeCapacity packing_factor base_depth =
             subtreeCapacity packing_factor root_depth →
           final_stack = [] ∧ final_depth = root_depth ∧
@@ -925,10 +1154,16 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
     have hraised := hbase.raise_left (depth - base_depth)
     have hdepth : base_depth + (depth - base_depth) = depth := by omega
     rw [hdepth] at hraised
+    have hnormalized_base := BuilderNormalizedStack.single
+      (packing_factor := packing_factor) (base_depth := base_depth)
+      (utils.MaybeArced.Unarced top) base_depth top_len (Nat.le_refl _) htop
+      htop_nonempty
+    have hnormalized := hnormalized_base.raise_left (depth - base_depth)
+    rw [hdepth] at hnormalized
     refine ⟨0, [], top, base_depth, top_len,
       BuilderMergePlan.done [] top base_depth top_len htop htop_nonempty,
       BuilderCarryCount.zero depth base_le_depth,
-      by simpa using hraised, ?_⟩
+      by simpa using hraised, by simpa using hnormalized, ?_⟩
     intro hfilled
     have hroot : base_depth = depth := by
       by_contra hne
@@ -996,12 +1231,19 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
           (utils.MaybeArced.Unarced merged) (base_depth + 1)
           (subtreeCapacity packing_factor base_depth + top_len) (by omega)
           hmerged_dense (by omega) hshape
+        have hnormalized := BuilderNormalizedStack.single
+          (packing_factor := packing_factor) (base_depth := base_depth)
+          (utils.MaybeArced.Unarced merged) (base_depth + 1)
+          (subtreeCapacity packing_factor base_depth + top_len) (by omega)
+          hmerged_dense (by omega)
         exact ⟨1, [], merged, base_depth + 1,
           subtreeCapacity packing_factor base_depth + top_len, by simpa using hplan,
           (by simpa [hchild_full] using
             (BuilderCarryCount.first_merge (packing_factor := packing_factor)
               (base_depth := base_depth))),
-          by simpa [hchild_full] using hcanonical, by
+          by simpa [hchild_full] using hcanonical,
+          by simpa [hchild_full, subtreeCapacity_succ, two_mul] using
+            hnormalized, by
             intro hfilled
             exact ⟨rfl, rfl, by simp [hchild_full]⟩⟩
       · have hdepth_lt : base_depth < child_depth := by
@@ -1017,6 +1259,17 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
           have := child_prefix.base_le_depth
           omega
         rw [hdepth] at hright
+        have hnormalized_base := BuilderNormalizedStack.single
+          (packing_factor := packing_factor) (base_depth := base_depth)
+          (utils.MaybeArced.Unarced top) base_depth top_len (Nat.le_refl _) htop
+          htop_nonempty
+        have hnormalized_right :=
+          hnormalized_base.raise_left (child_depth - base_depth)
+        rw [hdepth] at hnormalized_right
+        have hnormalized := BuilderNormalizedStack.right
+          (base_depth := base_depth) left child_depth top_len
+          (subtreeCapacity packing_factor base_depth) hleft_dense
+          hnormalized_right htop_nonempty hcap_lt
         have hcanonical := BuilderStack.right (base_depth := base_depth) left
           child_depth top_len hleft_dense hright htop_nonempty htop_lt
         have hplan := BuilderMergePlan.done (ValueInst := ValueInst) [left] top
@@ -1025,7 +1278,8 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
           (by simpa [hchild_full] using
             (BuilderCarryCount.enter_right (packing_factor := packing_factor)
               child_depth hdepth_lt)),
-          by simpa [hchild_full] using hcanonical, by
+          by simpa [hchild_full] using hcanonical,
+          by simpa [hchild_full] using hnormalized, by
             intro hfilled
             rw [subtreeCapacity_succ] at hfilled
             omega⟩
@@ -1045,11 +1299,17 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
           subtreeCapacity packing_factor child_depth :=
         aligned_add_le hbase_pos haligned hchild_aligned hchild_lt htop_fit
       obtain ⟨count, final_stack, final_top, final_depth, final_len,
-          hplan, hcarry, hcanonical, hcursor⟩ :=
+          hplan, hcarry, hcanonical, hnormalized, hcursor⟩ :=
         ih htop htop_nonempty haligned hchild_sum htop_fit
+      have hphysical_fits : child_len +
+          subtreeCapacity packing_factor base_depth ≤
+          subtreeCapacity packing_factor child_depth :=
+        aligned_add_le hbase_pos haligned hchild_aligned hchild_lt
+          (Nat.le_refl _)
       exact ⟨count, final_stack, final_top, final_depth, final_len, hplan,
         BuilderCarryCount.inside child_depth child_len count hcarry hchild_lt,
-        BuilderStack.left hcanonical hcanonical.length_le_capacity, by
+        BuilderStack.left hcanonical hcanonical.length_le_capacity,
+        BuilderNormalizedStack.left hnormalized hphysical_fits, by
           intro hfilled
           rw [subtreeCapacity_succ] at hfilled
           have hbase_le_child :
@@ -1081,7 +1341,7 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
       rw [subtreeCapacity_succ] at hfits
       omega
     obtain ⟨count, final_stack, final_top, final_depth, final_len,
-        hplan, hcarry, hright_canonical, hcursor⟩ :=
+        hplan, hcarry, hright_canonical, hright_normalized, hcursor⟩ :=
       ih htop htop_nonempty hright_aligned hright_sum htop_fit
     by_cases hcursor_full : right_len +
         subtreeCapacity packing_factor base_depth =
@@ -1141,11 +1401,18 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
         (subtreeCapacity packing_factor child_depth + (right_len + top_len))
         (by have := right_prefix.base_le_depth; omega) hmerged_dense (by omega)
         hshape
+      have hnormalized := BuilderNormalizedStack.single
+        (packing_factor := packing_factor) (base_depth := base_depth)
+        (utils.MaybeArced.Unarced merged) (child_depth + 1)
+        (subtreeCapacity packing_factor child_depth + (right_len + top_len))
+        (by have := right_prefix.base_le_depth; omega) hmerged_dense (by omega)
       exact ⟨count + 1, [], merged, child_depth + 1,
         subtreeCapacity packing_factor child_depth + (right_len + top_len),
         hcombined, BuilderCarryCount.right_close child_depth right_len count
           hcarry hcursor_full,
-        by simpa [Nat.add_assoc] using hcanonical, by
+        by simpa [Nat.add_assoc] using hcanonical,
+        by simpa [Nat.add_assoc, hcursor_full, subtreeCapacity_succ, two_mul]
+          using hnormalized, by
           intro hfilled
           exact ⟨rfl, rfl, by simp [Nat.add_assoc]⟩⟩
     · have hchild_aligned : subtreeCapacity packing_factor child_depth %
@@ -1168,10 +1435,15 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
       have hcanonical := BuilderStack.right (base_depth := base_depth) left
         child_depth (right_len + top_len) left_dense hright_canonical
         hnew_nonempty hnew_lt
+      have hnormalized := BuilderNormalizedStack.right
+        (base_depth := base_depth) left child_depth (right_len + top_len)
+        (right_len + subtreeCapacity packing_factor base_depth) left_dense
+        hright_normalized hnew_nonempty (by omega)
       exact ⟨count, [left] ++ final_stack, final_top, final_depth, final_len,
         hplan.prepend [left], BuilderCarryCount.right_open child_depth right_len
           count hcarry (by omega),
-        by simpa [Nat.add_assoc] using hcanonical, by
+        by simpa [Nat.add_assoc] using hcanonical,
+        by simpa [Nat.add_assoc] using hnormalized, by
           intro hfilled
           rw [subtreeCapacity_succ] at hfilled
           omega⟩
@@ -1890,7 +2162,7 @@ theorem builder_push_node_preserves_invariant {T : Type}
                     ← BuilderInvariant.builder_capacity_matches hinvariant]
                   exact hnew_le
                 obtain ⟨count, plan_stack, plan_top, plan_depth, plan_len,
-                    hplan, hcarry, hcanonical, _⟩ :=
+                    hplan, hcarry, hcanonical, hnormalized, _⟩ :=
                   BuilderStack.append_subtree
                     (BuilderInvariant.layout hinvariant)
                     (BuilderInvariant.stack_dense hinvariant) hnode hlen
@@ -1923,12 +2195,37 @@ theorem builder_push_node_preserves_invariant {T : Type}
                   apply hcanonical.rewrap
                   rw [hfinal_stack, hloop_stack]
                   simp [hloop_top]
+                have hnormalized_final : BuilderNormalizedStack
+                    self.packing_factor
+                    (if self.level.val = 0 then 0
+                      else self.level.val - self.packing_depth.val)
+                    final_stack.val self.depth.val
+                    (self.length.val + len.val)
+                    (self.length.val + subtreeCapacity self.packing_factor
+                      (if self.level.val = 0 then 0
+                        else self.level.val - self.packing_depth.val)) := by
+                  apply hnormalized.rewrap
+                  rw [hfinal_stack, hloop_stack]
+                  simp [hloop_top]
                 refine ⟨@BuilderInvariant.layout T ValueInst self hinvariant,
                   @BuilderInvariant.level_valid T ValueInst self hinvariant,
                   @BuilderInvariant.level_bounded T ValueInst self hinvariant,
                   @BuilderInvariant.builder_capacity_matches T ValueInst self
-                    hinvariant, ?_⟩
-                simpa [hnew_length] using hcanonical_final
+                    hinvariant, ?_, ?_⟩
+                · simpa [hnew_length] using hcanonical_final
+                · intro _
+                  let base_capacity := subtreeCapacity self.packing_factor
+                    (if self.level.val = 0 then 0
+                      else self.level.val - self.packing_depth.val)
+                  refine ⟨self.length.val + base_capacity, ?_, ?_, ?_, ?_⟩
+                  · simpa [base_capacity, hnew_length] using
+                      hnormalized_final
+                  · simp [base_capacity, Nat.add_mod, haligned]
+                  · have hnode_fit := hnode.length_le_capacity
+                    simp [base_capacity]
+                    omega
+                  · simp [base_capacity]
+                    omega
 
 private theorem push_loop1_eq_loop0 {T : Type} (ValueInst : Value T)
     (iter : core.ops.range.Range Std.U32)
@@ -2065,8 +2362,15 @@ theorem builder_push_preserves_invariant {T : Type}
               refine ⟨hlayout,
                 @BuilderInvariant.level_valid T ValueInst self hinvariant,
                 @BuilderInvariant.level_bounded T ValueInst self hinvariant,
-                hcapacity, ?_⟩
-              simpa [hlevel, hresult_length] using hresult_stack
+                hcapacity, ?_, ?_⟩
+              · simpa [hlevel, hresult_length] using hresult_stack
+              · intro hready
+                rcases hready with hlevel_ne | haligned
+                · exact (hlevel_ne hlevel).elim
+                · have hcursor :=
+                    hresult_stack.normalized_cursor_of_aligned hlayout
+                      (by simpa [hlevel, hresult_length] using haligned)
+                  simpa [hlevel, hresult_length] using hcursor
       | some factor =>
         rw [hfactor] at hpush
         cases hmultiple : core.num.Usize.is_multiple_of self.length factor with
@@ -2331,8 +2635,16 @@ theorem builder_push_preserves_invariant {T : Type}
                                 @BuilderInvariant.level_valid T ValueInst self
                                   hinvariant,
                                 @BuilderInvariant.level_bounded T ValueInst
-                                  self hinvariant, hcapacity, ?_⟩
-                              simpa [hlevel, hresult.2] using hresult.1
+                                  self hinvariant, hcapacity, ?_, ?_⟩
+                              · simpa [hlevel, hresult.2] using hresult.1
+                              · intro hready
+                                rcases hready with hlevel_ne | haligned
+                                · exact (hlevel_ne hlevel).elim
+                                · have hcursor :=
+                                    hresult.1.normalized_cursor_of_aligned
+                                      hlayout (by simpa [hlevel, hresult.2]
+                                        using haligned)
+                                  simpa [hlevel, hresult.2] using hcursor
           | true =>
             simp only [↓reduceIte] at hpush
             cases hsingle : packed_leaf.PackedLeaf.single
@@ -2446,7 +2758,14 @@ theorem builder_push_preserves_invariant {T : Type}
                   refine ⟨hlayout,
                     @BuilderInvariant.level_valid T ValueInst self hinvariant,
                     @BuilderInvariant.level_bounded T ValueInst self
-                      hinvariant, hcapacity, ?_⟩
-                  simpa [hlevel, hresult.2] using hresult.1
+                      hinvariant, hcapacity, ?_, ?_⟩
+                  · simpa [hlevel, hresult.2] using hresult.1
+                  · intro hready
+                    rcases hready with hlevel_ne | haligned
+                    · exact (hlevel_ne hlevel).elim
+                    · have hcursor :=
+                        hresult.1.normalized_cursor_of_aligned hlayout
+                          (by simpa [hlevel, hresult.2] using haligned)
+                      simpa [hlevel, hresult.2] using hcursor
 
 end milhouse.tree
