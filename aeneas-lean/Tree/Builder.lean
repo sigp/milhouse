@@ -1099,6 +1099,30 @@ private theorem push_loop0_step {T : Type} (ValueInst : Value T)
       rfl
     | done result => simp [hbody]
 
+private theorem push_node_loop_step {T : Type} (ValueInst : Value T)
+    (iter : core.ops.range.Range Std.U32)
+    (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+    (top : utils.MaybeArced (Tree T)) :
+    builder.Builder.push_node_loop ValueInst iter stack top =
+      match builder.Builder.push_node_loop.body ValueInst iter stack top with
+      | ok (.cont (iter1, stack1, top1)) =>
+        builder.Builder.push_node_loop ValueInst iter1 stack1 top1
+      | ok (.done result) => ok result
+      | fail error => fail error
+      | div => div := by
+  conv_lhs => unfold builder.Builder.push_node_loop
+  conv_lhs => unfold Aeneas.Std.loop
+  cases hbody : builder.Builder.push_node_loop.body ValueInst iter stack top with
+  | fail error => simp [hbody]
+  | div => simp [hbody]
+  | ok flow =>
+    cases flow with
+    | cont state =>
+      obtain ⟨iter1, stack1, top1⟩ := state
+      simp [hbody]
+      rfl
+    | done result => simp [hbody]
+
 private theorem range_u32_next_none
     (iter : core.ops.range.Range Std.U32)
     (hge : iter.start.val ≥ iter.end.val) :
@@ -1221,6 +1245,63 @@ private theorem push_loop0_follows_merge_plan {T : Type}
     · have hend_value := congrArg UScalar.val hend
       omega
     · exact hrest
+    · exact hloop
+
+private theorem push_node_loop_follows_merge_plan {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {count : Nat} {input_stack : List (utils.MaybeArced (Tree T))}
+    {input_top : Tree T}
+    {final_stack : List (utils.MaybeArced (Tree T))}
+    {final_top : Tree T} {final_depth final_len : Nat}
+    (hplan : BuilderMergePlan ValueInst packing_factor count input_stack
+      input_top final_stack final_top final_depth final_len) :
+    ∀ (iter : core.ops.range.Range Std.U32)
+      (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+      (top : utils.MaybeArced (Tree T))
+      (result_stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+      (result_top : utils.MaybeArced (Tree T)),
+      iter.end.val = iter.start.val + count →
+      stack.val = input_stack →
+      maybeArcedTree top = input_top →
+      builder.Builder.push_node_loop ValueInst iter stack top =
+        ok (result_stack, result_top) →
+      result_stack.val = final_stack ∧
+        maybeArcedTree result_top = final_top := by
+  induction hplan with
+  | done plan_stack plan_top depth len top_dense top_nonempty =>
+    intro iter stack top result_stack result_top hremaining hstack htop hloop
+    have hge : iter.start.val ≥ iter.end.val := by omega
+    have hnext := range_u32_next_none iter hge
+    rw [push_node_loop_step] at hloop
+    unfold builder.Builder.push_node_loop.body at hloop
+    simp only [hnext, bind_tc_ok] at hloop
+    obtain ⟨rfl, rfl⟩ := hloop
+    exact ⟨hstack, htop⟩
+  | @step base_stack left plan_top merged depth top_len remaining_count
+      final_stack final_top final_depth final_len left_dense top_dense
+      top_nonempty merge_eq remaining ih =>
+    intro iter stack top result_stack result_top hremaining hstack htop hloop
+    have hlt : iter.start.val < iter.end.val := by omega
+    obtain ⟨iter1, hnext, hstart, hend⟩ := range_u32_next_some iter hlt
+    have hbound : (base_stack ++ [left]).length ≤ Usize.max := by
+      simpa [hstack] using stack.property
+    let source : alloc.vec.Vec (utils.MaybeArced (Tree T)) :=
+      ⟨base_stack ++ [left], hbound⟩
+    have hsource : stack = source := by
+      apply Subtype.ext
+      simpa [source] using hstack
+    subst stack
+    obtain ⟨rest, hpop, hrest⟩ :=
+      vec_pop_append_last (A := Global) source base_stack left rfl
+    rw [push_node_loop_step] at hloop
+    unfold builder.Builder.push_node_loop.body at hloop
+    simp [hnext, hpop, maybeArced_arced, htop, merge_eq] at hloop
+    apply ih iter1 rest (utils.MaybeArced.Unarced merged) result_stack
+      result_top
+    · have hend_value := congrArg UScalar.val hend
+      omega
+    · exact hrest
+    · rfl
     · exact hloop
 
 private theorem push_loop1_eq_loop0 {T : Type} (ValueInst : Value T)
