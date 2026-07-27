@@ -17,6 +17,12 @@ def maybeArcedTree {T : Type} : utils.MaybeArced (Tree T) → Tree T
   | .Arced tree => tree
   | .Unarced tree => tree
 
+@[simp] theorem maybeArcedTree_arced {T : Type} (tree : Tree T) :
+    maybeArcedTree (utils.MaybeArced.Arced tree) = tree := rfl
+
+@[simp] theorem maybeArcedTree_unarced {T : Type} (tree : Tree T) :
+    maybeArcedTree (utils.MaybeArced.Unarced tree) = tree := rfl
+
 @[simp]
 theorem maybeArced_arced {T : Type} (entry : utils.MaybeArced (Tree T)) :
     utils.MaybeArced.arced entry = ok (maybeArcedTree entry) := by
@@ -228,5 +234,247 @@ theorem packedLeaf_push_preserves_dense {T : Type} (ValueInst : Value T)
           ({ hash := leaf.hash, values := values } : packed_leaf.PackedLeaf T)
           (by simp [hlength]) (by simp [hlength]; omega)
         simpa [hlength] using hnew
+
+/-- A proof-relevant description of the full subtrees consumed by a builder
+    carry. Each step removes the final stack entry, combines two equally deep
+    full trees, and continues with the resulting full parent. -/
+inductive BuilderMergePlan {T : Type} (ValueInst : Value T)
+    (packing_factor : Option Std.Usize) :
+    Nat → List (utils.MaybeArced (Tree T)) → Tree T →
+      List (utils.MaybeArced (Tree T)) → Tree T → Nat → Prop where
+  | done (stack : List (utils.MaybeArced (Tree T))) (top : Tree T)
+      (depth : Nat)
+      (top_dense : DenseTree packing_factor top depth
+        (subtreeCapacity packing_factor depth)) :
+      BuilderMergePlan ValueInst packing_factor 0 stack top stack top depth
+  | step (base_stack : List (utils.MaybeArced (Tree T)))
+      (left : utils.MaybeArced (Tree T)) (top merged : Tree T)
+      (depth count : Nat)
+      {final_stack : List (utils.MaybeArced (Tree T))}
+      {final_top : Tree T} {final_depth : Nat}
+      (left_dense : DenseTree packing_factor (maybeArcedTree left) depth
+        (subtreeCapacity packing_factor depth))
+      (top_dense : DenseTree packing_factor top depth
+        (subtreeCapacity packing_factor depth))
+      (merge_eq : Tree.node_unboxed ValueInst (maybeArcedTree left) top =
+        ok merged)
+      (remaining : BuilderMergePlan ValueInst packing_factor count base_stack
+        merged final_stack final_top final_depth) :
+      BuilderMergePlan ValueInst packing_factor (count + 1)
+        (base_stack ++ [left]) top final_stack final_top final_depth
+
+theorem BuilderMergePlan.final_dense {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {count : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {top : Tree T}
+    {final_stack : List (utils.MaybeArced (Tree T))}
+    {final_top : Tree T} {final_depth : Nat}
+    (h : BuilderMergePlan ValueInst packing_factor count stack top final_stack
+      final_top final_depth) :
+    DenseTree packing_factor final_top final_depth
+      (subtreeCapacity packing_factor final_depth) := by
+  induction h with
+  | done stack top depth top_dense => exact top_dense
+  | step base_stack left top merged depth count left_dense top_dense merge_eq
+      remaining ih =>
+    exact ih
+
+private theorem vec_pop_append_last {A X : Type}
+    (source : alloc.vec.Vec X) (items : List X) (last : X)
+    (hsource : source.val = items ++ [last]) :
+    ∃ rest : alloc.vec.Vec X,
+      alloc.vec.Vec.pop A source = ok (some last, rest) ∧
+        rest.val = items := by
+  have bound : (items ++ [last]).length ≤ Usize.max := by
+    simpa [hsource] using source.property
+  let explicit : alloc.vec.Vec X := ⟨items ++ [last], bound⟩
+  have hexplicit : source = explicit := by
+    apply Subtype.ext
+    simpa [explicit] using hsource
+  subst source
+  let rest : alloc.vec.Vec X := ⟨items, by
+    have hle : items.length ≤ (items ++ [last]).length := by simp
+    exact hle.trans bound⟩
+  refine ⟨rest, ?_, rfl⟩
+  have hreverse : (items ++ [last]).reverse = last :: items.reverse := by simp
+  unfold alloc.vec.Vec.pop
+  split
+  · rename_i hempty
+    rw [hreverse] at hempty
+    simp at hempty
+  · rename_i head tail hcons
+    rw [hreverse] at hcons
+    cases hcons
+    simp [rest]
+
+private theorem vec_push_values {X : Type} (items : alloc.vec.Vec X) (last : X)
+    {result : alloc.vec.Vec X}
+    (h : alloc.vec.Vec.push items last = ok result) :
+    result.val = items.val ++ [last] := by
+  unfold alloc.vec.Vec.push at h
+  simp at h
+  grind
+
+private theorem push_loop0_step {T : Type} (ValueInst : Value T)
+    (iter : core.ops.range.Range Std.U32)
+    (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+    (length : utils.Length) (top : Tree T) :
+    builder.Builder.push_loop0 ValueInst iter stack length top =
+      match builder.Builder.push_loop0.body ValueInst length iter stack top with
+      | ok (.cont (iter1, stack1, top1)) =>
+        builder.Builder.push_loop0 ValueInst iter1 stack1 length top1
+      | ok (.done result) => ok result
+      | fail error => fail error
+      | div => div := by
+  conv_lhs => unfold builder.Builder.push_loop0
+  conv_lhs => unfold Aeneas.Std.loop
+  cases hbody : builder.Builder.push_loop0.body ValueInst length iter stack top with
+  | fail error => simp [hbody]
+  | div => simp [hbody]
+  | ok flow =>
+    cases flow with
+    | cont state =>
+      obtain ⟨iter1, stack1, top1⟩ := state
+      simp [hbody]
+      rfl
+    | done result => simp [hbody]
+
+private theorem range_u32_next_none
+    (iter : core.ops.range.Range Std.U32)
+    (hge : iter.start.val ≥ iter.end.val) :
+    core.iter.range.IteratorRange.next core.iter.range.StepU32 iter =
+      ok (none, iter) := by
+  have hspec :
+      core.iter.range.IteratorRange.next core.iter.range.StepU32 iter
+        ⦃ option iter1 => option = none ∧ iter1 = iter ⦄ :=
+    core.iter.range.IteratorRange.next_UScalar_none_spec
+      (ty := .U32) (by intros; rfl) iter hge
+  cases hnext : core.iter.range.IteratorRange.next core.iter.range.StepU32 iter with
+  | fail error => rw [hnext] at hspec; simp at hspec
+  | div => rw [hnext] at hspec; simp at hspec
+  | ok result =>
+    rw [hnext] at hspec
+    simp at hspec
+    obtain ⟨option, iter1⟩ := result
+    change option = none ∧ iter1 = iter at hspec
+    obtain ⟨rfl, rfl⟩ := hspec
+    rfl
+
+private theorem range_u32_next_some
+    (iter : core.ops.range.Range Std.U32)
+    (hlt : iter.start.val < iter.end.val) :
+    ∃ iter1,
+      core.iter.range.IteratorRange.next core.iter.range.StepU32 iter =
+        ok (some iter.start, iter1) ∧
+      iter1.start.val = iter.start.val + 1 ∧ iter1.end = iter.end := by
+  have hspec :
+      core.iter.range.IteratorRange.next core.iter.range.StepU32 iter
+        ⦃ option iter1 => option = some iter.start ∧
+          iter1.start.val = iter.start.val + 1 ∧ iter1.end = iter.end ⦄ :=
+    core.iter.range.IteratorRange.next_UScalar_some_spec
+      (ty := .U32) (by intros; rfl) (by intros; rfl) iter hlt
+  cases hnext : core.iter.range.IteratorRange.next core.iter.range.StepU32 iter with
+  | fail error => rw [hnext] at hspec; simp at hspec
+  | div => rw [hnext] at hspec; simp at hspec
+  | ok result =>
+    rw [hnext] at hspec
+    simp at hspec
+    obtain ⟨option, iter1⟩ := result
+    change option = some iter.start ∧
+      iter1.start.val = iter.start.val + 1 ∧ iter1.end = iter.end at hspec
+    obtain ⟨rfl, hstart, hend⟩ := hspec
+    exact ⟨iter1, by simp, hstart, hend⟩
+
+private theorem usize_add_one_value {value next : Std.Usize}
+    (h : value + 1#usize = ok next) : next.val = value.val + 1 := by
+  have hadd := UScalar.add_equiv value 1#usize
+  rw [h] at hadd
+  simp at hadd
+  omega
+
+private theorem push_loop0_follows_merge_plan {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {count : Nat} {input_stack : List (utils.MaybeArced (Tree T))}
+    {input_top : Tree T}
+    {final_stack : List (utils.MaybeArced (Tree T))}
+    {final_top : Tree T} {final_depth : Nat}
+    (hplan : BuilderMergePlan ValueInst packing_factor count input_stack
+      input_top final_stack final_top final_depth) :
+    ∀ (iter : core.ops.range.Range Std.U32)
+      (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+      (length : utils.Length)
+      (result_stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+      (result_length : utils.Length),
+      iter.end.val = iter.start.val + count →
+      stack.val = input_stack →
+      builder.Builder.push_loop0 ValueInst iter stack length input_top =
+        ok (core.result.Result.Ok (), result_stack, result_length) →
+      result_stack.val = final_stack ++
+          [utils.MaybeArced.Unarced final_top] ∧
+        result_length.val = length.val + 1 := by
+  induction hplan with
+  | done plan_stack top depth top_dense =>
+    intro iter stack length result_stack result_length hremaining hstack hloop
+    have hge : iter.start.val ≥ iter.end.val := by omega
+    have hnext := range_u32_next_none iter hge
+    rw [push_loop0_step] at hloop
+    unfold builder.Builder.push_loop0.body at hloop
+    simp only [hnext, bind_tc_ok] at hloop
+    cases hpush : alloc.vec.Vec.push stack (utils.MaybeArced.Unarced top) with
+    | fail error => simp [hpush] at hloop
+    | div => simp [hpush] at hloop
+    | ok pushed =>
+      rw [hpush] at hloop
+      simp only [bind_tc_ok] at hloop
+      cases hadd : length + 1#usize with
+      | fail error => simp [utils.Length.as_mut, hadd] at hloop
+      | div => simp [utils.Length.as_mut, hadd] at hloop
+      | ok next_length =>
+        simp [utils.Length.as_mut, hadd] at hloop
+        obtain ⟨rfl, rfl⟩ := hloop
+        have hpushed := vec_push_values stack
+          (utils.MaybeArced.Unarced top) hpush
+        exact ⟨by simpa [hstack] using hpushed, usize_add_one_value hadd⟩
+  | @step base_stack left top merged depth remaining_count final_stack
+      final_top final_depth left_dense top_dense merge_eq remaining ih =>
+    intro iter stack length result_stack result_length hremaining hstack hloop
+    have hlt : iter.start.val < iter.end.val := by omega
+    obtain ⟨iter1, hnext, hstart, hend⟩ := range_u32_next_some iter hlt
+    have hbound : (base_stack ++ [left]).length ≤ Usize.max := by
+      simpa [hstack] using stack.property
+    let source : alloc.vec.Vec (utils.MaybeArced (Tree T)) :=
+      ⟨base_stack ++ [left], hbound⟩
+    have hsource : stack = source := by
+      apply Subtype.ext
+      simpa [source] using hstack
+    subst stack
+    obtain ⟨rest, hpop, hrest⟩ :=
+      vec_pop_append_last (A := Global) source base_stack left rfl
+    rw [push_loop0_step] at hloop
+    unfold builder.Builder.push_loop0.body at hloop
+    simp [hnext, hpop, core.option.Option.ok_or,
+      core.result.Result.Insts.CoreOpsTry.branch,
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+      maybeArced_arced, merge_eq] at hloop
+    apply ih iter1 rest length result_stack result_length
+    · have hend_value := congrArg UScalar.val hend
+      omega
+    · exact hrest
+    · exact hloop
+
+private theorem push_loop1_eq_loop0 {T : Type} (ValueInst : Value T)
+    (iter : core.ops.range.Range Std.U32)
+    (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+    (length : utils.Length) (top : Tree T) :
+    builder.Builder.push_loop1 ValueInst iter stack length top =
+      builder.Builder.push_loop0 ValueInst iter stack length top := by
+  rfl
+
+private theorem push_loop2_eq_loop0 {T : Type} (ValueInst : Value T)
+    (iter : core.ops.range.Range Std.U32)
+    (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+    (length : utils.Length) (top : Tree T) :
+    builder.Builder.push_loop2 ValueInst iter stack length top =
+      builder.Builder.push_loop0 ValueInst iter stack length top := by
+  rfl
 
 end milhouse.tree
