@@ -881,6 +881,21 @@ theorem BuilderInvariant.base_capacity_eq_pow_level {T : Type}
     congr 1
     omega
 
+theorem BuilderInvariant.depth_packing_lt_bits {T : Type}
+    {ValueInst : Value T} {self : builder.Builder T}
+    (h : BuilderInvariant ValueInst self) :
+    self.depth.val + self.packing_depth.val < System.Platform.numBits := by
+  have hcapacity := BuilderInvariant.builder_capacity_matches h
+  rw [(BuilderInvariant.layout h).subtreeCapacity_eq_two_pow] at hcapacity
+  have hbound : self.capacity.val < 2 ^ System.Platform.numBits := by
+    simpa using self.capacity.hBounds
+  rw [hcapacity] at hbound
+  by_contra hnot_lt
+  have hpow_le : 2 ^ System.Platform.numBits ≤
+      2 ^ (self.packing_depth.val + self.depth.val) :=
+    Nat.pow_le_pow_right (by omega) (by omega)
+  omega
+
 private theorem usize_checked_add_value {left right sum : Std.Usize}
     (h : Usize.checked_add left right = some sum) :
     sum.val = left.val + right.val := by
@@ -927,6 +942,33 @@ private theorem usize_add_value {left right sum : Std.Usize}
   have hadd := UScalar.add_equiv left right
   rw [h] at hadd
   exact hadd.2.1
+
+private theorem usize_saturating_add_value (left right : Std.Usize)
+    (hfit : left.val + right.val ≤ Usize.max) :
+    (core.num.Usize.saturating_add left right).val =
+      left.val + right.val := by
+  unfold core.num.Usize.saturating_add UScalar.saturating_add
+  unfold UScalar.val
+  have hfit' : left.bv.toNat + right.bv.toNat ≤
+      UScalar.max UScalarTy.Usize := by
+    rw [UScalar.max_USize_eq]
+    exact hfit
+  rw [min_eq_right hfit', BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
+  have hmax_lt : Usize.max < 2 ^ System.Platform.numBits := by
+    native_decide
+  have hmax_lt' : UScalar.max UScalarTy.Usize <
+      2 ^ UScalarTy.Usize.numBits := by
+    rw [UScalar.max_USize_eq]
+    exact hmax_lt
+  exact hfit'.trans_lt hmax_lt'
+
+private theorem usize_saturating_sub_value (left right : Std.Usize) :
+    (core.num.Usize.saturating_sub left right).val =
+      left.val - right.val := by
+  unfold core.num.Usize.saturating_sub UScalar.saturating_sub
+  unfold UScalar.val
+  rw [max_eq_right (Nat.zero_le _), BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
+  exact (Nat.sub_le left.val right.val).trans_lt left.hBounds
 
 private theorem u32_saturating_sub_value (left right : Std.U32) :
     (core.num.U32.saturating_sub left right).val = left.val - right.val := by
@@ -1486,6 +1528,78 @@ theorem BuilderCarryCount.finish_merge_bits {T : Type} {ValueInst : Value T}
     · exact Or.inr (by
         rw [finish_cursor_shift hlayout htotal hphysical]
         exact hstop_bit)
+
+private theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth level next_index : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {top_depth root_depth total count physical : Nat}
+    (hcarry : BuilderCarryCount packing_factor (top_depth + 1) root_depth
+      total count)
+    (hphysical : physical =
+      total + subtreeCapacity packing_factor top_depth)
+    (hcursor : physical = next_index.val * 2 ^ level.val)
+    (hlevel : level.val ≤ top_depth + packing_depth.val)
+    (hroot_bits : root_depth + packing_depth.val <
+      System.Platform.numBits)
+    {zeros : Std.U32}
+    (hzeros : core.num.Usize.trailing_zeros next_index = ok zeros) :
+    (core.num.Usize.saturating_sub
+      (core.num.Usize.saturating_add (UScalar.cast .Usize zeros) level)
+      packing_depth).val = top_depth := by
+  obtain ⟨units, htotal, hcount⟩ := hcarry.eq_padic_units hlayout
+  have htop := hlayout.subtreeCapacity_eq_two_pow top_depth
+  have hparent := hlayout.subtreeCapacity_eq_two_pow (top_depth + 1)
+  let exponent := top_depth + packing_depth.val
+  have hphysical_value : physical = 2 ^ exponent * (2 * units + 1) := by
+    rw [hphysical, htotal, htop, hparent]
+    have htop_exponent : packing_depth.val + top_depth = exponent := by
+      dsimp [exponent]
+      omega
+    have hparent_exponent : packing_depth.val + (top_depth + 1) =
+        exponent + 1 := by
+      dsimp [exponent]
+      omega
+    rw [htop_exponent, hparent_exponent, pow_succ]
+    ring
+  have hphysical_val : padicValNat 2 physical = exponent := by
+    rw [hphysical_value, padicValNat.mul (by positivity) (by omega),
+      padicValNat.prime_pow]
+    have hodd : ¬2 ∣ 2 * units + 1 := by omega
+    rw [padicValNat.eq_zero_of_not_dvd hodd]
+    simp
+  have hnext_pos : 0 < next_index.val := by
+    have hphysical_pos : 0 < physical := by
+      rw [hphysical_value]
+      positivity
+    by_contra hnot_pos
+    have hzero : next_index.val = 0 := by omega
+    rw [hcursor, hzero] at hphysical_pos
+    simp at hphysical_pos
+  have hcursor_val : padicValNat 2 physical =
+      padicValNat 2 next_index.val + level.val := by
+    rw [hcursor, padicValNat.mul (by omega) (by positivity),
+      padicValNat.prime_pow]
+  have hzeros_value := usize_trailing_zeros_padic hnext_pos hzeros
+  have hsum : zeros.val + level.val = exponent := by omega
+  have hcast : (UScalar.cast .Usize zeros).val = zeros.val := by
+    rw [UScalar.cast_val_eq]
+    apply Nat.mod_eq_of_lt
+    exact zeros.hBounds.trans_le (by native_decide)
+  have htop_lt : top_depth < root_depth := by
+    have hcount_bound := hcarry.count_le_depth_sub
+    have hbase := hcarry.base_le_depth
+    omega
+  have hexponent_bits : exponent < System.Platform.numBits := by
+    dsimp [exponent]
+    omega
+  have hadd_fit : (UScalar.cast .Usize zeros).val + level.val ≤ Usize.max := by
+    rw [hcast, hsum]
+    have hbits_le_max : System.Platform.numBits ≤ Usize.max := by native_decide
+    omega
+  rw [usize_saturating_sub_value,
+    usize_saturating_add_value _ _ hadd_fit, hcast, hsum]
+  dsimp [exponent]
+  omega
 
 /-- Appending one nonempty dense subtree at the builder's base depth produces
     a merge plan and the canonical stack for the extended prefix. Alignment
