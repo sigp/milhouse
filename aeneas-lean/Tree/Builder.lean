@@ -1546,6 +1546,57 @@ theorem BuilderCarryCount.finish_merge_bits {T : Type} {ValueInst : Value T}
         rw [finish_cursor_shift hlayout htotal hphysical]
         exact hstop_bit)
 
+private theorem finish_partial_cursor_shift {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {total top_len cursor units offset : Nat}
+    (htotal : total = subtreeCapacity packing_factor 0 * units)
+    (hcursor : cursor = total + top_len)
+    (htop_partial : top_len < subtreeCapacity packing_factor 0) :
+    cursor >>> (offset + packing_depth.val) = units >>> offset := by
+  have hcapacity : subtreeCapacity packing_factor 0 =
+      2 ^ packing_depth.val := by
+    simpa using hlayout.subtreeCapacity_eq_two_pow 0
+  have hbase_shift : cursor >>> packing_depth.val = units := by
+    rw [Nat.shiftRight_eq_div_pow, hcursor, htotal, hcapacity,
+      Nat.mul_add_div (Nat.two_pow_pos packing_depth.val),
+      Nat.div_eq_of_lt (by simpa [hcapacity] using htop_partial)]
+    simp
+  rw [show offset + packing_depth.val = packing_depth.val + offset by omega,
+    Nat.shiftRight_add, hbase_shift]
+
+/-- When the final packed leaf is partial, its low bits do not affect the
+    binary carry schedule above the packing boundary. -/
+theorem BuilderCarryCount.finish_partial_merge_bits {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {root_depth total count top_len cursor : Nat}
+    (hcarry : BuilderCarryCount packing_factor 0 root_depth total count)
+    (hcursor : cursor = total + top_len)
+    (htop_partial : top_len < subtreeCapacity packing_factor 0) :
+    BuilderMergeBits cursor 0 count root_depth packing_depth.val := by
+  obtain ⟨units, htotal, hcount⟩ := hcarry.eq_padic_units hlayout
+  obtain ⟨hstop_bit, hmerge_bits⟩ :=
+    nat_bits_of_padic_succ count units hcount
+  refine ⟨?_, ?_⟩
+  · intro offset hoffset
+    constructor
+    · have hcount_bound := hcarry.count_le_depth_sub
+      omega
+    · rw [show 0 + offset + packing_depth.val =
+          offset + packing_depth.val by omega,
+        finish_partial_cursor_shift hlayout htotal hcursor htop_partial]
+      exact hmerge_bits offset hoffset
+  · by_cases hroot : count ≥ root_depth
+    · exact Or.inl (by omega)
+    · exact Or.inr (by
+        rw [show 0 + count + packing_depth.val =
+            count + packing_depth.val by omega,
+          finish_partial_cursor_shift hlayout htotal hcursor htop_partial]
+        exact hstop_bit)
+
 private theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
     {packing_factor : Option Std.Usize} {packing_depth level next_index : Std.Usize}
     (hlayout : PackingLayout ValueInst packing_factor packing_depth)
