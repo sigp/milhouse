@@ -111,6 +111,21 @@ axiom core.mem.size_of.usize_spec :
 def core.num.Usize.trailing_zeros (x : Std.Usize) : Result Std.U32 :=
   ok ⟨ BitVec.ofNat _ (TreeAux.bvTrailingZeros x.bv) ⟩
 
+/-- [core::num::{usize}::pow]: natural-number exponentiation, failing on
+    machine-word overflow as Rust does in this build. -/
+@[rust_fun "core::num::{usize}::pow"]
+def core.num.Usize.pow (x : Std.Usize) (n : Std.U32) : Result Std.Usize :=
+  UScalar.tryMk .Usize (x.val ^ n.val)
+
+/-- [core::num::{usize}::div_ceil]: ceiling division, failing on a zero
+    divisor. The quotient-plus-remainder form avoids intermediate overflow. -/
+@[rust_fun "core::num::{usize}::div_ceil"]
+def core.num.Usize.div_ceil (x y : Std.Usize) : Result Std.Usize :=
+  if y.val = 0 then fail divisionByZero
+  else
+    UScalar.tryMk .Usize
+      (x.val / y.val + if x.val % y.val = 0 then 0 else 1)
+
 /-- [core::num::{usize}::checked_next_power_of_two]:
     `Nat.nextPowerOfTwo` matches Rust's semantics (including `0 → 1`);
     `none` on overflow. -/
@@ -335,6 +350,31 @@ def alloc.collections.btree.map.BTreeMap.get
         | Ordering.eq => ok true
         | _ => ok false)
       m q
+
+/-! ## alloc::vec -/
+
+/-- [alloc::vec::{alloc::vec::Vec<T>}::pop]: remove and return the final
+    element, leaving an empty vector unchanged. The allocator parameter is
+    operationally irrelevant in the pure model. -/
+@[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::pop"]
+def alloc.vec.Vec.pop
+  {T : Type} (A : Type) (v : alloc.vec.Vec T) :
+  Result ((Option T) × (alloc.vec.Vec T)) :=
+  match h : v.val.reverse with
+  | [] => ok (none, v)
+  | x :: xs =>
+    ok (some x, ⟨ xs.reverse, by
+      have hv := v.property
+      have hl : xs.length < v.val.length := by simp_all
+      have hl' : xs.reverse.length ≤ v.val.length := by
+        simpa using Nat.le_of_lt hl
+      exact hl'.trans hv ⟩)
+
+/-- [alloc::vec::{alloc::vec::Vec<T>}::is_empty]. -/
+@[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::is_empty"]
+def alloc.vec.Vec.is_empty
+  {T : Type} (A : Type) (v : alloc.vec.Vec T) : Result Bool :=
+  ok v.val.isEmpty
 
 /-! ## alloy_primitives (Hash256 = FixedBytes 32) -/
 

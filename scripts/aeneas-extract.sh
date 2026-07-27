@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Extract the core tree types to Lean via Charon + Aeneas.
+# Extract the core tree and builder types to Lean via Charon + Aeneas.
 #
 # Produces `tree.llbc` (Charon's LLBC dump) and regenerates the generated
 # files in `aeneas-lean/Tree/` (the hand-written `TypesExternal.lean` and
@@ -33,6 +33,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
 
 "$CHARON" cargo --preset=aeneas \
     --start-from 'milhouse::tree' \
+    --start-from 'milhouse::builder' \
     --opaque 'ethereum_hashing' \
     --opaque 'tree_hash' \
     --opaque 'ssz' \
@@ -41,6 +42,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --opaque 'milhouse::serde' \
     --exclude 'milhouse::tree::_::tree_hash' \
     --exclude 'milhouse::update_map::UpdateMap::is_empty' \
+    --exclude 'milhouse::builder::{impl core::fmt::Debug for milhouse::builder::Builder<_>}' \
     --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
     --exclude 'milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<_>> for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \

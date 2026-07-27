@@ -209,27 +209,112 @@ def parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend :
     parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend.unlock_exclusive
 }
 
-/-- [milhouse::leaf::{impl core::clone::Clone for milhouse::leaf::Leaf<T>}::clone]:
-    Source: 'src/leaf.rs', lines 21:4-26:5
+/-- [milhouse::utils::opt_packing_factor]:
+    Source: 'src/utils.rs', lines 67:0-72:1
     Visibility: public -/
-def leaf.Leaf.Insts.CoreCloneClone.clone
-  {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : leaf.Leaf T) :
-  Result (leaf.Leaf T)
+def utils.opt_packing_factor
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) :
+  Result (Option Std.Usize)
   := do
-  let rlrg ←
-    lock_api.rwlock.RwLock.read
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      self.hash
-  let fb ←
-    lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      rlrg
-  let rl ←
-    lock_api.rwlock.RwLock.new
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      fb
-  let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone self.value
-  ok { hash := rl, value := a }
+  let tht ← tree_hashTreeHashInst.tree_hash_type
+  match tht with
+  | tree_hash.TreeHashType.Basic =>
+    let i ← tree_hashTreeHashInst.tree_hash_packing_factor
+    ok (some i)
+  | tree_hash.TreeHashType.Vector => ok none
+  | tree_hash.TreeHashType.List => ok none
+  | tree_hash.TreeHashType.Container => ok none
+
+/-- [milhouse::utils::int_log]:
+    Source: 'src/utils.rs', lines 42:0-47:1
+    Visibility: public -/
+def utils.int_log (n : Std.Usize) : Result Std.Usize := do
+  let o ← core.num.Usize.checked_next_power_of_two n
+  match o with
+  | none => let i ← core.mem.size_of Std.Usize
+            8#usize * i
+  | some x =>
+    let i ← core.num.Usize.trailing_zeros x
+    ok (UScalar.cast .Usize i)
+
+/-- [milhouse::utils::opt_packing_depth]:
+    Source: 'src/utils.rs', lines 75:0-78:1
+    Visibility: public -/
+def utils.opt_packing_depth
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) :
+  Result (Option Std.Usize)
+  := do
+  let o ← utils.opt_packing_factor tree_hashTreeHashInst
+  let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue val =>
+    let i ← utils.int_log val
+    ok (some i)
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+      Std.Usize residual
+
+/-- [milhouse::MAX_TREE_DEPTH]
+    Source: 'src/lib.rs', lines 43:0-43:57
+    Visibility: public -/
+@[global_simps, irreducible]
+def MAX_TREE_DEPTH : Result Std.Usize := do
+  let i ← lift (UScalar.cast .Usize core.num.U64.BITS)
+  i - 1#usize
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::new]:
+    Source: 'src/builder.rs', lines 21:4-37:5
+    Visibility: public -/
+def builder.Builder.new
+  {T : Type} (ValueInst : Value T) (depth : Std.Usize) (level : Std.Usize) :
+  Result (core.result.Result (builder.Builder T) error.Error)
+  := do
+  let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+  let packing_depth ← lift (core.option.Option.unwrap_or o 0#usize)
+  let i ← lift (core.num.Usize.saturating_add depth packing_depth)
+  let i1 ← MAX_TREE_DEPTH
+  if i > i1
+  then ok (core.result.Result.Err (error.Error.BuilderInvalidDepth depth))
+  else
+    let i2 ← depth + packing_depth
+    let capacity ← 1#usize <<< i2
+    let v := alloc.vec.Vec.with_capacity (utils.MaybeArced (tree.Tree T)) depth
+    let o1 ← utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
+    ok (core.result.Result.Ok
+      {
+        stack := v,
+        depth,
+        level,
+        length := 0#usize,
+        packing_factor := o1,
+        packing_depth,
+        capacity
+      })
+
+/-- [milhouse::utils::{milhouse::utils::Length}::as_usize]:
+    Source: 'src/utils.rs', lines 34:4-36:5
+    Visibility: public -/
+def utils.Length.as_usize (self : utils.Length) : Result Std.Usize := do
+  ok self
+
+/-- [milhouse::utils::{milhouse::utils::Length}::as_mut]:
+    Source: 'src/utils.rs', lines 29:4-31:5
+    Visibility: public -/
+def utils.Length.as_mut
+  (self : utils.Length) :
+  Result (Std.Usize × (Std.Usize → utils.Length))
+  := do
+  let back := fun i => i
+  ok (self, back)
+
+/-- [milhouse::utils::{milhouse::utils::MaybeArced<T>}::arced]:
+    Source: 'src/utils.rs', lines 14:4-19:5
+    Visibility: public -/
+def utils.MaybeArced.arced
+  {T : Type} (self : utils.MaybeArced T) : Result (triomphe.arc.Arc T) := do
+  match self with
+  | utils.MaybeArced.Arced arc => ok arc
+  | utils.MaybeArced.Unarced value => triomphe.arc.Arc.new value
 
 /-- [milhouse::leaf::{milhouse::leaf::Leaf<T>}::with_hash]:
     Source: 'src/leaf.rs', lines 34:4-39:5
@@ -252,6 +337,810 @@ def leaf.Leaf.with_hash
 def leaf.Leaf.new {T : Type} (value : T) : Result (leaf.Leaf T) := do
   let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
   leaf.Leaf.with_hash value fb
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf_unboxed]:
+    Source: 'src/tree.rs', lines 80:4-82:5
+    Visibility: public -/
+def tree.Tree.leaf_unboxed
+  {T : Type} (ValueInst : Value T) (value : T) : Result (tree.Tree T) := do
+  let l ← leaf.Leaf.new value
+  ok (tree.Tree.Leaf l)
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::node_unboxed]:
+    Source: 'src/tree.rs', lines 68:4-74:5
+    Visibility: public -/
+def tree.Tree.node_unboxed
+  {T : Type} (ValueInst : Value T) (left : triomphe.arc.Arc (tree.Tree T))
+  (right : triomphe.arc.Arc (tree.Tree T)) :
+  Result (tree.Tree T)
+  := do
+  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+  let rl ←
+    lock_api.rwlock.RwLock.new
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      fb
+  ok (tree.Tree.Node rl left right)
+
+/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::push]:
+    Source: 'src/packed_leaf.rs', lines 128:4-136:5
+    Visibility: public -/
+def packed_leaf.PackedLeaf.push
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) (self : packed_leaf.PackedLeaf T) (value : T) :
+  Result ((core.result.Result Unit error.Error) × (packed_leaf.PackedLeaf T))
+  := do
+  let i := alloc.vec.Vec.len self.values
+  let i1 ← tree_hashTreeHashInst.tree_hash_packing_factor
+  if i = i1
+  then
+    let i2 := alloc.vec.Vec.len self.values
+    ok (core.result.Result.Err (error.Error.PackedLeafFull i2), self)
+  else
+    let v ← alloc.vec.Vec.push self.values value
+    ok (core.result.Result.Ok (), { self with values := v })
+
+/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::single]:
+    Source: 'src/packed_leaf.rs', lines 57:4-65:5
+    Visibility: public -/
+def packed_leaf.PackedLeaf.single
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) (value : T) :
+  Result (packed_leaf.PackedLeaf T)
+  := do
+  let i ← tree_hashTreeHashInst.tree_hash_packing_factor
+  let values := alloc.vec.Vec.with_capacity T i
+  let values1 ← alloc.vec.Vec.push values value
+  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+  let rl ←
+    lock_api.rwlock.RwLock.new
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      fb
+  ok { hash := rl, values := values1 }
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push]: loop body 0:
+    Source: 'src/builder.rs', lines 64:8-74:5
+    Visibility: public -/
+@[rust_loop_body]
+def builder.Builder.push_loop0.body
+  {T : Type} (ValueInst : Value T) (l : utils.Length)
+  (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) (t : tree.Tree T) :
+  Result (ControlFlow ((core.ops.range.Range Std.U32) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × (tree.Tree T)) ((core.result.Result
+    Unit error.Error) × (alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) ×
+    utils.Length))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepU32 iter
+  match o with
+  | none =>
+    let v1 ← alloc.vec.Vec.push v (utils.MaybeArced.Unarced t)
+    let (i, as_mut_back) ← utils.Length.as_mut l
+    let i1 ← i + 1#usize
+    let l1 := as_mut_back i1
+    ok (done (core.result.Result.Ok (), v1, l1))
+  | some _ =>
+    let (o1, v1) ← alloc.vec.Vec.pop Global v
+    let r ← core.option.Option.ok_or o1 error.Error.BuilderStackEmptyMerge
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let a ← utils.MaybeArced.arced val
+      let a1 ← utils.MaybeArced.arced (utils.MaybeArced.Unarced t)
+      let t1 ← tree.Tree.node_unboxed ValueInst a a1
+      ok (cont (iter1, v1, t1))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Unit (core.convert.FromSame error.Error) residual
+      ok (done (r1, v1, l))
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push]: loop 0:
+    Source: 'src/builder.rs', lines 64:8-74:5
+    Visibility: public -/
+@[rust_loop]
+def builder.Builder.push_loop0
+  {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) (l : utils.Length)
+  (t : tree.Tree T) :
+  Result ((core.result.Result Unit error.Error) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × utils.Length)
+  := do
+  loop
+    (fun (iter1, v1, t1) => builder.Builder.push_loop0.body ValueInst l iter1
+      v1 t1)
+    (iter, v, t)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push]: loop body 1:
+    Source: 'src/builder.rs', lines 64:8-74:5
+    Visibility: public -/
+@[rust_loop_body]
+def builder.Builder.push_loop1.body
+  {T : Type} (ValueInst : Value T) (l : utils.Length)
+  (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) (t : tree.Tree T) :
+  Result (ControlFlow ((core.ops.range.Range Std.U32) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × (tree.Tree T)) ((core.result.Result
+    Unit error.Error) × (alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) ×
+    utils.Length))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepU32 iter
+  match o with
+  | none =>
+    let v1 ← alloc.vec.Vec.push v (utils.MaybeArced.Unarced t)
+    let (i, as_mut_back) ← utils.Length.as_mut l
+    let i1 ← i + 1#usize
+    let l1 := as_mut_back i1
+    ok (done (core.result.Result.Ok (), v1, l1))
+  | some _ =>
+    let (o1, v1) ← alloc.vec.Vec.pop Global v
+    let r ← core.option.Option.ok_or o1 error.Error.BuilderStackEmptyMerge
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let a ← utils.MaybeArced.arced val
+      let a1 ← utils.MaybeArced.arced (utils.MaybeArced.Unarced t)
+      let t1 ← tree.Tree.node_unboxed ValueInst a a1
+      ok (cont (iter1, v1, t1))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Unit (core.convert.FromSame error.Error) residual
+      ok (done (r1, v1, l))
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push]: loop 1:
+    Source: 'src/builder.rs', lines 64:8-74:5
+    Visibility: public -/
+@[rust_loop]
+def builder.Builder.push_loop1
+  {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) (l : utils.Length)
+  (t : tree.Tree T) :
+  Result ((core.result.Result Unit error.Error) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × utils.Length)
+  := do
+  loop
+    (fun (iter1, v1, t1) => builder.Builder.push_loop1.body ValueInst l iter1
+      v1 t1)
+    (iter, v, t)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push]: loop body 2:
+    Source: 'src/builder.rs', lines 64:8-74:5
+    Visibility: public -/
+@[rust_loop_body]
+def builder.Builder.push_loop2.body
+  {T : Type} (ValueInst : Value T) (l : utils.Length)
+  (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) (t : tree.Tree T) :
+  Result (ControlFlow ((core.ops.range.Range Std.U32) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × (tree.Tree T)) ((core.result.Result
+    Unit error.Error) × (alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) ×
+    utils.Length))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepU32 iter
+  match o with
+  | none =>
+    let v1 ← alloc.vec.Vec.push v (utils.MaybeArced.Unarced t)
+    let (i, as_mut_back) ← utils.Length.as_mut l
+    let i1 ← i + 1#usize
+    let l1 := as_mut_back i1
+    ok (done (core.result.Result.Ok (), v1, l1))
+  | some _ =>
+    let (o1, v1) ← alloc.vec.Vec.pop Global v
+    let r ← core.option.Option.ok_or o1 error.Error.BuilderStackEmptyMerge
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let a ← utils.MaybeArced.arced val
+      let a1 ← utils.MaybeArced.arced (utils.MaybeArced.Unarced t)
+      let t1 ← tree.Tree.node_unboxed ValueInst a a1
+      ok (cont (iter1, v1, t1))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Unit (core.convert.FromSame error.Error) residual
+      ok (done (r1, v1, l))
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push]: loop 2:
+    Source: 'src/builder.rs', lines 64:8-74:5
+    Visibility: public -/
+@[rust_loop]
+def builder.Builder.push_loop2
+  {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) (l : utils.Length)
+  (t : tree.Tree T) :
+  Result ((core.result.Result Unit error.Error) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × utils.Length)
+  := do
+  loop
+    (fun (iter1, v1, t1) => builder.Builder.push_loop2.body ValueInst l iter1
+      v1 t1)
+    (iter, v, t)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push]:
+    Source: 'src/builder.rs', lines 39:4-74:5
+    Visibility: public -/
+def builder.Builder.push
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T) (value : T) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  let i ← utils.Length.as_usize self.length
+  if i = self.capacity
+  then ok (core.result.Result.Err error.Error.BuilderFull, self)
+  else
+    let next_index ← i + 1#usize
+    match self.packing_factor with
+    | none =>
+      let t ← tree.Tree.leaf_unboxed ValueInst value
+      let i1 ← core.num.Usize.trailing_zeros next_index
+      let i2 ← lift (UScalar.cast .U32 self.packing_depth)
+      let values_to_merge ← lift (core.num.U32.saturating_sub i1 i2)
+      let (r, v, l) ←
+        builder.Builder.push_loop0 ValueInst
+          { start := 0#u32, «end» := values_to_merge } self.stack self.length
+          t
+      ok (r, { self with stack := v, length := l })
+    | some packing_factor =>
+      let b ← core.num.Usize.is_multiple_of i packing_factor
+      if b
+      then
+        let pl ←
+          packed_leaf.PackedLeaf.single ValueInst.tree_hashTreeHashInst
+            ValueInst.corecloneCloneInst value
+        let i1 ← core.num.Usize.trailing_zeros next_index
+        let i2 ← lift (UScalar.cast .U32 self.packing_depth)
+        let values_to_merge ← lift (core.num.U32.saturating_sub i1 i2)
+        let (r, v, l) ←
+          builder.Builder.push_loop1 ValueInst
+            { start := 0#u32, «end» := values_to_merge } self.stack
+            self.length (tree.Tree.PackedLeaf pl)
+        ok (r, { self with stack := v, length := l })
+      else
+        let (o, v) ← alloc.vec.Vec.pop Global self.stack
+        match o with
+        | none =>
+          ok (core.result.Result.Err error.Error.BuilderExpectedLeaf,
+            { self with stack := v })
+        | some ma =>
+          match ma with
+          | utils.MaybeArced.Arced _ =>
+            ok (core.result.Result.Err error.Error.BuilderExpectedLeaf,
+              { self with stack := v })
+          | utils.MaybeArced.Unarced t =>
+            match t with
+            | tree.Tree.Leaf _ =>
+              ok (core.result.Result.Err error.Error.BuilderExpectedLeaf,
+                { self with stack := v })
+            | tree.Tree.PackedLeaf leaf =>
+              let (r, leaf1) ←
+                packed_leaf.PackedLeaf.push ValueInst.tree_hashTreeHashInst
+                  ValueInst.corecloneCloneInst leaf value
+              let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+              match cf with
+              | core.ops.control_flow.ControlFlow.Continue _ =>
+                let i1 ← core.num.Usize.trailing_zeros next_index
+                let i2 ← lift (UScalar.cast .U32 self.packing_depth)
+                let values_to_merge ←
+                  lift (core.num.U32.saturating_sub i1 i2)
+                let (r1, v1, l) ←
+                  builder.Builder.push_loop2 ValueInst
+                    { start := 0#u32, «end» := values_to_merge } v
+                    self.length (tree.Tree.PackedLeaf leaf1)
+                ok (r1, { self with stack := v1, length := l })
+              | core.ops.control_flow.ControlFlow.Break residual =>
+                let r1 ←
+                  core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                    Unit (core.convert.FromSame error.Error) residual
+                ok (r1, { self with stack := v })
+            | tree.Tree.Node _ _ _ =>
+              ok (core.result.Result.Err error.Error.BuilderExpectedLeaf,
+                { self with stack := v })
+            | tree.Tree.Zero _ =>
+              ok (core.result.Result.Err error.Error.BuilderExpectedLeaf,
+                { self with stack := v })
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push_node]: loop body 0:
+    Source: 'src/builder.rs', lines 97:8-102:9
+    Visibility: public -/
+@[rust_loop_body]
+def builder.Builder.push_node_loop.body
+  {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T)))
+  (new_stack_top : utils.MaybeArced (tree.Tree T)) :
+  Result (ControlFlow ((core.ops.range.Range Std.U32) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × (utils.MaybeArced (tree.Tree T)))
+    ((alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) × (utils.MaybeArced
+    (tree.Tree T))))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepU32 iter
+  match o with
+  | none => ok (done (v, new_stack_top))
+  | some _ =>
+    let (o1, v1) ← alloc.vec.Vec.pop Global v
+    match o1 with
+    | none => ok (cont (iter1, v1, new_stack_top))
+    | some left =>
+      let a ← utils.MaybeArced.arced left
+      let a1 ← utils.MaybeArced.arced new_stack_top
+      let t ← tree.Tree.node_unboxed ValueInst a a1
+      ok (cont (iter1, v1, utils.MaybeArced.Unarced t))
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push_node]: loop 0:
+    Source: 'src/builder.rs', lines 97:8-102:9
+    Visibility: public -/
+@[rust_loop]
+def builder.Builder.push_node_loop
+  {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.U32)
+  (v : alloc.vec.Vec (utils.MaybeArced (tree.Tree T)))
+  (new_stack_top : utils.MaybeArced (tree.Tree T)) :
+  Result ((alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) × (utils.MaybeArced
+    (tree.Tree T)))
+  := do
+  loop
+    (fun (iter1, v1, new_stack_top1) => builder.Builder.push_node_loop.body
+      ValueInst iter1 v1 new_stack_top1)
+    (iter, v, new_stack_top)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::push_node]:
+    Source: 'src/builder.rs', lines 76:4-108:5
+    Visibility: public -/
+def builder.Builder.push_node
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (node : triomphe.arc.Arc (tree.Tree T)) (len : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  let i ← utils.Length.as_usize self.length
+  if i = self.capacity
+  then ok (core.result.Result.Err error.Error.BuilderFull, self)
+  else
+    let index_on_level ← i >>> self.level
+    let next_index_on_level ← index_on_level + 1#usize
+    let values_to_merge ←
+      if self.level = 0#usize
+      then
+        do
+        let i1 ← core.num.Usize.trailing_zeros next_index_on_level
+        let i2 ← lift (UScalar.cast .U32 self.packing_depth)
+        ok (core.num.U32.saturating_sub i1 i2)
+      else core.num.Usize.trailing_zeros next_index_on_level
+    let (v, new_stack_top) ←
+      builder.Builder.push_node_loop ValueInst
+        { start := 0#u32, «end» := values_to_merge } self.stack
+        (utils.MaybeArced.Arced node)
+    let v1 ← alloc.vec.Vec.push v new_stack_top
+    let (i1, as_mut_back) ← utils.Length.as_mut self.length
+    let i2 ← i1 + len
+    let l := as_mut_back i2
+    ok (core.result.Result.Ok (), { self with stack := v1, length := l })
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_packed_leaf]: loop body 0:
+    Source: 'src/builder.rs', lines 112:8-122:5 -/
+@[rust_loop_body]
+def builder.Builder.finish_packed_leaf_loop.body
+  {T : Type} (ValueInst : Value T) (next_index_on_level : Std.Usize)
+  (self : builder.Builder T) (i : Std.Usize) :
+  Result (ControlFlow ((builder.Builder T) × Std.Usize) ((core.result.Result
+    Unit error.Error) × (alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) ×
+    Std.Usize × Std.Usize × utils.Length × (Option Std.Usize) × Std.Usize
+    × Std.Usize))
+  := do
+  if i < self.depth
+  then
+    let i1 ← i + self.packing_depth
+    let i2 ← next_index_on_level >>> i1
+    let i3 ← lift (i2 &&& 1#usize)
+    if i3 = 1#usize
+    then
+      let (o, v) ← alloc.vec.Vec.pop Global self.stack
+      let r ←
+        core.option.Option.ok_or o error.Error.BuilderStackEmptyMergeRight
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        let (o1, v1) ← alloc.vec.Vec.pop Global v
+        let r1 ←
+          core.option.Option.ok_or o1 error.Error.BuilderStackEmptyMergeLeft
+        let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+        match cf1 with
+        | core.ops.control_flow.ControlFlow.Continue val1 =>
+          let a ← utils.MaybeArced.arced val1
+          let a1 ← utils.MaybeArced.arced val
+          let t ← tree.Tree.node_unboxed ValueInst a a1
+          let v2 ← alloc.vec.Vec.push v1 (utils.MaybeArced.Unarced t)
+          let i4 ← i + 1#usize
+          ok (cont ({ self with stack := v2 }, i4))
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          let r2 ←
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              Unit (core.convert.FromSame error.Error) residual
+          ok (done (r2, v1, self.depth, self.level, self.length,
+            self.packing_factor, self.packing_depth, self.capacity))
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        let r1 ←
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            Unit (core.convert.FromSame error.Error) residual
+        ok (done (r1, v, self.depth, self.level, self.length,
+          self.packing_factor, self.packing_depth, self.capacity))
+    else
+      ok (done (core.result.Result.Ok (), self.stack, self.depth, self.level,
+        self.length, self.packing_factor, self.packing_depth, self.capacity))
+  else
+    ok (done (core.result.Result.Ok (), self.stack, self.depth, self.level,
+      self.length, self.packing_factor, self.packing_depth, self.capacity))
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_packed_leaf]: loop 0:
+    Source: 'src/builder.rs', lines 112:8-122:5 -/
+@[rust_loop]
+def builder.Builder.finish_packed_leaf_loop
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (next_index_on_level : Std.Usize) (i : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × Std.Usize × Std.Usize × utils.Length
+    × (Option Std.Usize) × Std.Usize × Std.Usize)
+  := do
+  loop
+    (fun (self1, i1) => builder.Builder.finish_packed_leaf_loop.body ValueInst
+      next_index_on_level self1 i1)
+    (self, i)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_packed_leaf]:
+    Source: 'src/builder.rs', lines 110:4-122:5 -/
+def builder.Builder.finish_packed_leaf
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (next_index_on_level : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  let (r, v, i, i1, l, o, i2, i3) ←
+    builder.Builder.finish_packed_leaf_loop ValueInst self next_index_on_level
+      0#usize
+  ok (r,
+    {
+      stack := v,
+      depth := i,
+      level := i1,
+      length := l,
+      packing_factor := o,
+      packing_depth := i2,
+      capacity := i3
+    })
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_level]: loop body 0:
+    Source: 'src/builder.rs', lines 126:8-141:5 -/
+@[rust_loop_body]
+def builder.Builder.finish_level_loop.body
+  {T : Type} (ValueInst : Value T) (next_index_on_level : Std.Usize)
+  (self : builder.Builder T) (i : Std.Usize) :
+  Result (ControlFlow ((builder.Builder T) × Std.Usize) ((core.result.Result
+    Unit error.Error) × (alloc.vec.Vec (utils.MaybeArced (tree.Tree T))) ×
+    Std.Usize × Std.Usize × utils.Length × (Option Std.Usize) × Std.Usize
+    × Std.Usize))
+  := do
+  if i < self.depth
+  then
+    let i1 ← next_index_on_level <<< self.level
+    let i2 ← i + self.packing_depth
+    let i3 ← i1 >>> i2
+    let i4 ← lift (i3 &&& 1#usize)
+    if i4 = 1#usize
+    then
+      let (o, v) ← alloc.vec.Vec.pop Global self.stack
+      let r ←
+        core.option.Option.ok_or o error.Error.BuilderStackEmptyFinishRight
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        let (o1, v1) ← alloc.vec.Vec.pop Global v
+        let r1 ←
+          core.option.Option.ok_or o1 error.Error.BuilderStackEmptyFinishLeft
+        let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+        match cf1 with
+        | core.ops.control_flow.ControlFlow.Continue val1 =>
+          let a ← utils.MaybeArced.arced val1
+          let a1 ← utils.MaybeArced.arced val
+          let t ← tree.Tree.node_unboxed ValueInst a a1
+          let v2 ← alloc.vec.Vec.push v1 (utils.MaybeArced.Unarced t)
+          let i5 ← i + 1#usize
+          ok (cont ({ self with stack := v2 }, i5))
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          let r2 ←
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              Unit (core.convert.FromSame error.Error) residual
+          ok (done (r2, v1, self.depth, self.level, self.length,
+            self.packing_factor, self.packing_depth, self.capacity))
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        let r1 ←
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            Unit (core.convert.FromSame error.Error) residual
+        ok (done (r1, v, self.depth, self.level, self.length,
+          self.packing_factor, self.packing_depth, self.capacity))
+    else
+      ok (done (core.result.Result.Ok (), self.stack, self.depth, self.level,
+        self.length, self.packing_factor, self.packing_depth, self.capacity))
+  else
+    ok (done (core.result.Result.Ok (), self.stack, self.depth, self.level,
+      self.length, self.packing_factor, self.packing_depth, self.capacity))
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_level]: loop 0:
+    Source: 'src/builder.rs', lines 126:8-141:5 -/
+@[rust_loop]
+def builder.Builder.finish_level_loop
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (next_index_on_level : Std.Usize) (i : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (alloc.vec.Vec
+    (utils.MaybeArced (tree.Tree T))) × Std.Usize × Std.Usize × utils.Length
+    × (Option Std.Usize) × Std.Usize × Std.Usize)
+  := do
+  loop
+    (fun (self1, i1) => builder.Builder.finish_level_loop.body ValueInst
+      next_index_on_level self1 i1)
+    (self, i)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_level]:
+    Source: 'src/builder.rs', lines 124:4-141:5 -/
+def builder.Builder.finish_level
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (next_index_on_level : Std.Usize) (depth : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  let i ← depth + 1#usize
+  let (r, v, i1, i2, l, o, i3, i4) ←
+    builder.Builder.finish_level_loop ValueInst self next_index_on_level i
+  ok (r,
+    {
+      stack := v,
+      depth := i1,
+      level := i2,
+      length := l,
+      packing_factor := o,
+      packing_depth := i3,
+      capacity := i4
+    })
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero]:
+    Source: 'src/tree.rs', lines 56:4-58:5
+    Visibility: public -/
+def tree.Tree.zero
+  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
+  Result (triomphe.arc.Arc (tree.Tree T))
+  := do
+  triomphe.arc.Arc.new (tree.Tree.Zero depth)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_tree]: loop body 0:
+    Source: 'src/builder.rs', lines 144:8-162:5 -/
+@[rust_loop_body]
+def builder.Builder.finish_tree_loop.body
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (next_index_on_level : Std.Usize) :
+  Result (ControlFlow ((builder.Builder T) × Std.Usize) ((core.result.Result
+    Unit error.Error) × (builder.Builder T)))
+  := do
+  let i ← next_index_on_level <<< self.level
+  if i != self.capacity
+  then
+    let i1 ← core.num.Usize.trailing_zeros next_index_on_level
+    let i2 ← lift (UScalar.cast .Usize i1)
+    let i3 ← lift (core.num.Usize.saturating_add i2 self.level)
+    let depth ← lift (core.num.Usize.saturating_sub i3 self.packing_depth)
+    let (o, v) ← alloc.vec.Vec.pop Global self.stack
+    let r ← core.option.Option.ok_or o error.Error.BuilderStackEmptyFinish
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let a ← utils.MaybeArced.arced val
+      let a1 ← tree.Tree.zero ValueInst depth
+      let t ← tree.Tree.node_unboxed ValueInst a a1
+      let v1 ← alloc.vec.Vec.push v (utils.MaybeArced.Unarced t)
+      let (r1, self1) ←
+        builder.Builder.finish_level ValueInst { self with stack := v1 }
+          next_index_on_level depth
+      let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+      match cf1 with
+      | core.ops.control_flow.ControlFlow.Continue _ =>
+        let i4 ← depth + self1.packing_depth
+        let i5 ← i4 - self1.level
+        let i6 ← lift (UScalar.cast .U32 i5)
+        let i7 ← core.num.Usize.pow 2#usize i6
+        let next_index_on_level1 ← next_index_on_level + i7
+        ok (cont (self1, next_index_on_level1))
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        let r2 ←
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            Unit (core.convert.FromSame error.Error) residual
+        ok (done (r2, self1))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Unit (core.convert.FromSame error.Error) residual
+      ok (done (r1, { self with stack := v }))
+  else ok (done (core.result.Result.Ok (), self))
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_tree]: loop 0:
+    Source: 'src/builder.rs', lines 144:8-162:5 -/
+@[rust_loop]
+def builder.Builder.finish_tree_loop
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (next_index_on_level : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  loop
+    (fun (self1, next_index_on_level1) => builder.Builder.finish_tree_loop.body
+      ValueInst self1 next_index_on_level1)
+    (self, next_index_on_level)
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_tree]:
+    Source: 'src/builder.rs', lines 143:4-162:5 -/
+@[reducible]
+def builder.Builder.finish_tree
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T)
+  (next_index_on_level : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) × (builder.Builder T))
+  := do
+  builder.Builder.finish_tree_loop ValueInst self next_index_on_level
+
+/-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish]:
+    Source: 'src/builder.rs', lines 164:4-200:5
+    Visibility: public -/
+def builder.Builder.finish
+  {T : Type} (ValueInst : Value T) (self : builder.Builder T) :
+  Result (core.result.Result ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize ×
+    utils.Length) error.Error)
+  := do
+  let b ← alloc.vec.Vec.is_empty Global self.stack
+  if b
+  then
+    let a ← tree.Tree.zero ValueInst self.depth
+    ok (core.result.Result.Ok (a, self.depth, 0#usize))
+  else
+    let length ← utils.Length.as_usize self.length
+    let level_capacity ← 1#usize <<< self.level
+    let next_index_on_level ← core.num.Usize.div_ceil length level_capacity
+    match self.packing_factor with
+    | none =>
+      let (r, self1) ←
+        builder.Builder.finish_tree ValueInst self next_index_on_level
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue _ =>
+        let (o, v) ← alloc.vec.Vec.pop Global self1.stack
+        let r1 ←
+          core.option.Option.ok_or o error.Error.BuilderStackEmptyFinalize
+        let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+        match cf1 with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          let tree ← utils.MaybeArced.arced val
+          let b1 ← alloc.vec.Vec.is_empty Global v
+          if b1
+          then ok (core.result.Result.Ok (tree, self1.depth, self1.length))
+          else ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+            (core.convert.FromSame error.Error) residual
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+          (core.convert.FromSame error.Error) residual
+    | some packing_factor =>
+      let i ← length % packing_factor
+      let i1 ← lift (core.num.Usize.saturating_sub packing_factor i)
+      let skip_indices ← i1 % packing_factor
+      if skip_indices > 0#usize
+      then
+        if self.level = 0#usize
+        then
+          let (r, self1) ←
+            builder.Builder.finish_packed_leaf ValueInst self
+              next_index_on_level
+          let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+          match cf with
+          | core.ops.control_flow.ControlFlow.Continue _ =>
+            let next_index_on_level1 ← next_index_on_level + skip_indices
+            let (r1, self2) ←
+              builder.Builder.finish_tree ValueInst self1 next_index_on_level1
+            let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+            match cf1 with
+            | core.ops.control_flow.ControlFlow.Continue _ =>
+              let (o, v) ← alloc.vec.Vec.pop Global self2.stack
+              let r2 ←
+                core.option.Option.ok_or o
+                  error.Error.BuilderStackEmptyFinalize
+              let cf2 ← core.result.Result.Insts.CoreOpsTry.branch r2
+              match cf2 with
+              | core.ops.control_flow.ControlFlow.Continue val =>
+                let tree ← utils.MaybeArced.arced val
+                let b1 ← alloc.vec.Vec.is_empty Global v
+                if b1
+                then
+                  ok (core.result.Result.Ok (tree, self2.depth, self2.length))
+                else
+                  ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+              | core.ops.control_flow.ControlFlow.Break residual =>
+                core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                  ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize ×
+                  utils.Length) (core.convert.FromSame error.Error) residual
+            | core.ops.control_flow.ControlFlow.Break residual =>
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+                (core.convert.FromSame error.Error) residual
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+              (core.convert.FromSame error.Error) residual
+        else
+          let (r, self1) ←
+            builder.Builder.finish_tree ValueInst self next_index_on_level
+          let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+          match cf with
+          | core.ops.control_flow.ControlFlow.Continue _ =>
+            let (o, v) ← alloc.vec.Vec.pop Global self1.stack
+            let r1 ←
+              core.option.Option.ok_or o error.Error.BuilderStackEmptyFinalize
+            let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+            match cf1 with
+            | core.ops.control_flow.ControlFlow.Continue val =>
+              let tree ← utils.MaybeArced.arced val
+              let b1 ← alloc.vec.Vec.is_empty Global v
+              if b1
+              then ok (core.result.Result.Ok (tree, self1.depth, self1.length))
+              else ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+            | core.ops.control_flow.ControlFlow.Break residual =>
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+                (core.convert.FromSame error.Error) residual
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+              (core.convert.FromSame error.Error) residual
+      else
+        let (r, self1) ←
+          builder.Builder.finish_tree ValueInst self next_index_on_level
+        let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue _ =>
+          let (o, v) ← alloc.vec.Vec.pop Global self1.stack
+          let r1 ←
+            core.option.Option.ok_or o error.Error.BuilderStackEmptyFinalize
+          let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+          match cf1 with
+          | core.ops.control_flow.ControlFlow.Continue val =>
+            let tree ← utils.MaybeArced.arced val
+            let b1 ← alloc.vec.Vec.is_empty Global v
+            if b1
+            then ok (core.result.Result.Ok (tree, self1.depth, self1.length))
+            else ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+              (core.convert.FromSame error.Error) residual
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
+            (core.convert.FromSame error.Error) residual
+
+/-- [milhouse::leaf::{impl core::clone::Clone for milhouse::leaf::Leaf<T>}::clone]:
+    Source: 'src/leaf.rs', lines 21:4-26:5
+    Visibility: public -/
+def leaf.Leaf.Insts.CoreCloneClone.clone
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : leaf.Leaf T) :
+  Result (leaf.Leaf T)
+  := do
+  let rlrg ←
+    lock_api.rwlock.RwLock.read
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      self.hash
+  let fb ←
+    lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      rlrg
+  let rl ←
+    lock_api.rwlock.RwLock.new
+      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+      fb
+  let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone self.value
+  ok { hash := rl, value := a }
 
 /-- [milhouse::packed_leaf::{impl core::clone::Clone for milhouse::packed_leaf::PackedLeaf<T>}::clone]:
     Source: 'src/packed_leaf.rs', lines 20:4-25:5
@@ -292,24 +1181,6 @@ def packed_leaf.PackedLeaf.empty
   let i ← tree_hashTreeHashInst.tree_hash_packing_factor
   let v := alloc.vec.Vec.with_capacity T i
   ok { hash := rl, values := v }
-
-/-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::single]:
-    Source: 'src/packed_leaf.rs', lines 57:4-65:5
-    Visibility: public -/
-def packed_leaf.PackedLeaf.single
-  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
-  : core.clone.Clone T) (value : T) :
-  Result (packed_leaf.PackedLeaf T)
-  := do
-  let i ← tree_hashTreeHashInst.tree_hash_packing_factor
-  let values := alloc.vec.Vec.with_capacity T i
-  let values1 ← alloc.vec.Vec.push values value
-  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
-  let rl ←
-    lock_api.rwlock.RwLock.new
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      fb
-  ok { hash := rl, values := values1 }
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::insert_mut]:
     Source: 'src/packed_leaf.rs', lines 111:4-126:5
@@ -541,15 +1412,6 @@ def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
   clone := tree.Tree.Insts.CoreCloneClone.clone ValueInst
 }
 
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero]:
-    Source: 'src/tree.rs', lines 56:4-58:5
-    Visibility: public -/
-def tree.Tree.zero
-  {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
-  Result (triomphe.arc.Arc (tree.Tree T))
-  := do
-  triomphe.arc.Arc.new (tree.Tree.Zero depth)
-
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::empty]:
     Source: 'src/tree.rs', lines 44:4-46:5
     Visibility: public -/
@@ -595,21 +1457,6 @@ def tree.Tree.leaf_with_hash
   let l ← leaf.Leaf.with_hash value hash
   triomphe.arc.Arc.new (tree.Tree.Leaf l)
 
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::node_unboxed]:
-    Source: 'src/tree.rs', lines 68:4-74:5
-    Visibility: public -/
-def tree.Tree.node_unboxed
-  {T : Type} (ValueInst : Value T) (left : triomphe.arc.Arc (tree.Tree T))
-  (right : triomphe.arc.Arc (tree.Tree T)) :
-  Result (tree.Tree T)
-  := do
-  let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
-  let rl ←
-    lock_api.rwlock.RwLock.new
-      parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
-      fb
-  ok (tree.Tree.Node rl left right)
-
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero_unboxed]:
     Source: 'src/tree.rs', lines 76:4-78:5
     Visibility: public -/
@@ -618,14 +1465,6 @@ def tree.Tree.zero_unboxed
   Result (tree.Tree T)
   := do
   ok (tree.Tree.Zero depth)
-
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf_unboxed]:
-    Source: 'src/tree.rs', lines 80:4-82:5
-    Visibility: public -/
-def tree.Tree.leaf_unboxed
-  {T : Type} (ValueInst : Value T) (value : T) : Result (tree.Tree T) := do
-  let l ← leaf.Leaf.new value
-  ok (tree.Tree.Leaf l)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::get_recursive]:
     Source: 'src/tree.rs', lines 84:4-103:5
@@ -667,51 +1506,6 @@ def tree.Tree.get_recursive
     else ok none
   | tree.Tree.Zero _ => ok none
 partial_fixpoint
-
-/-- [milhouse::utils::opt_packing_factor]:
-    Source: 'src/utils.rs', lines 67:0-72:1
-    Visibility: public -/
-def utils.opt_packing_factor
-  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) :
-  Result (Option Std.Usize)
-  := do
-  let tht ← tree_hashTreeHashInst.tree_hash_type
-  match tht with
-  | tree_hash.TreeHashType.Basic =>
-    let i ← tree_hashTreeHashInst.tree_hash_packing_factor
-    ok (some i)
-  | tree_hash.TreeHashType.Vector => ok none
-  | tree_hash.TreeHashType.List => ok none
-  | tree_hash.TreeHashType.Container => ok none
-
-/-- [milhouse::utils::int_log]:
-    Source: 'src/utils.rs', lines 42:0-47:1
-    Visibility: public -/
-def utils.int_log (n : Std.Usize) : Result Std.Usize := do
-  let o ← core.num.Usize.checked_next_power_of_two n
-  match o with
-  | none => let i ← core.mem.size_of Std.Usize
-            8#usize * i
-  | some x =>
-    let i ← core.num.Usize.trailing_zeros x
-    ok (UScalar.cast .Usize i)
-
-/-- [milhouse::utils::opt_packing_depth]:
-    Source: 'src/utils.rs', lines 75:0-78:1
-    Visibility: public -/
-def utils.opt_packing_depth
-  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) :
-  Result (Option Std.Usize)
-  := do
-  let o ← utils.opt_packing_factor tree_hashTreeHashInst
-  let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
-  match cf with
-  | core.ops.control_flow.ControlFlow.Continue val =>
-    let i ← utils.int_log val
-    ok (some i)
-  | core.ops.control_flow.ControlFlow.Break residual =>
-    core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
-      Std.Usize residual
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::with_updated_leaf]:
     Source: 'src/tree.rs', lines 108:4-155:5
@@ -1027,12 +1821,6 @@ def tree.Tree.compute_len
     i + i1
   | tree.Tree.Zero _ => ok 0#usize
 partial_fixpoint
-
-/-- [milhouse::utils::{milhouse::utils::Length}::as_usize]:
-    Source: 'src/utils.rs', lines 34:4-36:5
-    Visibility: public -/
-def utils.Length.as_usize (self : utils.Length) : Result Std.Usize := do
-  ok self
 
 /-- [milhouse::utils::{impl core::cmp::Ord for milhouse::utils::Length}::cmp]:
     Source: 'src/utils.rs', lines 23:43-23:46

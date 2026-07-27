@@ -98,32 +98,72 @@ structure tree_hash.TreeHash (Self : Type) where
   tree_hash_root : Self → Result (alloy_primitives.bits.fixed.FixedBytes
     32#usize)
 
-/-- [milhouse::cow::VecCow]
-    Source: 'src/cow.rs', lines 91:0-99:1
+/-- [milhouse::utils::Length]
+    Source: 'src/utils.rs', lines 25:0-25:29
     Visibility: public -/
-@[discriminant isize]
-inductive cow.VecCow (T : Type) where
-| Immutable : T → Option (vec_map.VacantEntry T) → cow.VecCow T
-| Mutable : T → cow.VecCow T
+@[reducible]
+def utils.Length := Std.Usize
 
-/-- [milhouse::cow::BTreeCow]
-    Source: 'src/cow.rs', lines 43:0-51:1
+/-- [milhouse::utils::MaybeArced]
+    Source: 'src/utils.rs', lines 8:0-11:1
     Visibility: public -/
 @[discriminant isize]
-inductive cow.BTreeCow (T : Type) where
-| Immutable :
-  T →
-  Option (alloc.collections.btree.map.entry.VacantEntry Std.Usize T Global) →
-  cow.BTreeCow T
-| Mutable : T → cow.BTreeCow T
+inductive utils.MaybeArced (T : Type) where
+| Arced : triomphe.arc.Arc T → utils.MaybeArced T
+| Unarced : T → utils.MaybeArced T
 
-/-- [milhouse::cow::Cow]
-    Source: 'src/cow.rs', lines 5:0-8:1
+/-- [milhouse::packed_leaf::PackedLeaf]
+    Source: 'src/packed_leaf.rs', lines 9:0-14:1
+    Visibility: public -/
+structure packed_leaf.PackedLeaf (T : Type) where
+  hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+    (alloy_primitives.bits.fixed.FixedBytes 32#usize)
+  values : alloc.vec.Vec T
+
+/-- [milhouse::leaf::Leaf]
+    Source: 'src/leaf.rs', lines 9:0-15:1
+    Visibility: public -/
+structure leaf.Leaf (T : Type) where
+  hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+    (alloy_primitives.bits.fixed.FixedBytes 32#usize)
+  value : triomphe.arc.Arc T
+
+/-- [milhouse::tree::Tree]
+    Source: 'src/tree.rs', lines 13:0-26:1
     Visibility: public -/
 @[discriminant isize]
-inductive cow.Cow (T : Type) where
-| BTree : cow.BTreeCow T → cow.Cow T
-| Vec : cow.VecCow T → cow.Cow T
+inductive tree.Tree (T : Type) where
+| Leaf : leaf.Leaf T → tree.Tree T
+| PackedLeaf : packed_leaf.PackedLeaf T → tree.Tree T
+| Node :
+  lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+    (alloy_primitives.bits.fixed.FixedBytes 32#usize) →
+  triomphe.arc.Arc (tree.Tree T) →
+  triomphe.arc.Arc (tree.Tree T) →
+  tree.Tree T
+| Zero : Std.Usize → tree.Tree T
+
+/-- [milhouse::builder::Builder]
+    Source: 'src/builder.rs', lines 5:0-18:1
+    Visibility: public -/
+structure builder.Builder (T : Type) where
+  stack : alloc.vec.Vec (utils.MaybeArced (tree.Tree T))
+  depth : Std.Usize
+  level : Std.Usize
+  length : utils.Length
+  packing_factor : Option Std.Usize
+  packing_depth : Std.Usize
+  capacity : Std.Usize
+
+/-- Trait declaration: [milhouse::Value]
+    Source: 'src/lib.rs', lines 54:0-54:66
+    Visibility: public -/
+structure Value (Self : Type) where
+  sszencodeEncodeInst : ssz.encode.Encode Self
+  sszdecodeDecodeInst : ssz.decode.Decode Self
+  tree_hashTreeHashInst : tree_hash.TreeHash Self
+  corecmpPartialEqInst : core.cmp.PartialEq Self Self
+  corecloneCloneInst : core.clone.Clone Self
 
 /-- [milhouse::error::Error]
     Source: 'src/error.rs', lines 4:0-36:1
@@ -162,31 +202,32 @@ inductive error.Error where
 | IntraRebaseZeroDepth : error.Error
 | IntraRebaseRepeatVisit : error.Error
 
-/-- [milhouse::leaf::Leaf]
-    Source: 'src/leaf.rs', lines 9:0-15:1
+/-- [milhouse::cow::VecCow]
+    Source: 'src/cow.rs', lines 91:0-99:1
     Visibility: public -/
-structure leaf.Leaf (T : Type) where
-  hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
-    (alloy_primitives.bits.fixed.FixedBytes 32#usize)
-  value : triomphe.arc.Arc T
+@[discriminant isize]
+inductive cow.VecCow (T : Type) where
+| Immutable : T → Option (vec_map.VacantEntry T) → cow.VecCow T
+| Mutable : T → cow.VecCow T
 
-/-- Trait declaration: [milhouse::Value]
-    Source: 'src/lib.rs', lines 54:0-54:66
+/-- [milhouse::cow::BTreeCow]
+    Source: 'src/cow.rs', lines 43:0-51:1
     Visibility: public -/
-structure Value (Self : Type) where
-  sszencodeEncodeInst : ssz.encode.Encode Self
-  sszdecodeDecodeInst : ssz.decode.Decode Self
-  tree_hashTreeHashInst : tree_hash.TreeHash Self
-  corecmpPartialEqInst : core.cmp.PartialEq Self Self
-  corecloneCloneInst : core.clone.Clone Self
+@[discriminant isize]
+inductive cow.BTreeCow (T : Type) where
+| Immutable :
+  T →
+  Option (alloc.collections.btree.map.entry.VacantEntry Std.Usize T Global) →
+  cow.BTreeCow T
+| Mutable : T → cow.BTreeCow T
 
-/-- [milhouse::packed_leaf::PackedLeaf]
-    Source: 'src/packed_leaf.rs', lines 9:0-14:1
+/-- [milhouse::cow::Cow]
+    Source: 'src/cow.rs', lines 5:0-8:1
     Visibility: public -/
-structure packed_leaf.PackedLeaf (T : Type) where
-  hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
-    (alloy_primitives.bits.fixed.FixedBytes 32#usize)
-  values : alloc.vec.Vec T
+@[discriminant isize]
+inductive cow.Cow (T : Type) where
+| BTree : cow.BTreeCow T → cow.Cow T
+| Vec : cow.VecCow T → cow.Cow T
 
 /-- Trait declaration: [milhouse::update_map::UpdateMap]
     Source: 'src/update_map.rs', lines 9:0-41:1
@@ -214,21 +255,6 @@ structure update_map.UpdateMap (Self : Type) (T : Type) where
   len : Self → Result Std.Usize
   is_empty : Self → Result Bool
 
-/-- [milhouse::tree::Tree]
-    Source: 'src/tree.rs', lines 13:0-26:1
-    Visibility: public -/
-@[discriminant isize]
-inductive tree.Tree (T : Type) where
-| Leaf : leaf.Leaf T → tree.Tree T
-| PackedLeaf : packed_leaf.PackedLeaf T → tree.Tree T
-| Node :
-  lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
-    (alloy_primitives.bits.fixed.FixedBytes 32#usize) →
-  triomphe.arc.Arc (tree.Tree T) →
-  triomphe.arc.Arc (tree.Tree T) →
-  tree.Tree T
-| Zero : Std.Usize → tree.Tree T
-
 /-- [milhouse::tree::RebaseAction]
     Source: 'src/tree.rs', lines 246:0-255:1
     Visibility: public -/
@@ -246,12 +272,6 @@ inductive tree.RebaseAction (T : Type) where
 inductive tree.IntraRebaseAction (T : Type) where
 | Noop : tree.IntraRebaseAction T
 | Replace : triomphe.arc.Arc T → tree.IntraRebaseAction T
-
-/-- [milhouse::utils::Length]
-    Source: 'src/utils.rs', lines 25:0-25:29
-    Visibility: public -/
-@[reducible]
-def utils.Length := Std.Usize
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure#1]
     Source: 'src/tree.rs', lines 317:25-330:21 -/

@@ -54,6 +54,20 @@ axiom core.mem.size_of (T : Type) : Result Std.Usize
 @[rust_fun "core::num::{usize}::trailing_zeros"]
 axiom core.num.Usize.trailing_zeros : Std.Usize → Result Std.U32
 
+/-- [core::num::{usize}::pow]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3570:8-3570:52
+    Name pattern: [core::num::{usize}::pow]
+    Visibility: public -/
+@[rust_fun "core::num::{usize}::pow"]
+axiom core.num.Usize.pow : Std.Usize → Std.U32 → Result Std.Usize
+
+/-- [core::num::{usize}::div_ceil]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3755:8-3755:54
+    Name pattern: [core::num::{usize}::div_ceil]
+    Visibility: public -/
+@[rust_fun "core::num::{usize}::div_ceil"]
+axiom core.num.Usize.div_ceil : Std.Usize → Std.Usize → Result Std.Usize
+
 /-- [core::num::{usize}::checked_next_power_of_two]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3924:8-3924:68
     Name pattern: [core::num::{usize}::checked_next_power_of_two]
@@ -245,6 +259,23 @@ axiom alloc.collections.btree.map.BTreeMap.get
   core.clone.Clone A) (coreborrowBorrowInst : core.borrow.Borrow K Q)
   (corecmpOrdInst : core.cmp.Ord K) (corecmpOrdInst1 : core.cmp.Ord Q) :
   alloc.collections.btree.map.BTreeMap K V A → Q → Result (Option V)
+
+/-- [alloc::vec::{alloc::vec::Vec<T>}::pop]:
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2850:4-2850:38
+    Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::pop]
+    Visibility: public -/
+@[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::pop"]
+axiom alloc.vec.Vec.pop
+  {T : Type} (A : Type) :
+  alloc.vec.Vec T → Result ((Option T) × (alloc.vec.Vec T))
+
+/-- [alloc::vec::{alloc::vec::Vec<T>}::is_empty]:
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 3085:4-3085:40
+    Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::is_empty]
+    Visibility: public -/
+@[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::is_empty"]
+axiom alloc.vec.Vec.is_empty
+  {T : Type} (A : Type) : alloc.vec.Vec T → Result Bool
 
 /-- [alloy_primitives::bits::fixed::{impl core::clone::Clone for alloy_primitives::bits::fixed::FixedBytes<N>}::clone]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-primitives-1.0.0/src/bits/fixed.rs', lines 16:4-16:9
