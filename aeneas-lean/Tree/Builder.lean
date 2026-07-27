@@ -970,6 +970,23 @@ private theorem usize_saturating_sub_value (left right : Std.Usize) :
   rw [max_eq_right (Nat.zero_le _), BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
   exact (Nat.sub_le left.val right.val).trans_lt left.hBounds
 
+private theorem usize_cast_u32_value (value : Std.Usize)
+    (hfit : value.val < 2 ^ 32) :
+    (UScalar.cast .U32 value).val = value.val := by
+  rw [UScalar.cast_val_eq]
+  change value.val % 2 ^ 32 = value.val
+  exact Nat.mod_eq_of_lt hfit
+
+private theorem usize_pow_two_value {exponent : Std.U32}
+    {result : Std.Usize}
+    (h : core.num.Usize.pow 2#usize exponent = ok result) :
+    result.val = 2 ^ exponent.val := by
+  unfold core.num.Usize.pow at h
+  have hspec := UScalar.tryMk_eq UScalarTy.Usize
+    ((2#usize).val ^ exponent.val)
+  rw [h] at hspec
+  simpa using hspec.1
+
 private theorem u32_saturating_sub_value (left right : Std.U32) :
     (core.num.U32.saturating_sub left right).val = left.val - right.val := by
   change (BitVec.ofNat 32 (max 0 (left.val - right.val))).toNat =
@@ -1532,9 +1549,10 @@ theorem BuilderCarryCount.finish_merge_bits {T : Type} {ValueInst : Value T}
 private theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
     {packing_factor : Option Std.Usize} {packing_depth level next_index : Std.Usize}
     (hlayout : PackingLayout ValueInst packing_factor packing_depth)
-    {top_depth root_depth total count physical : Nat}
-    (hcarry : BuilderCarryCount packing_factor (top_depth + 1) root_depth
-      total count)
+    {top_depth root_depth total physical units : Nat}
+    (htotal : total =
+      subtreeCapacity packing_factor (top_depth + 1) * units)
+    (htop_lt : top_depth < root_depth)
     (hphysical : physical =
       total + subtreeCapacity packing_factor top_depth)
     (hcursor : physical = next_index.val * 2 ^ level.val)
@@ -1546,7 +1564,6 @@ private theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
     (core.num.Usize.saturating_sub
       (core.num.Usize.saturating_add (UScalar.cast .Usize zeros) level)
       packing_depth).val = top_depth := by
-  obtain ⟨units, htotal, hcount⟩ := hcarry.eq_padic_units hlayout
   have htop := hlayout.subtreeCapacity_eq_two_pow top_depth
   have hparent := hlayout.subtreeCapacity_eq_two_pow (top_depth + 1)
   let exponent := top_depth + packing_depth.val
@@ -1585,10 +1602,6 @@ private theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
     rw [UScalar.cast_val_eq]
     apply Nat.mod_eq_of_lt
     exact zeros.hBounds.trans_le (by native_decide)
-  have htop_lt : top_depth < root_depth := by
-    have hcount_bound := hcarry.count_le_depth_sub
-    have hbase := hcarry.base_le_depth
-    omega
   have hexponent_bits : exponent < System.Platform.numBits := by
     dsimp [exponent]
     omega
@@ -1961,6 +1974,8 @@ theorem BuilderStack.finish_padding_plan {T : Type} {ValueInst : Value T}
     ∃ count final_stack final_top final_depth final_len,
       BuilderMergePlan ValueInst packing_factor count prefix_stack padded
         final_stack final_top final_depth final_len ∧
+      BuilderCarryCount packing_factor (top_depth + 1) root_depth prefix_len
+        count ∧
       BuilderNormalizedStack packing_factor base_depth
         (final_stack ++ [utils.MaybeArced.Unarced final_top]) root_depth
         logical_len
@@ -1977,7 +1992,8 @@ theorem BuilderStack.finish_padding_plan {T : Type} {ValueInst : Value T}
   obtain ⟨count, final_stack, final_top, final_depth, final_len, hplan,
       hcarry, hcanonical, hnormalized, hcursor_full⟩ :=
     hprefix.append_subtree hlayout hpadded htop_nonempty haligned hlogical_fit
-  refine ⟨count, final_stack, final_top, final_depth, final_len, hplan, ?_⟩
+  refine ⟨count, final_stack, final_top, final_depth, final_len, hplan,
+    hcarry, ?_⟩
   have hlowered := hnormalized.lower_base hbase
   have hcapacity_succ := subtreeCapacity_succ packing_factor top_depth
   rw [hcapacity_succ] at hlowered
@@ -2531,7 +2547,10 @@ private theorem finish_level_loop_follows_merge_plan {T : Type}
       input_top final_stack final_top final_depth final_len)
     (hbits : BuilderMergeBits cursor start count root_depth packing_depth) :
     ∀ (self : builder.Builder T) (next_index_on_level i : Std.Usize)
-      (result_stack : alloc.vec.Vec (utils.MaybeArced (Tree T))),
+      (result_stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+      (result_depth result_level : Std.Usize) (result_length : utils.Length)
+      (result_factor : Option Std.Usize)
+      (result_packing_depth result_capacity : Std.Usize),
       self.depth.val = root_depth →
       self.packing_depth.val = packing_depth →
       cursor = next_index_on_level.val * 2 ^ self.level.val →
@@ -2540,15 +2559,20 @@ private theorem finish_level_loop_follows_merge_plan {T : Type}
       self.stack.val = input_stack ++
         [utils.MaybeArced.Unarced input_top] →
       builder.Builder.finish_level_loop ValueInst self next_index_on_level i =
-        ok (core.result.Result.Ok (), result_stack, self.depth, self.level,
-          self.length, self.packing_factor, self.packing_depth,
-          self.capacity) →
+        ok (core.result.Result.Ok (), result_stack, result_depth, result_level,
+          result_length, result_factor, result_packing_depth,
+          result_capacity) →
       result_stack.val = final_stack ++
-        [utils.MaybeArced.Unarced final_top] := by
+          [utils.MaybeArced.Unarced final_top] ∧
+        result_depth = self.depth ∧ result_level = self.level ∧
+        result_length = self.length ∧ result_factor = self.packing_factor ∧
+        result_packing_depth = self.packing_depth ∧
+        result_capacity = self.capacity := by
   induction hplan generalizing start with
   | done plan_stack top depth len top_dense top_nonempty =>
-    intro self next_index i result_stack hdepth hpacking_depth hcursor
-      hcursor_fit hi hstack hloop
+    intro self next_index i result_stack result_depth result_level result_length
+      result_factor result_packing_depth result_capacity hdepth hpacking_depth
+      hcursor hcursor_fit hi hstack hloop
     rw [finish_level_loop_step] at hloop
     unfold builder.Builder.finish_level_loop.body at hloop
     by_cases hlt : i < self.depth
@@ -2584,15 +2608,16 @@ private theorem finish_level_loop_follows_merge_plan {T : Type}
                 hpacking_depth] using hstop_nat
             simp [hright, hbit] at hloop
             obtain ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hloop
-            exact hstack
+            exact ⟨hstack, rfl, rfl, rfl, rfl, rfl, rfl⟩
     · simp [hlt] at hloop
       obtain ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hloop
-      exact hstack
+      exact ⟨hstack, rfl, rfl, rfl, rfl, rfl, rfl⟩
   | @step base_stack left top merged depth top_len remaining_count final_stack
       final_top final_depth final_len left_dense top_dense top_nonempty merge_eq
       remaining ih =>
-    intro self next_index i result_stack hdepth hpacking_depth hcursor
-      hcursor_fit hi hstack hloop
+    intro self next_index i result_stack result_depth result_level result_length
+      result_factor result_packing_depth result_capacity hdepth hpacking_depth
+      hcursor hcursor_fit hi hstack hloop
     have hmerge_zero := hbits.merge 0 (by omega)
     have hlt : i < self.depth := by scalar_tac
     rw [finish_level_loop_step] at hloop
@@ -2664,6 +2689,8 @@ private theorem finish_level_loop_follows_merge_plan {T : Type}
                 · simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
                     hbits.stop
               apply ih htail_bits next_self next_index next_i result_stack
+                result_depth result_level result_length result_factor
+                result_packing_depth result_capacity
               · exact hdepth
               · exact hpacking_depth
               · exact hcursor
@@ -2671,6 +2698,341 @@ private theorem finish_level_loop_follows_merge_plan {T : Type}
               · exact hi_next
               · exact hpushed_values
               · exact hloop
+
+private theorem finish_tree_body_preserves_normalized {T : Type}
+    {ValueInst : Value T} {self next_self : builder.Builder T}
+    {next_index next_index1 : Std.Usize}
+    (hinvariant : BuilderInvariant ValueInst self)
+    {base_depth logical_len physical_len : Nat}
+    (hnormalized : BuilderNormalizedStack self.packing_factor base_depth
+      self.stack.val self.depth.val logical_len physical_len)
+    (hbase : base_depth = if self.level.val = 0 then 0
+      else self.level.val - self.packing_depth.val)
+    (hlogical : 0 < logical_len)
+    (hphysical : physical_len < subtreeCapacity self.packing_factor
+      self.depth.val)
+    (hcursor : physical_len = next_index.val * 2 ^ self.level.val)
+    (hbody : builder.Builder.finish_tree_loop.body ValueInst self next_index =
+      ok (.cont (next_self, next_index1))) :
+    ∃ (next_physical : Nat)
+        (next_stack : alloc.vec.Vec (utils.MaybeArced (Tree T))),
+      next_self.stack = next_stack ∧
+      next_self.depth = self.depth ∧ next_self.level = self.level ∧
+      next_self.length = self.length ∧
+      next_self.packing_factor = self.packing_factor ∧
+      next_self.packing_depth = self.packing_depth ∧
+      next_self.capacity = self.capacity ∧
+      BuilderNormalizedStack self.packing_factor base_depth
+        (alloc.vec.Vec.v next_stack) self.depth.val logical_len next_physical ∧
+      physical_len < next_physical ∧
+      next_physical ≤ subtreeCapacity self.packing_factor self.depth.val ∧
+      next_physical = next_index1.val * 2 ^ self.level.val := by
+  have hlayout := BuilderInvariant.layout hinvariant
+  obtain ⟨prefix_stack, top, top_depth, prefix_len, top_len, hstack,
+      hbase_top, htop_depth, htop, htop_nonempty, hprefix, haligned,
+      hlogical_len, hphysical_len⟩ :=
+    hnormalized.split_last_of_not_full hlayout hlogical hphysical
+  have hlevel_top : self.level.val ≤ top_depth + self.packing_depth.val := by
+    rw [hbase] at hbase_top
+    by_cases hlevel : self.level.val = 0
+    · omega
+    · have hpacking_le :=
+        (BuilderInvariant.level_valid hinvariant).resolve_left hlevel
+      simp [hlevel] at hbase_top
+      omega
+  obtain ⟨units, hprefix_units⟩ :=
+    Nat.dvd_of_mod_eq_zero haligned
+  have hprefix_units' : prefix_len =
+      subtreeCapacity self.packing_factor (top_depth + 1) * units := by
+    simpa [Nat.mul_comm] using hprefix_units
+  unfold builder.Builder.finish_tree_loop.body at hbody
+  cases hshift : next_index <<< self.level with
+  | fail error => simp [hshift] at hbody
+  | div => simp [hshift] at hbody
+  | ok shifted_cursor =>
+    simp only [hshift, bind_tc_ok] at hbody
+    have hcursor_fit : physical_len < 2 ^ System.Platform.numBits := by
+      exact hphysical.trans_le (by
+        rw [hlayout.subtreeCapacity_eq_two_pow]
+        have hbits : self.packing_depth.val + self.depth.val <
+            System.Platform.numBits := by
+          have := hinvariant.depth_packing_lt_bits
+          omega
+        exact Nat.le_of_lt (Nat.pow_lt_pow_right (by omega)
+          hbits))
+    have hshift_value := usize_shift_left_value hshift hcursor
+      hcursor_fit
+    have hnot_done : shifted_cursor ≠ self.capacity := by
+      intro heq
+      have heq_val := congrArg UScalar.val heq
+      have hcapacity := BuilderInvariant.builder_capacity_matches hinvariant
+      omega
+    have hcontinue : (shifted_cursor != self.capacity) = true := by
+      simp [hnot_done]
+    rw [hcontinue] at hbody
+    simp only [↓reduceIte] at hbody
+    cases hzeros : core.num.Usize.trailing_zeros next_index with
+    | fail error => simp [hzeros] at hbody
+    | div => simp [hzeros] at hbody
+    | ok zeros =>
+      simp only [hzeros, bind_tc_ok, lift] at hbody
+      let depth := core.num.Usize.saturating_sub
+        (core.num.Usize.saturating_add (UScalar.cast .Usize zeros) self.level)
+        self.packing_depth
+      have hdepth : depth.val = top_depth := by
+        apply finish_top_depth_eq hlayout hprefix_units' htop_depth
+          hphysical_len hcursor hlevel_top hinvariant.depth_packing_lt_bits
+          hzeros
+      cases hpop : alloc.vec.Vec.pop Global self.stack with
+      | fail error => simp [depth, hpop] at hbody
+      | div => simp [depth, hpop] at hbody
+      | ok pop_result =>
+        obtain ⟨popped, popped_stack⟩ := pop_result
+        simp only [depth, hpop, bind_tc_ok] at hbody
+        cases popped with
+        | none =>
+          obtain ⟨expected_stack, hpop_expected, hexpected_stack⟩ :=
+            vec_pop_append_last (A := Global) self.stack prefix_stack top
+              hstack
+          rw [hpop] at hpop_expected
+          simp at hpop_expected
+        | some popped_top =>
+          have hpopped_values := vec_pop_some_values
+            (A := Global) self.stack popped_stack popped_top hpop
+          rw [hstack] at hpopped_values
+          have hlength : prefix_stack.length = popped_stack.val.length := by
+            have := congrArg List.length hpopped_values
+            simp at this
+            omega
+          have hparts := List.append_inj hpopped_values hlength
+          obtain ⟨hpopped_stack, hpopped_top⟩ := hparts
+          simp at hpopped_top
+          subst popped_top
+          simp [core.option.Option.ok_or,
+            core.result.Result.Insts.CoreOpsTry.branch] at hbody
+          cases hzero : Tree.zero ValueInst depth with
+          | fail error =>
+            change Tree.zero ValueInst
+              (core.num.Usize.saturating_sub
+                (core.num.Usize.saturating_add
+                  (UScalar.cast .Usize zeros) self.level)
+                self.packing_depth) = fail error at hzero
+            simp [hzero] at hbody
+          | div =>
+            change Tree.zero ValueInst
+              (core.num.Usize.saturating_sub
+                (core.num.Usize.saturating_add
+                  (UScalar.cast .Usize zeros) self.level)
+                self.packing_depth) = div at hzero
+            simp [hzero] at hbody
+          | ok zero =>
+            change Tree.zero ValueInst
+              (core.num.Usize.saturating_sub
+                (core.num.Usize.saturating_add
+                  (UScalar.cast .Usize zeros) self.level)
+                self.packing_depth) = ok zero at hzero
+            simp only [hzero, bind_tc_ok] at hbody
+            cases hpad : Tree.node_unboxed ValueInst (maybeArcedTree top) zero with
+            | fail error => simp [hpad] at hbody
+            | div => simp [hpad] at hbody
+            | ok padded =>
+              simp only [hpad, bind_tc_ok] at hbody
+              cases hpush : alloc.vec.Vec.push popped_stack
+                  (utils.MaybeArced.Unarced padded) with
+              | fail error => simp [hpush] at hbody
+              | div => simp [hpush] at hbody
+              | ok padded_stack =>
+                simp only [hpush, bind_tc_ok] at hbody
+                obtain ⟨zero_result, hzero_result, hzero_dense⟩ :=
+                  zero_preserves_dense ValueInst self.packing_factor depth
+                rw [hzero] at hzero_result
+                cases hzero_result
+                have hzero_dense' : DenseTree self.packing_factor zero
+                    top_depth 0 := by simpa [hdepth] using hzero_dense
+                have hpadded_stack := vec_push_values popped_stack
+                  (utils.MaybeArced.Unarced padded) hpush
+                have hpadded_values : padded_stack.val =
+                    prefix_stack ++ [utils.MaybeArced.Unarced padded] := by
+                  rw [hpadded_stack, ← hpopped_stack]
+                obtain ⟨count, final_stack, final_top, final_depth, final_len,
+                    hplan, hcarry, hnext_normalized⟩ :=
+                  hprefix.finish_padding_plan hlayout
+                    (Nat.le_succ_of_le hbase_top) haligned htop
+                    htop_nonempty hzero_dense' hpad hlogical_len
+                    hphysical_len hnormalized.physical_le_capacity
+                have hmerge_bits := hcarry.finish_merge_bits hlayout
+                  hphysical_len
+                let padded_self : builder.Builder T :=
+                  { self with stack := padded_stack }
+                cases hfinish : builder.Builder.finish_level ValueInst
+                    padded_self next_index depth with
+                | fail error =>
+                  dsimp [padded_self, depth] at hfinish
+                  simp [hfinish] at hbody
+                | div =>
+                  dsimp [padded_self, depth] at hfinish
+                  simp [hfinish] at hbody
+                | ok finish_result =>
+                  obtain ⟨finish_status, finished_self⟩ := finish_result
+                  dsimp [padded_self, depth] at hfinish
+                  simp only [hfinish, bind_tc_ok] at hbody
+                  cases finish_status with
+                  | Err error =>
+                    simp [core.result.Result.Insts.CoreOpsTry.branch,
+                      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual] at hbody
+                  | Ok success =>
+                    cases success
+                    have hfinish_spec := hfinish
+                    unfold builder.Builder.finish_level at hfinish_spec
+                    cases hstart : depth + 1#usize with
+                    | fail error =>
+                      dsimp [depth] at hstart
+                      simp [hstart] at hfinish_spec
+                    | div =>
+                      dsimp [depth] at hstart
+                      simp [hstart] at hfinish_spec
+                    | ok start_i =>
+                      dsimp [depth] at hstart
+                      simp only [hstart, bind_tc_ok] at hfinish_spec
+                      cases hlevel_loop : builder.Builder.finish_level_loop
+                          ValueInst
+                          { stack := padded_stack, depth := self.depth,
+                            level := self.level, length := self.length,
+                            packing_factor := self.packing_factor,
+                            packing_depth := self.packing_depth,
+                            capacity := self.capacity }
+                          next_index start_i with
+                      | fail error => simp [hlevel_loop] at hfinish_spec
+                      | div => simp [hlevel_loop] at hfinish_spec
+                      | ok loop_result =>
+                        obtain ⟨loop_status, loop_stack, loop_depth, loop_level,
+                          loop_length, loop_factor, loop_packing_depth,
+                          loop_capacity⟩ := loop_result
+                        simp [hlevel_loop] at hfinish_spec
+                        have hstart_value := usize_add_one_value hstart
+                        have hstart_top : start_i.val = top_depth + 1 := by
+                          rw [hstart_value]
+                          change depth.val + 1 = top_depth + 1
+                          rw [hdepth]
+                        have hlevel_loop_ok :
+                            builder.Builder.finish_level_loop ValueInst
+                              { stack := padded_stack, depth := self.depth,
+                                level := self.level, length := self.length,
+                                packing_factor := self.packing_factor,
+                                packing_depth := self.packing_depth,
+                                capacity := self.capacity }
+                              next_index start_i =
+                            ok (core.result.Result.Ok (), loop_stack,
+                              loop_depth, loop_level, loop_length, loop_factor,
+                              loop_packing_depth, loop_capacity) := by
+                          simpa [hfinish_spec.1] using hlevel_loop
+                        have hlevel_result :=
+                          finish_level_loop_follows_merge_plan hplan
+                            hmerge_bits
+                            { stack := padded_stack, depth := self.depth,
+                              level := self.level, length := self.length,
+                              packing_factor := self.packing_factor,
+                              packing_depth := self.packing_depth,
+                              capacity := self.capacity }
+                            next_index start_i loop_stack loop_depth loop_level
+                            loop_length loop_factor loop_packing_depth
+                            loop_capacity rfl rfl hcursor hcursor_fit
+                            hstart_top hpadded_values hlevel_loop_ok
+                        obtain ⟨hloop_stack, hloop_depth, hloop_level,
+                          hloop_length, hloop_factor, hloop_packing_depth,
+                          hloop_capacity⟩ := hlevel_result
+                        have hfinished : finished_self =
+                            { stack := loop_stack, depth := self.depth,
+                              level := self.level, length := self.length,
+                              packing_factor := self.packing_factor,
+                              packing_depth := self.packing_depth,
+                              capacity := self.capacity } := by
+                          rw [← hfinish_spec.2, hloop_depth, hloop_level,
+                            hloop_length, hloop_factor, hloop_packing_depth,
+                            hloop_capacity]
+                        rw [hfinished] at hbody
+                        simp at hbody
+                        cases hadd_depth : depth + self.packing_depth with
+                        | fail error =>
+                          dsimp [depth] at hadd_depth
+                          simp [hadd_depth] at hbody
+                        | div =>
+                          dsimp [depth] at hadd_depth
+                          simp [hadd_depth] at hbody
+                        | ok depth_with_packing =>
+                          dsimp [depth] at hadd_depth
+                          simp only [hadd_depth, bind_tc_ok] at hbody
+                          cases hsub_level : depth_with_packing - self.level with
+                          | fail error => simp [hsub_level] at hbody
+                          | div => simp [hsub_level] at hbody
+                          | ok increment_exponent =>
+                            simp only [hsub_level, bind_tc_ok] at hbody
+                            cases hpow : core.num.Usize.pow 2#usize
+                                (UScalar.cast .U32 increment_exponent) with
+                            | fail error => simp [hpow] at hbody
+                            | div => simp [hpow] at hbody
+                            | ok increment =>
+                              simp only [hpow, bind_tc_ok] at hbody
+                              cases hnext : next_index + increment with
+                              | fail error => simp [hnext] at hbody
+                              | div => simp [hnext] at hbody
+                              | ok next_index' =>
+                                simp [hnext] at hbody
+                                obtain ⟨rfl, rfl⟩ := hbody
+                                have hadd_depth_value :=
+                                  usize_add_value hadd_depth
+                                have hsub_level_value :=
+                                  UScalar.sub_equiv depth_with_packing self.level
+                                rw [hsub_level] at hsub_level_value
+                                obtain ⟨-, hsub_value, -⟩ := hsub_level_value
+                                have hdepth_with_packing :
+                                    depth_with_packing.val = top_depth +
+                                      self.packing_depth.val := by
+                                  rw [hadd_depth_value]
+                                  change depth.val + self.packing_depth.val = _
+                                  rw [hdepth]
+                                have hincrement_exponent :
+                                    increment_exponent.val = top_depth +
+                                      self.packing_depth.val - self.level.val := by
+                                  omega
+                                have hexponent_u32 : increment_exponent.val <
+                                    2 ^ 32 := by
+                                  rw [hincrement_exponent]
+                                  have hroot_bits :=
+                                    hinvariant.depth_packing_lt_bits
+                                  have hbits_u32 : System.Platform.numBits <
+                                      2 ^ 32 := by native_decide
+                                  omega
+                                have hcast_exponent := usize_cast_u32_value
+                                  increment_exponent hexponent_u32
+                                have hincrement := usize_pow_two_value hpow
+                                rw [hcast_exponent, hincrement_exponent] at hincrement
+                                have hnext_value := usize_add_value hnext
+                                have hcapacity_top :=
+                                  hlayout.subtreeCapacity_eq_two_pow top_depth
+                                let next_physical := physical_len +
+                                  subtreeCapacity self.packing_factor top_depth
+                                have hnext_cursor : next_physical =
+                                    next_index'.val * 2 ^ self.level.val := by
+                                  dsimp [next_physical]
+                                  rw [hnext_value, hincrement, Nat.add_mul,
+                                    ← hcursor, hcapacity_top]
+                                  have hexponent_sum :
+                                      (top_depth + self.packing_depth.val -
+                                          self.level.val) + self.level.val =
+                                        self.packing_depth.val + top_depth := by
+                                    omega
+                                  rw [← pow_add, hexponent_sum]
+                                refine ⟨next_physical, loop_stack, rfl, rfl, rfl,
+                                  rfl, rfl, rfl, rfl, ?_, ?_, ?_, hnext_cursor⟩
+                                · simpa [next_physical, hloop_stack] using
+                                    hnext_normalized
+                                · dsimp [next_physical]
+                                  have hcap_pos :=
+                                    hlayout.subtreeCapacity_pos top_depth
+                                  omega
+                                · dsimp [next_physical]
+                                  exact hnext_normalized.physical_le_capacity
 
 private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
