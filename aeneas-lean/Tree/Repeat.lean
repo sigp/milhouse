@@ -98,4 +98,244 @@ private theorem DenseTree.pair_partial {T : Type}
     (subtreeCapacity packing_factor depth.val) right_len hleft hright
     hcapacity (by intros; rfl)
 
+/-! ## Loop preservation -/
+
+private theorem range_usize_next_some
+    (iter : core.ops.range.Range Std.Usize)
+    (hlt : iter.start.val < iter.end.val) :
+    ∃ iter1,
+      core.iter.range.IteratorRange.next core.iter.range.StepUsize iter =
+        ok (some iter.start, iter1) ∧
+      iter1.start.val = iter.start.val + 1 ∧ iter1.end = iter.end := by
+  have hspec :
+      core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+        ⦃ option iter1 => option = some iter.start ∧
+          iter1.start.val = iter.start.val + 1 ∧ iter1.end = iter.end ⦄ :=
+    core.iter.range.IteratorRange.next_UScalar_some_spec
+      (ty := .Usize) (by intros; rfl) (by intros; rfl) iter hlt
+  cases hnext : core.iter.range.IteratorRange.next
+      core.iter.range.StepUsize iter with
+  | fail error => rw [hnext] at hspec; simp at hspec
+  | div => rw [hnext] at hspec; simp at hspec
+  | ok result =>
+    rw [hnext] at hspec
+    simp at hspec
+    obtain ⟨option, iter1⟩ := result
+    change option = some iter.start ∧
+      iter1.start.val = iter.start.val + 1 ∧ iter1.end = iter.end at hspec
+    obtain ⟨rfl, hstart, hend⟩ := hspec
+    exact ⟨iter1, by simp, hstart, hend⟩
+
+private theorem usize_zero_add_one :
+    (0#usize + 1#usize) = ok 1#usize := by
+  have hspec := UScalar.add_equiv (0#usize) (1#usize)
+  cases hadd : 0#usize + 1#usize with
+  | fail error =>
+    rw [hadd] at hspec
+    simp at hspec
+    have hbits : 0 < System.Platform.numBits := by native_decide
+    omega
+  | div => rw [hadd] at hspec; simp at hspec
+  | ok result =>
+    rw [hadd] at hspec
+    have hresult : result = 1#usize :=
+      UScalar.eq_of_val_eq (by simpa using hspec.2.1)
+    simpa [hresult] using hadd
+
+private theorem usize_one_add_one :
+    (1#usize + 1#usize) = ok 2#usize := by
+  have hspec := UScalar.add_equiv (1#usize) (1#usize)
+  cases hadd : 1#usize + 1#usize with
+  | fail error =>
+    rw [hadd] at hspec
+    simp at hspec
+    have hbits : 2 < 2 ^ System.Platform.numBits := by native_decide
+    omega
+  | div => rw [hadd] at hspec; simp at hspec
+  | ok result =>
+    rw [hadd] at hspec
+    have hresult : result = 2#usize :=
+      UScalar.eq_of_val_eq (by simpa using hspec.2.1)
+    simpa [hresult] using hadd
+
+private theorem repeat_list_body_next {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (iter : core.ops.range.Range Std.Usize) {total : Nat}
+    {layer : List (Tree T × Std.Usize)}
+    (hlt : iter.start.val < iter.end.val)
+    (hlayer : RepeatLayer packing_factor iter.start.val total layer) :
+    ∃ iter1 layer1,
+      repeat.repeat_list_loop.body ValueInst iter layer =
+        ok (.cont (iter1, layer1)) ∧
+      iter1.start.val = iter.start.val + 1 ∧ iter1.end = iter.end ∧
+      RepeatLayer packing_factor iter1.start.val total layer1 := by
+  obtain ⟨iter1, hnext, hstart, hend⟩ := range_usize_next_some iter hlt
+  let hash : alloy_primitives.bits.fixed.FixedBytes 32#usize :=
+    Array.repeat 32#usize 0#u8
+  have hcapacity : 0 < subtreeCapacity packing_factor iter.start.val :=
+    hlayout.subtreeCapacity_pos iter.start.val
+  have hzero_add_one := usize_zero_add_one
+  have hone_add_one := usize_one_add_one
+  cases hlayer with
+  | single tree count depth len total hdense hlen hcount htotal hone_full =>
+    by_cases hone : count.val = 1
+    · have hcount_eq : count = 1#usize := UScalar.eq_of_val_eq (by simpa using hone)
+      subst count
+      let padded := Tree.Node hash tree (Tree.Zero iter.start)
+      refine ⟨iter1, [(padded, 1#usize)], ?_, hstart, hend, ?_⟩
+      · simp [repeat.repeat_list_loop.body, hnext, hzero_add_one, padded, hash,
+          smallvec.SmallVec.pop, smallvec.SmallVec.new,
+          smallvec.SmallVec.inline_size, Array.Insts.SmallvecArray.size,
+          smallvec.SmallVec.push,
+          triomphe.arc.Arc.Insts.CoreCloneClone.clone, Tree.zero, Tree.node,
+          alloy_primitives.bits.fixed.FixedBytes.ZERO,
+          lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+      · rw [hstart]
+        apply RepeatLayer.single padded 1#usize (iter.start.val + 1) len total
+        · exact hdense.pad_right iter.start hlen hash
+        · exact hlen
+        · simp
+        · simpa using htotal
+        · exact Or.inl (by simp)
+    · have hfull : len = subtreeCapacity packing_factor iter.start.val :=
+        hone_full.resolve_left hone
+      obtain ⟨half, hhalf, hhalf_val⟩ :=
+        UScalar.div_spec count (y := 2#usize) (by simp)
+      have hhalf_nat : half.val = count.val / 2 := by simpa using hhalf_val
+      by_cases heven : count.val % 2 = 0
+      · have hcount_even : count.val = 2 * half.val := by
+          rw [hhalf_nat]
+          omega
+        let paired := Tree.Node hash tree tree
+        refine ⟨iter1, [(paired, half)], ?_, hstart, hend, ?_⟩
+        · simp [repeat.repeat_list_loop.body, hnext, hzero_add_one,
+            core.num.Usize.is_multiple_of, UScalar.is_multiple_of, heven,
+            hhalf, paired, hash, smallvec.SmallVec.pop,
+            smallvec.SmallVec.new, smallvec.SmallVec.inline_size,
+            Array.Insts.SmallvecArray.size, smallvec.SmallVec.push,
+            triomphe.arc.Arc.Insts.CoreCloneClone.clone, Tree.node,
+            alloy_primitives.bits.fixed.FixedBytes.ZERO,
+            lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+        · rw [hstart]
+          have hdense_full : DenseTree packing_factor tree iter.start.val
+              (subtreeCapacity packing_factor iter.start.val) := by
+            simpa [hfull] using hdense
+          apply RepeatLayer.single paired half (iter.start.val + 1)
+            (subtreeCapacity packing_factor (iter.start.val + 1)) total
+          · exact hdense_full.pair_full iter.start hcapacity hash
+          · rw [subtreeCapacity_succ]; omega
+          · omega
+          · rw [htotal, hfull, hcount_even, subtreeCapacity_succ]
+            ring
+          · exact Or.inr rfl
+      · have hcount_odd : count.val = 2 * half.val + 1 := by
+          rw [hhalf_nat]
+          omega
+        let paired := Tree.Node hash tree tree
+        let padded := Tree.Node hash tree (Tree.Zero iter.start)
+        refine ⟨iter1, [(paired, half), (padded, 1#usize)], ?_, hstart,
+          hend, ?_⟩
+        · simp [repeat.repeat_list_loop.body, hnext, hzero_add_one,
+            hone_add_one,
+            core.num.Usize.is_multiple_of, UScalar.is_multiple_of, heven,
+            hhalf, paired, padded, hash, smallvec.SmallVec.pop,
+            smallvec.SmallVec.new, smallvec.SmallVec.inline_size,
+            Array.Insts.SmallvecArray.size, smallvec.SmallVec.push,
+            triomphe.arc.Arc.Insts.CoreCloneClone.clone, Tree.zero, Tree.node,
+            alloy_primitives.bits.fixed.FixedBytes.ZERO,
+            lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+        · rw [hstart]
+          have hdense_full : DenseTree packing_factor tree iter.start.val
+              (subtreeCapacity packing_factor iter.start.val) := by
+            simpa [hfull] using hdense
+          apply RepeatLayer.split paired padded half (iter.start.val + 1)
+            (subtreeCapacity packing_factor iter.start.val) total
+          · exact hdense_full.pair_full iter.start hcapacity hash
+          · exact hdense_full.pad_right iter.start hcapacity hash
+          · omega
+          · exact hcapacity
+          · rw [subtreeCapacity_succ]; omega
+          · rw [htotal, hfull, hcount_odd, subtreeCapacity_succ]
+            ring
+  | split repeated lonely count depth lonely_len total hrepeated hlonely
+      hcount hlonely_pos hlonely_partial htotal =>
+    by_cases hone : count.val = 1
+    · have hcount_eq : count = 1#usize := UScalar.eq_of_val_eq (by simpa using hone)
+      subst count
+      let joined := Tree.Node hash repeated lonely
+      refine ⟨iter1, [(joined, 1#usize)], ?_, hstart, hend, ?_⟩
+      · simp [repeat.repeat_list_loop.body, hnext, hzero_add_one, joined, hash,
+          smallvec.SmallVec.pop, smallvec.SmallVec.new,
+          smallvec.SmallVec.inline_size, Array.Insts.SmallvecArray.size,
+          smallvec.SmallVec.push,
+          triomphe.arc.Arc.Insts.CoreCloneClone.clone, Tree.node,
+          alloy_primitives.bits.fixed.FixedBytes.ZERO,
+          lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+      · rw [hstart]
+        apply RepeatLayer.single joined 1#usize (iter.start.val + 1)
+          (subtreeCapacity packing_factor iter.start.val + lonely_len) total
+        · exact hrepeated.pair_partial iter.start hlonely hcapacity hash
+        · omega
+        · simp
+        · simpa using htotal
+        · exact Or.inl (by simp)
+    · obtain ⟨half, hhalf, hhalf_val⟩ :=
+        UScalar.div_spec count (y := 2#usize) (by simp)
+      have hhalf_nat : half.val = count.val / 2 := by simpa using hhalf_val
+      by_cases heven : count.val % 2 = 0
+      · have hcount_even : count.val = 2 * half.val := by
+          rw [hhalf_nat]
+          omega
+        let paired := Tree.Node hash repeated repeated
+        let padded := Tree.Node hash lonely (Tree.Zero iter.start)
+        refine ⟨iter1, [(paired, half), (padded, 1#usize)], ?_, hstart,
+          hend, ?_⟩
+        · simp [repeat.repeat_list_loop.body, hnext, hzero_add_one,
+            hone_add_one,
+            core.num.Usize.is_multiple_of, UScalar.is_multiple_of, heven,
+            hhalf, paired, padded, hash, smallvec.SmallVec.pop,
+            smallvec.SmallVec.new, smallvec.SmallVec.inline_size,
+            Array.Insts.SmallvecArray.size, smallvec.SmallVec.push,
+            triomphe.arc.Arc.Insts.CoreCloneClone.clone, Tree.zero, Tree.node,
+            alloy_primitives.bits.fixed.FixedBytes.ZERO,
+            lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+        · rw [hstart]
+          apply RepeatLayer.split paired padded half (iter.start.val + 1)
+            lonely_len total
+          · exact hrepeated.pair_full iter.start hcapacity hash
+          · exact hlonely.pad_right iter.start hlonely_pos hash
+          · omega
+          · exact hlonely_pos
+          · rw [subtreeCapacity_succ]; omega
+          · rw [htotal, hcount_even, subtreeCapacity_succ]
+            ring
+      · have hcount_odd : count.val = 2 * half.val + 1 := by
+          rw [hhalf_nat]
+          omega
+        let paired := Tree.Node hash repeated repeated
+        let joined := Tree.Node hash repeated lonely
+        refine ⟨iter1, [(paired, half), (joined, 1#usize)], ?_, hstart,
+          hend, ?_⟩
+        · simp [repeat.repeat_list_loop.body, hnext, hzero_add_one,
+            hone_add_one,
+            core.num.Usize.is_multiple_of, UScalar.is_multiple_of, heven,
+            hhalf, paired, joined, hash, smallvec.SmallVec.pop,
+            smallvec.SmallVec.new, smallvec.SmallVec.inline_size,
+            Array.Insts.SmallvecArray.size, smallvec.SmallVec.push,
+            triomphe.arc.Arc.Insts.CoreCloneClone.clone, Tree.node,
+            alloy_primitives.bits.fixed.FixedBytes.ZERO,
+            lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new]
+        · rw [hstart]
+          apply RepeatLayer.split paired joined half (iter.start.val + 1)
+            (subtreeCapacity packing_factor iter.start.val + lonely_len) total
+          · exact hrepeated.pair_full iter.start hcapacity hash
+          · exact hrepeated.pair_partial iter.start hlonely hcapacity hash
+          · omega
+          · omega
+          · rw [subtreeCapacity_succ]; omega
+          · rw [htotal, hcount_odd, subtreeCapacity_succ]
+            ring
+
 end milhouse.tree
