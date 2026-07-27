@@ -3763,6 +3763,53 @@ private theorem finish_packed_leaf_normalizes_partial {T : Type}
       ?_⟩
     simpa [hresult_stack, hlength] using hnormalized
 
+private theorem finish_tree_completed_entry_dense {T : Type}
+    {ValueInst : Value T} {self finished : builder.Builder T}
+    {next_index : Std.Usize}
+    (hlayout : PackingLayout ValueInst self.packing_factor self.packing_depth)
+    (hlevel_valid : self.level.val = 0 ∨
+      self.packing_depth.val ≤ self.level.val)
+    (hcapacity : self.capacity.val =
+      subtreeCapacity self.packing_factor self.depth.val)
+    (hroot_bits : self.depth.val + self.packing_depth.val <
+      System.Platform.numBits)
+    {base_depth logical_len physical_len : Nat}
+    (hnormalized : BuilderNormalizedStack self.packing_factor base_depth
+      self.stack.val self.depth.val logical_len physical_len)
+    (hbase : base_depth = if self.level.val = 0 then 0
+      else self.level.val - self.packing_depth.val)
+    (hlogical : 0 < logical_len)
+    (hcursor : physical_len = next_index.val * 2 ^ self.level.val)
+    (hfinish : builder.Builder.finish_tree ValueInst self next_index =
+      ok (core.result.Result.Ok (), finished))
+    {entry : utils.MaybeArced (Tree T)}
+    {rest : alloc.vec.Vec (utils.MaybeArced (Tree T))} {tree : Tree T}
+    (hpop : alloc.vec.Vec.pop Global finished.stack =
+      ok (some entry, rest))
+    (harced : utils.MaybeArced.arced entry = ok tree) :
+    finished.depth = self.depth ∧ finished.length = self.length ∧
+      DenseTree self.packing_factor tree self.depth.val logical_len := by
+  have hcompleted := finish_tree_loop_completes_normalized hlayout
+    hlevel_valid hcapacity hroot_bits hnormalized hbase hlogical hcursor
+    hfinish
+  obtain ⟨hdepth, hlevel, hlength, hfactor, hpacking_depth, hcapacity',
+      hfinished⟩ := hcompleted
+  obtain ⟨expected, hstack, hdense⟩ :=
+    hfinished.full_physical_singleton hlayout hlogical rfl
+  have hpopped := vec_pop_some_values (A := Global) finished.stack rest entry
+    hpop
+  rw [hstack] at hpopped
+  have hrest_length_succ : rest.val.length + 1 = 1 := by
+    simpa using congrArg List.length hpopped.symm
+  have hrest_length : rest.val.length = 0 := by omega
+  have hrest : rest.val = [] := List.eq_nil_of_length_eq_zero hrest_length
+  have hentry : entry = expected := by
+    simpa [hrest] using hpopped.symm
+  subst entry
+  have htree : tree = maybeArcedTree expected := by
+    simpa using harced.symm
+  exact ⟨hdepth, hlength, by simpa [htree] using hdense⟩
+
 private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
     {packing_depth : Std.Usize}
