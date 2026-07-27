@@ -329,6 +329,67 @@ theorem BuilderStack.raise_left {T : Type}
     rw [Nat.add_succ]
     exact BuilderStack.left ih ih.length_le_capacity
 
+/-- `Arced` and `Unarced` are ownership details erased by the translation;
+    replacing stack entries without changing their trees preserves shape. -/
+theorem BuilderStack.rewrap {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack replacement : List (utils.MaybeArced (Tree T))}
+    {depth len : Nat}
+    (hstack : BuilderStack packing_factor base_depth stack depth len)
+    (hsame : stack.map maybeArcedTree = replacement.map maybeArcedTree) :
+    BuilderStack packing_factor base_depth replacement depth len := by
+  induction hstack generalizing replacement with
+  | empty depth base_le_depth =>
+    have hreplacement : replacement = [] := by
+      simpa using hsame.symm
+    subst replacement
+    exact BuilderStack.empty depth base_le_depth
+  | base entry len dense nonempty =>
+    cases replacement with
+    | nil => simp at hsame
+    | cons replacement tail =>
+      have hparts : maybeArcedTree entry = maybeArcedTree replacement ∧
+          tail = [] := by
+        simpa using hsame
+      obtain ⟨htree, rfl⟩ := hparts
+      exact BuilderStack.base replacement len (by simpa [← htree] using dense)
+        nonempty
+  | full entry depth base_le_depth dense capacity_nonempty =>
+    cases replacement with
+    | nil => simp at hsame
+    | cons replacement tail =>
+      have hparts : maybeArcedTree entry = maybeArcedTree replacement ∧
+          tail = [] := by
+        simpa using hsame
+      obtain ⟨htree, rfl⟩ := hparts
+      exact BuilderStack.full replacement depth base_le_depth
+        (by simpa [← htree] using dense) capacity_nonempty
+  | segment entry depth len base_le_depth dense nonempty full_or_unaligned =>
+    cases replacement with
+    | nil => simp at hsame
+    | cons replacement tail =>
+      have hparts : maybeArcedTree entry = maybeArcedTree replacement ∧
+          tail = [] := by
+        simpa using hsame
+      obtain ⟨htree, rfl⟩ := hparts
+      exact BuilderStack.segment replacement depth len base_le_depth
+        (by simpa [← htree] using dense) nonempty full_or_unaligned
+  | left child_prefix fits_left ih =>
+    exact BuilderStack.left (ih hsame) fits_left
+  | @right left right_stack depth right_len left_dense right_prefix right_nonempty
+      right_not_full ih =>
+    cases replacement with
+    | nil => simp at hsame
+    | cons replacement replacement_tail =>
+      have hparts : maybeArcedTree left = maybeArcedTree replacement ∧
+          right_stack.map maybeArcedTree =
+            replacement_tail.map maybeArcedTree := by
+        simpa using hsame
+      obtain ⟨hleft, htail⟩ := hparts
+      exact BuilderStack.right replacement depth right_len
+        (by simpa [← hleft] using left_dense) (ih htail) right_nonempty
+        right_not_full
+
 /-- The translated builder fields agree with its packing layout and its stack
     is the canonical decomposition of the reported dense prefix. The level
     restriction records the two modes created inside this crate: leaf level
