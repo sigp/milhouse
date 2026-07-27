@@ -220,6 +220,40 @@ theorem BuilderNormalizedStack.physical_le_capacity {T : Type}
     rw [subtreeCapacity_succ]
     omega
 
+theorem BuilderNormalizedStack.ne_nil_of_logical_pos {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))}
+    {root_depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor base_depth stack root_depth
+      logical_len physical_len) (hpos : 0 < logical_len) : stack ≠ [] := by
+  induction h with
+  | empty => omega
+  | single => simp
+  | left child physical_fits ih => exact ih hpos
+  | right => simp
+
+/-- A normalized stack that occupies the root capacity and has one entry is
+    already the finished dense root. -/
+theorem BuilderNormalizedStack.singleton_dense_of_full_physical {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth : Nat} {entry : utils.MaybeArced (Tree T)}
+    {root_depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor base_depth [entry] root_depth
+      logical_len physical_len)
+    (hphysical : physical_len = subtreeCapacity packing_factor root_depth) :
+    DenseTree packing_factor (maybeArcedTree entry) root_depth logical_len := by
+  cases h with
+  | single entry depth len base_le_depth dense nonempty => exact dense
+  | @left stack child_depth child_logical child_physical child physical_fits =>
+    rw [subtreeCapacity_succ] at hphysical
+    have hpos := hlayout.subtreeCapacity_pos child_depth
+    omega
+  | @right left right_stack child_depth right_logical right_physical
+      left_dense right right_nonempty right_physical_not_full =>
+    exact (right.ne_nil_of_logical_pos right_nonempty rfl).elim
+
 theorem BuilderNormalizedStack.raise_left {T : Type}
     {packing_factor : Option Std.Usize} {base_depth : Nat}
     {stack : List (utils.MaybeArced (Tree T))}
