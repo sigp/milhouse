@@ -901,6 +901,33 @@ private theorem usize_shift_right_value {value shift shifted : Std.Usize}
   rw [h] at hspec
   exact hspec.1
 
+private theorem usize_shift_left_value {value shift shifted : Std.Usize}
+    {unbounded : Nat}
+    (h : value <<< shift = ok shifted)
+    (hunbounded : unbounded = value.val * 2 ^ shift.val)
+    (hfit : unbounded < 2 ^ System.Platform.numBits) :
+    shifted.val = unbounded := by
+  have hbound : shift.val < System.Platform.numBits := by
+    change UScalar.shiftLeft value shift.val = ok shifted at h
+    unfold UScalar.shiftLeft at h
+    split at h
+    · assumption
+    · simp at h
+  have hspec := UScalar.ShiftLeft_spec value shift
+    (UScalar.size UScalarTy.Usize) hbound rfl
+  rw [h] at hspec
+  obtain ⟨hvalue, -⟩ := hspec
+  rw [hvalue, Nat.shiftLeft_eq, UScalar.size_def]
+  rw [hunbounded]
+  apply Nat.mod_eq_of_lt
+  simpa [hunbounded] using hfit
+
+private theorem usize_add_value {left right sum : Std.Usize}
+    (h : left + right = ok sum) : sum.val = left.val + right.val := by
+  have hadd := UScalar.add_equiv left right
+  rw [h] at hadd
+  exact hadd.2.1
+
 private theorem u32_saturating_sub_value (left right : Std.U32) :
     (core.num.U32.saturating_sub left right).val = left.val - right.val := by
   change (BitVec.ofNat 32 (max 0 (left.val - right.val))).toNat =
@@ -2175,6 +2202,30 @@ private theorem push_node_loop_step {T : Type} (ValueInst : Value T)
       rfl
     | done result => simp [hbody]
 
+private theorem finish_level_loop_step {T : Type} (ValueInst : Value T)
+    (self : builder.Builder T) (next_index_on_level i : Std.Usize) :
+    builder.Builder.finish_level_loop ValueInst self next_index_on_level i =
+      match builder.Builder.finish_level_loop.body ValueInst
+          next_index_on_level self i with
+      | ok (.cont (self1, i1)) =>
+        builder.Builder.finish_level_loop ValueInst self1 next_index_on_level i1
+      | ok (.done result) => ok result
+      | fail error => fail error
+      | div => div := by
+  conv_lhs => unfold builder.Builder.finish_level_loop
+  conv_lhs => unfold Aeneas.Std.loop
+  cases hbody : builder.Builder.finish_level_loop.body ValueInst
+      next_index_on_level self i with
+  | fail error => simp [hbody]
+  | div => simp [hbody]
+  | ok flow =>
+    cases flow with
+    | cont state =>
+      obtain ⟨self1, i1⟩ := state
+      simp [hbody]
+      rfl
+    | done result => simp [hbody]
+
 private theorem range_u32_next_none
     (iter : core.ops.range.Range Std.U32)
     (hge : iter.start.val ≥ iter.end.val) :
@@ -2355,6 +2406,157 @@ private theorem push_node_loop_follows_merge_plan {T : Type}
     · exact hrest
     · rfl
     · exact hloop
+
+private theorem finish_level_loop_follows_merge_plan {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {count cursor start root_depth packing_depth : Nat}
+    {input_stack : List (utils.MaybeArced (Tree T))} {input_top : Tree T}
+    {final_stack : List (utils.MaybeArced (Tree T))}
+    {final_top : Tree T} {final_depth final_len : Nat}
+    (hplan : BuilderMergePlan ValueInst packing_factor count input_stack
+      input_top final_stack final_top final_depth final_len)
+    (hbits : BuilderMergeBits cursor start count root_depth packing_depth) :
+    ∀ (self : builder.Builder T) (next_index_on_level i : Std.Usize)
+      (result_stack : alloc.vec.Vec (utils.MaybeArced (Tree T))),
+      self.depth.val = root_depth →
+      self.packing_depth.val = packing_depth →
+      cursor = next_index_on_level.val * 2 ^ self.level.val →
+      cursor < 2 ^ System.Platform.numBits →
+      i.val = start →
+      self.stack.val = input_stack ++
+        [utils.MaybeArced.Unarced input_top] →
+      builder.Builder.finish_level_loop ValueInst self next_index_on_level i =
+        ok (core.result.Result.Ok (), result_stack, self.depth, self.level,
+          self.length, self.packing_factor, self.packing_depth,
+          self.capacity) →
+      result_stack.val = final_stack ++
+        [utils.MaybeArced.Unarced final_top] := by
+  induction hplan generalizing start with
+  | done plan_stack top depth len top_dense top_nonempty =>
+    intro self next_index i result_stack hdepth hpacking_depth hcursor
+      hcursor_fit hi hstack hloop
+    rw [finish_level_loop_step] at hloop
+    unfold builder.Builder.finish_level_loop.body at hloop
+    by_cases hlt : i < self.depth
+    · simp only [hlt, ↓reduceIte, bind_tc_ok] at hloop
+      cases hleft : next_index <<< self.level with
+      | fail error => simp [hleft] at hloop
+      | div => simp [hleft] at hloop
+      | ok shifted_cursor =>
+        simp only [hleft, bind_tc_ok] at hloop
+        cases hadd : i + self.packing_depth with
+        | fail error => simp [hadd] at hloop
+        | div => simp [hadd] at hloop
+        | ok shift =>
+          simp only [hadd, bind_tc_ok] at hloop
+          cases hright : shifted_cursor >>> shift with
+          | fail error => simp [hright] at hloop
+          | div => simp [hright] at hloop
+          | ok shifted =>
+            have hcursor_value := usize_shift_left_value hleft hcursor
+              hcursor_fit
+            have hshift_value := usize_add_value hadd
+            have hshifted_value := usize_shift_right_value hright
+            have hmerge_stop := hbits.stop
+            have hlt_value : start < root_depth := by scalar_tac
+            have hstop_nat :
+                ((cursor >>> (start + packing_depth)) &&& 1) = 0 := by
+              rcases hmerge_stop with hroot | hbit
+              · omega
+              · simpa using hbit
+            have hbit : (shifted &&& 1#usize) = 0#usize := by
+              apply UScalar.eq_of_val_eq
+              simpa [hshifted_value, hcursor_value, hshift_value, hi,
+                hpacking_depth] using hstop_nat
+            simp [hright, hbit] at hloop
+            obtain ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hloop
+            exact hstack
+    · simp [hlt] at hloop
+      obtain ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hloop
+      exact hstack
+  | @step base_stack left top merged depth top_len remaining_count final_stack
+      final_top final_depth final_len left_dense top_dense top_nonempty merge_eq
+      remaining ih =>
+    intro self next_index i result_stack hdepth hpacking_depth hcursor
+      hcursor_fit hi hstack hloop
+    have hmerge_zero := hbits.merge 0 (by omega)
+    have hlt : i < self.depth := by scalar_tac
+    rw [finish_level_loop_step] at hloop
+    unfold builder.Builder.finish_level_loop.body at hloop
+    simp only [hlt, ↓reduceIte, bind_tc_ok] at hloop
+    cases hleft_shift : next_index <<< self.level with
+    | fail error => simp [hleft_shift] at hloop
+    | div => simp [hleft_shift] at hloop
+    | ok shifted_cursor =>
+      simp only [hleft_shift, bind_tc_ok] at hloop
+      cases hadd_shift : i + self.packing_depth with
+      | fail error => simp [hadd_shift] at hloop
+      | div => simp [hadd_shift] at hloop
+      | ok shift =>
+        simp only [hadd_shift, bind_tc_ok] at hloop
+        cases hright_shift : shifted_cursor >>> shift with
+        | fail error => simp [hright_shift] at hloop
+        | div => simp [hright_shift] at hloop
+        | ok shifted =>
+          have hcursor_value := usize_shift_left_value hleft_shift
+            hcursor hcursor_fit
+          have hshift_value := usize_add_value hadd_shift
+          have hshifted_value := usize_shift_right_value hright_shift
+          have hbit : (shifted &&& 1#usize) = 1#usize := by
+            apply UScalar.eq_of_val_eq
+            simpa [hshifted_value, hcursor_value, hshift_value, hi,
+              hpacking_depth] using hmerge_zero.2
+          have hsource_values : self.stack.val =
+              (base_stack ++ [left]) ++
+                [utils.MaybeArced.Unarced top] := hstack
+          obtain ⟨after_top, hpop_top, hafter_top⟩ :=
+            vec_pop_append_last (A := Global) self.stack
+              (base_stack ++ [left]) (utils.MaybeArced.Unarced top)
+              hsource_values
+          obtain ⟨after_left, hpop_left, hafter_left⟩ :=
+            vec_pop_append_last (A := Global) after_top base_stack left
+              hafter_top
+          simp [hright_shift, hbit, lift, hpop_top, hpop_left,
+            core.option.Option.ok_or,
+            core.result.Result.Insts.CoreOpsTry.branch,
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+            maybeArced_arced, merge_eq] at hloop
+          cases hpush : alloc.vec.Vec.push after_left
+              (utils.MaybeArced.Unarced merged) with
+          | fail error => simp [hpush] at hloop
+          | div => simp [hpush] at hloop
+          | ok pushed =>
+            simp only [hpush, bind_tc_ok] at hloop
+            cases hnext : i + 1#usize with
+            | fail error => simp [hnext] at hloop
+            | div => simp [hnext] at hloop
+            | ok next_i =>
+              simp only [hnext, bind_tc_ok] at hloop
+              have hpushed := vec_push_values after_left
+                (utils.MaybeArced.Unarced merged) hpush
+              have hpushed_values : pushed.val =
+                  base_stack ++ [utils.MaybeArced.Unarced merged] := by
+                simpa [hafter_left] using hpushed
+              have hnext_value := usize_add_one_value hnext
+              have hi_next : next_i.val = start + 1 := by omega
+              let next_self := { self with stack := pushed }
+              have htail_bits : BuilderMergeBits cursor (start + 1)
+                  remaining_count root_depth packing_depth := by
+                constructor
+                · intro offset hoffset
+                  have hmerge := hbits.merge (offset + 1) (by omega)
+                  simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+                    hmerge
+                · simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+                    hbits.stop
+              apply ih htail_bits next_self next_index next_i result_stack
+              · exact hdepth
+              · exact hpacking_depth
+              · exact hcursor
+              · exact hcursor_fit
+              · exact hi_next
+              · exact hpushed_values
+              · exact hloop
 
 private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
