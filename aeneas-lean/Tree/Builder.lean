@@ -851,6 +851,15 @@ structure BuilderInvariant {T : Type} (ValueInst : Value T)
             subtreeCapacity self.packing_factor
               (if self.level.val = 0 then 0
                 else self.level.val - self.packing_depth.val)
+  partial_leaf :
+    self.level.val = 0 →
+      self.length.val % subtreeCapacity self.packing_factor 0 ≠ 0 →
+      ∃ prefix_stack top top_len,
+        self.stack.val = prefix_stack ++
+            [utils.MaybeArced.Unarced top] ∧
+          DenseTree self.packing_factor top 0 top_len ∧
+          0 < top_len ∧
+          top_len < subtreeCapacity self.packing_factor 0
 
 theorem BuilderInvariant.length_le_capacity {T : Type}
     {ValueInst : Value T} {self : builder.Builder T}
@@ -1074,7 +1083,7 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
             simp [hcapacity] at hnew
             subst self
             refine ⟨PackingLayout.unpacked factor_eq depth_eq, hlevel,
-              hlevel_bound, ?_, ?_, ?_⟩
+              hlevel_bound, ?_, ?_, ?_, ?_⟩
             · have hsum_val := UScalar.add_equiv depth 0#usize
               rw [hsum] at hsum_val
               have hcapacity_val := usize_shift_left_one_value hcapacity
@@ -1097,6 +1106,8 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
               have hpos := PackingLayout.subtreeCapacity_pos
                 (PackingLayout.unpacked factor_eq depth_eq) base_depth
               simpa [base_depth] using hpos
+            · intro _ hpartial
+              simp at hpartial
   | packed factor packing_depth factor_eq depth_eq factor_is_power =>
     simp [builder.Builder.new, depth_eq, factor_eq, lift] at hnew
     cases hmax : MAX_TREE_DEPTH with
@@ -1120,7 +1131,7 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
             simp [hcapacity] at hnew
             subst self
             refine ⟨PackingLayout.packed factor packing_depth factor_eq
-              depth_eq factor_is_power, hlevel, hlevel_bound, ?_, ?_, ?_⟩
+              depth_eq factor_is_power, hlevel, hlevel_bound, ?_, ?_, ?_, ?_⟩
             · change capacity.val = subtreeCapacity (some factor) depth.val
               have hsum_val := UScalar.add_equiv depth packing_depth
               rw [hsum] at hsum_val
@@ -1147,6 +1158,8 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
                 (PackingLayout.packed factor packing_depth factor_eq depth_eq
                   factor_is_power) base_depth
               simpa [base_depth] using hpos
+            · intro _ hpartial
+              simp at hpartial
 
 /-! ## Value insertion -/
 
@@ -3858,7 +3871,7 @@ theorem builder_push_node_preserves_invariant {T : Type}
                   @BuilderInvariant.level_valid T ValueInst self hinvariant,
                   @BuilderInvariant.level_bounded T ValueInst self hinvariant,
                   @BuilderInvariant.builder_capacity_matches T ValueInst self
-                    hinvariant, ?_, ?_⟩
+                    hinvariant, ?_, ?_, ?_⟩
                 · simpa [hnew_length] using hcanonical_final
                 · intro _
                   let base_capacity := subtreeCapacity self.packing_factor
@@ -3873,6 +3886,12 @@ theorem builder_push_node_preserves_invariant {T : Type}
                     omega
                   · simp [base_capacity]
                     omega
+                · intro hlevel_zero hpartial
+                  have hfactor_none : self.packing_factor = none :=
+                    hnode_level.resolve_left (not_not.mpr hlevel_zero)
+                  have : new_length.val % 1 = 0 := Nat.mod_one _
+                  exact (hpartial (by simpa [hfactor_none, subtreeCapacity,
+                    leafCapacity] using this)).elim
 
 private theorem push_loop1_eq_loop0 {T : Type} (ValueInst : Value T)
     (iter : core.ops.range.Range Std.U32)
@@ -4009,7 +4028,7 @@ theorem builder_push_preserves_invariant {T : Type}
               refine ⟨hlayout,
                 @BuilderInvariant.level_valid T ValueInst self hinvariant,
                 @BuilderInvariant.level_bounded T ValueInst self hinvariant,
-                hcapacity, ?_, ?_⟩
+                hcapacity, ?_, ?_, ?_⟩
               · simpa [hlevel, hresult_length] using hresult_stack
               · intro hready
                 rcases hready with hlevel_ne | haligned
@@ -4018,6 +4037,8 @@ theorem builder_push_preserves_invariant {T : Type}
                     hresult_stack.normalized_cursor_of_aligned hlayout
                       (by simpa [hlevel, hresult_length] using haligned)
                   simpa [hlevel, hresult_length] using hcursor
+              · intro _ hpartial
+                exact (hpartial (Nat.mod_one _)).elim
       | some factor =>
         rw [hfactor] at hpush
         cases hmultiple : core.num.Usize.is_multiple_of self.length factor with
@@ -4282,7 +4303,7 @@ theorem builder_push_preserves_invariant {T : Type}
                                 @BuilderInvariant.level_valid T ValueInst self
                                   hinvariant,
                                 @BuilderInvariant.level_bounded T ValueInst
-                                  self hinvariant, hcapacity, ?_, ?_⟩
+                                  self hinvariant, hcapacity, ?_, ?_, ?_⟩
                               · simpa [hlevel, hresult.2] using hresult.1
                               · intro hready
                                 rcases hready with hlevel_ne | haligned
@@ -4292,6 +4313,63 @@ theorem builder_push_preserves_invariant {T : Type}
                                       hlayout (by simpa [hlevel, hresult.2]
                                         using haligned)
                                   simpa [hlevel, hresult.2] using hcursor
+                              · intro _ hpartial_result
+                                by_cases hupdated_full :
+                                    leaf.values.val.length + 1 = factor.val
+                                · exfalso
+                                  apply hpartial_result
+                                  have hlen_eq : loop_length.val =
+                                      prefix_len + factor.val := by
+                                    rw [hresult.2, htotal]
+                                    omega
+                                  have hprefix_factor : prefix_len %
+                                      factor.val = 0 := by
+                                    simpa [subtreeCapacity, leafCapacity]
+                                      using hprefix_aligned
+                                  simp [subtreeCapacity, leafCapacity, hlen_eq,
+                                    Nat.add_mod, hprefix_factor]
+                                · have hupdated_partial :
+                                      leaf.values.val.length + 1 <
+                                        subtreeCapacity (some factor) 0 := by
+                                    simp [subtreeCapacity, leafCapacity]
+                                    omega
+                                  have hplan := BuilderMergePlan.done
+                                    (ValueInst := ValueInst) base_stack.val
+                                    (Tree.PackedLeaf updated_leaf) 0
+                                    (leaf.values.val.length + 1)
+                                    hupdated_dense (by omega)
+                                  have hprefix_factor : prefix_len %
+                                      factor.val = 0 := by
+                                    simpa [subtreeCapacity, leafCapacity]
+                                      using hprefix_aligned
+                                  have hupdated_factor_lt :
+                                      leaf.values.val.length + 1 <
+                                        factor.val := by
+                                    simpa [subtreeCapacity, leafCapacity]
+                                      using hupdated_partial
+                                  have hnext_partial : next_index.val %
+                                      factor.val ≠ 0 := by
+                                    rw [hnext_value, htotal, Nat.add_assoc,
+                                      Nat.add_mod, hprefix_factor, zero_add,
+                                      Nat.mod_eq_of_lt hupdated_factor_lt]
+                                    rw [Nat.mod_eq_of_lt hupdated_factor_lt]
+                                    omega
+                                  have hmerge_count : values_to_merge.val =
+                                      0 :=
+                                    push_partial_base_merge_count_zero hlayout
+                                      (by omega) hnext_partial hzeros
+                                  obtain ⟨hloop_stack, -⟩ :=
+                                    push_loop0_follows_merge_plan hplan
+                                      { start := 0#u32,
+                                        «end» := values_to_merge }
+                                      base_stack self.length loop_stack
+                                      loop_length (by simp [hmerge_count])
+                                      rfl hloop0
+                                  exact ⟨base_stack.val,
+                                    Tree.PackedLeaf updated_leaf,
+                                    leaf.values.val.length + 1, hloop_stack,
+                                    hupdated_dense, by omega,
+                                    hupdated_partial⟩
           | true =>
             simp only [↓reduceIte] at hpush
             cases hsingle : packed_leaf.PackedLeaf.single
@@ -4405,7 +4483,7 @@ theorem builder_push_preserves_invariant {T : Type}
                   refine ⟨hlayout,
                     @BuilderInvariant.level_valid T ValueInst self hinvariant,
                     @BuilderInvariant.level_bounded T ValueInst self
-                      hinvariant, hcapacity, ?_, ?_⟩
+                      hinvariant, hcapacity, ?_, ?_, ?_⟩
                   · simpa [hlevel, hresult.2] using hresult.1
                   · intro hready
                     rcases hready with hlevel_ne | haligned
@@ -4414,5 +4492,33 @@ theorem builder_push_preserves_invariant {T : Type}
                         hresult.1.normalized_cursor_of_aligned hlayout
                           (by simpa [hlevel, hresult.2] using haligned)
                       simpa [hlevel, hresult.2] using hcursor
+                  · intro _ hpartial_result
+                    by_cases hfactor_one : factor.val = 1
+                    · exfalso
+                      apply hpartial_result
+                      simpa [subtreeCapacity, leafCapacity, hfactor_one] using
+                        Nat.mod_one loop_length.val
+                    · have hfactor_gt : 1 < factor.val := by omega
+                      have htop_partial : 1 < subtreeCapacity
+                          (some factor) 0 := by
+                        simp [subtreeCapacity, leafCapacity]
+                        omega
+                      have hplan := BuilderMergePlan.done
+                        (ValueInst := ValueInst) self.stack.val
+                        (Tree.PackedLeaf leaf) 0 1 hleaf_dense (by omega)
+                      have hnext_partial : next_index.val % factor.val ≠ 0 := by
+                        rw [hnext_value, Nat.add_mod, haligned, zero_add,
+                          Nat.mod_eq_of_lt hfactor_gt]
+                        simpa using hfactor_one
+                      have hmerge_count : values_to_merge.val = 0 :=
+                        push_partial_base_merge_count_zero hlayout
+                          (by omega) hnext_partial hzeros
+                      obtain ⟨hloop_stack, -⟩ :=
+                        push_loop0_follows_merge_plan hplan
+                          { start := 0#u32, «end» := values_to_merge }
+                          self.stack self.length loop_stack loop_length
+                          (by simp [hmerge_count]) rfl hloop0
+                      exact ⟨self.stack.val, Tree.PackedLeaf leaf, 1,
+                        hloop_stack, hleaf_dense, by omega, htop_partial⟩
 
 end milhouse.tree
