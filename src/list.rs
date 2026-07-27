@@ -220,7 +220,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&'_ T> {
-        self.interface.get(index)
+        match self.interface.updates.get(index) {
+            Some(value) => Some(value),
+            None => self.interface.backing.get(index),
+        }
     }
 
     pub fn get_mut(&mut self, index: usize) -> Option<&'_ mut T> {
@@ -228,7 +231,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
-        self.interface.get_cow(index)
+        let backing_value = self.interface.backing.get(index);
+        self.interface
+            .updates
+            .get_cow_with_value(index, backing_value)
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {

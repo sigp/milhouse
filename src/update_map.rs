@@ -18,6 +18,10 @@ pub trait UpdateMap<T>: Default + Clone {
         F: FnOnce(usize) -> Option<&'a T>,
         T: Clone + 'a;
 
+    fn get_cow_with_value<'a>(&'a mut self, k: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a;
+
     fn insert(&mut self, k: usize, value: T) -> Option<T>;
 
     fn for_each_range<F, E>(&self, start: usize, end: usize, f: F) -> Result<(), E>
@@ -71,6 +75,22 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
                     entry: Some(entry),
                 }
             }
+            Entry::Occupied(entry) => BTreeCow::Mutable {
+                value: entry.into_mut(),
+            },
+        };
+        Some(Cow::BTree(cow))
+    }
+
+    fn get_cow_with_value<'a>(&'a mut self, idx: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a,
+    {
+        let cow = match self.entry(idx) {
+            Entry::Vacant(entry) => BTreeCow::Immutable {
+                value: value?,
+                entry: Some(entry),
+            },
             Entry::Occupied(entry) => BTreeCow::Mutable {
                 value: entry.into_mut(),
             },
@@ -146,6 +166,22 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
         Some(Cow::Vec(cow))
     }
 
+    fn get_cow_with_value<'a>(&'a mut self, idx: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a,
+    {
+        let cow = match self.entry(idx) {
+            vec_map::Entry::Vacant(entry) => VecCow::Immutable {
+                value: value?,
+                entry: Some(entry),
+            },
+            vec_map::Entry::Occupied(entry) => VecCow::Mutable {
+                value: entry.into_mut(),
+            },
+        };
+        Some(Cow::Vec(cow))
+    }
+
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
         VecMap::insert(self, idx, value)
     }
@@ -214,6 +250,13 @@ where
         T: Clone + 'a,
     {
         self.inner.get_cow_with(k, f)
+    }
+
+    fn get_cow_with_value<'a>(&'a mut self, k: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a,
+    {
+        self.inner.get_cow_with_value(k, value)
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
