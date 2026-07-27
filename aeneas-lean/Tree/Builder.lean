@@ -3548,6 +3548,66 @@ private theorem finish_tree_loop_completes_normalized {T : Type}
           hresult_capacity.trans hnext_capacity, ?_⟩
         simpa [hnext_factor, hnext_depth] using hresult_normalized
 
+private theorem finish_packed_leaf_normalizes_partial {T : Type}
+    {ValueInst : Value T} {self result : builder.Builder T}
+    {next_index : Std.Usize}
+    (hlayout : PackingLayout ValueInst self.packing_factor self.packing_depth)
+    (hstack : BuilderStack self.packing_factor 0 self.stack.val
+      self.depth.val self.length.val)
+    {prefix_stack : List (utils.MaybeArced (Tree T))} {top : Tree T}
+    {top_len : Nat}
+    (hentries : self.stack.val = prefix_stack ++
+      [utils.MaybeArced.Unarced top])
+    (htop : DenseTree self.packing_factor top 0 top_len)
+    (htop_nonempty : 0 < top_len)
+    (htop_partial : top_len < subtreeCapacity self.packing_factor 0)
+    (hcursor : self.length.val = next_index.val)
+    (hfinish : builder.Builder.finish_packed_leaf ValueInst self next_index =
+      ok (core.result.Result.Ok (), result)) :
+    ∃ prefix_len,
+      self.length.val = prefix_len + top_len ∧
+      prefix_len % subtreeCapacity self.packing_factor 0 = 0 ∧
+      result.depth = self.depth ∧ result.level = self.level ∧
+      result.length = self.length ∧
+      result.packing_factor = self.packing_factor ∧
+      result.packing_depth = self.packing_depth ∧
+      result.capacity = self.capacity ∧
+      BuilderNormalizedStack self.packing_factor 0 result.stack.val
+        self.depth.val self.length.val
+        (prefix_len + subtreeCapacity self.packing_factor 0) := by
+  obtain ⟨prefix_len, hlength, haligned, hprefix⟩ :=
+    hstack.remove_partial_last hlayout hentries htop htop_nonempty
+      htop_partial
+  have hfits : prefix_len + top_len ≤
+      subtreeCapacity self.packing_factor self.depth.val := by
+    have := hstack.length_le_capacity
+    omega
+  obtain ⟨count, final_stack, final_top, final_depth, final_len, hplan,
+      hcarry, hcanonical, hnormalized, hfull⟩ :=
+    hprefix.append_subtree hlayout htop htop_nonempty haligned hfits
+  have hbits := hcarry.finish_partial_merge_bits hlayout
+    (cursor := self.length.val) hlength htop_partial
+  unfold builder.Builder.finish_packed_leaf at hfinish
+  cases hloop : builder.Builder.finish_packed_leaf_loop ValueInst self
+      next_index 0#usize with
+  | fail error => simp [hloop] at hfinish
+  | div => simp [hloop] at hfinish
+  | ok loop_result =>
+    obtain ⟨status, result_stack, result_depth, result_level, result_length,
+      result_factor, result_packing_depth, result_capacity⟩ := loop_result
+    simp only [hloop, bind_tc_ok] at hfinish
+    obtain ⟨rfl, rfl⟩ := hfinish
+    obtain ⟨hresult_stack, hresult_depth, hresult_level, hresult_length,
+      hresult_factor, hresult_packing_depth, hresult_capacity⟩ :=
+      finish_packed_leaf_loop_follows_merge_plan hplan hbits self next_index
+        0#usize result_stack result_depth result_level result_length
+        result_factor result_packing_depth result_capacity rfl rfl hcursor
+        rfl hentries hloop
+    refine ⟨prefix_len, hlength, haligned, hresult_depth, hresult_level,
+      hresult_length, hresult_factor, hresult_packing_depth, hresult_capacity,
+      ?_⟩
+    simpa [hresult_stack, hlength] using hnormalized
+
 private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
     {packing_depth : Std.Usize}
