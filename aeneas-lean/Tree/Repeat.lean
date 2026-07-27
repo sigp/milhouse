@@ -338,4 +338,96 @@ private theorem repeat_list_body_next {T : Type}
           · rw [htotal, hcount_odd, subtreeCapacity_succ]
             ring
 
+private theorem range_usize_next_none
+    (iter : core.ops.range.Range Std.Usize)
+    (hge : iter.start.val ≥ iter.end.val) :
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter =
+      ok (none, iter) := by
+  have hspec :
+      core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+        ⦃ option iter1 => option = none ∧ iter1 = iter ⦄ :=
+    core.iter.range.IteratorRange.next_UScalar_none_spec
+      (ty := .Usize) (by intros; rfl) iter hge
+  cases hnext : core.iter.range.IteratorRange.next
+      core.iter.range.StepUsize iter with
+  | fail error => rw [hnext] at hspec; simp at hspec
+  | div => rw [hnext] at hspec; simp at hspec
+  | ok result =>
+    rw [hnext] at hspec
+    simp at hspec
+    obtain ⟨option, iter1⟩ := result
+    change option = none ∧ iter1 = iter at hspec
+    obtain ⟨rfl, rfl⟩ := hspec
+    rfl
+
+private theorem repeat_list_loop_step {T : Type} (ValueInst : Value T)
+    (iter : core.ops.range.Range Std.Usize)
+    (layer : List (Tree T × Std.Usize)) :
+    repeat.repeat_list_loop ValueInst iter layer =
+      match repeat.repeat_list_loop.body ValueInst iter layer with
+      | ok (.cont (iter1, layer1)) =>
+        repeat.repeat_list_loop ValueInst iter1 layer1
+      | ok (.done result) => ok result
+      | fail error => fail error
+      | div => div := by
+  conv_lhs => unfold repeat.repeat_list_loop
+  conv_lhs => unfold Aeneas.Std.loop
+  cases hbody : repeat.repeat_list_loop.body ValueInst iter layer with
+  | fail error => simp [hbody]
+  | div => simp [hbody]
+  | ok flow =>
+    cases flow with
+    | cont state =>
+      obtain ⟨iter1, layer1⟩ := state
+      simp [hbody]
+      rfl
+    | done result => simp [hbody]
+
+/-- Every successful execution of the repeat loop preserves the represented
+    logical length and advances the layer depth to the range end. -/
+private theorem repeat_list_loop_preserves_layer {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth) :
+    ∀ (fuel : Nat) (iter : core.ops.range.Range Std.Usize)
+      (layer result : List (Tree T × Std.Usize)) (total : Nat),
+      iter.end.val - iter.start.val ≤ fuel →
+      iter.start.val ≤ iter.end.val →
+      RepeatLayer packing_factor iter.start.val total layer →
+      repeat.repeat_list_loop ValueInst iter layer = ok result →
+      RepeatLayer packing_factor iter.end.val total result := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro iter layer result total hfuel hbounds hlayer hloop
+    have heq : iter.start.val = iter.end.val := by omega
+    have hnext := range_usize_next_none iter (by omega)
+    rw [repeat_list_loop_step] at hloop
+    unfold repeat.repeat_list_loop.body at hloop
+    simp [hnext] at hloop
+    subst result
+    simpa [heq] using hlayer
+  | succ fuel ih =>
+    intro iter layer result total hfuel hbounds hlayer hloop
+    by_cases hlt : iter.start.val < iter.end.val
+    · obtain ⟨iter1, layer1, hbody, hstart, hend, hlayer1⟩ :=
+        repeat_list_body_next hlayout iter hlt hlayer
+      rw [repeat_list_loop_step, hbody] at hloop
+      simp at hloop
+      rw [← hend]
+      apply ih iter1 layer1 result total
+      · rw [hend, hstart]
+        omega
+      · rw [hend, hstart]
+        omega
+      · exact hlayer1
+      · exact hloop
+    · have heq : iter.start.val = iter.end.val := by omega
+      have hnext := range_usize_next_none iter (by omega)
+      rw [repeat_list_loop_step] at hloop
+      unfold repeat.repeat_list_loop.body at hloop
+      simp [hnext] at hloop
+      subst result
+      simpa [heq] using hlayer
+
 end milhouse.tree
