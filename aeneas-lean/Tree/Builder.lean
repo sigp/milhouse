@@ -701,6 +701,19 @@ theorem BuilderStack.eq_nil_of_length_zero {T : Type}
   | right left depth right_len left_dense right_prefix
       right_nonempty right_not_full ih => omega
 
+theorem BuilderStack.length_eq_zero_of_nil {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {depth len : Nat}
+    (h : BuilderStack packing_factor base_depth stack depth len)
+    (hempty : stack = []) : len = 0 := by
+  induction h with
+  | empty => rfl
+  | base => simp at hempty
+  | full => simp at hempty
+  | segment => simp at hempty
+  | left child_prefix fits_left ih => exact ih hempty
+  | right => simp at hempty
+
 theorem BuilderStack.ne_nil_of_length_pos {T : Type}
     {packing_factor : Option Std.Usize} {base_depth : Nat}
     {stack : List (utils.MaybeArced (Tree T))} {depth len : Nat}
