@@ -3942,6 +3942,89 @@ private theorem finish_ready_returns_dense {T : Type}
     (@BuilderInvariant.builder_capacity_matches T ValueInst self hinvariant)
     hinvariant.depth_packing_lt_bits hnormalized rfl hlogical hcursor hfinish
 
+private theorem finish_partial_packed_returns_dense {T : Type}
+    {ValueInst : Value T} {self self1 : builder.Builder T}
+    {factor skip next_index next_index1 : Std.Usize}
+    (hinvariant : BuilderInvariant ValueInst self)
+    (hfactor : self.packing_factor = some factor)
+    (hlevel : self.level.val = 0)
+    (hnext_value : next_index.val = self.length.val)
+    (hskip_value : skip.val =
+      (factor.val - self.length.val % factor.val) % factor.val)
+    (hskip_pos : 0 < skip.val)
+    (hpacked : builder.Builder.finish_packed_leaf ValueInst self next_index =
+      ok (core.result.Result.Ok (), self1))
+    (hnext_add : next_index + skip = ok next_index1)
+    {tree : Tree T} {depth : Std.Usize} {length : utils.Length}
+    (hfinish : finishTreeAndFinalize ValueInst self1 next_index1 =
+      ok (core.result.Result.Ok (tree, depth, length))) :
+    depth = self.depth ∧ length = self.length ∧
+      DenseTree self.packing_factor tree self.depth.val self.length.val := by
+  have hlayout : PackingLayout ValueInst self.packing_factor
+      self.packing_depth :=
+    @BuilderInvariant.layout T ValueInst self hinvariant
+  have hfactor_pos : 0 < factor.val := by
+    simpa [hfactor, leafCapacity] using hlayout.leafCapacity_pos
+  have hunaligned_factor : self.length.val % factor.val ≠ 0 := by
+    intro haligned
+    simp [haligned] at hskip_value
+    omega
+  have hunaligned : self.length.val %
+      subtreeCapacity self.packing_factor 0 ≠ 0 := by
+    simpa [hfactor, subtreeCapacity, leafCapacity] using hunaligned_factor
+  obtain ⟨prefix_stack, top, top_len, hentries, htop, htop_nonempty,
+      htop_partial⟩ :=
+    (@BuilderInvariant.partial_leaf T ValueInst self hinvariant) hlevel
+      hunaligned
+  obtain ⟨prefix_len, hlength, haligned, hdepth, hlevel1, hlength1,
+      hfactor1, hpacking_depth1, hcapacity1, hnormalized⟩ :=
+    finish_packed_leaf_normalizes_partial hlayout
+      (by simpa [hlevel] using
+        (@BuilderInvariant.stack_dense T ValueInst self hinvariant))
+      hentries htop htop_nonempty htop_partial hnext_value.symm hpacked
+  have hprefix_factor : prefix_len % factor.val = 0 := by
+    simpa [hfactor, subtreeCapacity, leafCapacity] using haligned
+  have htop_lt_factor : top_len < factor.val := by
+    simpa [hfactor, subtreeCapacity, leafCapacity] using htop_partial
+  have htop_mod : self.length.val % factor.val = top_len := by
+    calc
+      self.length.val % factor.val =
+          (prefix_len + top_len) % factor.val := by rw [hlength]
+      _ = top_len % factor.val := by
+        rw [Nat.add_mod, hprefix_factor]
+        simp
+      _ = top_len := Nat.mod_eq_of_lt htop_lt_factor
+  have hskip : skip.val = factor.val - top_len := by
+    rw [hskip_value, htop_mod, Nat.mod_eq_of_lt]
+    omega
+  have hnext1_value := usize_add_value hnext_add
+  have hcursor : prefix_len + subtreeCapacity self.packing_factor 0 =
+      next_index1.val * 2 ^ self1.level.val := by
+    rw [hnext1_value, hnext_value, hlength, hskip, hlevel1, hlevel]
+    simp [hfactor, subtreeCapacity, leafCapacity]
+    omega
+  have hbase : 0 = if self1.level.val = 0 then 0
+      else self1.level.val - self1.packing_depth.val := by
+    simp [hlevel1, hlevel]
+  have hnormalized1 : BuilderNormalizedStack self1.packing_factor 0
+      self1.stack.val self1.depth.val self1.length.val
+      (prefix_len + subtreeCapacity self.packing_factor 0) := by
+    simpa [hfactor1, hdepth, hlength1] using hnormalized
+  have hlogical1 : 0 < self1.length.val := by
+    rw [hlength1, hlength]
+    omega
+  have hresult := finish_tree_and_finalize_returns_dense
+    (by simpa [hfactor1, hpacking_depth1] using hlayout)
+    (by simpa [hlevel1, hpacking_depth1] using
+      (@BuilderInvariant.level_valid T ValueInst self hinvariant))
+    (by simpa [hcapacity1, hfactor1, hdepth] using
+      (@BuilderInvariant.builder_capacity_matches T ValueInst self
+        hinvariant))
+    (by simpa [hdepth, hpacking_depth1] using
+      hinvariant.depth_packing_lt_bits)
+    hnormalized1 hbase hlogical1 hcursor hfinish
+  simpa [hdepth, hlength1, hfactor1] using hresult
+
 private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
     {packing_depth : Std.Usize}
