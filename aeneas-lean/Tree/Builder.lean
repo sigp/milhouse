@@ -1089,6 +1089,121 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
           rw [subtreeCapacity_succ] at hfilled
           omega⟩
 
+/-- Appending a partial base subtree performs no carry: the new subtree is
+    simply the last stack entry. This is the packed-value path before the
+    current packed leaf reaches its factor. -/
+theorem BuilderStack.append_partial {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {root_depth total : Nat}
+    (hstack : BuilderStack packing_factor base_depth stack root_depth total)
+    {top : utils.MaybeArced (Tree T)} {top_len : Nat}
+    (htop : DenseTree packing_factor (maybeArcedTree top) base_depth top_len)
+    (htop_nonempty : 0 < top_len)
+    (htop_partial : top_len < subtreeCapacity packing_factor base_depth)
+    (haligned : total % subtreeCapacity packing_factor base_depth = 0)
+    (hfits : total + top_len ≤
+      subtreeCapacity packing_factor root_depth) :
+    BuilderStack packing_factor base_depth (stack ++ [top]) root_depth
+      (total + top_len) := by
+  have hbase_pos := hlayout.subtreeCapacity_pos base_depth
+  induction hstack with
+  | empty depth base_le_depth =>
+    have hbase := BuilderStack.base (packing_factor := packing_factor) top
+      top_len htop htop_nonempty
+    have hraised := hbase.raise_left (depth - base_depth)
+    have hdepth : base_depth + (depth - base_depth) = depth := by omega
+    rw [hdepth] at hraised
+    simpa using hraised
+  | base entry old_len old_dense old_nonempty =>
+    have hold_bound := old_dense.length_le_capacity
+    have hold_lt : old_len < subtreeCapacity packing_factor base_depth := by
+      omega
+    rw [Nat.mod_eq_of_lt hold_lt] at haligned
+    omega
+  | full entry depth base_le_depth dense capacity_nonempty =>
+    omega
+  | segment entry depth old_len base_le_depth dense nonempty
+      full_or_unaligned =>
+    rcases full_or_unaligned with hfull | hunaligned
+    · omega
+    · exact (hunaligned haligned).elim
+  | @left child_stack child_depth child_len child_prefix child_fits ih =>
+    by_cases hchild_full :
+        child_len = subtreeCapacity packing_factor child_depth
+    · obtain ⟨left, hsingle, hleft_dense⟩ :=
+        child_prefix.full_single hlayout hchild_full
+      subst child_stack
+      have hbase_le_child := child_prefix.base_le_depth
+      have htop_child_lt : top_len <
+          subtreeCapacity packing_factor child_depth := by
+        by_cases hdepth : base_depth = child_depth
+        · simpa [hdepth] using htop_partial
+        · exact (htop_partial.trans_le
+            (Nat.le_of_lt (subtreeCapacity_strictMono hlayout (by omega))))
+      have hright_base := BuilderStack.base (packing_factor := packing_factor)
+        top top_len htop htop_nonempty
+      have hright := hright_base.raise_left (child_depth - base_depth)
+      have hdepth : base_depth + (child_depth - base_depth) = child_depth := by
+        omega
+      rw [hdepth] at hright
+      have hcanonical := BuilderStack.right (base_depth := base_depth) left
+        child_depth top_len hleft_dense hright htop_nonempty htop_child_lt
+      simpa [hchild_full] using hcanonical
+    · have hchild_lt :
+          child_len < subtreeCapacity packing_factor child_depth := by omega
+      have hbase_dvd_child :
+          subtreeCapacity packing_factor base_depth ∣
+            subtreeCapacity packing_factor child_depth := by
+        rw [subtreeCapacity_eq_mul_pow_of_le packing_factor
+          child_prefix.base_le_depth]
+        exact dvd_mul_right _ _
+      have hchild_aligned :
+          subtreeCapacity packing_factor child_depth %
+            subtreeCapacity packing_factor base_depth = 0 :=
+        Nat.mod_eq_zero_of_dvd hbase_dvd_child
+      have hchild_sum : child_len + top_len ≤
+          subtreeCapacity packing_factor child_depth :=
+        aligned_add_le hbase_pos haligned hchild_aligned hchild_lt
+          (Nat.le_of_lt htop_partial)
+      have hchild_appended := ih haligned hchild_sum
+      exact BuilderStack.left hchild_appended
+        hchild_appended.length_le_capacity
+  | @right left right_stack child_depth right_len left_dense right_prefix
+      right_nonempty right_not_full ih =>
+    have hbase_dvd_child :
+        subtreeCapacity packing_factor base_depth ∣
+          subtreeCapacity packing_factor child_depth := by
+      rw [subtreeCapacity_eq_mul_pow_of_le packing_factor
+        right_prefix.base_le_depth]
+      exact dvd_mul_right _ _
+    have htotal_dvd : subtreeCapacity packing_factor base_depth ∣
+        subtreeCapacity packing_factor child_depth + right_len :=
+      Nat.dvd_of_mod_eq_zero haligned
+    have hright_dvd :
+        subtreeCapacity packing_factor base_depth ∣ right_len := by
+      have hsub := Nat.dvd_sub htotal_dvd hbase_dvd_child
+      simpa using hsub
+    have hright_aligned :
+        right_len % subtreeCapacity packing_factor base_depth = 0 :=
+      Nat.mod_eq_zero_of_dvd hright_dvd
+    have hchild_aligned : subtreeCapacity packing_factor child_depth %
+        subtreeCapacity packing_factor base_depth = 0 :=
+      Nat.mod_eq_zero_of_dvd hbase_dvd_child
+    have hcursor_le : right_len +
+        subtreeCapacity packing_factor base_depth ≤
+        subtreeCapacity packing_factor child_depth :=
+      aligned_add_le hbase_pos hright_aligned hchild_aligned right_not_full
+        (Nat.le_refl _)
+    have hright_sum : right_len + top_len <
+        subtreeCapacity packing_factor child_depth := by omega
+    have hright_appended := ih hright_aligned (Nat.le_of_lt hright_sum)
+    have hcanonical := BuilderStack.right (base_depth := base_depth) left
+      child_depth (right_len + top_len) left_dense hright_appended (by omega)
+      hright_sum
+    simpa [List.append_assoc, Nat.add_assoc] using hcanonical
+
 private theorem vec_pop_append_last {A X : Type}
     (source : alloc.vec.Vec X) (items : List X) (last : X)
     (hsource : source.val = items ++ [last]) :
