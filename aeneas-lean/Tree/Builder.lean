@@ -317,6 +317,19 @@ theorem BuilderStack.eq_nil_of_length_zero {T : Type}
   | right left depth right_len left_dense right_prefix
       right_nonempty right_not_full ih => omega
 
+theorem BuilderStack.ne_nil_of_length_pos {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {depth len : Nat}
+    (h : BuilderStack packing_factor base_depth stack depth len)
+    (hpos : 0 < len) : stack ≠ [] := by
+  induction h with
+  | empty => omega
+  | base => simp
+  | full => simp
+  | segment => simp
+  | left child_prefix fits_left ih => exact ih hpos
+  | right => simp
+
 theorem BuilderStack.raise_left {T : Type}
     {packing_factor : Option Std.Usize} {base_depth : Nat}
     {stack : List (utils.MaybeArced (Tree T))} {depth len : Nat}
@@ -1203,6 +1216,119 @@ theorem BuilderStack.append_partial {T : Type} {ValueInst : Value T}
       child_depth (right_len + top_len) left_dense hright_appended (by omega)
       hright_sum
     simpa [List.append_assoc, Nat.add_assoc] using hcanonical
+
+/-- Removing a known partial base subtree from the end of a canonical stack
+    leaves an aligned canonical prefix. The explicit final-entry equation is
+    exactly what a successful translated `Vec::pop` supplies. -/
+theorem BuilderStack.remove_partial_last {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth : Nat}
+    {stack base_stack : List (utils.MaybeArced (Tree T))}
+    {entry : utils.MaybeArced (Tree T)}
+    {root_depth total entry_len : Nat}
+    (hstack : BuilderStack packing_factor base_depth stack root_depth total)
+    (hentries : stack = base_stack ++ [entry])
+    (hentry : DenseTree packing_factor (maybeArcedTree entry) base_depth
+      entry_len)
+    (hentry_nonempty : 0 < entry_len)
+    (hentry_partial : entry_len <
+      subtreeCapacity packing_factor base_depth) :
+    ∃ prefix_len,
+      total = prefix_len + entry_len ∧
+        prefix_len % subtreeCapacity packing_factor base_depth = 0 ∧
+        BuilderStack packing_factor base_depth base_stack root_depth prefix_len := by
+  have hbase_pos := hlayout.subtreeCapacity_pos base_depth
+  induction hstack generalizing base_stack with
+  | empty depth base_le_depth =>
+    simp at hentries
+  | base old_entry old_len old_dense old_nonempty =>
+    have hprefix_length := congrArg List.length hentries
+    have hprefix_empty : base_stack = [] := by
+      apply List.eq_nil_of_length_eq_zero
+      simpa using hprefix_length
+    subst base_stack
+    simp at hentries
+    subst old_entry
+    obtain ⟨-, hlen⟩ := old_dense.indices_unique hentry
+    refine ⟨0, by omega, by simp, ?_⟩
+    exact BuilderStack.empty base_depth (Nat.le_refl _)
+  | full old_entry depth base_le_depth old_dense capacity_nonempty =>
+    have hprefix_length := congrArg List.length hentries
+    have hprefix_empty : base_stack = [] := by
+      apply List.eq_nil_of_length_eq_zero
+      simpa using hprefix_length
+    subst base_stack
+    simp at hentries
+    subst old_entry
+    obtain ⟨hdepth, hlen⟩ := old_dense.indices_unique hentry
+    subst depth
+    omega
+  | segment old_entry depth old_len base_le_depth old_dense old_nonempty
+      full_or_unaligned =>
+    have hprefix_length := congrArg List.length hentries
+    have hprefix_empty : base_stack = [] := by
+      apply List.eq_nil_of_length_eq_zero
+      simpa using hprefix_length
+    subst base_stack
+    simp at hentries
+    subst old_entry
+    obtain ⟨hdepth, hlen⟩ := old_dense.indices_unique hentry
+    subst depth
+    refine ⟨0, by omega, by simp, ?_⟩
+    exact BuilderStack.empty base_depth (Nat.le_refl _)
+  | @left child_stack child_depth child_len child_prefix child_fits ih =>
+    obtain ⟨prefix_len, htotal, haligned, hprefix⟩ :=
+      ih hentries
+    exact ⟨prefix_len, htotal, haligned,
+      BuilderStack.left hprefix hprefix.length_le_capacity⟩
+  | @right left right_stack child_depth right_len left_dense right_prefix
+      right_nonempty right_not_full ih =>
+    have hright_nonempty : right_stack ≠ [] :=
+      right_prefix.ne_nil_of_length_pos right_nonempty
+    cases base_stack with
+    | nil =>
+      simp at hentries
+      exact (hright_nonempty hentries.2).elim
+    | cons prefix_head prefix_tail =>
+      simp only [List.cons_append, List.cons.injEq] at hentries
+      obtain ⟨rfl, hright_entries⟩ := hentries
+      obtain ⟨right_prefix_len, hright_total, hright_aligned,
+          hright_prefix⟩ := ih hright_entries
+      have hbase_dvd_child :
+          subtreeCapacity packing_factor base_depth ∣
+            subtreeCapacity packing_factor child_depth := by
+        rw [subtreeCapacity_eq_mul_pow_of_le packing_factor
+          right_prefix.base_le_depth]
+        exact dvd_mul_right _ _
+      have hchild_aligned : subtreeCapacity packing_factor child_depth %
+          subtreeCapacity packing_factor base_depth = 0 :=
+        Nat.mod_eq_zero_of_dvd hbase_dvd_child
+      by_cases hprefix_zero : right_prefix_len = 0
+      · subst right_prefix_len
+        have htail_empty := hright_prefix.eq_nil_of_length_zero rfl
+        subst prefix_tail
+        have hleft_stack := BuilderStack.full
+          (packing_factor := packing_factor) (base_depth := base_depth) left
+          child_depth right_prefix.base_le_depth left_dense
+          (hlayout.subtreeCapacity_pos child_depth)
+        have hleft_parent := BuilderStack.left hleft_stack
+          (Nat.le_refl _)
+        refine ⟨subtreeCapacity packing_factor child_depth, ?_,
+          hchild_aligned, by simpa using hleft_parent⟩
+        omega
+      · have hprefix_pos : 0 < right_prefix_len := Nat.pos_of_ne_zero
+          hprefix_zero
+        have hprefix_lt : right_prefix_len <
+            subtreeCapacity packing_factor child_depth := by omega
+        have hparent := BuilderStack.right (base_depth := base_depth) left
+          child_depth right_prefix_len left_dense hright_prefix hprefix_pos
+          hprefix_lt
+        refine ⟨subtreeCapacity packing_factor child_depth +
+            right_prefix_len, ?_, ?_, by simpa using hparent⟩
+        · omega
+        · rw [Nat.add_mod, hchild_aligned, hright_aligned]
+          rfl
 
 private theorem vec_pop_append_last {A X : Type}
     (source : alloc.vec.Vec X) (items : List X) (last : X)
