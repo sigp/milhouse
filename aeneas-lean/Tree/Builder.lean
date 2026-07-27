@@ -186,4 +186,47 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
                 Nat.mul_comm]
             · exact BuilderStack.empty depth.val
 
+/-! ## Value insertion -/
+
+/-- A successful append to a dense packed leaf increases its logical length
+    by one. Success itself supplies the only required capacity condition. -/
+theorem packedLeaf_push_preserves_dense {T : Type} (ValueInst : Value T)
+    {factor packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst (some factor) packing_depth)
+    {leaf updated : packed_leaf.PackedLeaf T} {len : Nat}
+    (hdense : DenseTree (some factor) (Tree.PackedLeaf leaf) 0 len)
+    (value : T)
+    (hpush : packed_leaf.PackedLeaf.push
+      ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst leaf value =
+      ok (core.result.Result.Ok (), updated)) :
+    DenseTree (some factor) (Tree.PackedLeaf updated) 0 (len + 1) := by
+  cases hdense with
+  | packed _ _ old_nonempty old_fit =>
+    have hfactor := hlayout.tree_hash_packing_factor_eq
+    unfold packed_leaf.PackedLeaf.push at hpush
+    rw [hfactor] at hpush
+    simp only [bind_tc_ok] at hpush
+    by_cases hfull : leaf.values.len = factor
+    · simp [hfull] at hpush
+    · simp only [hfull, ↓reduceIte] at hpush
+      cases hvalues : alloc.vec.Vec.push leaf.values value with
+      | fail error => simp [hvalues] at hpush
+      | div => simp [hvalues] at hpush
+      | ok values =>
+        simp [hvalues] at hpush
+        subst updated
+        have hlength : values.val.length = leaf.values.val.length + 1 := by
+          unfold alloc.vec.Vec.push at hvalues
+          simp at hvalues
+          grind
+        have hneq : leaf.values.val.length ≠ factor.val := by
+          intro heq
+          apply hfull
+          apply UScalar.eq_of_val_eq
+          simpa using heq
+        have hnew := DenseTree.packed factor
+          ({ hash := leaf.hash, values := values } : packed_leaf.PackedLeaf T)
+          (by simp [hlength]) (by simp [hlength]; omega)
+        simpa [hlength] using hnew
+
 end milhouse.tree
