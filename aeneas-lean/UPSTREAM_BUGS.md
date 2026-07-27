@@ -55,18 +55,21 @@ pub fn use_cloned(v: &[u32]) -> Option<u32> {
 ## 2. Aeneas: uncaught exception in `ty_regions.add_region`
 
 **Stage:** aeneas translation (whole-crate run only).
+**Status:** worked around in `repeat_list` by consuming the two possible
+`SmallVec` entries with `pop` instead of matching on `&layer[..]`.
 
-On the full milhouse crate, aeneas aborts with an uncaught OCaml exception
-(instead of the usual collected errors) while symbolically executing
-`milhouse::repeat::repeat_list` (`src/repeat.rs:46`):
+On the full milhouse crate, aeneas previously aborted with an uncaught OCaml
+exception (instead of the usual collected errors) while symbolically
+executing `milhouse::repeat::repeat_list` (`src/repeat.rs:46`):
 
 ```
 Raised at Aeneas__TypesUtils.ty_regions.add_region in file "llbc/TypesUtils.ml", lines 24-25
 ```
 
-This kills the run before any Lean files are written. `-borrow-check` mode
-crashes the same way. Not reachable from the `milhouse::tree` subset, so no
-workaround was needed there.
+With newer Aeneas builds the same shared-slice pattern instead produced a
+collected `Inconsistent projection: PtrMetadata` error and a partial Lean
+file. Avoiding the shared slice removes both failures; focused Charon/Aeneas
+translation of `repeat_list` now succeeds without placeholders.
 
 ## 3. Aeneas: internal error on `UpdateMap::is_empty` (provided trait method)
 
