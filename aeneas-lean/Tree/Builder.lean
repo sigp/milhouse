@@ -413,6 +413,27 @@ theorem BuilderNormalizedStack.raise_left {T : Type}
     rw [Nat.add_succ]
     exact BuilderNormalizedStack.left ih ih.physical_le_capacity
 
+theorem BuilderNormalizedStack.lower_base {T : Type}
+    {packing_factor : Option Std.Usize} {old_base new_base : Nat}
+    {stack : List (utils.MaybeArced (Tree T))}
+    {root_depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor old_base stack root_depth
+      logical_len physical_len) (hbase : new_base ≤ old_base) :
+    BuilderNormalizedStack packing_factor new_base stack root_depth logical_len
+      physical_len := by
+  induction h with
+  | empty depth old_le_depth =>
+    exact BuilderNormalizedStack.empty depth (hbase.trans old_le_depth)
+  | single entry depth len old_le_depth dense nonempty =>
+    exact BuilderNormalizedStack.single entry depth len
+      (hbase.trans old_le_depth) dense nonempty
+  | left child physical_fits ih =>
+    exact BuilderNormalizedStack.left ih physical_fits
+  | right left depth right_logical right_physical left_dense right
+      right_nonempty right_physical_not_full ih =>
+    exact BuilderNormalizedStack.right left depth right_logical right_physical
+      left_dense ih right_nonempty right_physical_not_full
+
 /-- An aligned canonical logical stack is already carry-normalized, with
     physical and logical cursors equal. -/
 theorem BuilderStack.normalized_of_aligned {T : Type} {ValueInst : Value T}
@@ -1626,6 +1647,55 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
           intro hfilled
           rw [subtreeCapacity_succ] at hfilled
           omega⟩
+
+/-- Replacing a normalized stack's final subtree by the same subtree padded
+    on the right is an ordinary carry at the next depth. -/
+theorem BuilderStack.finish_padding_plan {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth root_depth top_depth prefix_len top_len logical_len
+      physical_len : Nat}
+    {prefix_stack : List (utils.MaybeArced (Tree T))}
+    {top : utils.MaybeArced (Tree T)} {zero padded : Tree T}
+    (hprefix : BuilderStack packing_factor (top_depth + 1) prefix_stack
+      root_depth prefix_len)
+    (hbase : base_depth ≤ top_depth + 1)
+    (haligned : prefix_len %
+      subtreeCapacity packing_factor (top_depth + 1) = 0)
+    (htop : DenseTree packing_factor (maybeArcedTree top) top_depth top_len)
+    (htop_nonempty : 0 < top_len)
+    (hzero : DenseTree packing_factor zero top_depth 0)
+    (hpad : Tree.node_unboxed ValueInst (maybeArcedTree top) zero = ok padded)
+    (hlogical : logical_len = prefix_len + top_len)
+    (hphysical : physical_len =
+      prefix_len + subtreeCapacity packing_factor top_depth)
+    (hphysical_bound : physical_len ≤
+      subtreeCapacity packing_factor root_depth) :
+    ∃ count final_stack final_top final_depth final_len,
+      BuilderMergePlan ValueInst packing_factor count prefix_stack padded
+        final_stack final_top final_depth final_len ∧
+      BuilderNormalizedStack packing_factor base_depth
+        (final_stack ++ [utils.MaybeArced.Unarced final_top]) root_depth
+        logical_len
+        (physical_len + subtreeCapacity packing_factor top_depth) := by
+  obtain ⟨candidate, hcandidate, hpadded⟩ :=
+    node_unboxed_preserves_dense ValueInst (maybeArcedTree top) zero top_depth
+      top_len 0 htop hzero htop_nonempty (by simp)
+  rw [hpad] at hcandidate
+  cases hcandidate
+  have hlogical_fit : prefix_len + top_len ≤
+      subtreeCapacity packing_factor root_depth := by
+    have htop_fit := htop.length_le_capacity
+    omega
+  obtain ⟨count, final_stack, final_top, final_depth, final_len, hplan,
+      hcarry, hcanonical, hnormalized, hcursor_full⟩ :=
+    hprefix.append_subtree hlayout hpadded htop_nonempty haligned hlogical_fit
+  refine ⟨count, final_stack, final_top, final_depth, final_len, hplan, ?_⟩
+  have hlowered := hnormalized.lower_base hbase
+  have hcapacity_succ := subtreeCapacity_succ packing_factor top_depth
+  rw [hcapacity_succ] at hlowered
+  rw [hlogical, hphysical]
+  convert hlowered using 1 <;> omega
 
 /-- Appending a partial base subtree performs no carry: the new subtree is
     simply the last stack entry. This is the packed-value path before the
