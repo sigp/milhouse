@@ -49,12 +49,12 @@ pub struct ListInner<T: Value, N: Unsigned> {
 }
 
 fn push_all<T: Value>(
-    builder: &mut Builder<T>,
+    target: &mut Builder<T>,
     mut iter: impl Iterator<Item = T>,
 ) -> Result<(), Error> {
     loop {
         match iter.next() {
-            Some(item) => match builder.push(item) {
+            Some(item) => match target.push(item) {
                 Ok(()) => (),
                 Err(error) => break Err(error),
             },
@@ -64,7 +64,7 @@ fn push_all<T: Value>(
 }
 
 fn push_level_node<T: Value>(
-    builder: &mut Builder<T>,
+    target: &mut Builder<T>,
     item: LevelNode<'_, T>,
     level: usize,
     remaining: usize,
@@ -72,18 +72,18 @@ fn push_level_node<T: Value>(
     match item {
         LevelNode::Internal(node) => {
             let subtree_len = (1 << level).min(remaining);
-            builder.push_node(node.clone(), subtree_len)?;
+            target.push_node(node.clone(), subtree_len)?;
             Ok(remaining - subtree_len)
         }
         LevelNode::PackedLeaf(value) => {
-            builder.push(value.clone())?;
+            target.push(value.clone())?;
             Ok(remaining - 1)
         }
     }
 }
 
 fn push_level_nodes<T: Value>(
-    builder: &mut Builder<T>,
+    target: &mut Builder<T>,
     mut iter: LevelIter<'_, T>,
     level: usize,
     mut remaining: usize,
@@ -94,7 +94,7 @@ fn push_level_nodes<T: Value>(
             None => break Ok(()),
         };
 
-        match push_level_node(builder, item, level, remaining) {
+        match push_level_node(target, item, level, remaining) {
             Ok(new_remaining) => remaining = new_remaining,
             Err(error) => break Err(error),
         }
@@ -131,7 +131,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn repeat_slow(elem: T, n: usize) -> Result<Self, Error> {
-        Self::try_from_iter(std::iter::repeat_n(elem, n))
+        Self::try_from_iter(vec![elem; n])
     }
 
     pub fn builder() -> Result<Builder<T>, Error> {
@@ -139,11 +139,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let mut builder = Self::builder()?;
+        let mut list_builder = Self::builder()?;
 
-        push_all(&mut builder, iter.into_iter())?;
+        push_all(&mut list_builder, iter.into_iter())?;
 
-        let (tree, depth, length) = builder.finish()?;
+        let (tree, depth, length) = list_builder.finish()?;
 
         // Check the length to cover the case where the capacity implied by packing_depth is
         // greater than N. E.g. the builder might pack up to 32 u8s, even if N is < 32.
@@ -291,12 +291,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         let depth = Self::depth();
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         let level = compute_level(n, depth, packing_depth);
-        let mut builder = Builder::new(Self::depth(), level)?;
+        let mut list_builder = Builder::new(Self::depth(), level)?;
         let level_iter = self.level_iter_from(n)?;
         let remaining = self.len().saturating_sub(n);
-        push_level_nodes(&mut builder, level_iter, level, remaining)?;
+        push_level_nodes(&mut list_builder, level_iter, level, remaining)?;
 
-        let (tree, depth, length) = builder.finish()?;
+        let (tree, depth, length) = list_builder.finish()?;
         *self = Self::from_parts(tree, depth, length);
 
         Ok(())

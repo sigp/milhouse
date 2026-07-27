@@ -66,6 +66,13 @@ fn packed_level_node<'a, T: Value>(values: &'a Vec<T>, index: usize) -> Option<L
     }
 }
 
+fn pop_many<T>(stack: &mut Vec<T>, mut count: usize) {
+    while count > 0 {
+        stack.pop();
+        count -= 1;
+    }
+}
+
 impl<'a, T: Value> Iterator for LevelIter<'a, T> {
     type Item = LevelNode<'a, T>;
 
@@ -87,9 +94,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                 self.index += 1;
 
                 // Backtrack to the parent node of the next subtree
-                for _ in 0..=self.index.trailing_zeros() {
-                    self.stack.pop();
-                }
+                pop_many(&mut self.stack, self.index.trailing_zeros() as usize + 1);
 
                 result
             }
@@ -107,9 +112,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                     let to_pop = trailing_zeros.saturating_add(1).saturating_sub(self.level);
 
                     // Backtrack to the parent node of the next subtree
-                    for _ in 0..to_pop {
-                        self.stack.pop();
-                    }
+                    pop_many(&mut self.stack, to_pop);
 
                     return result;
                 }
@@ -129,9 +132,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                         .checked_sub(self.packing_depth as u32)
                         .expect("index should have at least `packing_depth` trailing zeroes");
 
-                    for _ in 0..=to_pop {
-                        self.stack.pop();
-                    }
+                    pop_many(&mut self.stack, to_pop as usize + 1);
                 }
 
                 result
@@ -151,9 +152,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                     let to_pop = trailing_zeros.saturating_add(1).saturating_sub(self.level);
 
                     // Backtrack to the parent node of the next subtree
-                    for _ in 0..to_pop {
-                        self.stack.pop();
-                    }
+                    pop_many(&mut self.stack, to_pop);
 
                     result
                 } else if (self.index >> child_depth) & 1 == 0 {

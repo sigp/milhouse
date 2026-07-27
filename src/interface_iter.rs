@@ -20,7 +20,10 @@ impl<'a, T: Value, U: UpdateMap<T>> Iterator for InterfaceIter<'a, T, U> {
         let backing_value = self.tree_iter.next();
 
         // Prioritise the value from the update map.
-        self.updates.get(index).or(backing_value)
+        match self.updates.get(index) {
+            Some(value) => Some(value),
+            None => backing_value,
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
