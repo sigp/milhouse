@@ -73,8 +73,11 @@ impl<T: Value> Builder<T> {
         Ok(())
     }
 
-    pub fn push_node(&mut self, node: Arc<Tree<T>>, len: usize) -> Result<(), Error> {
-        if self.length.as_usize() == self.capacity {
+    pub(crate) fn push_node(&mut self, node: Arc<Tree<T>>, len: usize) -> Result<(), Error> {
+        let Some(new_length) = self.length.as_usize().checked_add(len) else {
+            return Err(Error::BuilderFull);
+        };
+        if new_length > self.capacity {
             return Err(Error::BuilderFull);
         }
 
@@ -102,7 +105,7 @@ impl<T: Value> Builder<T> {
         }
 
         self.stack.push(new_stack_top);
-        *self.length.as_mut() += len;
+        *self.length.as_mut() = new_length;
 
         Ok(())
     }
@@ -211,5 +214,20 @@ mod test {
             Error::BuilderInvalidDepth { depth: 62 }
         );
         assert_eq!(Builder::<u64>::new(61, 0).unwrap().depth, 61);
+    }
+
+    #[test]
+    fn push_node_checks_capacity_without_overflowing() {
+        let mut builder = Builder::<u64>::new(0, 0).unwrap();
+        assert_eq!(
+            builder.push_node(Tree::zero(0), builder.capacity + 1),
+            Err(Error::BuilderFull)
+        );
+
+        builder.push(0).unwrap();
+        assert_eq!(
+            builder.push_node(Tree::zero(0), usize::MAX),
+            Err(Error::BuilderFull)
+        );
     }
 }

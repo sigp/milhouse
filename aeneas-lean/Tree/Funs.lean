@@ -642,8 +642,7 @@ def builder.Builder.push
                 { self with stack := v })
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::push_node]: loop body 0:
-    Source: 'src/builder.rs', lines 97:8-102:9
-    Visibility: public -/
+    Source: 'src/builder.rs', lines 100:8-105:9 -/
 @[rust_loop_body]
 def builder.Builder.push_node_loop.body
   {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.U32)
@@ -669,8 +668,7 @@ def builder.Builder.push_node_loop.body
       ok (cont (iter1, v1, utils.MaybeArced.Unarced t))
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::push_node]: loop 0:
-    Source: 'src/builder.rs', lines 97:8-102:9
-    Visibility: public -/
+    Source: 'src/builder.rs', lines 100:8-105:9 -/
 @[rust_loop]
 def builder.Builder.push_node_loop
   {T : Type} (ValueInst : Value T) (iter : core.ops.range.Range Std.U32)
@@ -685,39 +683,41 @@ def builder.Builder.push_node_loop
     (iter, v, new_stack_top)
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::push_node]:
-    Source: 'src/builder.rs', lines 76:4-108:5
-    Visibility: public -/
+    Source: 'src/builder.rs', lines 76:4-111:5 -/
 def builder.Builder.push_node
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
   (node : triomphe.arc.Arc (tree.Tree T)) (len : Std.Usize) :
   Result ((core.result.Result Unit error.Error) × (builder.Builder T))
   := do
   let i ← utils.Length.as_usize self.length
-  if i = self.capacity
-  then ok (core.result.Result.Err error.Error.BuilderFull, self)
-  else
-    let index_on_level ← i >>> self.level
-    let next_index_on_level ← index_on_level + 1#usize
-    let values_to_merge ←
-      if self.level = 0#usize
-      then
-        do
-        let i1 ← core.num.Usize.trailing_zeros next_index_on_level
-        let i2 ← lift (UScalar.cast .U32 self.packing_depth)
-        ok (core.num.U32.saturating_sub i1 i2)
-      else core.num.Usize.trailing_zeros next_index_on_level
-    let (v, new_stack_top) ←
-      builder.Builder.push_node_loop ValueInst
-        { start := 0#u32, «end» := values_to_merge } self.stack
-        (utils.MaybeArced.Arced node)
-    let v1 ← alloc.vec.Vec.push v new_stack_top
-    let (i1, as_mut_back) ← utils.Length.as_mut self.length
-    let i2 ← i1 + len
-    let l := as_mut_back i2
-    ok (core.result.Result.Ok (), { self with stack := v1, length := l })
+  let o ← lift (Usize.checked_add i len)
+  match o with
+  | none => ok (core.result.Result.Err error.Error.BuilderFull, self)
+  | some new_length =>
+    if new_length > self.capacity
+    then ok (core.result.Result.Err error.Error.BuilderFull, self)
+    else
+      let index_on_level ← i >>> self.level
+      let next_index_on_level ← index_on_level + 1#usize
+      let values_to_merge ←
+        if self.level = 0#usize
+        then
+          do
+          let i1 ← core.num.Usize.trailing_zeros next_index_on_level
+          let i2 ← lift (UScalar.cast .U32 self.packing_depth)
+          ok (core.num.U32.saturating_sub i1 i2)
+        else core.num.Usize.trailing_zeros next_index_on_level
+      let (v, new_stack_top) ←
+        builder.Builder.push_node_loop ValueInst
+          { start := 0#u32, «end» := values_to_merge } self.stack
+          (utils.MaybeArced.Arced node)
+      let v1 ← alloc.vec.Vec.push v new_stack_top
+      let (_, as_mut_back) ← utils.Length.as_mut self.length
+      let l := as_mut_back new_length
+      ok (core.result.Result.Ok (), { self with stack := v1, length := l })
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_packed_leaf]: loop body 0:
-    Source: 'src/builder.rs', lines 112:8-122:5 -/
+    Source: 'src/builder.rs', lines 115:8-125:5 -/
 @[rust_loop_body]
 def builder.Builder.finish_packed_leaf_loop.body
   {T : Type} (ValueInst : Value T) (next_index_on_level : Std.Usize)
@@ -772,7 +772,7 @@ def builder.Builder.finish_packed_leaf_loop.body
       self.length, self.packing_factor, self.packing_depth, self.capacity))
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_packed_leaf]: loop 0:
-    Source: 'src/builder.rs', lines 112:8-122:5 -/
+    Source: 'src/builder.rs', lines 115:8-125:5 -/
 @[rust_loop]
 def builder.Builder.finish_packed_leaf_loop
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
@@ -787,7 +787,7 @@ def builder.Builder.finish_packed_leaf_loop
     (self, i)
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_packed_leaf]:
-    Source: 'src/builder.rs', lines 110:4-122:5 -/
+    Source: 'src/builder.rs', lines 113:4-125:5 -/
 def builder.Builder.finish_packed_leaf
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
   (next_index_on_level : Std.Usize) :
@@ -808,7 +808,7 @@ def builder.Builder.finish_packed_leaf
     })
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_level]: loop body 0:
-    Source: 'src/builder.rs', lines 126:8-141:5 -/
+    Source: 'src/builder.rs', lines 129:8-144:5 -/
 @[rust_loop_body]
 def builder.Builder.finish_level_loop.body
   {T : Type} (ValueInst : Value T) (next_index_on_level : Std.Usize)
@@ -864,7 +864,7 @@ def builder.Builder.finish_level_loop.body
       self.length, self.packing_factor, self.packing_depth, self.capacity))
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_level]: loop 0:
-    Source: 'src/builder.rs', lines 126:8-141:5 -/
+    Source: 'src/builder.rs', lines 129:8-144:5 -/
 @[rust_loop]
 def builder.Builder.finish_level_loop
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
@@ -879,7 +879,7 @@ def builder.Builder.finish_level_loop
     (self, i)
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_level]:
-    Source: 'src/builder.rs', lines 124:4-141:5 -/
+    Source: 'src/builder.rs', lines 127:4-144:5 -/
 def builder.Builder.finish_level
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
   (next_index_on_level : Std.Usize) (depth : Std.Usize) :
@@ -909,7 +909,7 @@ def tree.Tree.zero
   triomphe.arc.Arc.new (tree.Tree.Zero depth)
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_tree]: loop body 0:
-    Source: 'src/builder.rs', lines 144:8-162:5 -/
+    Source: 'src/builder.rs', lines 147:8-165:5 -/
 @[rust_loop_body]
 def builder.Builder.finish_tree_loop.body
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
@@ -958,7 +958,7 @@ def builder.Builder.finish_tree_loop.body
   else ok (done (core.result.Result.Ok (), self))
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_tree]: loop 0:
-    Source: 'src/builder.rs', lines 144:8-162:5 -/
+    Source: 'src/builder.rs', lines 147:8-165:5 -/
 @[rust_loop]
 def builder.Builder.finish_tree_loop
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
@@ -971,7 +971,7 @@ def builder.Builder.finish_tree_loop
     (self, next_index_on_level)
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish_tree]:
-    Source: 'src/builder.rs', lines 143:4-162:5 -/
+    Source: 'src/builder.rs', lines 146:4-165:5 -/
 @[reducible]
 def builder.Builder.finish_tree
   {T : Type} (ValueInst : Value T) (self : builder.Builder T)
@@ -981,7 +981,7 @@ def builder.Builder.finish_tree
   builder.Builder.finish_tree_loop ValueInst self next_index_on_level
 
 /-- [milhouse::builder::{milhouse::builder::Builder<T>}::finish]:
-    Source: 'src/builder.rs', lines 164:4-200:5
+    Source: 'src/builder.rs', lines 167:4-203:5
     Visibility: public -/
 def builder.Builder.finish
   {T : Type} (ValueInst : Value T) (self : builder.Builder T) :
