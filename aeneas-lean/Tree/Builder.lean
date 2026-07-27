@@ -58,9 +58,11 @@ inductive BuilderStack {T : Type} (packing_factor : Option Std.Usize)
       (base_le_depth : base_depth ≤ depth)
       (dense : DenseTree packing_factor (maybeArcedTree entry) depth len)
       (nonempty : 0 < len)
-      (full_or_unaligned :
+      (full_or_final_partial :
         len = subtreeCapacity packing_factor depth ∨
-          len % subtreeCapacity packing_factor base_depth ≠ 0) :
+          (subtreeCapacity packing_factor depth -
+              subtreeCapacity packing_factor base_depth < len ∧
+            len % subtreeCapacity packing_factor base_depth ≠ 0)) :
       BuilderStack packing_factor base_depth [entry] depth len
   | left {stack : List (utils.MaybeArced (Tree T))} {depth len : Nat}
       (child_prefix : BuilderStack packing_factor base_depth stack depth len)
@@ -88,7 +90,7 @@ theorem BuilderStack.length_le_capacity {T : Type}
   | empty => simp
   | base entry len dense nonempty => exact dense.length_le_capacity
   | full => exact Nat.le_refl _
-  | segment entry depth len base_le_depth dense nonempty full_or_unaligned =>
+  | segment entry depth len base_le_depth dense nonempty full_or_final_partial =>
     exact dense.length_le_capacity
   | @left stack child_depth child_len child_prefix fits_left ih =>
     have hcap : subtreeCapacity packing_factor (child_depth + 1) =
@@ -114,7 +116,7 @@ theorem BuilderStack.base_le_depth {T : Type}
   | empty depth base_le_depth => exact base_le_depth
   | base => exact Nat.le_refl _
   | full entry depth base_le_depth dense capacity_nonempty => exact base_le_depth
-  | segment entry depth len base_le_depth dense nonempty full_or_unaligned =>
+  | segment entry depth len base_le_depth dense nonempty full_or_final_partial =>
     exact base_le_depth
   | left child_prefix fits_left ih => omega
   | right left depth right_len left_dense right_prefix right_nonempty
@@ -291,7 +293,7 @@ theorem BuilderStack.full_single {T : Type} {ValueInst : Value T}
     exact ⟨entry, rfl, by simpa [hfull] using dense⟩
   | full entry depth base_le_depth dense capacity_nonempty =>
     exact ⟨entry, rfl, dense⟩
-  | segment entry depth len base_le_depth dense nonempty full_or_unaligned =>
+  | segment entry depth len base_le_depth dense nonempty full_or_final_partial =>
     exact ⟨entry, rfl, by simpa [hfull] using dense⟩
   | @left stack child_depth child_len child_prefix fits_left ih =>
     rw [subtreeCapacity_succ] at hfull
@@ -311,7 +313,7 @@ theorem BuilderStack.eq_nil_of_length_zero {T : Type}
   | empty => rfl
   | base entry len dense nonempty => omega
   | full entry depth base_le_depth dense capacity_nonempty => omega
-  | segment entry depth len base_le_depth dense nonempty full_or_unaligned =>
+  | segment entry depth len base_le_depth dense nonempty full_or_final_partial =>
     omega
   | left child_prefix fits_left ih => exact ih hzero
   | right left depth right_len left_dense right_prefix
@@ -350,7 +352,7 @@ theorem BuilderStack.entry_dense {T : Type}
     subst entry
     exact ⟨depth, subtreeCapacity packing_factor depth, dense⟩
   | segment only_entry depth len base_le_depth dense nonempty
-      full_or_unaligned =>
+      full_or_final_partial =>
     simp at hentry
     subst entry
     exact ⟨depth, len, dense⟩
@@ -409,7 +411,7 @@ theorem BuilderStack.rewrap {T : Type}
       obtain ⟨htree, rfl⟩ := hparts
       exact BuilderStack.full replacement depth base_le_depth
         (by simpa [← htree] using dense) capacity_nonempty
-  | segment entry depth len base_le_depth dense nonempty full_or_unaligned =>
+  | segment entry depth len base_le_depth dense nonempty full_or_final_partial =>
     cases replacement with
     | nil => simp at hsame
     | cons replacement tail =>
@@ -418,7 +420,7 @@ theorem BuilderStack.rewrap {T : Type}
         simpa using hsame
       obtain ⟨htree, rfl⟩ := hparts
       exact BuilderStack.segment replacement depth len base_le_depth
-        (by simpa [← htree] using dense) nonempty full_or_unaligned
+        (by simpa [← htree] using dense) nonempty full_or_final_partial
   | left child_prefix fits_left ih =>
     exact BuilderStack.left (ih hsame) fits_left
   | @right left right_stack depth right_len left_dense right_prefix right_nonempty
@@ -943,10 +945,10 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
   | full entry depth base_le_depth dense capacity_nonempty =>
     omega
   | segment entry depth old_len base_le_depth dense nonempty
-      full_or_unaligned =>
-    rcases full_or_unaligned with hfull | hunaligned
+      full_or_final_partial =>
+    rcases full_or_final_partial with hfull | hpartial
     · omega
-    · exact (hunaligned haligned).elim
+    · exact (hpartial.2 haligned).elim
   | @left child_stack child_depth child_len child_prefix child_fits ih =>
     by_cases hchild_full :
         child_len = subtreeCapacity packing_factor child_depth
@@ -969,8 +971,11 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
         have hshape :
             subtreeCapacity packing_factor base_depth + top_len =
                 subtreeCapacity packing_factor (base_depth + 1) ∨
-              (subtreeCapacity packing_factor base_depth + top_len) %
-                  subtreeCapacity packing_factor base_depth ≠ 0 := by
+              (subtreeCapacity packing_factor (base_depth + 1) -
+                    subtreeCapacity packing_factor base_depth <
+                  subtreeCapacity packing_factor base_depth + top_len ∧
+                (subtreeCapacity packing_factor base_depth + top_len) %
+                    subtreeCapacity packing_factor base_depth ≠ 0) := by
           by_cases htop_full :
               top_len = subtreeCapacity packing_factor base_depth
           · left
@@ -979,10 +984,13 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
           · right
             have htop_lt : top_len <
                 subtreeCapacity packing_factor base_depth := by omega
-            rw [Nat.add_mod, Nat.mod_self, zero_add,
-              Nat.mod_eq_of_lt htop_lt]
-            simpa [Nat.mod_eq_of_lt htop_lt] using
-              Nat.ne_of_gt htop_nonempty
+            constructor
+            · rw [subtreeCapacity_succ]
+              omega
+            · rw [Nat.add_mod, Nat.mod_self, zero_add,
+                Nat.mod_eq_of_lt htop_lt]
+              simpa [Nat.mod_eq_of_lt htop_lt] using
+                Nat.ne_of_gt htop_nonempty
         have hcanonical := BuilderStack.segment
           (packing_factor := packing_factor) (base_depth := base_depth)
           (utils.MaybeArced.Unarced merged) (base_depth + 1)
@@ -1103,9 +1111,13 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
       have hshape :
           subtreeCapacity packing_factor child_depth + (right_len + top_len) =
               subtreeCapacity packing_factor (child_depth + 1) ∨
-            (subtreeCapacity packing_factor child_depth +
-                (right_len + top_len)) %
-                subtreeCapacity packing_factor base_depth ≠ 0 := by
+            (subtreeCapacity packing_factor (child_depth + 1) -
+                  subtreeCapacity packing_factor base_depth <
+                subtreeCapacity packing_factor child_depth +
+                  (right_len + top_len) ∧
+              (subtreeCapacity packing_factor child_depth +
+                  (right_len + top_len)) %
+                  subtreeCapacity packing_factor base_depth ≠ 0) := by
         by_cases htop_full :
             top_len = subtreeCapacity packing_factor base_depth
         · left
@@ -1115,11 +1127,14 @@ theorem BuilderStack.append_subtree {T : Type} {ValueInst : Value T}
         · right
           have htop_lt : top_len <
               subtreeCapacity packing_factor base_depth := by omega
-          rw [Nat.add_mod, hchild_aligned, zero_add, Nat.add_mod,
-            hright_aligned, zero_add, Nat.mod_eq_of_lt htop_lt,
-            Nat.mod_eq_of_lt htop_lt]
-          simpa [Nat.mod_eq_of_lt htop_lt] using
-            Nat.ne_of_gt htop_nonempty
+          constructor
+          · rw [subtreeCapacity_succ]
+            omega
+          · rw [Nat.add_mod, hchild_aligned, zero_add, Nat.add_mod,
+              hright_aligned, zero_add, Nat.mod_eq_of_lt htop_lt,
+              Nat.mod_eq_of_lt htop_lt]
+            simpa [Nat.mod_eq_of_lt htop_lt] using
+              Nat.ne_of_gt htop_nonempty
       have hcanonical := BuilderStack.segment (packing_factor := packing_factor)
         (base_depth := base_depth) (utils.MaybeArced.Unarced merged)
         (child_depth + 1)
@@ -1197,10 +1212,10 @@ theorem BuilderStack.append_partial {T : Type} {ValueInst : Value T}
   | full entry depth base_le_depth dense capacity_nonempty =>
     omega
   | segment entry depth old_len base_le_depth dense nonempty
-      full_or_unaligned =>
-    rcases full_or_unaligned with hfull | hunaligned
+      full_or_final_partial =>
+    rcases full_or_final_partial with hfull | hpartial
     · omega
-    · exact (hunaligned haligned).elim
+    · exact (hpartial.2 haligned).elim
   | @left child_stack child_depth child_len child_prefix child_fits ih =>
     by_cases hchild_full :
         child_len = subtreeCapacity packing_factor child_depth
@@ -1324,7 +1339,7 @@ theorem BuilderStack.remove_partial_last {T : Type} {ValueInst : Value T}
     subst depth
     omega
   | segment old_entry depth old_len base_le_depth old_dense old_nonempty
-      full_or_unaligned =>
+      full_or_final_partial =>
     have hprefix_length := congrArg List.length hentries
     have hprefix_empty : base_stack = [] := by
       apply List.eq_nil_of_length_eq_zero
