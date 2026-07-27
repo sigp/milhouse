@@ -82,7 +82,7 @@ all remaining capacity is represented by `Zero` padding.
 
 ## Builders and container boundaries
 
-- [ ] Once extracted, prove `Builder::push`, `push_node`, and `finish` preserve
+- [x] Once extracted, prove `Builder::push`, `push_node`, and `finish` preserve
       the builder stack invariant and return a `DenseTree` at the reported
       length.
 - [ ] Prove `repeat_list`, list/vector construction, decoding, and `pop_front`
