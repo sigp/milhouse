@@ -220,6 +220,34 @@ theorem BuilderNormalizedStack.physical_le_capacity {T : Type}
     rw [subtreeCapacity_succ]
     omega
 
+theorem BuilderNormalizedStack.base_le_depth {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))}
+    {root_depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor base_depth stack root_depth
+      logical_len physical_len) : base_depth ≤ root_depth := by
+  induction h with
+  | empty depth base_le_depth => exact base_le_depth
+  | single entry depth len base_le_depth dense nonempty => exact base_le_depth
+  | left child physical_fits ih => omega
+  | right left depth right_logical right_physical left_dense right
+      right_nonempty right_physical_not_full ih => omega
+
+private theorem BuilderStack.eq_nil_of_length_zero_early {T : Type}
+    {packing_factor : Option Std.Usize} {base_depth : Nat}
+    {stack : List (utils.MaybeArced (Tree T))} {depth len : Nat}
+    (h : BuilderStack packing_factor base_depth stack depth len)
+    (hzero : len = 0) : stack = [] := by
+  induction h with
+  | empty => rfl
+  | base entry len dense nonempty => omega
+  | full entry depth base_le_depth dense capacity_nonempty => omega
+  | segment entry depth len base_le_depth dense nonempty full_or_final_partial =>
+    omega
+  | left child_prefix fits_left ih => exact ih hzero
+  | right left depth right_len left_dense right_prefix
+      right_nonempty right_not_full ih => omega
+
 theorem BuilderNormalizedStack.ne_nil_of_logical_pos {T : Type}
     {packing_factor : Option Std.Usize} {base_depth : Nat}
     {stack : List (utils.MaybeArced (Tree T))}
@@ -253,6 +281,123 @@ theorem BuilderNormalizedStack.singleton_dense_of_full_physical {T : Type}
   | @right left right_stack child_depth right_logical right_physical
       left_dense right right_nonempty right_physical_not_full =>
     exact (right.ne_nil_of_logical_pos right_nonempty rfl).elim
+
+/-- A normalized stack occupying all of its root capacity consists of one
+    dense root entry. -/
+theorem BuilderNormalizedStack.full_physical_singleton {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth : Nat} {stack : List (utils.MaybeArced (Tree T))}
+    {root_depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor base_depth stack root_depth
+      logical_len physical_len)
+    (hlogical : 0 < logical_len)
+    (hphysical : physical_len = subtreeCapacity packing_factor root_depth) :
+    ∃ entry, stack = [entry] ∧
+      DenseTree packing_factor (maybeArcedTree entry) root_depth logical_len := by
+  cases h with
+  | empty => omega
+  | single entry depth len base_le_depth dense nonempty =>
+    exact ⟨entry, rfl, dense⟩
+  | @left stack child_depth child_logical child_physical child physical_fits =>
+    rw [subtreeCapacity_succ] at hphysical
+    have hpos := hlayout.subtreeCapacity_pos child_depth
+    omega
+  | @right left right_stack child_depth right_logical right_physical
+      left_dense right right_nonempty right_physical_not_full =>
+    rw [subtreeCapacity_succ] at hphysical
+    omega
+
+/-- Below full capacity, the final normalized entry is a dense subtree and
+    all entries before it form an aligned full-prefix stack at the next
+    depth. This is the structural decomposition consumed by `finish_tree`. -/
+theorem BuilderNormalizedStack.split_last_of_not_full {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth : Nat} {stack : List (utils.MaybeArced (Tree T))}
+    {root_depth logical_len physical_len : Nat}
+    (h : BuilderNormalizedStack packing_factor base_depth stack root_depth
+      logical_len physical_len)
+    (hlogical : 0 < logical_len)
+    (hphysical : physical_len < subtreeCapacity packing_factor root_depth) :
+    ∃ prefix_stack top top_depth prefix_len top_len,
+      stack = prefix_stack ++ [top] ∧
+      base_depth ≤ top_depth ∧ top_depth < root_depth ∧
+      DenseTree packing_factor (maybeArcedTree top) top_depth top_len ∧
+      0 < top_len ∧
+      BuilderStack packing_factor (top_depth + 1) prefix_stack root_depth
+        prefix_len ∧
+      prefix_len % subtreeCapacity packing_factor (top_depth + 1) = 0 ∧
+      logical_len = prefix_len + top_len ∧
+      physical_len = prefix_len + subtreeCapacity packing_factor top_depth := by
+  induction h with
+  | empty => omega
+  | single entry depth len base_le_depth dense nonempty =>
+    omega
+  | @left child_stack child_depth child_logical child_physical child
+      physical_fits ih =>
+    by_cases hchild_full :
+        child_physical = subtreeCapacity packing_factor child_depth
+    · obtain ⟨entry, hentry, hdense⟩ :=
+        child.full_physical_singleton hlayout hlogical hchild_full
+      subst child_stack
+      refine ⟨[], entry, child_depth, 0, child_logical, rfl,
+        child.base_le_depth, by omega, hdense, hlogical, ?_, by simp,
+        by simp, ?_⟩
+      · exact BuilderStack.empty (child_depth + 1) (Nat.le_refl _)
+      · simpa [hchild_full]
+    · have hchild_lt : child_physical <
+          subtreeCapacity packing_factor child_depth := by omega
+      obtain ⟨prefix_stack, top, top_depth, prefix_len, top_len, hstack,
+          hbase_depth, htop_depth, htop, htop_nonempty, hprefix, haligned,
+          hlogical_len, hphysical_len⟩ := ih hlogical hchild_lt
+      refine ⟨prefix_stack, top, top_depth, prefix_len, top_len, hstack,
+        hbase_depth, by omega, htop, htop_nonempty,
+        BuilderStack.left hprefix hprefix.length_le_capacity, haligned,
+        hlogical_len, hphysical_len⟩
+  | @right left right_stack child_depth right_logical right_physical left_dense
+      right right_nonempty right_physical_not_full ih =>
+    obtain ⟨right_prefix, top, top_depth, right_prefix_len, top_len,
+        hright_stack, hbase_depth, htop_depth, htop, htop_nonempty,
+        hright_prefix, hright_aligned, hright_logical, hright_physical⟩ :=
+      ih right_nonempty right_physical_not_full
+    have hnext_le_child : top_depth + 1 ≤ child_depth := by omega
+    have hnext_dvd_child :
+        subtreeCapacity packing_factor (top_depth + 1) ∣
+          subtreeCapacity packing_factor child_depth := by
+      rw [subtreeCapacity_eq_mul_pow_of_le packing_factor hnext_le_child]
+      exact dvd_mul_right _ _
+    have hchild_aligned : subtreeCapacity packing_factor child_depth %
+        subtreeCapacity packing_factor (top_depth + 1) = 0 :=
+      Nat.mod_eq_zero_of_dvd hnext_dvd_child
+    let prefix_stack := left :: right_prefix
+    have hprefix : BuilderStack packing_factor (top_depth + 1) prefix_stack
+        (child_depth + 1)
+        (subtreeCapacity packing_factor child_depth + right_prefix_len) := by
+      by_cases hright_zero : right_prefix_len = 0
+      · subst right_prefix_len
+        have hright_nil := hright_prefix.eq_nil_of_length_zero_early rfl
+        subst right_prefix
+        have hleft := BuilderStack.full
+          (packing_factor := packing_factor) (base_depth := top_depth + 1)
+          left child_depth hnext_le_child left_dense
+          (hlayout.subtreeCapacity_pos child_depth)
+        exact BuilderStack.left hleft hleft.length_le_capacity
+      · have hright_pos : 0 < right_prefix_len := Nat.pos_of_ne_zero
+          hright_zero
+        have hright_lt : right_prefix_len <
+            subtreeCapacity packing_factor child_depth := by omega
+        exact BuilderStack.right left child_depth right_prefix_len left_dense
+          hright_prefix hright_pos hright_lt
+    refine ⟨prefix_stack, top, top_depth,
+      subtreeCapacity packing_factor child_depth + right_prefix_len, top_len,
+      ?_, hbase_depth, by omega, htop, htop_nonempty, hprefix, ?_, ?_, ?_⟩
+    · simp [prefix_stack, hright_stack]
+    · simp [Nat.add_mod, hchild_aligned, hright_aligned]
+    · omega
+    · omega
 
 theorem BuilderNormalizedStack.raise_left {T : Type}
     {packing_factor : Option Std.Usize} {base_depth : Nat}
