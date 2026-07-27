@@ -1173,6 +1173,49 @@ theorem packedLeaf_single_preserves_dense {T : Type}
       (by simp [hvalues, alloc.vec.Vec.with_capacity]; omega)
     simpa [hvalues, alloc.vec.Vec.with_capacity] using hdense
 
+/-- A successful repeated packed-leaf construction is dense whenever it is
+    non-empty. Success already supplies the constructor's capacity check, so
+    no separate upper-bound premise is needed. -/
+theorem packedLeaf_repeat_preserves_dense {T : Type}
+    (ValueInst : Value T) {factor packing_depth n : Std.Usize}
+    (hlayout : PackingLayout ValueInst (some factor) packing_depth)
+    (value : T) (hn : 0 < n.val) {leaf : packed_leaf.PackedLeaf T}
+    (hrepeat : packed_leaf.PackedLeaf.repeat
+      ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst value n =
+      ok leaf) :
+    DenseTree (some factor) (Tree.PackedLeaf leaf) 0 n.val := by
+  unfold packed_leaf.PackedLeaf.repeat at hrepeat
+  rw [hlayout.tree_hash_packing_factor_eq] at hrepeat
+  simp only [bind_tc_ok] at hrepeat
+  have hn_le : n.val ≤ factor.val := by
+    by_contra hnot
+    have hfalse : (n <= factor) = false := by scalar_tac
+    simp [hfalse] at hrepeat
+  have hcheck : (n <= factor) = true := by scalar_tac
+  simp only [hcheck] at hrepeat
+  simp [alloy_primitives.bits.fixed.FixedBytes.ZERO,
+    lock_api.rwlock.RwLock.new] at hrepeat
+  cases hvalues : alloc.vec.from_elem ValueInst.corecloneCloneInst value n with
+  | fail error => simp [hvalues] at hrepeat
+  | div => simp [hvalues] at hrepeat
+  | ok values =>
+    simp [hvalues] at hrepeat
+    subst leaf
+    unfold alloc.vec.from_elem at hvalues
+    cases hcloned : List.clone ValueInst.corecloneCloneInst.clone
+        (List.replicate n.val value) with
+    | fail error => simp [hcloned] at hvalues
+    | div => simp [hcloned] at hvalues
+    | ok cloned =>
+      simp [hcloned] at hvalues
+      subst values
+      simpa using DenseTree.packed factor
+        ({ hash := Array.repeat 32#usize 0#u8,
+           values := ⟨cloned.val, by scalar_tac⟩ } :
+          packed_leaf.PackedLeaf T)
+        (by simpa using hn)
+        (by simpa using hn_le)
+
 /-- `PackedLeaf.insert_at_index` preserves packed-leaf density. A successful
     call replaces an existing slot, or appends exactly when the computed
     packed sub-index is the old leaf length. -/
