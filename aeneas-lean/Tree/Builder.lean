@@ -4948,4 +4948,177 @@ theorem builder_push_preserves_invariant {T : Type}
                       exact ⟨self.stack.val, Tree.PackedLeaf leaf, 1,
                         hloop_stack, hleaf_dense, by omega, htop_partial⟩
 
+/-- `Builder.finish` needs no protocol premise beyond the builder invariant:
+    every successful result reports the builder's depth and length and is a
+    dense tree at exactly those indices. -/
+theorem builder_finish_returns_dense {T : Type}
+    {ValueInst : Value T} {self : builder.Builder T}
+    (hinvariant : BuilderInvariant ValueInst self)
+    {tree : Tree T} {depth : Std.Usize} {length : utils.Length}
+    (hfinish : builder.Builder.finish ValueInst self =
+      ok (core.result.Result.Ok (tree, depth, length))) :
+    depth = self.depth ∧ length = self.length ∧
+      DenseTree self.packing_factor tree self.depth.val self.length.val := by
+  unfold builder.Builder.finish at hfinish
+  cases hempty : alloc.vec.Vec.is_empty Global self.stack with
+  | fail error => simp [hempty] at hfinish
+  | div => simp [hempty] at hfinish
+  | ok empty =>
+    cases empty with
+    | true =>
+      cases hzero : Tree.zero ValueInst self.depth with
+      | fail error => simp [hempty, hzero] at hfinish
+      | div => simp [hempty, hzero] at hfinish
+      | ok zero =>
+        simp [hempty, hzero] at hfinish
+        obtain ⟨rfl, rfl, rfl⟩ := hfinish
+        have hstack_empty : self.stack.val = [] := by
+          simpa [alloc.vec.Vec.is_empty] using hempty
+        have hlength_zero :=
+          (@BuilderInvariant.stack_dense T ValueInst self hinvariant).length_eq_zero_of_nil
+            hstack_empty
+        obtain ⟨expected, hexpected, hdense⟩ :=
+          zero_preserves_dense ValueInst self.packing_factor self.depth
+        rw [hzero] at hexpected
+        cases hexpected
+        have hlength : (0#usize : utils.Length) = self.length := by
+          apply UScalar.eq_of_val_eq
+          simpa using hlength_zero.symm
+        exact ⟨rfl, hlength, by simpa [hlength_zero] using hdense⟩
+    | false =>
+      have hstack_nonempty : self.stack.val ≠ [] := by
+        simpa [alloc.vec.Vec.is_empty] using hempty
+      have hlogical : 0 < self.length.val := by
+        by_contra hnot_positive
+        have hzero : self.length.val = 0 := Nat.eq_zero_of_not_pos
+          hnot_positive
+        exact hstack_nonempty
+          ((@BuilderInvariant.stack_dense T ValueInst self hinvariant).eq_nil_of_length_zero
+            hzero)
+      simp only [hempty, bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
+        utils.Length.as_usize] at hfinish
+      cases hlevel_capacity : 1#usize <<< self.level with
+      | fail error => simp [hlevel_capacity] at hfinish
+      | div => simp [hlevel_capacity] at hfinish
+      | ok level_capacity =>
+        simp only [hlevel_capacity, bind_tc_ok] at hfinish
+        cases hnext_index : core.num.Usize.div_ceil self.length
+            level_capacity with
+        | fail error => simp [hnext_index] at hfinish
+        | div => simp [hnext_index] at hfinish
+        | ok next_index =>
+          simp only [hnext_index, bind_tc_ok] at hfinish
+          cases hfactor : self.packing_factor with
+          | none =>
+            have hready : self.level.val ≠ 0 ∨
+                self.length.val % subtreeCapacity self.packing_factor
+                  (if self.level.val = 0 then 0
+                    else self.level.val - self.packing_depth.val) = 0 := by
+              by_cases hlevel : self.level.val = 0
+              · right
+                simpa [hlevel, hfactor, subtreeCapacity, leafCapacity] using
+                  Nat.mod_one self.length.val
+              · exact Or.inl hlevel
+            rw [hfactor] at hfinish
+            change finishTreeAndFinalize ValueInst self next_index =
+              ok (core.result.Result.Ok (tree, depth, length)) at hfinish
+            simpa [hfactor] using finish_ready_returns_dense hinvariant
+              hlevel_capacity hnext_index hready hlogical hfinish
+          | some factor =>
+            have hfactor_pos : 0 < factor.val := by
+              simpa [hfactor, leafCapacity] using
+                (@BuilderInvariant.layout T ValueInst self hinvariant).leafCapacity_pos
+            rw [hfactor] at hfinish
+            cases hremainder : self.length % factor with
+            | fail error => simp [hremainder] at hfinish
+            | div => simp [hremainder] at hfinish
+            | ok remainder =>
+              simp only [hremainder, bind_tc_ok, lift] at hfinish
+              let gap := core.num.Usize.saturating_sub factor remainder
+              cases hskip : gap % factor with
+              | fail error => simp [gap, hskip] at hfinish
+              | div => simp [gap, hskip] at hfinish
+              | ok skip =>
+                simp only [gap, hskip, bind_tc_ok] at hfinish
+                have hremainder_value := usize_rem_value hfactor_pos hremainder
+                have hskip_value : skip.val =
+                    (factor.val - self.length.val % factor.val) %
+                      factor.val := by
+                  rw [usize_rem_value hfactor_pos hskip,
+                    usize_saturating_sub_value, hremainder_value]
+                by_cases hskip_positive : skip > 0#usize
+                · rw [if_pos hskip_positive] at hfinish
+                  by_cases hlevel_zero : self.level = 0#usize
+                  · rw [if_pos hlevel_zero] at hfinish
+                    have hlevel : self.level.val = 0 := by
+                      exact congrArg UScalar.val hlevel_zero
+                    have hlevel_capacity_value :=
+                      usize_shift_left_one_value hlevel_capacity
+                    have hnext_value : next_index.val = self.length.val := by
+                      have hquotient := usize_div_ceil_value
+                        (by rw [hlevel_capacity_value]; positivity)
+                        hnext_index
+                      rw [hlevel_capacity_value, hlevel] at hquotient
+                      simpa [Nat.mod_one] using hquotient
+                    have hskip_pos : 0 < skip.val := by scalar_tac
+                    cases hpacked : builder.Builder.finish_packed_leaf
+                        ValueInst self next_index with
+                    | fail error => simp [hpacked] at hfinish
+                    | div => simp [hpacked] at hfinish
+                    | ok packed_result =>
+                      obtain ⟨status, self1⟩ := packed_result
+                      cases status with
+                      | Err error =>
+                        simp [hpacked,
+                          core.result.Result.Insts.CoreOpsTry.branch,
+                          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual]
+                          at hfinish
+                      | Ok success =>
+                        cases success
+                        simp only [hpacked,
+                          core.result.Result.Insts.CoreOpsTry.branch,
+                          bind_tc_ok] at hfinish
+                        cases hnext_add : next_index + skip with
+                        | fail error => simp [hnext_add] at hfinish
+                        | div => simp [hnext_add] at hfinish
+                        | ok next_index1 =>
+                          simp only [hnext_add,
+                            core.result.Result.Insts.CoreOpsTry.branch,
+                            bind_tc_ok] at hfinish
+                          change finishTreeAndFinalize ValueInst self1
+                            next_index1 = ok (core.result.Result.Ok
+                              (tree, depth, length)) at hfinish
+                          simpa [hfactor] using
+                            finish_partial_packed_returns_dense hinvariant
+                              hfactor hlevel hnext_value hskip_value hskip_pos
+                              hpacked hnext_add hfinish
+                  · rw [if_neg hlevel_zero] at hfinish
+                    have hlevel : self.level.val ≠ 0 := by
+                      intro hzero
+                      apply hlevel_zero
+                      exact UScalar.eq_of_val_eq (by simpa using hzero)
+                    change finishTreeAndFinalize ValueInst self next_index =
+                      ok (core.result.Result.Ok (tree, depth, length)) at hfinish
+                    simpa [hfactor] using finish_ready_returns_dense hinvariant
+                      hlevel_capacity hnext_index (Or.inl hlevel) hlogical
+                      hfinish
+                · rw [if_neg hskip_positive] at hfinish
+                  have hskip_zero : skip.val = 0 := by scalar_tac
+                  have haligned_factor : self.length.val % factor.val = 0 :=
+                    (capacity_sub_remainder_mod_eq_zero_iff hfactor_pos).mp
+                      (by rw [← hskip_value]; exact hskip_zero)
+                  have hready : self.level.val ≠ 0 ∨
+                      self.length.val % subtreeCapacity self.packing_factor
+                        (if self.level.val = 0 then 0
+                          else self.level.val - self.packing_depth.val) = 0 := by
+                    by_cases hlevel : self.level.val = 0
+                    · right
+                      simpa [hlevel, hfactor, subtreeCapacity, leafCapacity]
+                        using haligned_factor
+                    · exact Or.inl hlevel
+                  change finishTreeAndFinalize ValueInst self next_index =
+                    ok (core.result.Result.Ok (tree, depth, length)) at hfinish
+                  simpa [hfactor] using finish_ready_returns_dense hinvariant
+                    hlevel_capacity hnext_index hready hlogical hfinish
+
 end milhouse.tree
