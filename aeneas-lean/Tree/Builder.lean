@@ -1048,6 +1048,82 @@ private theorem usize_shift_left_one_value {shift shifted : Std.Usize}
   rw [hval, hone, Nat.one_shiftLeft, UScalar.size_def]
   exact Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) hbound)
 
+private theorem usize_div_ceil_value {value divisor quotient : Std.Usize}
+    (hdivisor : 0 < divisor.val)
+    (hdiv : core.num.Usize.div_ceil value divisor = ok quotient) :
+    quotient.val = value.val / divisor.val +
+      if value.val % divisor.val = 0 then 0 else 1 := by
+  unfold core.num.Usize.div_ceil at hdiv
+  rw [if_neg (Nat.ne_of_gt hdivisor)] at hdiv
+  have hspec := UScalar.tryMk_eq .Usize
+    (value.val / divisor.val +
+      if value.val % divisor.val = 0 then 0 else 1)
+  rw [hdiv] at hspec
+  exact hspec.1
+
+private theorem nat_div_ceil_bounds {value divisor quotient : Nat}
+    (hdivisor : 0 < divisor)
+    (hquotient : quotient = value / divisor +
+      if value % divisor = 0 then 0 else 1) :
+    value ≤ quotient * divisor ∧
+      quotient * divisor < value + divisor := by
+  have hmod_lt := Nat.mod_lt value hdivisor
+  have hdecomp := Nat.mod_add_div value divisor
+  by_cases haligned : value % divisor = 0
+  · simp [haligned] at hquotient
+    constructor <;> rw [hquotient]
+    · simpa [haligned, Nat.mul_comm] using hdecomp.symm.le
+    · have hvalue_eq : value / divisor * divisor = value := by
+        simpa [haligned, Nat.mul_comm] using hdecomp
+      calc
+        value / divisor * divisor < value / divisor * divisor + divisor :=
+          Nat.lt_add_of_pos_right hdivisor
+        _ = value + divisor := by rw [hvalue_eq]
+  · simp [haligned] at hquotient
+    have hmod_pos : 0 < value % divisor := Nat.pos_of_ne_zero haligned
+    rw [hquotient]
+    constructor
+    · rw [Nat.add_mul, one_mul]
+      have hbase : value = value / divisor * divisor +
+          value % divisor := by
+        simpa [Nat.add_comm, Nat.mul_comm] using hdecomp.symm
+      omega
+    · rw [Nat.add_mul, one_mul]
+      have hbase : value = value / divisor * divisor +
+          value % divisor := by
+        simpa [Nat.add_comm, Nat.mul_comm] using hdecomp.symm
+      omega
+
+private theorem aligned_window_unique {unit start first second : Nat}
+    (hunit : 0 < unit)
+    (hfirst_aligned : first % unit = 0)
+    (hsecond_aligned : second % unit = 0)
+    (hfirst_lower : start ≤ first) (hfirst_upper : first < start + unit)
+    (hsecond_lower : start ≤ second)
+    (hsecond_upper : second < start + unit) : first = second := by
+  obtain ⟨first_units, hfirst⟩ :=
+    Nat.dvd_of_mod_eq_zero hfirst_aligned
+  obtain ⟨second_units, hsecond⟩ :=
+    Nat.dvd_of_mod_eq_zero hsecond_aligned
+  by_contra hne
+  rcases lt_or_gt_of_ne hne with hlt | hgt
+  · have hunits : first_units < second_units := by
+      apply (Nat.mul_lt_mul_left hunit).mp
+      simpa [hfirst, hsecond, Nat.mul_comm] using hlt
+    have hgap : first + unit ≤ second := by
+      rw [hfirst, hsecond]
+      simpa [Nat.mul_add, Nat.mul_comm] using
+        Nat.mul_le_mul_left unit (Nat.succ_le_iff.mpr hunits)
+    omega
+  · have hunits : second_units < first_units := by
+      apply (Nat.mul_lt_mul_left hunit).mp
+      simpa [hfirst, hsecond, Nat.mul_comm] using hgt
+    have hgap : second + unit ≤ first := by
+      rw [hfirst, hsecond]
+      simpa [Nat.mul_add, Nat.mul_comm] using
+        Nat.mul_le_mul_left unit (Nat.succ_le_iff.mpr hunits)
+    omega
+
 /-- Successful construction starts with the empty canonical stack. -/
 theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
     {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
