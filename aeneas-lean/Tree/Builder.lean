@@ -1931,4 +1931,33 @@ private theorem push_loop2_eq_loop0 {T : Type} (ValueInst : Value T)
       builder.Builder.push_loop0 ValueInst iter stack length top := by
   rfl
 
+private theorem push_loop_preserves_builder_stack {T : Type}
+    {ValueInst : Value T} {packing_factor : Option Std.Usize}
+    {base_depth root_depth old_len new_len count : Nat}
+    {input_stack : List (utils.MaybeArced (Tree T))} {input_top : Tree T}
+    {plan_stack : List (utils.MaybeArced (Tree T))}
+    {plan_top : Tree T} {plan_depth plan_len : Nat}
+    (hplan : BuilderMergePlan ValueInst packing_factor count input_stack
+      input_top plan_stack plan_top plan_depth plan_len)
+    (hcanonical : BuilderStack packing_factor base_depth
+      (plan_stack ++ [utils.MaybeArced.Unarced plan_top]) root_depth new_len)
+    (values_to_merge : Std.U32) (hcount : values_to_merge.val = count)
+    (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
+    (length : utils.Length)
+    {result_stack : alloc.vec.Vec (utils.MaybeArced (Tree T))}
+    {result_length : utils.Length}
+    (hstack : stack.val = input_stack)
+    (hlength : length.val = old_len)
+    (hloop : builder.Builder.push_loop0 ValueInst
+      { start := 0#u32, «end» := values_to_merge } stack length input_top =
+        ok (core.result.Result.Ok (), result_stack, result_length)) :
+    BuilderStack packing_factor base_depth result_stack.val root_depth new_len ∧
+      result_length.val = old_len + 1 := by
+  obtain ⟨hresult_stack, hresult_length⟩ :=
+    push_loop0_follows_merge_plan hplan
+      { start := 0#u32, «end» := values_to_merge } stack length result_stack
+      result_length (by simp [hcount]) hstack hloop
+  rw [hresult_stack]
+  exact ⟨hcanonical, by omega⟩
+
 end milhouse.tree
