@@ -3917,6 +3917,31 @@ private theorem finish_tree_and_finalize_returns_dense {T : Type}
                 hcapacity hroot_bits hnormalized hbase hlogical hcursor
                 htree hpop (maybeArced_arced entry)
 
+private theorem finish_ready_returns_dense {T : Type}
+    {ValueInst : Value T} {self : builder.Builder T}
+    {level_capacity next_index : Std.Usize}
+    (hinvariant : BuilderInvariant ValueInst self)
+    (hlevel_capacity : 1#usize <<< self.level = ok level_capacity)
+    (hnext_index : core.num.Usize.div_ceil self.length level_capacity =
+      ok next_index)
+    (hready : self.level.val ≠ 0 ∨
+      self.length.val % subtreeCapacity self.packing_factor
+        (if self.level.val = 0 then 0
+          else self.level.val - self.packing_depth.val) = 0)
+    (hlogical : 0 < self.length.val)
+    {tree : Tree T} {depth : Std.Usize} {length : utils.Length}
+    (hfinish : finishTreeAndFinalize ValueInst self next_index =
+      ok (core.result.Result.Ok (tree, depth, length))) :
+    depth = self.depth ∧ length = self.length ∧
+      DenseTree self.packing_factor tree self.depth.val self.length.val := by
+  obtain ⟨physical_len, hnormalized, hcursor⟩ :=
+    hinvariant.finish_cursor_normalized hlevel_capacity hnext_index hready
+  exact finish_tree_and_finalize_returns_dense
+    (@BuilderInvariant.layout T ValueInst self hinvariant)
+    (@BuilderInvariant.level_valid T ValueInst self hinvariant)
+    (@BuilderInvariant.builder_capacity_matches T ValueInst self hinvariant)
+    hinvariant.depth_packing_lt_bits hnormalized rfl hlogical hcursor hfinish
+
 private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
     {packing_depth : Std.Usize}
