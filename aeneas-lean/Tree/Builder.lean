@@ -3823,6 +3823,100 @@ private theorem finish_tree_completed_entry_dense {T : Type}
     simpa using harced.symm
   exact ⟨hdepth, hlength, by simpa [htree] using hdense⟩
 
+private def finishTreeAndFinalize {T : Type} (ValueInst : Value T)
+    (self : builder.Builder T) (next_index : Std.Usize) :
+    Result (core.result.Result
+      ((triomphe.arc.Arc (Tree T)) × Std.Usize × utils.Length)
+      error.Error) := do
+  let (r, finished) ←
+    builder.Builder.finish_tree ValueInst self next_index
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ =>
+    let (entry, rest) ← alloc.vec.Vec.pop Global finished.stack
+    let r1 ← core.option.Option.ok_or entry
+      error.Error.BuilderStackEmptyFinalize
+    let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+    match cf1 with
+    | core.ops.control_flow.ControlFlow.Continue entry =>
+      let tree ← utils.MaybeArced.arced entry
+      let empty ← alloc.vec.Vec.is_empty Global rest
+      if empty then
+        ok (core.result.Result.Ok (tree, finished.depth, finished.length))
+      else ok (core.result.Result.Err error.Error.BuilderStackLeftover)
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        ((triomphe.arc.Arc (Tree T)) × Std.Usize × utils.Length)
+        (core.convert.FromSame error.Error) residual
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      ((triomphe.arc.Arc (Tree T)) × Std.Usize × utils.Length)
+      (core.convert.FromSame error.Error) residual
+
+private theorem finish_tree_and_finalize_returns_dense {T : Type}
+    {ValueInst : Value T} {self : builder.Builder T}
+    {next_index : Std.Usize}
+    (hlayout : PackingLayout ValueInst self.packing_factor self.packing_depth)
+    (hlevel_valid : self.level.val = 0 ∨
+      self.packing_depth.val ≤ self.level.val)
+    (hcapacity : self.capacity.val =
+      subtreeCapacity self.packing_factor self.depth.val)
+    (hroot_bits : self.depth.val + self.packing_depth.val <
+      System.Platform.numBits)
+    {base_depth logical_len physical_len : Nat}
+    (hnormalized : BuilderNormalizedStack self.packing_factor base_depth
+      self.stack.val self.depth.val logical_len physical_len)
+    (hbase : base_depth = if self.level.val = 0 then 0
+      else self.level.val - self.packing_depth.val)
+    (hlogical : 0 < logical_len)
+    (hcursor : physical_len = next_index.val * 2 ^ self.level.val)
+    {tree : Tree T} {depth : Std.Usize} {length : utils.Length}
+    (hfinish : finishTreeAndFinalize ValueInst self next_index =
+      ok (core.result.Result.Ok (tree, depth, length))) :
+    depth = self.depth ∧ length = self.length ∧
+      DenseTree self.packing_factor tree self.depth.val logical_len := by
+  unfold finishTreeAndFinalize at hfinish
+  cases htree : builder.Builder.finish_tree ValueInst self next_index with
+  | fail error => simp [htree] at hfinish
+  | div => simp [htree] at hfinish
+  | ok finish_result =>
+    obtain ⟨status, finished⟩ := finish_result
+    cases status with
+    | Err error =>
+      simp [htree, core.result.Result.Insts.CoreOpsTry.branch,
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual]
+        at hfinish
+    | Ok success =>
+      cases success
+      simp only [htree, core.result.Result.Insts.CoreOpsTry.branch, bind_tc_ok]
+        at hfinish
+      cases hpop : alloc.vec.Vec.pop Global finished.stack with
+      | fail error => simp [hpop] at hfinish
+      | div => simp [hpop] at hfinish
+      | ok pop_result =>
+        obtain ⟨entry, rest⟩ := pop_result
+        cases entry with
+        | none =>
+          simp [hpop, core.option.Option.ok_or,
+            core.result.Result.Insts.CoreOpsTry.branch,
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual]
+            at hfinish
+        | some entry =>
+          simp only [hpop, bind_tc_ok, core.option.Option.ok_or,
+            core.result.Result.Insts.CoreOpsTry.branch] at hfinish
+          cases hempty : alloc.vec.Vec.is_empty Global rest with
+          | fail error => simp [hpop, hempty] at hfinish
+          | div => simp [hpop, hempty] at hfinish
+          | ok empty =>
+            cases empty with
+            | false => simp [hpop, hempty] at hfinish
+            | true =>
+              simp [hpop, hempty] at hfinish
+              obtain ⟨rfl, rfl, rfl⟩ := hfinish
+              exact finish_tree_completed_entry_dense hlayout hlevel_valid
+                hcapacity hroot_bits hnormalized hbase hlogical hcursor
+                htree hpop (maybeArced_arced entry)
+
 private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
     {packing_depth : Std.Usize}
