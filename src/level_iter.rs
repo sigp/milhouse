@@ -59,6 +59,13 @@ impl<'a, T: Value> LevelIter<'a, T> {
     }
 }
 
+fn packed_level_node<'a, T: Value>(values: &'a Vec<T>, index: usize) -> Option<LevelNode<'a, T>> {
+    match values.get(index) {
+        Some(value) => Some(LevelNode::PackedLeaf(value)),
+        None => None,
+    }
+}
+
 impl<'a, T: Value> Iterator for LevelIter<'a, T> {
     type Item = LevelNode<'a, T>;
 
@@ -67,7 +74,9 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
             return None;
         }
 
-        let node: &'a Arc<Tree<T>> = *self.stack.last()?;
+        // Copy the node reference without keeping `stack` borrowed while traversing it.
+        let node: &'a Arc<Tree<T>> = self.stack.pop()?;
+        self.stack.push(node);
         match node.as_ref() {
             Tree::Zero(_) => None,
             Tree::Leaf(_) => {
@@ -106,7 +115,7 @@ impl<'a, T: Value> Iterator for LevelIter<'a, T> {
                 }
 
                 let sub_index = self.index % self.packing_factor;
-                let result = values.get(sub_index).map(LevelNode::PackedLeaf);
+                let result = packed_level_node(values, sub_index);
 
                 // If we are iterating leaves then the level must be 0.
                 debug_assert_eq!(self.level, 0);

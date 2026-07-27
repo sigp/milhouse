@@ -63,6 +63,44 @@ fn push_all<T: Value>(
     }
 }
 
+fn push_level_node<T: Value>(
+    builder: &mut Builder<T>,
+    item: LevelNode<'_, T>,
+    level: usize,
+    remaining: usize,
+) -> Result<usize, Error> {
+    match item {
+        LevelNode::Internal(node) => {
+            let subtree_len = (1 << level).min(remaining);
+            builder.push_node(node.clone(), subtree_len)?;
+            Ok(remaining - subtree_len)
+        }
+        LevelNode::PackedLeaf(value) => {
+            builder.push(value.clone())?;
+            Ok(remaining - 1)
+        }
+    }
+}
+
+fn push_level_nodes<T: Value>(
+    builder: &mut Builder<T>,
+    mut iter: LevelIter<'_, T>,
+    level: usize,
+    mut remaining: usize,
+) -> Result<(), Error> {
+    loop {
+        let item = match iter.next() {
+            Some(item) => item,
+            None => break Ok(()),
+        };
+
+        match push_level_node(builder, item, level, remaining) {
+            Ok(new_remaining) => remaining = new_remaining,
+            Err(error) => break Err(error),
+        }
+    }
+}
+
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
@@ -131,7 +169,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().map(|x| x.clone()).collect()
+        let mut values = Vec::with_capacity(self.len());
+        let mut iter = self.iter();
+        while let Some(value) = iter.next() {
+            values.push(value.clone());
+        }
+        values
     }
 
     pub fn iter(&self) -> InterfaceIter<'_, T, U> {
@@ -220,7 +263,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     ///
     /// Errors if `n > self.len()`.
     pub fn pop_front_slow(&mut self, n: usize) -> Result<(), Error> {
-        *self = Self::try_from_iter(self.iter_from(n)?.map(|x| x.clone()))?;
+        let mut values = Vec::new();
+        let mut iter = self.iter_from(n)?;
+        while let Some(value) = iter.next() {
+            values.push(value.clone());
+        }
+        *self = Self::new(values)?;
         Ok(())
     }
 
@@ -238,25 +286,9 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         let level = compute_level(n, depth, packing_depth);
         let mut builder = Builder::new(Self::depth(), level)?;
-        let mut level_iter = self.level_iter_from(n)?.peekable();
-
-        while let Some(item) = level_iter.next() {
-            match item {
-                LevelNode::Internal(node) => {
-                    let last = level_iter.peek().is_none();
-                    let subtree_len = if !last {
-                        1 << level
-                    } else {
-                        // Slower, but we only need to do this once.
-                        node.compute_len()
-                    };
-                    builder.push_node(node.clone(), subtree_len)?;
-                }
-                LevelNode::PackedLeaf(value) => {
-                    builder.push(value.clone())?;
-                }
-            }
-        }
+        let level_iter = self.level_iter_from(n)?;
+        let remaining = self.len().saturating_sub(n);
+        push_level_nodes(&mut builder, level_iter, level, remaining)?;
 
         let (tree, depth, length) = builder.finish()?;
         *self = Self::from_parts(tree, depth, length);

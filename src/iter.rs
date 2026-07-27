@@ -45,9 +45,13 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
             return None;
         }
 
-        match self.stack.last() {
-            None | Some(Tree::Zero(_)) => None,
-            Some(Tree::Leaf(Leaf { value, .. })) => {
+        // Copy the node reference without keeping `stack` borrowed while traversing it.
+        let node = self.stack.pop()?;
+        self.stack.push(node);
+
+        match node {
+            Tree::Zero(_) => None,
+            Tree::Leaf(Leaf { value, .. }) => {
                 let result = Some(value.as_ref());
 
                 self.index += 1;
@@ -59,7 +63,7 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
 
                 result
             }
-            Some(Tree::PackedLeaf(PackedLeaf { values, .. })) => {
+            Tree::PackedLeaf(PackedLeaf { values, .. }) => {
                 let sub_index = self.index % self.packing_factor;
 
                 let result = values.get(sub_index);
@@ -81,7 +85,7 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
 
                 result
             }
-            Some(Tree::Node { left, right, .. }) => {
+            Tree::Node { left, right, .. } => {
                 let depth = self.full_depth - self.stack.len();
 
                 // Go left
