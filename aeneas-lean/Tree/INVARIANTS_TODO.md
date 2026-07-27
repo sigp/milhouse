@@ -85,8 +85,11 @@ all remaining capacity is represented by `Zero` padding.
 - [x] Once extracted, prove `Builder::push`, `push_node`, and `finish` preserve
       the builder stack invariant and return a `DenseTree` at the reported
       length.
-- [ ] Prove `repeat_list`, list/vector construction, decoding, and `pop_front`
-      return dense backing trees.
+- [x] Prove `repeat_list` returns a dense backing tree
+      (`repeat_list_returns_dense`). Its only semantic premise is
+      `PackingLayout`; success discharges the capacity/finalization cases.
+- [ ] Prove list/vector construction, decoding, and `pop_front` return dense
+      backing trees.
 - [ ] Define the `Interface` invariant for pending updates, including the
       contiguous-extension condition on the pending update map.
 - [ ] Connect cached list/vector length and depth fields to `DenseTree`.
