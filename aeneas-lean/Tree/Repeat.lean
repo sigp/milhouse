@@ -771,4 +771,71 @@ private theorem repeat_list_nonempty_eq {T N U : Type}
   intros
   rfl
 
+/-- A successful `repeat_list` call returns a list whose cached logical length
+    and packing depth agree with its dense backing tree.
+
+    `PackingLayout` is the sole semantic premise. In particular, no separate
+    `n ≤ capacity` premise is needed: oversized requests can only satisfy the
+    theorem when the translated function itself successfully finalizes them. -/
+theorem repeat_list_returns_dense {T N U : Type}
+    {ValueInst : Value T}
+    (UnsignedInst : typenum.marker_traits.Unsigned N)
+    (UpdateMapInst : update_map.UpdateMap U T)
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    (elem : T) (n : Std.Usize) {result : list.List T N U}
+    (hrepeat : repeat.repeat_list ValueInst UnsignedInst UpdateMapInst elem n =
+      ok (core.result.Result.Ok result)) :
+    result.interface.backing.length = n ∧
+      result.interface.backing.packing_depth = packing_depth ∧
+      DenseTree packing_factor result.interface.backing.tree
+        result.interface.backing.depth.val n.val := by
+  by_cases hn : n = 0#usize
+  · subst n
+    unfold repeat.repeat_list at hrepeat
+    simp only [if_pos rfl] at hrepeat
+    cases hempty : list.List.empty ValueInst UnsignedInst UpdateMapInst with
+    | fail error => simp [hempty] at hrepeat
+    | div => simp [hempty] at hrepeat
+    | ok empty =>
+      simp [hempty] at hrepeat
+      subst empty
+      unfold list.List.empty at hempty
+      cases hdepth : list.List.depth ValueInst UnsignedInst UpdateMapInst with
+      | fail error => simp [hdepth] at hempty
+      | div => simp [hdepth] at hempty
+      | ok depth =>
+        cases hparts : list.List.from_parts ValueInst UnsignedInst
+            UpdateMapInst (Tree.Zero depth) depth 0#usize with
+        | fail error =>
+          simp [hdepth, Tree.empty, Tree.zero, triomphe.arc.Arc.new,
+            hparts] at hempty
+        | div =>
+          simp [hdepth, Tree.empty, Tree.zero, triomphe.arc.Arc.new,
+            hparts] at hempty
+        | ok built =>
+          simp [hdepth, Tree.empty, Tree.zero, triomphe.arc.Arc.new,
+            hparts] at hempty
+          subst built
+          obtain ⟨htree, hcached_depth, hlength, hpacking⟩ :=
+            list_from_parts_fields UnsignedInst UpdateMapInst hlayout
+              (Tree.Zero depth) depth 0#usize hparts
+          refine ⟨hlength, hpacking, ?_⟩
+          rw [htree, hcached_depth]
+          exact DenseTree.zero packing_factor depth
+  · rw [repeat_list_nonempty_eq ValueInst UnsignedInst UpdateMapInst
+      elem n hn, hlayout.opt_packing_factor_eq] at hrepeat
+    cases hdepth : list.List.depth ValueInst UnsignedInst UpdateMapInst with
+    | fail error => simp [hdepth] at hrepeat
+    | div => simp [hdepth] at hrepeat
+    | ok tree_depth =>
+      cases hinitial : repeatInitialLayer ValueInst elem n packing_factor with
+      | fail error => simp [hdepth, hinitial] at hrepeat
+      | div => simp [hdepth, hinitial] at hrepeat
+      | ok layer =>
+        simp [hdepth, hinitial] at hrepeat
+        have hlayer := repeatInitialLayer_preserves hlayout elem n hn hinitial
+        exact repeatListFinalize_returns_dense UnsignedInst UpdateMapInst
+          hlayout tree_depth n layer hlayer hrepeat
+
 end milhouse.tree
