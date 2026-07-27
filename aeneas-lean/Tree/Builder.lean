@@ -1236,6 +1236,80 @@ theorem BuilderCarryCount.base_le_depth
   | right_open child_depth right_len count right_count cursor_open ih => omega
   | right_close child_depth right_len count right_count cursor_closes ih => omega
 
+theorem BuilderCarryCount.count_le_depth_sub
+    {packing_factor : Option Std.Usize} {base_depth root_depth total count : Nat}
+    (hcarry : BuilderCarryCount packing_factor base_depth root_depth total
+      count) : count ≤ root_depth - base_depth := by
+  induction hcarry with
+  | zero => simp
+  | inside child_depth total count child_count not_at_right ih => omega
+  | enter_right => simp
+  | first_merge => simp
+  | right_open child_depth right_len count right_count cursor_open ih => omega
+  | right_close child_depth right_len count right_count cursor_closes ih =>
+    have hbase := right_count.base_le_depth
+    omega
+
+private theorem nat_bits_of_padic_succ : ∀ count value : Nat,
+    count = padicValNat 2 (value + 1) →
+      ((value >>> count) &&& 1) = 0 ∧
+      ∀ offset, offset < count → ((value >>> offset) &&& 1) = 1 := by
+  intro count
+  induction count with
+  | zero =>
+    intro value hcount
+    have hnot_dvd : ¬2 ∣ value + 1 := by
+      intro hdvd
+      have hnonzero : value + 1 ≠ 0 := by omega
+      have hval_ne : padicValNat 2 (value + 1) ≠ 0 :=
+        (dvd_iff_padicValNat_ne_zero (p := 2) hnonzero).mp hdvd
+      omega
+    have hodd_ne : (value + 1) % 2 ≠ 0 := by
+      exact fun hmod => hnot_dvd (Nat.dvd_of_mod_eq_zero hmod)
+    have hvalue_even : value % 2 = 0 := by omega
+    constructor
+    · simpa [Nat.and_one_is_mod] using hvalue_even
+    · intro offset hoff
+      omega
+  | succ count ih =>
+    intro value hcount
+    have hnonzero : value + 1 ≠ 0 := by omega
+    have hdvd : 2 ∣ value + 1 := by
+      apply (dvd_iff_padicValNat_ne_zero (p := 2) hnonzero).mpr
+      omega
+    have hsum_even : (value + 1) % 2 = 0 :=
+      Nat.mod_eq_zero_of_dvd hdvd
+    have hvalue_odd : value % 2 = 1 := by omega
+    let half := value / 2
+    have hvalue : value = 2 * half + 1 := by
+      have hdivision := Nat.mod_add_div value 2
+      dsimp [half]
+      omega
+    have hhalf : (value + 1) / 2 = half + 1 := by
+      rw [hvalue]
+      omega
+    have hdiv_val := padicValNat.div (p := 2) hdvd
+    have hhalf_count : count = padicValNat 2 (half + 1) := by
+      rw [hhalf] at hdiv_val
+      omega
+    obtain ⟨hstop, hmerge⟩ := ih half hhalf_count
+    have hshift_one : (2 * half + 1) >>> 1 = half := by
+      rw [Nat.shiftRight_one]
+      omega
+    constructor
+    · rw [hvalue]
+      rw [Nat.add_comm count 1, Nat.shiftRight_add]
+      rw [hshift_one]
+      exact hstop
+    · intro offset hoff
+      cases offset with
+      | zero => simpa [Nat.and_one_is_mod] using hvalue_odd
+      | succ offset =>
+        rw [hvalue]
+        rw [Nat.add_comm offset 1, Nat.shiftRight_add]
+        rw [hshift_one]
+        exact hmerge offset (by omega)
+
 /-- The structural carry count is the two-adic valuation of the next base
     subtree index. Keeping the quotient as an existential avoids adding a
     division premise: alignment is already encoded by `BuilderCarryCount`. -/
@@ -1313,6 +1387,78 @@ theorem BuilderCarryCount.eq_padic_units {T : Type} {ValueInst : Value T}
         omega
       rw [hcount, hunits_eq, padicValNat.prime_pow, hsum,
         padicValNat.prime_pow]
+
+/-- The bit schedule consumed by the translated finish merge loop. -/
+structure BuilderMergeBits (cursor start count root_depth packing_depth : Nat) :
+    Prop where
+  merge : ∀ offset, offset < count →
+    start + offset < root_depth ∧
+      ((cursor >>> (start + offset + packing_depth)) &&& 1) = 1
+  stop : start + count ≥ root_depth ∨
+    ((cursor >>> (start + count + packing_depth)) &&& 1) = 0
+
+private theorem finish_cursor_shift {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {top_depth total physical units offset : Nat}
+    (htotal : total =
+      subtreeCapacity packing_factor (top_depth + 1) * units)
+    (hphysical : physical =
+      total + subtreeCapacity packing_factor top_depth) :
+    physical >>> (top_depth + 1 + offset + packing_depth.val) =
+      units >>> offset := by
+  have htop := hlayout.subtreeCapacity_eq_two_pow top_depth
+  have hparent := hlayout.subtreeCapacity_eq_two_pow (top_depth + 1)
+  let exponent := top_depth + packing_depth.val
+  have hphysical_value : physical = 2 ^ exponent * (2 * units + 1) := by
+    rw [hphysical, htotal, htop, hparent]
+    have htop_exponent : packing_depth.val + top_depth = exponent := by
+      dsimp [exponent]
+      omega
+    have hparent_exponent : packing_depth.val + (top_depth + 1) =
+        exponent + 1 := by
+      dsimp [exponent]
+      omega
+    rw [htop_exponent, hparent_exponent, pow_succ]
+    ring
+  have hfirst : physical >>> exponent = 2 * units + 1 := by
+    rw [hphysical_value, Nat.shiftRight_eq_div_pow]
+    rw [Nat.mul_comm]
+    exact Nat.mul_div_left _ (Nat.two_pow_pos exponent)
+  rw [show top_depth + 1 + offset + packing_depth.val =
+    exponent + (1 + offset) by omega, Nat.shiftRight_add, hfirst,
+    Nat.shiftRight_add]
+  have hone : (2 * units + 1) >>> 1 = units := by
+    rw [Nat.shiftRight_one]
+    omega
+  rw [hone]
+
+theorem BuilderCarryCount.finish_merge_bits {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {top_depth root_depth total count physical : Nat}
+    (hcarry : BuilderCarryCount packing_factor (top_depth + 1) root_depth
+      total count)
+    (hphysical : physical =
+      total + subtreeCapacity packing_factor top_depth) :
+    BuilderMergeBits physical (top_depth + 1) count root_depth
+      packing_depth.val := by
+  obtain ⟨units, htotal, hcount⟩ := hcarry.eq_padic_units hlayout
+  obtain ⟨hstop_bit, hmerge_bits⟩ :=
+    nat_bits_of_padic_succ count units hcount
+  refine ⟨?_, ?_⟩
+  · intro offset hoffset
+    have hcount_bound := hcarry.count_le_depth_sub
+    constructor
+    · have hbase := hcarry.base_le_depth
+      omega
+    · rw [finish_cursor_shift hlayout htotal hphysical]
+      exact hmerge_bits offset hoffset
+  · by_cases hroot : top_depth + 1 + count ≥ root_depth
+    · exact Or.inl hroot
+    · exact Or.inr (by
+        rw [finish_cursor_shift hlayout htotal hphysical]
+        exact hstop_bit)
 
 /-- Appending one nonempty dense subtree at the builder's base depth produces
     a merge plan and the canonical stack for the extended prefix. Alignment
