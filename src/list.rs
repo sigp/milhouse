@@ -48,6 +48,21 @@ pub struct ListInner<T: Value, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
+fn push_all<T: Value>(
+    builder: &mut Builder<T>,
+    mut iter: impl Iterator<Item = T>,
+) -> Result<(), Error> {
+    loop {
+        match iter.next() {
+            Some(item) => match builder.push(item) {
+                Ok(()) => (),
+                Err(error) => break Err(error),
+            },
+            None => break Ok(()),
+        }
+    }
+}
+
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
@@ -88,9 +103,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
         let mut builder = Self::builder()?;
 
-        for item in iter.into_iter() {
-            builder.push(item)?;
-        }
+        push_all(&mut builder, iter.into_iter())?;
 
         let (tree, depth, length) = builder.finish()?;
 
