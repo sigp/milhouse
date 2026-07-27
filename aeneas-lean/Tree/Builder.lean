@@ -1,5 +1,6 @@
 -- Builder stack invariants and preservation.
 import Tree.Invariants
+import Mathlib.NumberTheory.Padics.PadicVal.Basic
 
 open Aeneas Aeneas.Std Result
 set_option maxHeartbeats 4000000
@@ -161,6 +162,114 @@ private theorem aligned_add_le {unit total limit added : Nat}
     _ = unit * (total_units + 1) := by simp [Nat.mul_add]
     _ ≤ unit * limit_units :=
       Nat.mul_le_mul_left unit (Nat.succ_le_iff.mpr hunits)
+
+private theorem natTrailingZeros_eq_padicValNat :
+    ∀ fuel n : Nat, 0 < n → padicValNat 2 n ≤ fuel →
+      TreeAux.natTrailingZeros fuel n = padicValNat 2 n := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro n hn hbound
+    have hzero : padicValNat 2 n = 0 := by omega
+    simp [TreeAux.natTrailingZeros, hzero]
+  | succ fuel ih =>
+    intro n hn hbound
+    unfold TreeAux.natTrailingZeros
+    by_cases heven : n % 2 = 0
+    · rw [if_pos heven]
+      have hdvd : 2 ∣ n := Nat.dvd_of_mod_eq_zero heven
+      have hn_two : 2 ≤ n := Nat.le_of_dvd hn hdvd
+      have hdiv_pos : 0 < n / 2 := Nat.div_pos hn_two (by omega)
+      have hval_ne : padicValNat 2 n ≠ 0 :=
+        (dvd_iff_padicValNat_ne_zero (p := 2) hn.ne').mp hdvd
+      have hdiv_val := padicValNat.div (p := 2) hdvd
+      rw [ih (n / 2) hdiv_pos (by omega), hdiv_val]
+      omega
+    · rw [if_neg heven]
+      have hnot_dvd : ¬2 ∣ n := by
+        intro hdvd
+        exact heven (Nat.mod_eq_zero_of_dvd hdvd)
+      rw [padicValNat.eq_zero_of_not_dvd hnot_dvd]
+
+private theorem natTrailingZeros_le_fuel :
+    ∀ fuel n : Nat, TreeAux.natTrailingZeros fuel n ≤ fuel := by
+  intro fuel
+  induction fuel with
+  | zero => intro n; simp [TreeAux.natTrailingZeros]
+  | succ fuel ih =>
+    intro n
+    unfold TreeAux.natTrailingZeros
+    split
+    · have := ih (n / 2)
+      omega
+    · omega
+
+private theorem usize_trailing_zeros_padic {value : Std.Usize} {zeros : Std.U32}
+    (hvalue : 0 < value.val)
+    (hzeros : core.num.Usize.trailing_zeros value = ok zeros) :
+    zeros.val = padicValNat 2 value.val := by
+  have hbv : value.bv ≠ 0 := by
+    intro hzero
+    have hval_zero : value.val = 0 := by
+      change value.bv.toNat = 0
+      rw [hzero]
+      rfl
+    omega
+  have htz_le := natTrailingZeros_le_fuel System.Platform.numBits value.val
+  have hpadic_le : padicValNat 2 value.val ≤ System.Platform.numBits := by
+    have hpow_le : 2 ^ padicValNat 2 value.val ≤ value.val :=
+      Nat.le_of_dvd hvalue pow_padicValNat_dvd
+    by_contra hnot_le
+    have hpow_lt : 2 ^ System.Platform.numBits <
+        2 ^ padicValNat 2 value.val :=
+      Nat.pow_lt_pow_right (by omega) (by omega)
+    have hbits : value.val < 2 ^ System.Platform.numBits := by
+      simpa using value.hBounds
+    omega
+  unfold core.num.Usize.trailing_zeros at hzeros
+  have hzero_eq : zeros =
+      ⟨BitVec.ofNat 32 (TreeAux.bvTrailingZeros value.bv)⟩ := by
+    injection hzeros with heq
+    exact heq.symm
+  subst zeros
+  change (BitVec.ofNat 32 (TreeAux.bvTrailingZeros value.bv)).toNat =
+    padicValNat 2 value.val
+  unfold TreeAux.bvTrailingZeros
+  rw [if_neg hbv]
+  change (BitVec.ofNat 32
+    (TreeAux.natTrailingZeros System.Platform.numBits value.val)).toNat =
+      padicValNat 2 value.val
+  rw [natTrailingZeros_eq_padicValNat System.Platform.numBits value.val
+    hvalue hpadic_le]
+  simp only [BitVec.toNat_ofNat]
+  have hword : System.Platform.numBits < 2 ^ 32 := by native_decide
+  have : padicValNat 2 value.val < 2 ^ 32 := by omega
+  exact Nat.mod_eq_of_lt this
+
+private theorem padicValNat_two_pow_add_of_lt {exponent value : Nat}
+    (hvalue : 0 < value)
+    (hvaluation : padicValNat 2 value < exponent) :
+    padicValNat 2 (2 ^ exponent + value) = padicValNat 2 value := by
+  let valuation := padicValNat 2 value
+  have hsum : 0 < 2 ^ exponent + value := by positivity
+  apply Nat.le_antisymm
+  · by_contra hnot_le
+    have hsucc : valuation + 1 ≤ padicValNat 2 (2 ^ exponent + value) := by
+      omega
+    have hsum_dvd : 2 ^ (valuation + 1) ∣ 2 ^ exponent + value :=
+      (padicValNat_dvd_iff_le (p := 2) hsum.ne').mpr hsucc
+    have hpow_dvd : 2 ^ (valuation + 1) ∣ 2 ^ exponent :=
+      pow_dvd_pow 2 (by omega)
+    have hvalue_dvd : 2 ^ (valuation + 1) ∣ value := by
+      have := Nat.dvd_sub hsum_dvd hpow_dvd
+      simpa using this
+    exact pow_succ_padicValNat_not_dvd (p := 2) hvalue.ne' hvalue_dvd
+  · have hvalue_dvd : 2 ^ valuation ∣ value := pow_padicValNat_dvd
+    have hpow_dvd : 2 ^ valuation ∣ 2 ^ exponent :=
+      pow_dvd_pow 2 (Nat.le_of_lt hvaluation)
+    have hsum_dvd : 2 ^ valuation ∣ 2 ^ exponent + value :=
+      Nat.dvd_add hpow_dvd hvalue_dvd
+    exact (padicValNat_dvd_iff_le (p := 2) hsum.ne').mp hsum_dvd
 
 /-- A canonical stack at full capacity has already performed every carry, so
     it consists of exactly one full tree at the root depth. -/
@@ -504,6 +613,96 @@ inductive BuilderCarryCount (packing_factor : Option Std.Usize)
         subtreeCapacity packing_factor child_depth) :
       BuilderCarryCount packing_factor base_depth (child_depth + 1)
         (subtreeCapacity packing_factor child_depth + right_len) (count + 1)
+
+theorem BuilderCarryCount.base_le_depth
+    {packing_factor : Option Std.Usize} {base_depth root_depth total count : Nat}
+    (hcarry : BuilderCarryCount packing_factor base_depth root_depth total
+      count) : base_depth ≤ root_depth := by
+  induction hcarry with
+  | zero root_depth base_le_root => exact base_le_root
+  | inside child_depth total count child_count not_at_right ih => omega
+  | enter_right child_depth base_lt_child => omega
+  | first_merge => omega
+  | right_open child_depth right_len count right_count cursor_open ih => omega
+  | right_close child_depth right_len count right_count cursor_closes ih => omega
+
+/-- The structural carry count is the two-adic valuation of the next base
+    subtree index. Keeping the quotient as an existential avoids adding a
+    division premise: alignment is already encoded by `BuilderCarryCount`. -/
+theorem BuilderCarryCount.eq_padic_units {T : Type} {ValueInst : Value T}
+    {packing_factor : Option Std.Usize} {packing_depth : Std.Usize}
+    (hlayout : PackingLayout ValueInst packing_factor packing_depth)
+    {base_depth root_depth total count : Nat}
+    (hcarry : BuilderCarryCount packing_factor base_depth root_depth total
+      count) :
+    ∃ units, total = subtreeCapacity packing_factor base_depth * units ∧
+      count = padicValNat 2 (units + 1) := by
+  have hbase_pos := hlayout.subtreeCapacity_pos base_depth
+  induction hcarry with
+  | zero root_depth base_le_root =>
+    exact ⟨0, by simp, by simp⟩
+  | inside child_depth total count child_count not_at_right ih =>
+    exact ih
+  | enter_right child_depth base_lt_child =>
+    let exponent := child_depth - base_depth
+    have hexponent_pos : 0 < exponent := by simp [exponent]; omega
+    refine ⟨2 ^ exponent, ?_, ?_⟩
+    · exact subtreeCapacity_eq_mul_pow_of_le packing_factor
+        (Nat.le_of_lt base_lt_child)
+    · have hnot_dvd : ¬2 ∣ 2 ^ exponent + 1 := by
+        obtain ⟨prior, hprior⟩ := Nat.exists_eq_succ_of_ne_zero
+          (Nat.ne_of_gt hexponent_pos)
+        rw [hprior]
+        simp [pow_succ]
+      rw [padicValNat.eq_zero_of_not_dvd hnot_dvd]
+  | first_merge =>
+    refine ⟨1, by simp, ?_⟩
+    simpa using (padicValNat.prime_pow (p := 2) 1)
+  | right_open child_depth right_len count right_count cursor_open ih =>
+    obtain ⟨units, hright_len, hcount⟩ := ih
+    let exponent := child_depth - base_depth
+    have hbase_le_child := right_count.base_le_depth
+    have hcapacity : subtreeCapacity packing_factor child_depth =
+        subtreeCapacity packing_factor base_depth * 2 ^ exponent := by
+      exact subtreeCapacity_eq_mul_pow_of_le packing_factor hbase_le_child
+    have hunits_lt : units + 1 < 2 ^ exponent := by
+      apply (Nat.mul_lt_mul_left hbase_pos).mp
+      simpa [hright_len, hcapacity, Nat.mul_add]
+        using cursor_open
+    have hvaluation_lt : padicValNat 2 (units + 1) < exponent := by
+      by_contra hnot_lt
+      have hpow_dvd : 2 ^ exponent ∣ units + 1 :=
+        (pow_dvd_pow 2 (by omega)).trans pow_padicValNat_dvd
+      have hpow_le : 2 ^ exponent ≤ units + 1 :=
+        Nat.le_of_dvd (by omega) hpow_dvd
+      omega
+    refine ⟨2 ^ exponent + units, ?_, ?_⟩
+    · rw [hright_len, hcapacity]
+      simp [Nat.mul_add]
+    · rw [hcount]
+      have hvaluation := padicValNat_two_pow_add_of_lt
+        (exponent := exponent) (value := units + 1) (by omega)
+        hvaluation_lt
+      simpa [Nat.add_assoc] using hvaluation.symm
+  | right_close child_depth right_len count right_count cursor_closes ih =>
+    obtain ⟨units, hright_len, hcount⟩ := ih
+    let exponent := child_depth - base_depth
+    have hbase_le_child := right_count.base_le_depth
+    have hcapacity : subtreeCapacity packing_factor child_depth =
+        subtreeCapacity packing_factor base_depth * 2 ^ exponent := by
+      exact subtreeCapacity_eq_mul_pow_of_le packing_factor hbase_le_child
+    have hunits_eq : units + 1 = 2 ^ exponent := by
+      apply Nat.mul_left_cancel hbase_pos
+      simpa [hright_len, hcapacity, Nat.mul_add]
+        using cursor_closes
+    refine ⟨2 ^ exponent + units, ?_, ?_⟩
+    · rw [hright_len, hcapacity]
+      simp [Nat.mul_add]
+    · have hsum : (2 ^ exponent + units) + 1 = 2 ^ (exponent + 1) := by
+        rw [Nat.add_assoc, hunits_eq, pow_succ]
+        omega
+      rw [hcount, hunits_eq, padicValNat.prime_pow, hsum,
+        padicValNat.prime_pow]
 
 /-- Appending one nonempty dense subtree at the builder's base depth produces
     a merge plan and the canonical stack for the extended prefix. Alignment
