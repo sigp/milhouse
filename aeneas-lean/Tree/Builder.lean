@@ -992,6 +992,29 @@ private theorem usize_saturating_sub_value (left right : Std.Usize) :
   rw [max_eq_right (Nat.zero_le _), BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
   exact (Nat.sub_le left.val right.val).trans_lt left.hBounds
 
+private theorem usize_rem_value {left right remainder : Std.Usize}
+    (hright : 0 < right.val)
+    (hrem : left % right = ok remainder) :
+    remainder.val = left.val % right.val := by
+  have hspec := Std.Usize.rem_bv_spec left (Nat.ne_of_gt hright)
+  rw [hrem] at hspec
+  exact hspec.1
+
+private theorem capacity_sub_remainder_mod_eq_zero_iff
+    {value capacity : Nat} (hcapacity : 0 < capacity) :
+    (capacity - value % capacity) % capacity = 0 ↔
+      value % capacity = 0 := by
+  have hremainder_lt := Nat.mod_lt value hcapacity
+  constructor
+  · intro hzero
+    by_contra hnonzero
+    have hremainder_pos : 0 < value % capacity :=
+      Nat.pos_of_ne_zero hnonzero
+    rw [Nat.mod_eq_of_lt (by omega)] at hzero
+    omega
+  · intro hzero
+    simp [hzero]
+
 private theorem usize_cast_u32_value (value : Std.Usize)
     (hfit : value.val < 2 ^ 32) :
     (UScalar.cast .U32 value).val = value.val := by
