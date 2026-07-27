@@ -412,6 +412,56 @@ theorem BuilderInvariant.length_le_capacity {T : Type}
   rw [BuilderInvariant.builder_capacity_matches h]
   exact (BuilderInvariant.stack_dense h).length_le_capacity
 
+/-- At every level where `push_node` is used, one stack entry represents
+    exactly `2^level` logical values. Packed level zero is excluded because
+    that mode appends individual values through `push` instead. -/
+theorem BuilderInvariant.base_capacity_eq_pow_level {T : Type}
+    {ValueInst : Value T} {self : builder.Builder T}
+    (h : BuilderInvariant ValueInst self)
+    (hnode_level : self.level.val ≠ 0 ∨ self.packing_factor = none) :
+    subtreeCapacity self.packing_factor
+        (if self.level.val = 0 then 0
+          else self.level.val - self.packing_depth.val) =
+      2 ^ self.level.val := by
+  by_cases hlevel : self.level.val = 0
+  · have hfactor : self.packing_factor = none := hnode_level.resolve_left
+      (not_not.mpr hlevel)
+    simp [hlevel, hfactor, subtreeCapacity, leafCapacity]
+  · rw [if_neg hlevel,
+      (BuilderInvariant.layout h).subtreeCapacity_eq_two_pow]
+    have hpacking_le : self.packing_depth.val ≤ self.level.val :=
+      (BuilderInvariant.level_valid h).resolve_left hlevel
+    congr 1
+    omega
+
+private theorem usize_checked_add_value {left right sum : Std.Usize}
+    (h : Usize.checked_add left right = some sum) :
+    sum.val = left.val + right.val := by
+  have hspec := Usize.checked_add_bv_spec left right
+  rw [h] at hspec
+  exact hspec.2.1
+
+private theorem usize_shift_right_value {value shift shifted : Std.Usize}
+    (h : value >>> shift = ok shifted) :
+    shifted.val = value.val >>> shift.val := by
+  have hbound : shift.val < System.Platform.numBits := by
+    change UScalar.shiftRight value shift.val = ok shifted at h
+    unfold UScalar.shiftRight at h
+    split at h
+    · assumption
+    · simp at h
+  have hspec := Std.Usize.ShiftRight_spec value shift hbound
+  rw [h] at hspec
+  exact hspec.1
+
+private theorem u32_saturating_sub_value (left right : Std.U32) :
+    (core.num.U32.saturating_sub left right).val = left.val - right.val := by
+  change (BitVec.ofNat 32 (max 0 (left.val - right.val))).toNat =
+    left.val - right.val
+  rw [max_eq_right (Nat.zero_le _), BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt]
+  exact (Nat.sub_le left.val right.val).trans_lt left.hBounds
+
 private theorem usize_shift_left_one_value {shift shifted : Std.Usize}
     (h : 1#usize <<< shift = ok shifted) :
     shifted.val = 2 ^ shift.val := by
