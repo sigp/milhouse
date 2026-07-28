@@ -536,3 +536,23 @@ theorem get_recursive_with_updated_leaf {T : Type} (ValueInst : Value T)
   simpa using hgen
 
 end milhouse.tree
+
+namespace milhouse.list
+
+/-! ## High-level `List` roundtrips -/
+
+/-- `List::get` returns a pending update without consulting the backing tree.
+
+    This is the exact successful-update branch of the extracted method and
+    needs no representation invariant. -/
+theorem List.get_of_pending_update {T N U : Type}
+    (ValueInst : Value T) (UnsignedInst : typenum.marker_traits.Unsigned N)
+    (UpdateMapInst : update_map.UpdateMap U T) (self : List T N U)
+    (index : Std.Usize) (value : T)
+    (hget : UpdateMapInst.get self.interface.updates index = ok (some value)) :
+    List.get ValueInst UnsignedInst UpdateMapInst self index =
+      ok (some value) := by
+  unfold List.get
+  simp [hget]
+
+end milhouse.list
