@@ -555,4 +555,66 @@ theorem List.get_of_pending_update {T N U : Type}
   unfold List.get
   simp [hget]
 
+/-- After a successful `List::push`, `List::get` at the old logical length
+    returns the pushed value.
+
+    The only semantic premise is the law needed from the abstract update map
+    for the particular insertion performed by `push`: reading its result at
+    the inserted index returns the inserted value. The old-length equality
+    merely names that index; no tree invariant or capacity premise is needed,
+    because successful `push` already discharges validation. -/
+theorem List.get_after_push {T N U : Type}
+    (ValueInst : Value T) (UnsignedInst : typenum.marker_traits.Unsigned N)
+    (UpdateMapInst : update_map.UpdateMap U T) (self : List T N U)
+    (value : T) (index : Std.Usize)
+    (hlen : List.len ValueInst UnsignedInst UpdateMapInst self = ok index)
+    (hinsert_get : ∀ (previous : Option T) (updates : U),
+      UpdateMapInst.insert self.interface.updates index value =
+        ok (previous, updates) →
+      UpdateMapInst.get updates index = ok (some value))
+    {pushed : List T N U}
+    (hpush : List.push ValueInst UnsignedInst UpdateMapInst self value =
+      ok (core.result.Result.Ok (), pushed)) :
+    List.get ValueInst UnsignedInst UpdateMapInst pushed index =
+      ok (some value) := by
+  unfold List.len at hlen
+  unfold List.push at hpush
+  cases hinterface : interface.Interface.push ValueInst
+      (ListInner.Insts.MilhouseInterfaceMutList ValueInst UnsignedInst)
+      UpdateMapInst self.interface value with
+  | fail error => simp [hinterface] at hpush
+  | div => simp [hinterface] at hpush
+  | ok result =>
+    obtain ⟨push_result, pushed_interface⟩ := result
+    simp only [hinterface, bind_tc_ok] at hpush
+    obtain ⟨rfl, rfl⟩ := hpush
+    unfold interface.Interface.push at hinterface
+    rw [hlen] at hinterface
+    simp only [bind_tc_ok] at hinterface
+    cases hvalidate :
+        ListInner.Insts.MilhouseInterfaceMutList.validate_push ValueInst
+          UnsignedInst index with
+    | fail error => simp [hvalidate] at hinterface
+    | div => simp [hvalidate] at hinterface
+    | ok validation =>
+      rw [hvalidate] at hinterface
+      cases validation with
+      | Err error =>
+        simp [core.result.Result.Insts.CoreOpsTry.branch,
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+          core.convert.FromSame.from] at hinterface
+      | Ok success =>
+        cases success
+        simp only [core.result.Result.Insts.CoreOpsTry.branch] at hinterface
+        cases hinsert : UpdateMapInst.insert self.interface.updates index value
+            with
+        | fail error => simp [hinsert] at hinterface
+        | div => simp [hinsert] at hinterface
+        | ok inserted =>
+          obtain ⟨previous, updates⟩ := inserted
+          simp [hinsert] at hinterface
+          subst pushed_interface
+          apply List.get_of_pending_update ValueInst UnsignedInst UpdateMapInst
+          exact hinsert_get previous updates hinsert
+
 end milhouse.list
