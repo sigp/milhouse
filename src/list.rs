@@ -195,10 +195,6 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         self.interface.apply_updates()
     }
 
-    pub fn bulk_update(&mut self, updates: U) -> Result<(), Error> {
-        self.interface.bulk_update(updates)
-    }
-
     pub(crate) fn depth() -> usize {
         if let Some(packing_bits) = opt_packing_depth::<T>() {
             int_log(N::to_usize()).saturating_sub(packing_bits)
