@@ -221,6 +221,6 @@ where
     }
 
     fn max_index(&self) -> Option<usize> {
-        Some(self.max_key).filter(|_| !self.inner.is_empty())
+        (!self.inner.is_empty()).then_some(self.max_key)
     }
 }
