@@ -1,7 +1,6 @@
 use crate::{Error, UpdateMap};
 use educe::Educe;
 use parking_lot::RwLock;
-use std::ops::ControlFlow;
 use tree_hash::{BYTES_PER_CHUNK, Hash256, TreeHash};
 
 #[derive(Debug, Educe)]
@@ -97,9 +96,15 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         let packing_factor = T::tree_hash_packing_factor();
         let start = prefix;
         let end = prefix + packing_factor;
-        updates.for_each_range(start, end, |index, value| {
-            ControlFlow::Continue(updated.insert_mut(index % packing_factor, value.clone()))
-        })?;
+        // An index loop rather than `for_each_range` with a closure, so that Aeneas can
+        // translate this function. The range covers at most one packing factor.
+        let mut index = start;
+        while index < end {
+            if let Some(value) = updates.get(index) {
+                updated.insert_mut(index % packing_factor, value.clone())?;
+            }
+            index += 1;
+        }
         Ok(updated)
     }
 

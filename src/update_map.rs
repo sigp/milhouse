@@ -24,6 +24,12 @@ pub trait UpdateMap<T>: Default + Clone {
     where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>;
 
+    /// Return true if any key in the half-open range `[start, end)` has an update.
+    ///
+    /// This is a closure-free alternative to `for_each_range` for existence checks, used by
+    /// `Tree::with_updated_leaves` to remain translatable by Aeneas.
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool;
+
     fn max_index(&self) -> Option<usize>;
 
     fn len(&self) -> usize;
@@ -87,6 +93,10 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
             }
         }
         Ok(())
+    }
+
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool {
+        self.range(start..end).next().is_some()
     }
 
     fn max_index(&self) -> Option<usize> {
@@ -158,6 +168,10 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
         Ok(())
     }
 
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool {
+        (start..end.min(self.capacity())).any(|key| self.get(key).is_some())
+    }
+
     fn max_index(&self) -> Option<usize> {
         self.keys().next_back()
     }
@@ -214,6 +228,10 @@ where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
     {
         self.inner.for_each_range(start, end, f)
+    }
+
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool {
+        self.inner.has_any_in_range(start, end)
     }
 
     fn len(&self) -> usize {

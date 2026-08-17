@@ -18,7 +18,7 @@ pub struct Builder<T: Value> {
 }
 
 impl<T: Value> Builder<T> {
-    pub fn new(depth: usize, level: usize) -> Result<Self, Error> {
+    pub(crate) fn new(depth: usize, level: usize) -> Result<Self, Error> {
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         if depth.saturating_add(packing_depth) > MAX_TREE_DEPTH {
             Err(Error::BuilderInvalidDepth { depth })
@@ -73,8 +73,11 @@ impl<T: Value> Builder<T> {
         Ok(())
     }
 
-    pub fn push_node(&mut self, node: Arc<Tree<T>>, len: usize) -> Result<(), Error> {
-        if self.length.as_usize() == self.capacity {
+    pub(crate) fn push_node(&mut self, node: Arc<Tree<T>>, len: usize) -> Result<(), Error> {
+        let Some(new_length) = self.length.as_usize().checked_add(len) else {
+            return Err(Error::BuilderFull);
+        };
+        if new_length > self.capacity {
             return Err(Error::BuilderFull);
         }
 
@@ -102,8 +105,62 @@ impl<T: Value> Builder<T> {
         }
 
         self.stack.push(new_stack_top);
-        *self.length.as_mut() += len;
+        *self.length.as_mut() = new_length;
 
+        Ok(())
+    }
+
+    fn finish_packed_leaf(&mut self, next_index_on_level: usize) -> Result<(), Error> {
+        let mut i = 0;
+        while i < self.depth && (next_index_on_level >> (i + self.packing_depth)) & 1 == 1 {
+            let right = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeRight)?;
+            let left = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeLeft)?;
+            self.stack.push(MaybeArced::Unarced(Tree::node_unboxed(
+                left.arced(),
+                right.arced(),
+            )));
+            i += 1;
+        }
+        Ok(())
+    }
+
+    fn finish_level(&mut self, next_index_on_level: usize, depth: usize) -> Result<(), Error> {
+        let mut i = depth + 1;
+        while i < self.depth
+            && ((next_index_on_level << self.level) >> (i + self.packing_depth)) & 1 == 1
+        {
+            let right = self
+                .stack
+                .pop()
+                .ok_or(Error::BuilderStackEmptyFinishRight)?;
+            let left = self.stack.pop().ok_or(Error::BuilderStackEmptyFinishLeft)?;
+            self.stack.push(MaybeArced::Unarced(Tree::node_unboxed(
+                left.arced(),
+                right.arced(),
+            )));
+            i += 1;
+        }
+        Ok(())
+    }
+
+    fn finish_tree(&mut self, mut next_index_on_level: usize) -> Result<(), Error> {
+        while next_index_on_level << self.level != self.capacity {
+            // Push a new zero padding node on the right of the top-most stack element.
+            let depth = (next_index_on_level.trailing_zeros() as usize)
+                .saturating_add(self.level)
+                .saturating_sub(self.packing_depth);
+
+            let stack_top = self.stack.pop().ok_or(Error::BuilderStackEmptyFinish)?;
+            let new_stack_top =
+                MaybeArced::Unarced(Tree::node_unboxed(stack_top.arced(), Tree::zero(depth)));
+
+            self.stack.push(new_stack_top);
+
+            // Merge up to `depth` nodes if they exist on the stack.
+            self.finish_level(next_index_on_level, depth)?;
+
+            next_index_on_level += 2usize.pow((depth + self.packing_depth - self.level) as u32);
+        }
         Ok(())
     }
 
@@ -125,53 +182,12 @@ impl<T: Value> Builder<T> {
             if skip_indices > 0 && self.level == 0 {
                 // If the packed leaf lies on the right, merge it with its left sibling and so
                 // on up the tree.
-                for i in 0..self.depth {
-                    if (next_index_on_level >> (i + self.packing_depth)) & 1 == 1 {
-                        let right = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeRight)?;
-                        let left = self.stack.pop().ok_or(Error::BuilderStackEmptyMergeLeft)?;
-                        self.stack.push(MaybeArced::Unarced(Tree::node_unboxed(
-                            left.arced(),
-                            right.arced(),
-                        )));
-                    } else {
-                        break;
-                    }
-                }
+                self.finish_packed_leaf(next_index_on_level)?;
                 next_index_on_level += skip_indices;
             }
         }
 
-        while next_index_on_level << self.level != self.capacity {
-            // Push a new zero padding node on the right of the top-most stack element.
-            let depth = (next_index_on_level.trailing_zeros() as usize)
-                .saturating_add(self.level)
-                .saturating_sub(self.packing_depth);
-
-            let stack_top = self.stack.pop().ok_or(Error::BuilderStackEmptyFinish)?;
-            let new_stack_top =
-                MaybeArced::Unarced(Tree::node_unboxed(stack_top.arced(), Tree::zero(depth)));
-
-            self.stack.push(new_stack_top);
-
-            // Merge up to `depth` nodes if they exist on the stack.
-            for i in depth + 1..self.depth {
-                if ((next_index_on_level << self.level) >> (i + self.packing_depth)) & 1 == 1 {
-                    let right = self
-                        .stack
-                        .pop()
-                        .ok_or(Error::BuilderStackEmptyFinishRight)?;
-                    let left = self.stack.pop().ok_or(Error::BuilderStackEmptyFinishLeft)?;
-                    self.stack.push(MaybeArced::Unarced(Tree::node_unboxed(
-                        left.arced(),
-                        right.arced(),
-                    )));
-                } else {
-                    break;
-                }
-            }
-
-            next_index_on_level += 2usize.pow((depth + self.packing_depth - self.level) as u32);
-        }
+        self.finish_tree(next_index_on_level)?;
 
         let tree = self
             .stack
@@ -198,5 +214,20 @@ mod test {
             Error::BuilderInvalidDepth { depth: 62 }
         );
         assert_eq!(Builder::<u64>::new(61, 0).unwrap().depth, 61);
+    }
+
+    #[test]
+    fn push_node_checks_capacity_without_overflowing() {
+        let mut builder = Builder::<u64>::new(0, 0).unwrap();
+        assert_eq!(
+            builder.push_node(Tree::zero(0), builder.capacity + 1),
+            Err(Error::BuilderFull)
+        );
+
+        builder.push(0).unwrap();
+        assert_eq!(
+            builder.push_node(Tree::zero(0), usize::MAX),
+            Err(Error::BuilderFull)
+        );
     }
 }
