@@ -155,10 +155,17 @@ impl<T: Value> Tree<T> {
         }
     }
 
+    /// Apply a batch of `updates` to the leaves of this (sub)tree.
+    ///
+    /// `prefix` is the local index of the leftmost leaf under `self`. `offset` is added to local
+    /// indices when reading from `updates`, so a subtree can be updated from a map keyed by
+    /// global indices: pass the subtree's starting index as `offset` with `prefix == 0`. Both are
+    /// `0` for a whole `List`/`Vector`.
     pub fn with_updated_leaves<U: UpdateMap<T>>(
         &self,
         updates: &U,
         prefix: usize,
+        offset: usize,
         depth: usize,
         hashes: Option<&BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<Arc<Self>, Error> {
@@ -166,7 +173,7 @@ impl<T: Value> Tree<T> {
 
         match self {
             Self::Leaf(_) if depth == 0 => {
-                let index = prefix;
+                let index = prefix + offset;
                 let value = updates
                     .get(index)
                     .cloned()
@@ -174,7 +181,7 @@ impl<T: Value> Tree<T> {
                 Ok(Self::leaf_with_hash(value, hash))
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
-                packed_leaf.update(prefix, hash, updates)?,
+                packed_leaf.update(prefix, offset, hash, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
@@ -184,15 +191,19 @@ impl<T: Value> Tree<T> {
                 let right_subtree_end = prefix + (1 << (depth + packing_depth));
 
                 let mut has_left_updates = false;
-                updates.for_each_range(left_prefix, right_prefix, |_, _| {
+                updates.for_each_range(left_prefix + offset, right_prefix + offset, |_, _| {
                     has_left_updates = true;
                     ControlFlow::Break(())
                 })?;
                 let mut has_right_updates = false;
-                updates.for_each_range(right_prefix, right_subtree_end, |_, _| {
-                    has_right_updates = true;
-                    ControlFlow::Break(())
-                })?;
+                updates.for_each_range(
+                    right_prefix + offset,
+                    right_subtree_end + offset,
+                    |_, _| {
+                        has_right_updates = true;
+                        ControlFlow::Break(())
+                    },
+                )?;
 
                 // Must have some updates else this recursive branch is a complete waste of time.
                 if !has_left_updates && !has_right_updates {
@@ -200,12 +211,12 @@ impl<T: Value> Tree<T> {
                 }
 
                 let new_left = if has_left_updates {
-                    left.with_updated_leaves(updates, left_prefix, new_depth, hashes)?
+                    left.with_updated_leaves(updates, left_prefix, offset, new_depth, hashes)?
                 } else {
                     left.clone()
                 };
                 let new_right = if has_right_updates {
-                    right.with_updated_leaves(updates, right_prefix, new_depth, hashes)?
+                    right.with_updated_leaves(updates, right_prefix, offset, new_depth, hashes)?
                 } else {
                     right.clone()
                 };
@@ -215,10 +226,11 @@ impl<T: Value> Tree<T> {
             Self::Zero(zero_depth) if *zero_depth == depth => {
                 if depth == 0 {
                     if opt_packing_factor::<T>().is_some() {
-                        let packed_leaf = PackedLeaf::empty().update(prefix, hash, updates)?;
+                        let packed_leaf =
+                            PackedLeaf::empty().update(prefix, offset, hash, updates)?;
                         Ok(Arc::new(Self::PackedLeaf(packed_leaf)))
                     } else {
-                        let index = prefix;
+                        let index = prefix + offset;
                         let value = updates
                             .get(index)
                             .cloned()
@@ -229,7 +241,7 @@ impl<T: Value> Tree<T> {
                     // Split zero node into a node with left and right and recurse.
                     let new_zero = Self::zero(depth - 1);
                     Self::node(new_zero.clone(), new_zero, hash)
-                        .with_updated_leaves(updates, prefix, depth, hashes)
+                        .with_updated_leaves(updates, prefix, offset, depth, hashes)
                 }
             }
             _ => Err(Error::UpdateLeavesError),

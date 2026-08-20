@@ -1,12 +1,12 @@
 use super::{Large, arb_hash256, arb_index, arb_large, arb_list, arb_vect};
-use crate::{Error, List, Value, Vector};
+use crate::{Error, List, ProgressiveList, Value, Vector};
 use proptest::prelude::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use tree_hash::{Hash256, TreeHash};
-use typenum::{U1, U2, U3, U4, U7, U8, U9, U32, U33, U1024, Unsigned};
+use typenum::{U1, U2, U3, U4, U7, U8, U9, U32, U33, U128, U1024, U1073741824, Unsigned};
 
 const OP_LIMIT: usize = 128;
 
@@ -177,6 +177,115 @@ where
     proptest::collection::vec(arb_op(strategy, n), 1..limit)
 }
 
+/// Stand-in "capacity" for the (unbounded) `ProgressiveList` when reusing `Spec`.
+///
+/// Progressive tests build at most `PROGRESSIVE_LIST_MAX_LEN + OP_LIMIT` elements, so this bound
+/// is unreachable and `Spec`'s `ListFull` branch never fires.
+type ProgN = U1073741824;
+
+fn apply_ops_progressive_list<T>(
+    list: &mut ProgressiveList<T>,
+    spec: &mut Spec<T, ProgN>,
+    ops: Vec<Op<T>>,
+) where
+    T: Value + Debug + Send + Sync,
+{
+    let mut checkpoint = list.clone();
+
+    for op in ops {
+        match op {
+            Op::Len => {
+                assert_eq!(list.len(), spec.len());
+            }
+            Op::Get(index) => {
+                assert_eq!(list.get(index), spec.get(index));
+            }
+            Op::Set(index, value) => {
+                let res = list.get_mut(index).map(|elem| *elem = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithIntoMut(index, value) => {
+                let res = list
+                    .get_cow(index)
+                    .map(|cow| *cow.into_mut().unwrap() = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::SetCowWithMakeMut(index, value) => {
+                let res = list
+                    .get_cow(index)
+                    .map(|mut cow| *cow.make_mut().unwrap() = value.clone());
+                assert_eq!(res, spec.set(index, value));
+            }
+            Op::Push(value) => {
+                assert_eq!(list.push(value.clone()), spec.push(value));
+            }
+            Op::Iter => {
+                assert!(list.iter().eq(spec.iter()));
+            }
+            Op::IterFrom(index) => match (list.iter_from(index), spec.iter_from(index)) {
+                (Ok(iter1), Ok(iter2)) => assert!(iter1.eq(iter2)),
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_from mismatch: {}", e),
+            },
+            Op::IterCowFrom(index) => match (list.iter_cow_from(index), spec.iter_from(index)) {
+                (Ok(mut cow_iter), Ok(spec_iter)) => {
+                    let mut cow_values = Vec::new();
+                    while let Some((idx, cow)) = cow_iter.next_cow() {
+                        assert_eq!(
+                            idx,
+                            index + cow_values.len(),
+                            "index mismatch in iter_cow_from"
+                        );
+                        cow_values.push(cow.deref().clone());
+                    }
+                    assert!(cow_values.iter().eq(spec_iter));
+                }
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("iter_cow_from mismatch: {}", e),
+            },
+            Op::PopFront(index) => match (list.pop_front(index), spec.pop_front(index)) {
+                (Ok(()), Ok(())) => {
+                    assert_eq!(list.len(), spec.len());
+                    assert!(list.iter().eq(spec.iter()))
+                }
+                (Err(e1), Err(e2)) => assert_eq!(e1, e2),
+                (Err(e), _) | (_, Err(e)) => panic!("pop_front mismatch: {}", e),
+            },
+            Op::ApplyUpdates => {
+                list.apply_updates().unwrap();
+            }
+            Op::TreeHash => {
+                list.apply_updates().unwrap();
+                // Check the root against a freshly-built list, so an incremental-update divergence
+                // in the tree structure or hashing is caught rather than silently propagated.
+                let fresh = ProgressiveList::<T>::new(spec.values.clone()).unwrap();
+                assert_eq!(list.tree_hash_root(), fresh.tree_hash_root());
+            }
+            Op::Checkpoint => {
+                list.apply_updates().unwrap();
+                checkpoint = list.clone();
+            }
+            Op::Rebase => {
+                list.apply_updates().unwrap();
+                let new_list = list.rebase(&checkpoint).unwrap();
+                assert_eq!(new_list, *list);
+            }
+            Op::Debase => {
+                list.apply_updates().unwrap();
+                let ssz_bytes = list.as_ssz_bytes();
+                let new_list = ProgressiveList::from_ssz_bytes(&ssz_bytes).expect("SSZ decode");
+                assert_eq!(new_list, *list);
+                *list = new_list;
+            }
+            // Not applicable to `ProgressiveList`, it can't be roundtripped via `Vector`.
+            Op::FromIntoRoundtrip => {}
+            // Not applicable to a `ProgressiveList`: it is unbounded, and it does not (yet)
+            // implement `intra_rebase`.
+            Op::IntraRebase => {}
+        }
+    }
+}
+
 fn apply_ops_list<T, N>(list: &mut List<T, N>, spec: &mut Spec<T, N>, ops: Vec<Op<T>>)
 where
     T: Value + Debug + Send + Sync,
@@ -282,8 +391,14 @@ where
                 list.apply_updates().unwrap();
                 list.tree_hash_root();
 
-                assert_eq!(new_list, *list);
-                *list = new_list;
+                // Intra-rebasing dedupes by hash, so it may replace a zero-padded tail node by a
+                // hash-equal fully-written node; structural `PartialEq` with the original need
+                // not hold. Compare semantically, and do not keep the deduped list as the
+                // continuing state (later ops assert structural equality against canonical
+                // trees, e.g. after an SSZ round-trip).
+                assert_eq!(new_list.len(), list.len());
+                assert_eq!(new_list.tree_hash_root(), list.tree_hash_root());
+                assert!(new_list.iter().eq(list.iter()));
             }
         }
     }
@@ -386,8 +501,9 @@ where
                 vect.apply_updates().unwrap();
                 vect.tree_hash_root();
 
-                assert_eq!(new_vect, *vect);
-                *vect = new_vect;
+                // See the `List` op above: compare semantically, keep the canonical vector.
+                assert_eq!(new_vect.tree_hash_root(), vect.tree_hash_root());
+                assert!(new_vect.iter().eq(vect.iter()));
             }
         }
     }
@@ -527,4 +643,41 @@ mod vect {
     vect_test!(large_32, Large, U32, arb_large());
     vect_test!(large_33, Large, U33, arb_large());
     vect_test!(large_1024, Large, U1024, arb_large());
+}
+
+/// Maximum initial length for progressive list tests.
+/// This is used to cap the initial list size for reasonable test execution time.
+/// Compare to list tests which can use up to 1024 elements (U1024).
+type ProgressiveListMaxLen = U128;
+const PROGRESSIVE_LIST_MAX_LEN: usize = ProgressiveListMaxLen::USIZE;
+
+macro_rules! progressive_list_test {
+    ($name:ident, $T:ty) => {
+        // Use default strategy (assumes existence of an `Arbitrary` impl).
+        progressive_list_test!($name, $T, any::<$T>());
+    };
+    ($name:ident, $T:ty, $strat:expr) => {
+        proptest! {
+            #[test]
+            fn $name(
+                init in arb_list::<$T, ProgressiveListMaxLen, _>(&$strat),
+                ops in arb_ops::<$T, _>(&$strat, PROGRESSIVE_LIST_MAX_LEN, OP_LIMIT)
+            ) {
+                let mut list = ProgressiveList::<$T>::try_from_iter(init.clone()).unwrap();
+                // `Op::FromIntoRoundtrip` and `Op::IntraRebase` are generated but ignored by
+                // `apply_ops_progressive_list`, so the `List` op strategy can be reused as-is.
+                let mut spec = Spec::<$T, ProgN>::list(init);
+                apply_ops_progressive_list(&mut list, &mut spec, ops);
+            }
+        }
+    };
+}
+
+mod progressive_list {
+    use super::*;
+
+    progressive_list_test!(u8, u8);
+    progressive_list_test!(u64, u64);
+    progressive_list_test!(hash256, Hash256, arb_hash256());
+    progressive_list_test!(large, Large, arb_large());
 }
