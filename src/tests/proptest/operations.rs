@@ -277,9 +277,11 @@ fn apply_ops_progressive_list<T>(
                 assert_eq!(new_list, *list);
                 *list = new_list;
             }
+            // Not applicable to `ProgressiveList`, it can't be roundtripped via `Vector`.
+            Op::FromIntoRoundtrip => {}
             // Not applicable to a `ProgressiveList`: it is unbounded, and it does not (yet)
             // implement `intra_rebase`.
-            Op::FromIntoRoundtrip | Op::IntraRebase => {}
+            Op::IntraRebase => {}
         }
     }
 }
