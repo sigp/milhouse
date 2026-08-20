@@ -391,6 +391,8 @@ where
                 list.apply_updates().unwrap();
                 list.tree_hash_root();
 
+                // FIXME: there is a bug in intra_rebase, see:
+                // - https://github.com/sigp/milhouse/issues/108
                 // Intra-rebasing dedupes by hash, so it may replace a zero-padded tail node by a
                 // hash-equal fully-written node; structural `PartialEq` with the original need
                 // not hold. Compare semantically, and do not keep the deduped list as the
