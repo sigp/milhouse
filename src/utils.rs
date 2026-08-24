@@ -106,10 +106,10 @@ pub fn arb_arc<'a, T: Arbitrary<'a>>(
 }
 
 #[cfg(feature = "arbitrary")]
-pub fn arb_rwlock<'a, T: Arbitrary<'a>>(
+pub fn arb_hashcell<'a>(
     u: &mut arbitrary::Unstructured<'a>,
-) -> arbitrary::Result<parking_lot::RwLock<T>> {
-    T::arbitrary(u).map(parking_lot::RwLock::new)
+) -> arbitrary::Result<crate::hash_cell::HashCell> {
+    Hash256::arbitrary(u).map(crate::hash_cell::HashCell::from)
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@
 pub mod builder;
 pub mod cow;
 pub mod error;
+pub(crate) mod hash_cell;
 pub mod interface;
 pub mod interface_iter;
 pub mod iter;

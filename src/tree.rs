@@ -1,8 +1,8 @@
+use crate::hash_cell::HashCell;
 use crate::utils::{Length, opt_hash, opt_packing_depth, opt_packing_factor};
 use crate::{Arc, Error, Leaf, PackedLeaf, UpdateMap, Value};
 use educe::Educe;
 use ethereum_hashing::{ZERO_HASHES, hash32_concat};
-use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ops::ControlFlow;
@@ -16,8 +16,8 @@ pub enum Tree<T: Value> {
     PackedLeaf(PackedLeaf<T>),
     Node {
         #[educe(PartialEq(ignore), Hash(ignore))]
-        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
-        hash: RwLock<Hash256>,
+        #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_hashcell))]
+        hash: HashCell,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
         left: Arc<Self>,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
@@ -30,7 +30,7 @@ impl<T: Value> Clone for Tree<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Node { hash, left, right } => Self::Node {
-                hash: RwLock::new(*hash.read()),
+                hash: hash.clone(),
                 left: left.clone(),
                 right: right.clone(),
             },
@@ -46,9 +46,9 @@ impl<T: Value> Tree<T> {
         Self::zero(depth)
     }
 
-    pub fn node(left: Arc<Self>, right: Arc<Self>, hash: Hash256) -> Arc<Self> {
+    pub fn node(left: Arc<Self>, right: Arc<Self>, hash: Option<Hash256>) -> Arc<Self> {
         Arc::new(Self::Node {
-            hash: RwLock::new(hash),
+            hash: hash.into(),
             left,
             right,
         })
@@ -62,13 +62,13 @@ impl<T: Value> Tree<T> {
         Arc::new(Self::Leaf(Leaf::new(value)))
     }
 
-    pub fn leaf_with_hash(value: T, hash: Hash256) -> Arc<Self> {
+    pub fn leaf_with_hash(value: T, hash: Option<Hash256>) -> Arc<Self> {
         Arc::new(Self::Leaf(Leaf::with_hash(value, hash)))
     }
 
     pub fn node_unboxed(left: Arc<Self>, right: Arc<Self>) -> Self {
         Self::Node {
-            hash: RwLock::new(Hash256::ZERO),
+            hash: HashCell::new(),
             left,
             right,
         }
@@ -125,14 +125,14 @@ impl<T: Value> Tree<T> {
                     Ok(Self::node(
                         left.with_updated_leaf(index, new_value, new_depth)?,
                         right.clone(),
-                        Hash256::ZERO,
+                        None,
                     ))
                 } else {
                     // Index lies on the right, recurse right
                     Ok(Self::node(
                         left.clone(),
                         right.with_updated_leaf(index, new_value, new_depth)?,
-                        Hash256::ZERO,
+                        None,
                     ))
                 }
             }
@@ -147,7 +147,7 @@ impl<T: Value> Tree<T> {
                     // Split zero node into a node with left and right, and recurse into
                     // the appropriate subtree
                     let new_zero = Self::zero(depth - 1);
-                    Self::node(new_zero.clone(), new_zero, Hash256::ZERO)
+                    Self::node(new_zero.clone(), new_zero, None)
                         .with_updated_leaf(index, new_value, depth)
                 }
             }
@@ -162,7 +162,7 @@ impl<T: Value> Tree<T> {
         depth: usize,
         hashes: Option<&BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<Arc<Self>, Error> {
-        let hash = opt_hash(hashes, depth, prefix).unwrap_or_default();
+        let hash = opt_hash(hashes, depth, prefix);
 
         match self {
             Self::Leaf(_) if depth == 0 => {
@@ -294,26 +294,26 @@ impl<T: Value> Tree<T> {
             (Self::Zero(z1), Self::Zero(z2)) if z1 == z2 => Ok(RebaseAction::EqualReplace(base)),
             (
                 Self::Node {
-                    hash: orig_hash_lock,
+                    hash: orig_hash_cell,
                     left: l1,
                     right: r1,
                 },
                 Self::Node {
-                    hash: base_hash_lock,
+                    hash: base_hash_cell,
                     left: l2,
                     right: r2,
                 },
             ) if full_depth > 0 => {
                 use RebaseAction::*;
 
-                let orig_hash = *orig_hash_lock.read();
-                let base_hash = *base_hash_lock.read();
+                let orig_hash = orig_hash_cell.get();
+                let base_hash = base_hash_cell.get();
 
                 // If hashes *and* lengths are equal then we can short-cut the recursion
                 // and immediately replace `orig` by the `base` node. If `lengths` are `None`
                 // then we know they are already equal (e.g. we're in a vector).
-                if !orig_hash.is_zero()
-                    && orig_hash == base_hash
+                if let (Some(oh), Some(bh)) = (orig_hash, base_hash)
+                    && oh == bh
                     && lengths.is_none_or(|(orig_length, base_length)| orig_length == base_length)
                 {
                     return Ok(EqualReplace(base));
@@ -345,55 +345,29 @@ impl<T: Value> Tree<T> {
                         Ok(NotEqualNoop)
                     }
                     (EqualNoop, EqualNoop) => Ok(EqualNoop),
-                    (NotEqualNoop | EqualNoop, NotEqualReplace(new_right)) => {
-                        Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(orig_hash),
-                            left: l1.clone(),
-                            right: new_right,
-                        })))
-                    }
-                    (NotEqualNoop | EqualNoop, EqualReplace(new_right)) => {
-                        Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(orig_hash),
-                            left: l1.clone(),
-                            right: new_right.clone(),
-                        })))
-                    }
+                    (NotEqualNoop | EqualNoop, NotEqualReplace(new_right)) => Ok(NotEqualReplace(
+                        Self::node(l1.clone(), new_right, orig_hash),
+                    )),
+                    (NotEqualNoop | EqualNoop, EqualReplace(new_right)) => Ok(NotEqualReplace(
+                        Self::node(l1.clone(), new_right.clone(), orig_hash),
+                    )),
                     (NotEqualReplace(new_left), NotEqualNoop | EqualNoop) => {
-                        Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(orig_hash),
-                            left: new_left,
-                            right: r1.clone(),
-                        })))
+                        Ok(NotEqualReplace(Self::node(new_left, r1.clone(), orig_hash)))
                     }
                     (NotEqualReplace(new_left), NotEqualReplace(new_right)) => {
-                        Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(orig_hash),
-                            left: new_left,
-                            right: new_right,
-                        })))
+                        Ok(NotEqualReplace(Self::node(new_left, new_right, orig_hash)))
                     }
-                    (NotEqualReplace(new_left), EqualReplace(new_right)) => {
-                        Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(orig_hash),
-                            left: new_left,
-                            right: new_right.clone(),
-                        })))
-                    }
-                    (EqualReplace(new_left), NotEqualNoop) => {
-                        Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(orig_hash),
-                            left: new_left.clone(),
-                            right: r1.clone(),
-                        })))
-                    }
-                    (EqualReplace(new_left), NotEqualReplace(new_right)) => {
-                        Ok(NotEqualReplace(Arc::new(Self::Node {
-                            hash: RwLock::new(orig_hash),
-                            left: new_left.clone(),
-                            right: new_right,
-                        })))
-                    }
+                    (NotEqualReplace(new_left), EqualReplace(new_right)) => Ok(NotEqualReplace(
+                        Self::node(new_left, new_right.clone(), orig_hash),
+                    )),
+                    (EqualReplace(new_left), NotEqualNoop) => Ok(NotEqualReplace(Self::node(
+                        new_left.clone(),
+                        r1.clone(),
+                        orig_hash,
+                    ))),
+                    (EqualReplace(new_left), NotEqualReplace(new_right)) => Ok(NotEqualReplace(
+                        Self::node(new_left.clone(), new_right, orig_hash),
+                    )),
                     (EqualReplace(_), EqualReplace(_)) | (EqualReplace(_), EqualNoop) => {
                         Ok(EqualReplace(base))
                     }
@@ -438,12 +412,8 @@ impl<T: Value> Tree<T> {
         match &**orig {
             Self::Leaf(_) | Self::PackedLeaf(_) | Self::Zero(_) => Ok(IntraRebaseAction::Noop),
             Self::Node { hash, left, right } if current_depth > 0 => {
-                let hash = *hash.read();
-
                 // Tree must be fully hashed prior to intra-rebase.
-                if hash.is_zero() {
-                    return Err(Error::IntraRebaseZeroHash);
-                }
+                let hash = hash.get().ok_or(Error::IntraRebaseZeroHash)?;
 
                 if let Some(known_subtree) = known_subtrees.get(&(current_depth, hash)) {
                     // Node is already known from elsewhere in the tree. We can replace it without
@@ -457,15 +427,15 @@ impl<T: Value> Tree<T> {
                 let action = match (left_action, right_action) {
                     (IntraRebaseAction::Noop, IntraRebaseAction::Noop) => IntraRebaseAction::Noop,
                     (IntraRebaseAction::Noop, IntraRebaseAction::Replace(new_right)) => {
-                        IntraRebaseAction::Replace(Self::node(left.clone(), new_right, hash))
+                        IntraRebaseAction::Replace(Self::node(left.clone(), new_right, Some(hash)))
                     }
                     (IntraRebaseAction::Replace(new_left), IntraRebaseAction::Noop) => {
-                        IntraRebaseAction::Replace(Self::node(new_left, right.clone(), hash))
+                        IntraRebaseAction::Replace(Self::node(new_left, right.clone(), Some(hash)))
                     }
                     (
                         IntraRebaseAction::Replace(new_left),
                         IntraRebaseAction::Replace(new_right),
-                    ) => IntraRebaseAction::Replace(Self::node(new_left, new_right, hash)),
+                    ) => IntraRebaseAction::Replace(Self::node(new_left, new_right, Some(hash))),
                 };
 
                 // Add the new version of this node to the known subtrees.
@@ -495,44 +465,26 @@ impl<T: Value + Send + Sync> Tree<T> {
     pub fn tree_hash(&self) -> Hash256 {
         match self {
             Self::Leaf(Leaf { hash, value }) => {
-                // FIXME(sproul): upgradeable RwLock?
-                let read_lock = hash.read();
-                let existing_hash = *read_lock;
-                drop(read_lock);
-
-                // NOTE: We re-compute the hash whenever it is non-zero. Computed hashes may
-                // legitimately be zero, but this only occurs at the leaf level when the value is
-                // entirely zeroes (e.g. [0u64, 0, 0, 0]). In order to avoid storing an
-                // `Option<Hash256>` we choose to re-compute the hash in this case. In practice
-                // this is unlikely to provide any performance penalty except at very small list
-                // lengths (<= 32), because a node higher in the tree will cache a non-zero hash
-                // preventing its children from being visited more than once.
-                if !existing_hash.is_zero() {
-                    existing_hash
-                } else {
-                    let tree_hash = value.tree_hash_root();
-                    *hash.write() = tree_hash;
-                    tree_hash
+                if let Some(cached) = hash.get() {
+                    return cached;
                 }
+                let computed = value.tree_hash_root();
+                hash.set(computed);
+                computed
             }
             Self::PackedLeaf(leaf) => leaf.tree_hash(),
             Self::Zero(depth) => Hash256::from(ZERO_HASHES[*depth]),
             Self::Node { hash, left, right } => {
-                let read_lock = hash.read();
-                let existing_hash = *read_lock;
-                drop(read_lock);
-
-                if !existing_hash.is_zero() {
-                    existing_hash
-                } else {
-                    // Parallelism goes brrrr.
-                    let (left_hash, right_hash) =
-                        rayon::join(|| left.tree_hash(), || right.tree_hash());
-                    let tree_hash =
-                        Hash256::from(hash32_concat(left_hash.as_slice(), right_hash.as_slice()));
-                    *hash.write() = tree_hash;
-                    tree_hash
+                if let Some(cached) = hash.get() {
+                    return cached;
                 }
+                // Parallelism goes brrrr.
+                let (left_hash, right_hash) =
+                    rayon::join(|| left.tree_hash(), || right.tree_hash());
+                let computed =
+                    Hash256::from(hash32_concat(left_hash.as_slice(), right_hash.as_slice()));
+                hash.set(computed);
+                computed
             }
         }
     }

@@ -1,7 +1,7 @@
 use crate::utils::{Length, opt_packing_factor};
 use crate::{Arc, Error, Leaf, List, PackedLeaf, Tree, UpdateMap, Value};
 use smallvec::{SmallVec, smallvec};
-use tree_hash::Hash256;
+
 use typenum::Unsigned;
 
 /// Efficiently construct a list from `n` copies of `elem`.
@@ -44,32 +44,26 @@ where
     for depth in 0..tree_depth {
         let new_layer = match &layer[..] {
             [(repeat_leaf, 1)] => {
-                smallvec![(
-                    Tree::node(repeat_leaf.clone(), Tree::zero(depth), Hash256::ZERO),
-                    1,
-                )]
+                smallvec![(Tree::node(repeat_leaf.clone(), Tree::zero(depth), None), 1,)]
             }
             [(repeat_leaf, repeat_count)] if repeat_count.is_multiple_of(2) => {
                 smallvec![(
-                    Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),
+                    Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), None),
                     repeat_count / 2,
                 )]
             }
             [(repeat_leaf, repeat_count)] => {
                 smallvec![
                     (
-                        Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),
+                        Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), None),
                         repeat_count / 2,
                     ),
-                    (
-                        Tree::node(repeat_leaf.clone(), Tree::zero(depth), Hash256::ZERO),
-                        1,
-                    ),
+                    (Tree::node(repeat_leaf.clone(), Tree::zero(depth), None), 1,),
                 ]
             }
             [(repeat_leaf, 1), (lonely_leaf, 1)] => {
                 smallvec![(
-                    Tree::node(repeat_leaf.clone(), lonely_leaf.clone(), Hash256::ZERO),
+                    Tree::node(repeat_leaf.clone(), lonely_leaf.clone(), None),
                     1,
                 )]
             }
@@ -77,22 +71,19 @@ where
                 if repeat_count.is_multiple_of(2) {
                     smallvec![
                         (
-                            Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),
+                            Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), None),
                             repeat_count / 2,
                         ),
-                        (
-                            Tree::node(lonely_leaf.clone(), Tree::zero(depth), Hash256::ZERO),
-                            1,
-                        ),
+                        (Tree::node(lonely_leaf.clone(), Tree::zero(depth), None), 1,),
                     ]
                 } else {
                     smallvec![
                         (
-                            Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),
+                            Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), None),
                             repeat_count / 2,
                         ),
                         (
-                            Tree::node(repeat_leaf.clone(), lonely_leaf.clone(), Hash256::ZERO),
+                            Tree::node(repeat_leaf.clone(), lonely_leaf.clone(), None),
                             1,
                         ),
                     ]
