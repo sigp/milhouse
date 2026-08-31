@@ -168,6 +168,29 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum MaxIndexState {
+    /// The inner map is known to be empty.
+    #[default]
+    Empty,
+    /// The largest index in the inner map is known exactly.
+    Known(usize),
+    /// The inner map may have been modified through a lazily materialized `Cow`.
+    Unknown,
+}
+
+impl MaxIndexState {
+    fn record_insert(&mut self, index: usize) {
+        match self {
+            Self::Empty => *self = Self::Known(index),
+            Self::Known(max_index) => *max_index = (*max_index).max(index),
+            // An insert cannot repair an already-unknown maximum: the inner map may contain a
+            // larger index that was inserted through a `Cow`.
+            Self::Unknown => {}
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(
     feature = "arbitrary",
@@ -177,9 +200,8 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
 pub struct MaxMap<M> {
     #[cfg_attr(feature = "arbitrary", arbitrary(default))]
     inner: M,
-    max_key: usize,
     #[cfg_attr(feature = "arbitrary", arbitrary(default))]
-    max_key_dirty: bool,
+    max_index: MaxIndexState,
 }
 
 impl<M: PartialEq> PartialEq for MaxMap<M> {
@@ -201,9 +223,7 @@ where
         F: FnOnce(usize) -> Option<T>,
     {
         let value = self.inner.get_mut_with(k, f)?;
-        if !self.max_key_dirty && k > self.max_key {
-            self.max_key = k;
-        }
+        self.max_index.record_insert(k);
         Some(value)
     }
 
@@ -214,17 +234,17 @@ where
     {
         let cow = self.inner.get_cow_with(k, f)?;
 
-        // A `Cow` inserts lazily, when it is made mutable. Since that happens after this method
-        // returns, invalidate the cache and let `max_index` consult the inner map if needed.
-        self.max_key_dirty = true;
+        // A `Cow` inserts lazily, when it is made mutable. Since that happens after this
+        // method returns, the exact maximum is no longer known. An occupied entry cannot
+        // introduce a new index, so it preserves the existing state.
+        self.max_index = MaxIndexState::Unknown;
         Some(cow)
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
-        if !self.max_key_dirty && k > self.max_key {
-            self.max_key = k;
-        }
-        self.inner.insert(k, value)
+        let previous = self.inner.insert(k, value);
+        self.max_index.record_insert(k);
+        previous
     }
 
     fn for_each_range<F, E>(&self, start: usize, end: usize, f: F) -> Result<(), E>
@@ -239,34 +259,43 @@ where
     }
 
     fn max_index(&self) -> Option<usize> {
-        if self.inner.is_empty() {
-            None
-        } else if self.max_key_dirty {
-            self.inner.max_index()
-        } else {
-            Some(self.max_key)
+        match self.max_index {
+            MaxIndexState::Empty => None,
+            MaxIndexState::Known(max_index) => Some(max_index),
+            MaxIndexState::Unknown => self.inner.max_index(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{MaxMap, UpdateMap};
+    use super::{MaxIndexState, MaxMap, UpdateMap};
     use vec_map::VecMap;
 
     type TestMap = MaxMap<VecMap<u64>>;
+
+    #[test]
+    fn max_map_defaults_to_empty() {
+        let map = TestMap::default();
+
+        assert_eq!(map.max_index, MaxIndexState::Empty);
+        assert_eq!(map.max_index(), None);
+    }
 
     #[test]
     fn max_map_tracks_get_mut_with_insertions() {
         let mut map = TestMap::default();
 
         assert!(map.get_mut_with(3, |_| Some(30)).is_some());
+        assert_eq!(map.max_index, MaxIndexState::Known(3));
         assert_eq!(map.max_index(), Some(3));
 
         assert!(map.get_mut_with(17, |_| Some(170)).is_some());
+        assert_eq!(map.max_index, MaxIndexState::Known(17));
         assert_eq!(map.max_index(), Some(17));
 
         assert!(map.get_mut_with(23, |_| None).is_none());
+        assert_eq!(map.max_index, MaxIndexState::Known(17));
         assert_eq!(map.max_index(), Some(17));
     }
 
@@ -276,9 +305,12 @@ mod tests {
         map.insert(3, 30);
         let backing_value = 170;
 
-        let cow = map.get_cow_with(17, |_| Some(&backing_value)).unwrap();
-        *cow.into_mut().unwrap() = 171;
+        let cow = map
+            .get_cow_with(17, |_| Some(&backing_value))
+            .expect("backing value should produce a Cow");
+        *cow.into_mut().expect("Cow should have a vacant entry") = 171;
 
+        assert_eq!(map.max_index, MaxIndexState::Unknown);
         assert_eq!(map.max_index(), Some(17));
     }
 
@@ -288,10 +320,12 @@ mod tests {
         map.insert(3, 30);
         let backing_value = 170;
 
-        let mut cow = map.get_cow_with(17, |_| Some(&backing_value)).unwrap();
-        *cow.make_mut().unwrap() = 171;
-        drop(cow);
+        let mut cow = map
+            .get_cow_with(17, |_| Some(&backing_value))
+            .expect("backing value should produce a Cow");
+        *cow.make_mut().expect("Cow should have a vacant entry") = 171;
 
+        assert_eq!(map.max_index, MaxIndexState::Unknown);
         assert_eq!(map.max_index(), Some(17));
     }
 
@@ -302,11 +336,43 @@ mod tests {
         let expected = map.clone();
         let backing_value = 170;
 
-        let cow = map.get_cow_with(17, |_| Some(&backing_value)).unwrap();
+        let cow = map
+            .get_cow_with(17, |_| Some(&backing_value))
+            .expect("backing value should produce a Cow");
         assert_eq!(*cow, backing_value);
-        drop(cow);
 
+        assert_eq!(map.max_index, MaxIndexState::Unknown);
         assert_eq!(map.max_index(), Some(3));
         assert_eq!(map, expected);
+    }
+
+    #[test]
+    fn max_map_keeps_known_state_for_cow_of_existing_entry() {
+        let mut map = TestMap::default();
+        map.insert(3, 30);
+
+        let cow = map
+            .get_cow_with(3, |_| None)
+            .expect("existing entry should produce a Cow");
+        assert_eq!(*cow, 30);
+
+        assert_eq!(map.max_index, MaxIndexState::Unknown);
+        assert_eq!(map.max_index(), Some(3));
+    }
+
+    #[test]
+    fn max_map_insert_does_not_overwrite_unknown_maximum() {
+        let mut map = TestMap::default();
+        map.insert(3, 30);
+        let backing_value = 170;
+
+        let cow = map
+            .get_cow_with(17, |_| Some(&backing_value))
+            .expect("backing value should produce a Cow");
+        *cow.into_mut().expect("Cow should have a vacant entry") = 171;
+        map.insert(10, 100);
+
+        assert_eq!(map.max_index, MaxIndexState::Unknown);
+        assert_eq!(map.max_index(), Some(17));
     }
 }
