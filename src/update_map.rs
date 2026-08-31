@@ -24,6 +24,7 @@ pub trait UpdateMap<T>: Default + Clone {
     where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>;
 
+    /// Return the largest index currently stored in the map.
     fn max_index(&self) -> Option<usize>;
 
     fn len(&self) -> usize;
@@ -167,7 +168,7 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone)]
 #[cfg_attr(
     feature = "arbitrary",
     derive(arbitrary::Arbitrary),
@@ -177,6 +178,14 @@ pub struct MaxMap<M> {
     #[cfg_attr(feature = "arbitrary", arbitrary(default))]
     inner: M,
     max_key: usize,
+    #[cfg_attr(feature = "arbitrary", arbitrary(default))]
+    max_key_dirty: bool,
+}
+
+impl<M: PartialEq> PartialEq for MaxMap<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
 }
 
 impl<T, M> UpdateMap<T> for MaxMap<M>
@@ -191,7 +200,11 @@ where
     where
         F: FnOnce(usize) -> Option<T>,
     {
-        self.inner.get_mut_with(k, f)
+        let value = self.inner.get_mut_with(k, f)?;
+        if !self.max_key_dirty && k > self.max_key {
+            self.max_key = k;
+        }
+        Some(value)
     }
 
     fn get_cow_with<'a, F>(&'a mut self, k: usize, f: F) -> Option<Cow<'a, T>>
@@ -199,11 +212,16 @@ where
         F: FnOnce(usize) -> Option<&'a T>,
         T: Clone + 'a,
     {
-        self.inner.get_cow_with(k, f)
+        let cow = self.inner.get_cow_with(k, f)?;
+
+        // A `Cow` inserts lazily, when it is made mutable. Since that happens after this method
+        // returns, invalidate the cache and let `max_index` consult the inner map if needed.
+        self.max_key_dirty = true;
+        Some(cow)
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
-        if k > self.max_key {
+        if !self.max_key_dirty && k > self.max_key {
             self.max_key = k;
         }
         self.inner.insert(k, value)
@@ -221,6 +239,74 @@ where
     }
 
     fn max_index(&self) -> Option<usize> {
-        (!self.inner.is_empty()).then_some(self.max_key)
+        if self.inner.is_empty() {
+            None
+        } else if self.max_key_dirty {
+            self.inner.max_index()
+        } else {
+            Some(self.max_key)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MaxMap, UpdateMap};
+    use vec_map::VecMap;
+
+    type TestMap = MaxMap<VecMap<u64>>;
+
+    #[test]
+    fn max_map_tracks_get_mut_with_insertions() {
+        let mut map = TestMap::default();
+
+        assert!(map.get_mut_with(3, |_| Some(30)).is_some());
+        assert_eq!(map.max_index(), Some(3));
+
+        assert!(map.get_mut_with(17, |_| Some(170)).is_some());
+        assert_eq!(map.max_index(), Some(17));
+
+        assert!(map.get_mut_with(23, |_| None).is_none());
+        assert_eq!(map.max_index(), Some(17));
+    }
+
+    #[test]
+    fn max_map_tracks_cow_into_mut_insertions() {
+        let mut map = TestMap::default();
+        map.insert(3, 30);
+        let backing_value = 170;
+
+        let cow = map.get_cow_with(17, |_| Some(&backing_value)).unwrap();
+        *cow.into_mut().unwrap() = 171;
+
+        assert_eq!(map.max_index(), Some(17));
+    }
+
+    #[test]
+    fn max_map_tracks_cow_make_mut_insertions() {
+        let mut map = TestMap::default();
+        map.insert(3, 30);
+        let backing_value = 170;
+
+        let mut cow = map.get_cow_with(17, |_| Some(&backing_value)).unwrap();
+        *cow.make_mut().unwrap() = 171;
+        drop(cow);
+
+        assert_eq!(map.max_index(), Some(17));
+    }
+
+    #[test]
+    fn max_map_ignores_read_only_cow_access() {
+        let mut map = TestMap::default();
+        map.insert(3, 30);
+        let expected = map.clone();
+        let backing_value = 170;
+
+        let cow = map.get_cow_with(17, |_| Some(&backing_value)).unwrap();
+        assert_eq!(*cow, backing_value);
+        drop(cow);
+
+        assert_eq!(map.max_index(), Some(3));
+        assert_eq!(map, expected);
     }
 }
