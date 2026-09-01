@@ -115,10 +115,7 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
 
         // Apply all updates in a single walk of the spine. On failure, restore the pending
         // updates so an error does not silently discard them.
-        match self
-            .tree
-            .with_updated_leaves(&updates, self.length.as_usize())
-        {
+        match self.tree.with_updated_leaves(&updates) {
             Ok(tree) => {
                 self.tree = Arc::new(tree);
                 self.length = new_length;
