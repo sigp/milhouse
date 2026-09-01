@@ -29,7 +29,7 @@ pub trait MutList<T: Value>: ImmList<T> {
     fn replace(&mut self, index: usize, value: T) -> Result<(), Error>;
     fn update<U: UpdateMap<T>>(
         &mut self,
-        updates: U,
+        updates: &U,
         hash_updates: Option<BTreeMap<(usize, usize), Hash256>>,
     ) -> Result<(), Error>;
 }
@@ -86,7 +86,15 @@ where
     pub fn apply_updates(&mut self) -> Result<(), Error> {
         if !self.updates.is_empty() {
             let updates = std::mem::take(&mut self.updates);
-            self.backing.update(updates, None)
+            // On failure, restore the pending updates so an error does not silently discard them
+            // (mirroring `ProgressiveList::apply_updates`).
+            match self.backing.update(&updates, None) {
+                Ok(()) => Ok(()),
+                Err(e) => {
+                    self.updates = updates;
+                    Err(e)
+                }
+            }
         } else {
             Ok(())
         }
