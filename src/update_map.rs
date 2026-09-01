@@ -1,4 +1,4 @@
-use crate::cow::{BTreeCow, Cow, VecCow};
+use crate::cow::{BTreeCow, Cow, CowOnMut, VecCow};
 use crate::utils::max_btree_index;
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::ops::ControlFlow;
@@ -70,7 +70,7 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
                 value: entry.into_mut(),
             },
         };
-        Some(Cow::BTree(cow, None))
+        Some(Cow::BTree(cow, CowOnMut::default()))
     }
 
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
@@ -134,7 +134,7 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
                 value: entry.into_mut(),
             },
         };
-        Some(Cow::Vec(cow, None))
+        Some(Cow::Vec(cow, CowOnMut::default()))
     }
 
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
@@ -169,7 +169,7 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-enum MaxIndexState {
+pub(crate) enum MaxIndexState {
     /// The inner map is known to be empty.
     #[default]
     Empty,
@@ -178,7 +178,7 @@ enum MaxIndexState {
 }
 
 impl MaxIndexState {
-    fn record_insert(&mut self, index: usize) {
+    pub(crate) fn record_insert(&mut self, index: usize) {
         match self {
             Self::Empty => *self = Self::Known(index),
             Self::Known(max_index) => *max_index = (*max_index).max(index),
@@ -230,7 +230,7 @@ where
         let Self { inner, max_index } = self;
         let cow = inner.get_cow_with(k, f)?;
 
-        Some(cow.with_on_mut(move || max_index.record_insert(k)))
+        Some(cow.with_max_index(max_index, k))
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
@@ -332,7 +332,6 @@ mod tests {
             .get_cow_with(17, |_| Some(&backing_value))
             .expect("backing value should produce a Cow");
         *cow.make_mut().expect("Cow should have a vacant entry") = 171;
-        drop(cow);
 
         assert_eq!(map.max_index, MaxIndexState::Known(17));
         assert_eq!(map.max_index(), Some(17));
@@ -349,7 +348,6 @@ mod tests {
             .get_cow_with(17, |_| Some(&backing_value))
             .expect("backing value should produce a Cow");
         assert_eq!(*cow, backing_value);
-        drop(cow);
 
         assert_eq!(map.max_index, MaxIndexState::Known(3));
         assert_eq!(map.max_index(), Some(3));
@@ -365,7 +363,6 @@ mod tests {
             .get_cow_with(3, |_| None)
             .expect("existing entry should produce a Cow");
         *cow.make_mut().expect("existing entry should be mutable") = 31;
-        drop(cow);
 
         assert_eq!(map.max_index, MaxIndexState::Known(3));
         assert_eq!(map.max_index(), Some(3));
