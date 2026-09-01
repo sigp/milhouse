@@ -214,9 +214,8 @@ fn pop_front_with_pending_updates() {
 }
 
 /// Regression test for a replace-only `apply_updates` whose highest changed index lives in a deep
-/// spine subtree. The largest updated index must be found by scanning the map: `MaxMap`'s
-/// `max_index` does not see replaces made via `get_mut`, so trusting it would stop the spine walk
-/// short and silently drop the deep updates.
+/// spine subtree. `MaxMap::max_index` must include replacements made via `get_mut`; otherwise the
+/// spine walk would stop short and silently drop the deep updates.
 #[test]
 fn replace_in_deep_subtree_then_apply_matches_fresh() {
     // 130 elements spans several progressive subtrees for `u64`.

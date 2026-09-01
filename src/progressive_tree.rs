@@ -3,7 +3,7 @@ use crate::{
     builder::Builder,
     iter::Iter,
     tree::RebaseAction,
-    utils::{Length, opt_packing_depth, opt_packing_factor, updated_length},
+    utils::{Length, opt_packing_depth, opt_packing_factor},
 };
 use educe::Educe;
 use ethereum_hashing::hash32_concat;
@@ -173,31 +173,8 @@ impl<T: Value> ProgressiveTree<T> {
     /// At each spine level, updates landing in this node's binary (left) subtree are applied via
     /// [`Tree::with_updated_leaves`], and updates landing further right are handled by recursing
     /// into `right`. Appends grow the spine as needed.
-    ///
-    /// `current_length` is the length of the list before the updates are applied.
-    pub fn with_updated_leaves<U: UpdateMap<T>>(
-        &self,
-        updates: &U,
-        current_length: usize,
-    ) -> Result<Self, Error> {
-        let new_length = updated_length(Length(current_length), updates).as_usize();
-
-        // The largest updated index tells each spine level whether anything lands further right.
-        // For appends it is `new_length - 1`; for a replace-only batch we find it with one scan.
-        // We can't use `UpdateMap::max_index` here: `MaxMap` only tracks `insert`, not replaces
-        // made via `get_mut`/`get_cow`.
-        let max_index = if new_length > current_length {
-            Some(new_length - 1)
-        } else {
-            let mut max = None;
-            updates.for_each_range(0, new_length, |index, _| {
-                max = Some(index);
-                ControlFlow::Continue(Ok::<(), Error>(()))
-            })?;
-            max
-        };
-
-        self.with_updated_leaves_recursive(updates, max_index, 0)
+    pub fn with_updated_leaves<U: UpdateMap<T>>(&self, updates: &U) -> Result<Self, Error> {
+        self.with_updated_leaves_recursive(updates, updates.max_index(), 0)
     }
 
     fn with_updated_leaves_recursive<U: UpdateMap<T>>(
