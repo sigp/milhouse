@@ -70,7 +70,7 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
                 value: entry.into_mut(),
             },
         };
-        Some(Cow::BTree(cow))
+        Some(Cow::BTree(cow, None))
     }
 
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
@@ -134,7 +134,7 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
                 value: entry.into_mut(),
             },
         };
-        Some(Cow::Vec(cow))
+        Some(Cow::Vec(cow, None))
     }
 
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
@@ -175,8 +175,6 @@ enum MaxIndexState {
     Empty,
     /// The largest index in the inner map is known exactly.
     Known(usize),
-    /// The inner map may have been modified through a lazily materialized `Cow`.
-    Unknown,
 }
 
 impl MaxIndexState {
@@ -184,9 +182,6 @@ impl MaxIndexState {
         match self {
             Self::Empty => *self = Self::Known(index),
             Self::Known(max_index) => *max_index = (*max_index).max(index),
-            // An insert cannot repair an already-unknown maximum: the inner map may contain a
-            // larger index that was inserted through a `Cow`.
-            Self::Unknown => {}
         }
     }
 }
@@ -232,13 +227,10 @@ where
         F: FnOnce(usize) -> Option<&'a T>,
         T: Clone + 'a,
     {
-        let cow = self.inner.get_cow_with(k, f)?;
+        let Self { inner, max_index } = self;
+        let cow = inner.get_cow_with(k, f)?;
 
-        // A `Cow` inserts lazily, when it is made mutable. Since that happens after this
-        // method returns, the exact maximum is no longer known. An occupied entry cannot
-        // introduce a new index, so it preserves the existing state.
-        self.max_index = MaxIndexState::Unknown;
-        Some(cow)
+        Some(cow.with_on_mut(move || max_index.record_insert(k)))
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
@@ -262,7 +254,6 @@ where
         match self.max_index {
             MaxIndexState::Empty => None,
             MaxIndexState::Known(max_index) => Some(max_index),
-            MaxIndexState::Unknown => self.inner.max_index(),
         }
     }
 }
@@ -270,9 +261,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::{MaxIndexState, MaxMap, UpdateMap};
+    use std::collections::BTreeMap;
     use vec_map::VecMap;
 
     type TestMap = MaxMap<VecMap<u64>>;
+    type TestBTreeMap = MaxMap<BTreeMap<usize, u64>>;
 
     #[test]
     fn max_map_defaults_to_empty() {
@@ -310,7 +303,22 @@ mod tests {
             .expect("backing value should produce a Cow");
         *cow.into_mut().expect("Cow should have a vacant entry") = 171;
 
-        assert_eq!(map.max_index, MaxIndexState::Unknown);
+        assert_eq!(map.max_index, MaxIndexState::Known(17));
+        assert_eq!(map.max_index(), Some(17));
+    }
+
+    #[test]
+    fn max_map_tracks_btree_cow_insertions() {
+        let mut map = TestBTreeMap::default();
+        map.insert(3, 30);
+        let backing_value = 170;
+
+        let cow = map
+            .get_cow_with(17, |_| Some(&backing_value))
+            .expect("backing value should produce a Cow");
+        *cow.into_mut().expect("Cow should have a vacant entry") = 171;
+
+        assert_eq!(map.max_index, MaxIndexState::Known(17));
         assert_eq!(map.max_index(), Some(17));
     }
 
@@ -324,8 +332,9 @@ mod tests {
             .get_cow_with(17, |_| Some(&backing_value))
             .expect("backing value should produce a Cow");
         *cow.make_mut().expect("Cow should have a vacant entry") = 171;
+        drop(cow);
 
-        assert_eq!(map.max_index, MaxIndexState::Unknown);
+        assert_eq!(map.max_index, MaxIndexState::Known(17));
         assert_eq!(map.max_index(), Some(17));
     }
 
@@ -340,28 +349,31 @@ mod tests {
             .get_cow_with(17, |_| Some(&backing_value))
             .expect("backing value should produce a Cow");
         assert_eq!(*cow, backing_value);
+        drop(cow);
 
-        assert_eq!(map.max_index, MaxIndexState::Unknown);
+        assert_eq!(map.max_index, MaxIndexState::Known(3));
         assert_eq!(map.max_index(), Some(3));
         assert_eq!(map, expected);
     }
 
     #[test]
-    fn max_map_keeps_known_state_for_cow_of_existing_entry() {
+    fn max_map_tracks_mutation_of_existing_entry() {
         let mut map = TestMap::default();
         map.insert(3, 30);
 
-        let cow = map
+        let mut cow = map
             .get_cow_with(3, |_| None)
             .expect("existing entry should produce a Cow");
-        assert_eq!(*cow, 30);
+        *cow.make_mut().expect("existing entry should be mutable") = 31;
+        drop(cow);
 
-        assert_eq!(map.max_index, MaxIndexState::Unknown);
+        assert_eq!(map.max_index, MaxIndexState::Known(3));
         assert_eq!(map.max_index(), Some(3));
+        assert_eq!(map.get(3), Some(&31));
     }
 
     #[test]
-    fn max_map_insert_does_not_overwrite_unknown_maximum() {
+    fn max_map_insert_preserves_cow_maximum() {
         let mut map = TestMap::default();
         map.insert(3, 30);
         let backing_value = 170;
@@ -372,7 +384,7 @@ mod tests {
         *cow.into_mut().expect("Cow should have a vacant entry") = 171;
         map.insert(10, 100);
 
-        assert_eq!(map.max_index, MaxIndexState::Unknown);
+        assert_eq!(map.max_index, MaxIndexState::Known(17));
         assert_eq!(map.max_index(), Some(17));
     }
 }
