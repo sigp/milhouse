@@ -83,14 +83,9 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         Ok(updated)
     }
 
-    /// Apply the `updates` falling within this packed leaf.
-    ///
-    /// `prefix` is the leaf's local index and `offset` is added when reading from `updates` (see
-    /// [`crate::Tree::with_updated_leaves`]).
     pub fn update<U: UpdateMap<T>>(
         &self,
         prefix: usize,
-        offset: usize,
         hash: Hash256,
         updates: &U,
     ) -> Result<Self, Error> {
@@ -100,16 +95,10 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
         };
 
         let packing_factor = T::tree_hash_packing_factor();
-        debug_assert_eq!(
-            offset % packing_factor,
-            0,
-            "offset must be a multiple of the packing factor"
-        );
-        let start = prefix + offset;
-        let end = prefix + packing_factor + offset;
+        let start = prefix;
+        let end = prefix + packing_factor;
         updates.for_each_range(start, end, |index, value| {
-            let sub_index = (index - offset) % packing_factor;
-            ControlFlow::Continue(updated.insert_mut(sub_index, value.clone()))
+            ControlFlow::Continue(updated.insert_mut(index % packing_factor, value.clone()))
         })?;
         Ok(updated)
     }

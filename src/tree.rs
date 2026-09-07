@@ -181,7 +181,7 @@ impl<T: Value> Tree<T> {
                 Ok(Self::leaf_with_hash(value, hash))
             }
             Self::PackedLeaf(packed_leaf) if depth == 0 => Ok(Arc::new(Self::PackedLeaf(
-                packed_leaf.update(prefix, offset, hash, updates)?,
+                packed_leaf.update(prefix + offset, hash, updates)?,
             ))),
             Self::Node { left, right, .. } if depth > 0 => {
                 let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
@@ -227,7 +227,7 @@ impl<T: Value> Tree<T> {
                 if depth == 0 {
                     if opt_packing_factor::<T>().is_some() {
                         let packed_leaf =
-                            PackedLeaf::empty().update(prefix, offset, hash, updates)?;
+                            PackedLeaf::empty().update(prefix + offset, hash, updates)?;
                         Ok(Arc::new(Self::PackedLeaf(packed_leaf)))
                     } else {
                         let index = prefix + offset;
