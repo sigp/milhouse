@@ -512,6 +512,45 @@ nonempty output buffers. No Aeneas source changes, admissions, new axioms, or
 opaque models of milhouse encoding methods were introduced. Decode and the
 other remaining API obligations remain separate work.
 
+## 19. SSZ decoding: borrowed adapters and erased formatting arguments
+
+**Stage:** translation and generated-signature/model fidelity review.
+**Status:** worked around locally with a concrete streaming cursor and observable
+default-formatting models; Aeneas is unchanged. Full decoding proofs remain in progress.
+
+The fixed decoder's `map(T::from_ssz_bytes)` first fails with `Unimplemented`
+on the function item and surrounding `process_results` closure. An explicit
+closure allows translation, but generated calls through `ProcessResults`
+return borrowed iterator state that the generic `Iterator`, `FnOnce`, and
+`try_from_iter` signatures do not carry. Treating these generated files as a
+successful model would discard the stored decode error or fail elaboration.
+
+`src/ssz_items.rs` now supplies a concrete streaming cursor. Its variable
+branch follows ethereum_ssz 0.10.0's parser: first-offset bounds precede
+alignment checks, and each next offset is checked before the preceding payload
+is decoded. `ProgressiveList::decode_ssz_items` builds directly without an
+intermediate vector. Like `process_results`, a decode error stops consumption
+but still finalizes the partial builder, including the successful default-map
+call, before returning that error. Builder failures stop consumption. The
+fixed and variable wrappers retain their different placement of builder-error
+formatting relative to selecting the decode error.
+
+The real `DecodeError` enum is included in extraction, replacing its former
+unobserved Unit model. `Tree/Ssz/DecodeModels.lean` models the external
+four-byte offset reader. `Tree/Formatting/Models.lean` retains deferred Debug
+calls, literal bytes, and default placeholders, instead of Aeneas's Unit
+formatting arguments. Generated formatter calls are redirected locally; the
+actual derived milhouse Error formatter remains extracted. Only the reached
+default-option fragment is supported; other format opcodes fail explicitly.
+This is not a specification of arbitrary formatting flags or user sinks.
+
+Fresh extraction and the complete 1,853-job proof build pass. All 322 release
+tests pass, including comparison with the previous streaming decoder across
+subtree boundaries, short chunks, truncated/modified offset tables, and
+competing offset and payload errors. The decode metadata defaults are explicit
+but unchanged, avoiding recursive trait dictionaries as in issue 18. No opaque
+milhouse-method model or Aeneas source modification is introduced.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

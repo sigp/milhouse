@@ -69,6 +69,25 @@ structure lock_api.rwlock.RawRwLock (Self : Type) (Self_GuardMarker : Type)
 structure smallvec.Array (Self : Type) (Self_Item : Type) where
   size : Result Std.Usize
 
+/-- [ssz::decode::DecodeError]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/decode.rs', lines 12:0-12:20
+    Name pattern: [ssz::decode::DecodeError]
+    Visibility: public -/
+@[discriminant isize, rust_type "ssz::decode::DecodeError"]
+inductive ssz.decode.DecodeError where
+| InvalidByteLength : Std.Usize → Std.Usize → ssz.decode.DecodeError
+| InvalidLengthPrefix : Std.Usize → Std.Usize → ssz.decode.DecodeError
+| OutOfBoundsByte : Std.Usize → ssz.decode.DecodeError
+| OffsetIntoFixedPortion : Std.Usize → ssz.decode.DecodeError
+| OffsetSkipsVariableBytes : Std.Usize → ssz.decode.DecodeError
+| OffsetsAreDecreasing : Std.Usize → ssz.decode.DecodeError
+| OffsetOutOfBounds : Std.Usize → ssz.decode.DecodeError
+| InvalidListFixedBytesLen : Std.Usize → ssz.decode.DecodeError
+| ZeroLengthItem : ssz.decode.DecodeError
+| BytesInvalid : String → ssz.decode.DecodeError
+| UnionSelectorInvalid : Std.U8 → ssz.decode.DecodeError
+| NoMatchingVariant : ssz.decode.DecodeError
+
 /-- Trait declaration: [ssz::decode::Decode]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/decode.rs', lines 100:0-100:23
     Name pattern: [ssz::decode::Decode]
@@ -76,6 +95,7 @@ structure smallvec.Array (Self : Type) (Self_Item : Type) where
 @[rust_trait "ssz::decode::Decode"]
 structure ssz.decode.Decode (Self : Type) where
   is_ssz_fixed_len : Result Bool
+  ssz_fixed_len : Result Std.Usize
   from_ssz_bytes : Slice Std.U8 → Result (core.result.Result Self
     ssz.decode.DecodeError)
 
@@ -212,7 +232,7 @@ structure builder.Builder (T : Type) where
   capacity : Std.Usize
 
 /-- Trait declaration: [milhouse::Value]
-    Source: 'src/lib.rs', lines 61:0-61:66
+    Source: 'src/lib.rs', lines 62:0-62:66
     Visibility: public -/
 structure Value (Self : Type) where
   sszencodeEncodeInst : ssz.encode.Encode Self
@@ -485,8 +505,21 @@ structure progressive_tree.ProgressiveTreeBuilder (T : Type) where
   count : Std.Usize
   length : Std.Usize
 
+/-- [milhouse::ssz_items::SszItems]
+    Source: 'src/ssz_items.rs', lines 9:0-21:1 -/
+@[discriminant isize]
+inductive ssz_items.SszItems where
+| Fixed : Slice Std.U8 → Std.Usize → ssz_items.SszItems
+| Variable :
+  Slice Std.U8 →
+  Std.Usize →
+  Std.Usize →
+  Std.Usize →
+  Std.Usize →
+  ssz_items.SszItems
+
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::closure]
-    Source: 'src/progressive_list.rs', lines 70:41-76:9 -/
+    Source: 'src/progressive_list.rs', lines 109:41-115:9 -/
 def progressive_list.ProgressiveList.get_mut.closure (T : Type) (U : Type) :=
   triomphe.arc.Arc (progressive_tree.ProgressiveTree T) × utils.Length
 
@@ -508,7 +541,7 @@ structure progressive_tree.ProgressiveTreeIter (T : Type) where
   yielded : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIter]
-    Source: 'src/progressive_list.rs', lines 447:0-452:1
+    Source: 'src/progressive_list.rs', lines 506:0-511:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T
@@ -517,12 +550,26 @@ structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   length : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIterCow]
-    Source: 'src/progressive_list.rs', lines 498:0-502:1
+    Source: 'src/progressive_list.rs', lines 557:0-561:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T
   updates : U
   index : Std.Usize
+
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure#1]
+    Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
+@[reducible]
+def progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1 (T : Type)
+  (U : Type) :=
+Unit
+
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure]
+    Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
+@[reducible]
+def progressive_list.DecodeProgressiveList.from_ssz_bytes.closure (T : Type) (U
+  : Type) :=
+Unit
 
 /-- [milhouse::tree::IntraRebaseAction]
     Source: 'src/tree.rs', lines 277:0-280:1

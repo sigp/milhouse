@@ -84,12 +84,6 @@ def core.mem.maybe_uninit.MaybeUninit (T : Type) : Type := T
 def smallvec.SmallVec (A : Type) (Clause0_Item : Type) : Type :=
   List Clause0_Item
 
-/-- [ssz::decode::DecodeError]
-    Only mentioned in the (opaque) `Decode` trait signature; never constructed
-    or inspected in the extracted subset. -/
-@[reducible, rust_type "ssz::decode::DecodeError"]
-def ssz.decode.DecodeError : Type := Unit
-
 /-- The pinned SSZ encoder's complete state. The borrowed output buffer is
     carried as a value; external-function continuations restore its owner. -/
 @[rust_type "ssz::encode::SszEncoder"]

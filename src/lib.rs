@@ -19,6 +19,7 @@ pub mod progressive_tree;
 mod proof_roots;
 mod repeat;
 pub mod serde;
+mod ssz_items;
 mod tests;
 pub mod tree;
 pub mod update_map;

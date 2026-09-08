@@ -37,3 +37,16 @@ pub fn progressive_list_as_ssz_bytes<T: Value, U: UpdateMap<T>>(
 ) -> Vec<u8> {
     ssz::Encode::as_ssz_bytes(list)
 }
+
+pub fn progressive_list_from_ssz_bytes<T: Value, U: UpdateMap<T>>(
+    bytes: &[u8],
+) -> Result<ProgressiveList<T, U>, ssz::DecodeError> {
+    ssz::Decode::from_ssz_bytes(bytes)
+}
+
+pub fn progressive_list_decode_metadata<T: Value, U: UpdateMap<T>>() -> (bool, usize) {
+    (
+        <ProgressiveList<T, U> as ssz::Decode>::is_ssz_fixed_len(),
+        <ProgressiveList<T, U> as ssz::Decode>::ssz_fixed_len(),
+    )
+}

@@ -40,6 +40,13 @@ axiom Pair.Insts.CoreHashHash.hash
   core.hash.Hash B) (HasherInst : core.hash.Hasher S) :
   (T × B) → S → Result S
 
+/-- [core::hint::must_use]:
+    Source: '/rustc/library/core/src/hint.rs', lines 613:0-613:39
+    Name pattern: [core::hint::must_use]
+    Visibility: public -/
+@[rust_fun "core::hint::must_use"]
+axiom core.hint.must_use {T : Type} : T → Result T
+
 /-- [core::iter::traits::iterator::Iterator::size_hint]:
     Source: '/rustc/library/core/src/iter/traits/iterator.rs', lines 189:4-189:49
     Name pattern: [core::iter::traits::iterator::Iterator::size_hint]
@@ -238,6 +245,16 @@ axiom
   core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
   (T : Type) : Option core.convert.Infallible → Result (Option T)
 
+/-- [core::result::{core::result::Result<T, E>}::map_err]:
+    Source: '/rustc/library/core/src/result.rs', lines 962:4-964:53
+    Name pattern: [core::result::{core::result::Result<@T, @E>}::map_err]
+    Visibility: public -/
+@[rust_fun "core::result::{core::result::Result<@T, @E>}::map_err"]
+axiom core.result.Result.map_err
+  {T : Type} {E : Type} {F : Type} {O : Type} (opsfunctionFnOnceOTupleEFInst :
+  core.ops.function.FnOnce O E F) :
+  core.result.Result T E → O → Result (core.result.Result T F)
+
 /-- [core::tuple::{impl core::cmp::PartialEq<(U, T)> for (U, T)}::ne]:
     Source: '/rustc/library/core/src/tuple.rs', lines 34:16-34:55
     Name pattern: [core::tuple::{core::cmp::PartialEq<(@U, @T), (@U, @T)>}::ne]
@@ -347,6 +364,13 @@ axiom alloc.collections.btree.map.BTreeMap.get
   core.clone.Clone A) (coreborrowBorrowInst : core.borrow.Borrow K Q)
   (corecmpOrdInst : core.cmp.Ord K) (corecmpOrdInst1 : core.cmp.Ord Q) :
   alloc.collections.btree.map.BTreeMap K V A → Q → Result (Option V)
+
+/-- [alloc::fmt::format]:
+    Source: '/rustc/library/alloc/src/fmt.rs', lines 649:0-649:52
+    Name pattern: [alloc::fmt::format]
+    Visibility: public -/
+@[rust_fun "alloc::fmt::format"]
+axiom alloc.fmt.format : core.fmt.Arguments → Result String
 
 /-- [alloc::vec::into_iter::{impl core::iter::traits::iterator::Iterator<T> for alloc::vec::into_iter::IntoIter<T, A>}::size_hint]:
     Source: '/rustc/library/alloc/src/vec/into_iter.rs', lines 273:4-273:49
@@ -649,6 +673,23 @@ axiom smallvec.SmallVec.pop
 @[rust_fun "smallvec::{smallvec::Array<[@T; @N], @T>}::size"]
 axiom Array.Insts.SmallvecArray.size
   (T : Type) (N : Std.Usize) : Result Std.Usize
+
+/-- [ssz::decode::Decode::ssz_fixed_len]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/decode.rs', lines 111:4-111:31
+    Name pattern: [ssz::decode::Decode::ssz_fixed_len]
+    Visibility: public -/
+@[trait_default, rust_fun "ssz::decode::Decode::ssz_fixed_len"]
+axiom ssz.decode.Decode.ssz_fixed_len.default
+  {Self : Type} (DecodeInst : ssz.decode.Decode Self) : Result Std.Usize
+
+/-- [ssz::decode::read_offset]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/decode.rs', lines 353:0-353:62
+    Name pattern: [ssz::decode::read_offset]
+    Visibility: public -/
+@[rust_fun "ssz::decode::read_offset"]
+axiom ssz.decode.read_offset
+  :
+  Slice Std.U8 → Result (core.result.Result Std.Usize ssz.decode.DecodeError)
 
 /-- [ssz::encode::Encode::ssz_fixed_len]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 26:4-26:31

@@ -121,6 +121,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --exclude 'milhouse::builder::{impl core::fmt::Debug for milhouse::builder::Builder<_>}' \
     --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \
+    --include 'ssz::decode::DecodeError' \
     --dest-file tree.llbc
 
 "$AENEAS" -backend lean -split-files -dest aeneas-lean/Tree tree.llbc
@@ -142,4 +143,10 @@ perl -0pi -e 's/impl_def (Pair\.Insts\.CoreCmpEq \{U : Type\} \{T : Type\}.*?ass
 # adding a native-decide axiom to callers. Supply a kernel-checked proof for
 # each emitted literal instead, preserving the same string and function body.
 perl -0pi -e 's/\btoStr(\s+"(?:[^"\\]|\\.)*")/toStr$1 (by rw [U32.max_eq]; cbv)/g' \
+    aeneas-lean/Tree/Funs.lean
+
+# Error strings are observable in DecodeError::BytesInvalid. Preserve the
+# actual derived formatter with local models instead of erasing Arguments to
+# Unit. The currently reached fragment uses only default formatting options.
+perl -0pi -e 's/\bcore\.fmt\./milhouse_fmt./g' \
     aeneas-lean/Tree/Funs.lean

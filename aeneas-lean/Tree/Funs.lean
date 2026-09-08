@@ -296,7 +296,7 @@ def utils.opt_packing_depth
       Std.Usize residual
 
 /-- [milhouse::MAX_TREE_DEPTH]
-    Source: 'src/lib.rs', lines 50:0-50:57
+    Source: 'src/lib.rs', lines 51:0-51:57
     Visibility: public -/
 @[global_simps, irreducible]
 def MAX_TREE_DEPTH : Result Std.Usize := do
@@ -1217,6 +1217,116 @@ def cow.Cow.with_max_index
           | _ => (vc, max_index)
         (cow.Cow.Vec vc1 com, max_index1)
     ok (cow.Cow.Vec vc { max_index := (some (max_index, index)) }, back)
+
+/-- [milhouse::error::{impl core::fmt::Debug for milhouse::error::Error}::fmt]:
+    Source: 'src/error.rs', lines 3:9-3:14
+    Visibility: public -/
+def error.Error.Insts.CoreFmtDebug.fmt
+  (self : error.Error) (f : milhouse_fmt.Formatter) :
+  Result ((core.result.Result Unit milhouse_fmt.Error) × milhouse_fmt.Formatter)
+  := do
+  match self with
+  | error.Error.OutOfBoundsUpdate __self_0 __self_1 =>
+    let __self_01 := Dyn.mk _ milhouse_fmt.DebugUsize __self_0
+    let __self_11 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_1
+    milhouse_fmt.Formatter.debug_struct_field2_finish f (toStr "OutOfBoundsUpdate" (by rw [U32.max_eq]; cbv))
+      (toStr "index" (by rw [U32.max_eq]; cbv)) __self_01 (toStr "len" (by rw [U32.max_eq]; cbv)) __self_11
+  | error.Error.OutOfBoundsIterFrom __self_0 __self_1 =>
+    let __self_01 := Dyn.mk _ milhouse_fmt.DebugUsize __self_0
+    let __self_11 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_1
+    milhouse_fmt.Formatter.debug_struct_field2_finish f (toStr
+      "OutOfBoundsIterFrom" (by rw [U32.max_eq]; cbv)) (toStr "index" (by rw [U32.max_eq]; cbv)) __self_01 (toStr "len" (by rw [U32.max_eq]; cbv)) __self_11
+  | error.Error.ListFull __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_0
+    milhouse_fmt.Formatter.debug_struct_field1_finish f (toStr "ListFull" (by rw [U32.max_eq]; cbv)) (toStr
+      "len" (by rw [U32.max_eq]; cbv)) __self_01
+  | error.Error.PackedLeafFull __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_0
+    milhouse_fmt.Formatter.debug_struct_field1_finish f (toStr "PackedLeafFull" (by rw [U32.max_eq]; cbv))
+      (toStr "len" (by rw [U32.max_eq]; cbv)) __self_01
+  | error.Error.LeafUpdateMissing __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_0
+    milhouse_fmt.Formatter.debug_struct_field1_finish f (toStr "LeafUpdateMissing" (by rw [U32.max_eq]; cbv))
+      (toStr "index" (by rw [U32.max_eq]; cbv)) __self_01
+  | error.Error.PackedLeafOutOfBounds __self_0 __self_1 =>
+    let __self_01 := Dyn.mk _ milhouse_fmt.DebugUsize __self_0
+    let __self_11 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_1
+    milhouse_fmt.Formatter.debug_struct_field2_finish f (toStr
+      "PackedLeafOutOfBounds" (by rw [U32.max_eq]; cbv)) (toStr "sub_index" (by rw [U32.max_eq]; cbv)) __self_01 (toStr "len" (by rw [U32.max_eq]; cbv))
+      __self_11
+  | error.Error.NodeUpdatesMissing __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_0
+    milhouse_fmt.Formatter.debug_struct_field1_finish f (toStr
+      "NodeUpdatesMissing" (by rw [U32.max_eq]; cbv)) (toStr "prefix" (by rw [U32.max_eq]; cbv)) __self_01
+  | error.Error.InvalidListUpdate =>
+    milhouse_fmt.Formatter.write_str f (toStr "InvalidListUpdate" (by rw [U32.max_eq]; cbv))
+  | error.Error.InvalidVectorUpdate =>
+    milhouse_fmt.Formatter.write_str f (toStr "InvalidVectorUpdate" (by rw [U32.max_eq]; cbv))
+  | error.Error.WrongVectorLength __self_0 __self_1 =>
+    let __self_01 := Dyn.mk _ milhouse_fmt.DebugUsize __self_0
+    let __self_11 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_1
+    milhouse_fmt.Formatter.debug_struct_field2_finish f (toStr "WrongVectorLength" (by rw [U32.max_eq]; cbv))
+      (toStr "len" (by rw [U32.max_eq]; cbv)) __self_01 (toStr "expected" (by rw [U32.max_eq]; cbv)) __self_11
+  | error.Error.PushNotSupported =>
+    milhouse_fmt.Formatter.write_str f (toStr "PushNotSupported" (by rw [U32.max_eq]; cbv))
+  | error.Error.UpdateLeafError =>
+    milhouse_fmt.Formatter.write_str f (toStr "UpdateLeafError" (by rw [U32.max_eq]; cbv))
+  | error.Error.UpdateLeavesError =>
+    milhouse_fmt.Formatter.write_str f (toStr "UpdateLeavesError" (by rw [U32.max_eq]; cbv))
+  | error.Error.InvalidRebaseNode =>
+    milhouse_fmt.Formatter.write_str f (toStr "InvalidRebaseNode" (by rw [U32.max_eq]; cbv))
+  | error.Error.InvalidRebaseLeaf =>
+    milhouse_fmt.Formatter.write_str f (toStr "InvalidRebaseLeaf" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderInvalidDepth __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (milhouse_fmt.DebugShared milhouse_fmt.DebugUsize) __self_0
+    milhouse_fmt.Formatter.debug_struct_field1_finish f (toStr
+      "BuilderInvalidDepth" (by rw [U32.max_eq]; cbv)) (toStr "depth" (by rw [U32.max_eq]; cbv)) __self_01
+  | error.Error.BuilderExpectedLeaf =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderExpectedLeaf" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackEmptyMerge =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackEmptyMerge" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackEmptyMergeLeft =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackEmptyMergeLeft" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackEmptyMergeRight =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackEmptyMergeRight" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackEmptyFinish =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackEmptyFinish" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackEmptyFinishLeft =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackEmptyFinishLeft" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackEmptyFinishRight =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackEmptyFinishRight" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackEmptyFinalize =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackEmptyFinalize" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderStackLeftover =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderStackLeftover" (by rw [U32.max_eq]; cbv))
+  | error.Error.BuilderFull =>
+    milhouse_fmt.Formatter.write_str f (toStr "BuilderFull" (by rw [U32.max_eq]; cbv))
+  | error.Error.CowMissingEntry =>
+    milhouse_fmt.Formatter.write_str f (toStr "CowMissingEntry" (by rw [U32.max_eq]; cbv))
+  | error.Error.LevelIterPendingUpdates =>
+    milhouse_fmt.Formatter.write_str f (toStr "LevelIterPendingUpdates" (by rw [U32.max_eq]; cbv))
+  | error.Error.IntraRebaseZeroHash =>
+    milhouse_fmt.Formatter.write_str f (toStr "IntraRebaseZeroHash" (by rw [U32.max_eq]; cbv))
+  | error.Error.IntraRebaseZeroDepth =>
+    milhouse_fmt.Formatter.write_str f (toStr "IntraRebaseZeroDepth" (by rw [U32.max_eq]; cbv))
+  | error.Error.IntraRebaseRepeatVisit =>
+    milhouse_fmt.Formatter.write_str f (toStr "IntraRebaseRepeatVisit" (by rw [U32.max_eq]; cbv))
+
+/-- Trait implementation: [milhouse::error::{impl core::fmt::Debug for milhouse::error::Error}]
+    Source: 'src/error.rs', lines 3:9-3:14 -/
+@[reducible]
+def error.Error.Insts.CoreFmtDebug : milhouse_fmt.Debug error.Error := {
+  fmt := error.Error.Insts.CoreFmtDebug.fmt
+}
 
 /-- [milhouse::interface::ImmList::is_empty]:
     Source: 'src/interface.rs', lines 18:4-20:5
@@ -5444,7 +5554,7 @@ def progressive_list.ProgressiveList.try_from_iter
       error.Error) residual
 
 /-- [milhouse::progressive_list::{impl core::convert::TryFrom<alloc::vec::Vec<T>, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from]:
-    Source: 'src/progressive_list.rs', lines 262:4-264:5
+    Source: 'src/progressive_list.rs', lines 301:4-303:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5467,8 +5577,178 @@ def progressive_list.ProgressiveList.new
   progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
     ValueInst update_mapUpdateMapInst vec
 
+/-- [milhouse::ssz_items::{milhouse::ssz_items::SszItems<'a>}::variable_item]:
+    Source: 'src/ssz_items.rs', lines 78:4-104:5 -/
+def ssz_items.SszItems.variable_item
+  (bytes : Slice Std.U8) (first_offset : Std.Usize) (num_items : Std.Usize)
+  (index : Std.Usize) (offset : Std.Usize) :
+  Result ((core.result.Result (Slice Std.U8) ssz.decode.DecodeError) ×
+    Std.Usize)
+  := do
+  if index = num_items
+  then
+    let item ←
+      core.slice.Slice.get (core.slice.index.SliceIndexRangeFromUsizeSlice
+        Std.U8) bytes { start := offset }
+    let r ←
+      core.option.Option.ok_or item (ssz.decode.DecodeError.OutOfBoundsByte
+        offset)
+    ok (r, offset)
+  else
+    let i ← ssz.BYTES_PER_LENGTH_OFFSET
+    let i1 ← index * i
+    let s ←
+      core.slice.index.Slice.index
+        (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) bytes
+        { start := i1 }
+    let r ← ssz.decode.read_offset s
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      if val < first_offset
+      then
+        ok (core.result.Result.Err
+          (ssz.decode.DecodeError.OffsetIntoFixedPortion val), offset)
+      else
+        let i2 := Slice.len bytes
+        if val > i2
+        then
+          ok (core.result.Result.Err (ssz.decode.DecodeError.OffsetOutOfBounds
+            val), offset)
+        else
+          if offset > val
+          then
+            ok (core.result.Result.Err
+              (ssz.decode.DecodeError.OffsetsAreDecreasing val), offset)
+          else
+            let item ←
+              core.slice.Slice.get (core.slice.index.SliceIndexRangeUsizeSlice
+                Std.U8) bytes { start := offset, «end» := val }
+            let r1 ←
+              core.option.Option.ok_or item
+                (ssz.decode.DecodeError.OutOfBoundsByte val)
+            ok (r1, val)
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          (Slice Std.U8) (core.convert.FromSame ssz.decode.DecodeError)
+          residual
+      ok (r1, offset)
+
+/-- [milhouse::ssz_items::{milhouse::ssz_items::SszItems<'a>}::next]:
+    Source: 'src/ssz_items.rs', lines 43:4-76:5 -/
+def ssz_items.SszItems.next
+  (self : ssz_items.SszItems) :
+  Result ((Option (core.result.Result (Slice Std.U8) ssz.decode.DecodeError))
+    × ssz_items.SszItems)
+  := do
+  match self with
+  | ssz_items.SszItems.Fixed remaining width =>
+    let b ← core.slice.Slice.is_empty remaining
+    if b
+    then ok (none, self)
+    else
+      let i := Slice.len remaining
+      let end1 ← core.cmp.min core.cmp.OrdUsize width i
+      let (item, rest) ← core.slice.Slice.split_at remaining end1
+      ok (some (core.result.Result.Ok item), ssz_items.SszItems.Fixed rest
+        width)
+  | ssz_items.SszItems.Variable bytes first_offset num_items index offset =>
+    if index > num_items
+    then ok (none, self)
+    else
+      let index1 ← index + 1#usize
+      let (r, offset1) ←
+        ssz_items.SszItems.variable_item bytes first_offset num_items index
+          offset
+      ok (some r, ssz_items.SszItems.Variable bytes first_offset num_items
+        index1 offset1)
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::decode_ssz_items]: loop body 0:
+    Source: 'src/progressive_list.rs', lines 59:8-85:5 -/
+@[rust_loop_body]
+def progressive_list.ProgressiveList.decode_ssz_items_loop.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (items : ssz_items.SszItems)
+  (builder : progressive_tree.ProgressiveTreeBuilder T) :
+  Result (ControlFlow (ssz_items.SszItems ×
+    (progressive_tree.ProgressiveTreeBuilder T)) ((core.result.Result
+    (progressive_list.ProgressiveList T U) error.Error) × (Option
+    ssz.decode.DecodeError)))
+  := do
+  let (o, items1) ← ssz_items.SszItems.next items
+  match o with
+  | none =>
+    let r ← progressive_tree.ProgressiveTreeBuilder.finish ValueInst builder
+    match r with
+    | core.result.Result.Ok p =>
+      let (tree, length) := p
+      let a ← triomphe.arc.Arc.new tree
+      let t ← update_mapUpdateMapInst.coredefaultDefaultInst.default
+      ok (done (core.result.Result.Ok
+        { tree := a, length := length, updates := t }, none))
+    | core.result.Result.Err error =>
+      ok (done (core.result.Result.Err error, none))
+  | some item =>
+    let decoded ←
+      match item with
+      | core.result.Result.Ok bytes =>
+        ValueInst.sszdecodeDecodeInst.from_ssz_bytes bytes
+      | core.result.Result.Err error => ok (core.result.Result.Err error)
+    match decoded with
+    | core.result.Result.Ok value =>
+      let (r, builder1) ←
+        progressive_tree.ProgressiveTreeBuilder.push ValueInst builder value
+      match r with
+      | core.result.Result.Ok _ => ok (cont (items1, builder1))
+      | core.result.Result.Err error =>
+        ok (done (core.result.Result.Err error, none))
+    | core.result.Result.Err error =>
+      let r ←
+        progressive_tree.ProgressiveTreeBuilder.finish ValueInst builder
+      match r with
+      | core.result.Result.Ok p =>
+        let (tree, length) := p
+        let a ← triomphe.arc.Arc.new tree
+        let t ← update_mapUpdateMapInst.coredefaultDefaultInst.default
+        ok (done (core.result.Result.Ok
+          { tree := a, length := length, updates := t }, some error))
+      | core.result.Result.Err error1 =>
+        ok (done (core.result.Result.Err error1, some error))
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::decode_ssz_items]: loop 0:
+    Source: 'src/progressive_list.rs', lines 59:8-85:5 -/
+@[rust_loop]
+def progressive_list.ProgressiveList.decode_ssz_items_loop
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (items : ssz_items.SszItems)
+  (builder : progressive_tree.ProgressiveTreeBuilder T) :
+  Result ((core.result.Result (progressive_list.ProgressiveList T U)
+    error.Error) × (Option ssz.decode.DecodeError))
+  := do
+  loop
+    (fun (items1, builder1) =>
+      progressive_list.ProgressiveList.decode_ssz_items_loop.body ValueInst
+      update_mapUpdateMapInst items1 builder1)
+    (items, builder)
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::decode_ssz_items]:
+    Source: 'src/progressive_list.rs', lines 51:4-85:5 -/
+def progressive_list.ProgressiveList.decode_ssz_items
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (items : ssz_items.SszItems) :
+  Result ((core.result.Result (progressive_list.ProgressiveList T U)
+    error.Error) × (Option ssz.decode.DecodeError))
+  := do
+  let r ← progressive_tree.ProgressiveTreeBuilder.new ValueInst
+  match r with
+  | core.result.Result.Ok builder =>
+    progressive_list.ProgressiveList.decode_ssz_items_loop ValueInst
+      update_mapUpdateMapInst items builder
+  | core.result.Result.Err error => ok (core.result.Result.Err error, none)
+
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::backing_len]:
-    Source: 'src/progressive_list.rs', lines 49:4-51:5 -/
+    Source: 'src/progressive_list.rs', lines 88:4-90:5 -/
 def progressive_list.ProgressiveList.backing_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
@@ -5531,7 +5811,7 @@ def progressive_tree.ProgressiveTree.get_recursive
 partial_fixpoint
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::backing_get]:
-    Source: 'src/progressive_list.rs', lines 54:4-60:5 -/
+    Source: 'src/progressive_list.rs', lines 93:4-99:5 -/
 def progressive_list.ProgressiveList.backing_get
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
@@ -5548,7 +5828,7 @@ def progressive_list.ProgressiveList.backing_get
   else ok none
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get]:
-    Source: 'src/progressive_list.rs', lines 62:4-67:5
+    Source: 'src/progressive_list.rs', lines 101:4-106:5
     Visibility: public -/
 def progressive_list.ProgressiveList.get
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5564,7 +5844,7 @@ def progressive_list.ProgressiveList.get
   | some _ => ok o
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}::call_once]:
-    Source: 'src/progressive_list.rs', lines 70:41-76:9 -/
+    Source: 'src/progressive_list.rs', lines 109:41-115:9 -/
 def
   progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5585,7 +5865,7 @@ def
   else ok none
 
 /-- Trait implementation: [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}]
-    Source: 'src/progressive_list.rs', lines 70:41-76:9 -/
+    Source: 'src/progressive_list.rs', lines 109:41-115:9 -/
 @[reducible]
 def
   progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
@@ -5599,7 +5879,7 @@ def
 }
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut]:
-    Source: 'src/progressive_list.rs', lines 69:4-77:5
+    Source: 'src/progressive_list.rs', lines 108:4-116:5
     Visibility: public -/
 def progressive_list.ProgressiveList.get_mut
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5618,7 +5898,7 @@ def progressive_list.ProgressiveList.get_mut
   ok (o, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_cow]:
-    Source: 'src/progressive_list.rs', lines 79:4-91:5
+    Source: 'src/progressive_list.rs', lines 118:4-130:5
     Visibility: public -/
 def progressive_list.ProgressiveList.get_cow
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5656,7 +5936,7 @@ def progressive_list.ProgressiveList.get_cow
     ok (o1, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 103:4-105:5
+    Source: 'src/progressive_list.rs', lines 142:4-144:5
     Visibility: public -/
 def progressive_list.ProgressiveList.len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5668,7 +5948,7 @@ def progressive_list.ProgressiveList.len
   utils.Length.as_usize l
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::push]:
-    Source: 'src/progressive_list.rs', lines 93:4-101:5
+    Source: 'src/progressive_list.rs', lines 132:4-140:5
     Visibility: public -/
 def progressive_list.ProgressiveList.push
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5686,7 +5966,7 @@ def progressive_list.ProgressiveList.push
     ok (core.result.Result.Ok (), { self with updates := t })
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::is_empty]:
-    Source: 'src/progressive_list.rs', lines 107:4-109:5
+    Source: 'src/progressive_list.rs', lines 146:4-148:5
     Visibility: public -/
 def progressive_list.ProgressiveList.is_empty
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5698,7 +5978,7 @@ def progressive_list.ProgressiveList.is_empty
   ok (i = 0#usize)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::has_pending_updates]:
-    Source: 'src/progressive_list.rs', lines 111:4-113:5
+    Source: 'src/progressive_list.rs', lines 150:4-152:5
     Visibility: public -/
 def progressive_list.ProgressiveList.has_pending_updates
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5921,7 +6201,7 @@ def progressive_tree.ProgressiveTree.with_updated_leaves
     update_mapUpdateMapInst self updates o 0#u32
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::apply_updates]:
-    Source: 'src/progressive_list.rs', lines 116:4-137:5
+    Source: 'src/progressive_list.rs', lines 155:4-176:5
     Visibility: public -/
 def progressive_list.ProgressiveList.apply_updates
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6082,7 +6362,7 @@ def progressive_tree.ProgressiveTree.iter_from
   progressive_tree.ProgressiveTreeIter.from_index ValueInst self index length
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_from_unchecked]:
-    Source: 'src/progressive_list.rs', lines 154:4-166:5 -/
+    Source: 'src/progressive_list.rs', lines 193:4-205:5 -/
 def progressive_list.ProgressiveList.iter_from_unchecked
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
@@ -6101,7 +6381,7 @@ def progressive_list.ProgressiveList.iter_from_unchecked
   ok { tree_iter, updates := self.updates, index, length := i1 }
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter]:
-    Source: 'src/progressive_list.rs', lines 139:4-141:5
+    Source: 'src/progressive_list.rs', lines 178:4-180:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6112,7 +6392,7 @@ def progressive_list.ProgressiveList.iter
     update_mapUpdateMapInst self 0#usize
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_from]:
-    Source: 'src/progressive_list.rs', lines 143:4-152:5
+    Source: 'src/progressive_list.rs', lines 182:4-191:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6132,7 +6412,7 @@ def progressive_list.ProgressiveList.iter_from
     ok (core.result.Result.Ok pli)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_cow_from_unchecked]:
-    Source: 'src/progressive_list.rs', lines 185:4-194:5 -/
+    Source: 'src/progressive_list.rs', lines 224:4-233:5 -/
 def progressive_list.ProgressiveList.iter_cow_from_unchecked
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
@@ -6152,7 +6432,7 @@ def progressive_list.ProgressiveList.iter_cow_from_unchecked
   ok ({ tree_iter, updates := self.updates, index }, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_cow]:
-    Source: 'src/progressive_list.rs', lines 168:4-170:5
+    Source: 'src/progressive_list.rs', lines 207:4-209:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter_cow
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6181,7 +6461,7 @@ def progressive_list.ProgressiveList.iter_cow
   ok (plic, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_cow_from]:
-    Source: 'src/progressive_list.rs', lines 172:4-183:5
+    Source: 'src/progressive_list.rs', lines 211:4-222:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter_cow_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6227,7 +6507,7 @@ def progressive_list.ProgressiveList.iter_cow_from
     ok (core.result.Result.Ok plic, back)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::size_hint]:
-    Source: 'src/progressive_list.rs', lines 483:4-486:5
+    Source: 'src/progressive_list.rs', lines 542:4-545:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
@@ -6239,7 +6519,7 @@ def
   ok (remaining, some remaining)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::exact_size::ExactSizeIterator<&'_ T> for milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 492:4-494:5
+    Source: 'src/progressive_list.rs', lines 551:4-553:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
@@ -6356,7 +6636,7 @@ def
   ok (value, self1)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::next]:
-    Source: 'src/progressive_list.rs', lines 468:4-481:5
+    Source: 'src/progressive_list.rs', lines 527:4-540:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6376,7 +6656,7 @@ def
     ok (o1, { self with tree_iter := pti, index := i })
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::collect::IntoIterator<&'a T, milhouse::progressive_list::ProgressiveListIter<'a, T, U>> for &'a milhouse::progressive_list::ProgressiveList<T, U>}::into_iter]:
-    Source: 'src/progressive_list.rs', lines 277:4-279:5
+    Source: 'src/progressive_list.rs', lines 316:4-318:5
     Visibility: public -/
 def
   SharedAProgressiveList.Insts.CoreIterTraitsCollectIntoIteratorSharedATProgressiveListIter.into_iter
@@ -6387,7 +6667,7 @@ def
   progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst self
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 199:8-201:9
+    Source: 'src/progressive_list.rs', lines 238:8-240:9
     Visibility: public -/
 @[rust_loop_body]
 def progressive_list.ProgressiveList.to_vec_loop.body
@@ -6408,7 +6688,7 @@ def progressive_list.ProgressiveList.to_vec_loop.body
     ok (cont (iter1, values1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]: loop 0:
-    Source: 'src/progressive_list.rs', lines 199:8-201:9
+    Source: 'src/progressive_list.rs', lines 238:8-240:9
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.to_vec_loop
@@ -6423,7 +6703,7 @@ def progressive_list.ProgressiveList.to_vec_loop
     (iter, values)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]:
-    Source: 'src/progressive_list.rs', lines 196:4-203:5
+    Source: 'src/progressive_list.rs', lines 235:4-242:5
     Visibility: public -/
 def progressive_list.ProgressiveList.to_vec
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6441,7 +6721,7 @@ def progressive_list.ProgressiveList.to_vec
     update_mapUpdateMapInst iter values
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 458:8-462:5 -/
+    Source: 'src/progressive_list.rs', lines 517:8-521:5 -/
 @[rust_loop_body]
 def progressive_list.ProgressiveListIter.extend_builder_loop.body
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6471,7 +6751,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop.body
       ok (done (r1, builder1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop 0:
-    Source: 'src/progressive_list.rs', lines 458:8-462:5 -/
+    Source: 'src/progressive_list.rs', lines 517:8-521:5 -/
 @[rust_loop]
 def progressive_list.ProgressiveListIter.extend_builder_loop
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6487,7 +6767,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop
     (self, builder)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]:
-    Source: 'src/progressive_list.rs', lines 457:4-462:5 -/
+    Source: 'src/progressive_list.rs', lines 516:4-521:5 -/
 @[reducible]
 def progressive_list.ProgressiveListIter.extend_builder
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6500,7 +6780,7 @@ def progressive_list.ProgressiveListIter.extend_builder
     update_mapUpdateMapInst self builder
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::pop_front]:
-    Source: 'src/progressive_list.rs', lines 208:4-233:5
+    Source: 'src/progressive_list.rs', lines 247:4-272:5
     Visibility: public -/
 def progressive_list.ProgressiveList.pop_front
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6706,7 +6986,7 @@ def progressive_tree.ProgressiveTree.rebase_on
     orig_length base_length 0#u32
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::rebase_on]:
-    Source: 'src/progressive_list.rs', lines 247:4-256:5
+    Source: 'src/progressive_list.rs', lines 286:4-295:5
     Visibility: public -/
 def progressive_list.ProgressiveList.rebase_on
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6731,7 +7011,7 @@ def progressive_list.ProgressiveList.rebase_on
     ok (r1, self)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::rebase]:
-    Source: 'src/progressive_list.rs', lines 237:4-241:5
+    Source: 'src/progressive_list.rs', lines 276:4-280:5
     Visibility: public -/
 def progressive_list.ProgressiveList.rebase
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6757,7 +7037,7 @@ def progressive_list.ProgressiveList.rebase
       error.Error) residual
 
 /-- [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}::default]:
-    Source: 'src/progressive_list.rs', lines 268:4-270:5
+    Source: 'src/progressive_list.rs', lines 307:4-309:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6767,7 +7047,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   progressive_list.ProgressiveList.empty ValueInst update_mapUpdateMapInst
 
 /-- Trait implementation: [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}]
-    Source: 'src/progressive_list.rs', lines 267:0-271:1 -/
+    Source: 'src/progressive_list.rs', lines 306:0-310:1 -/
 @[reducible]
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
   Type} (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U
@@ -6777,7 +7057,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
 }
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::is_ssz_fixed_len]:
-    Source: 'src/progressive_list.rs', lines 319:4-321:5
+    Source: 'src/progressive_list.rs', lines 358:4-360:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.is_ssz_fixed_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6787,7 +7067,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.is_ssz_fixed_len
   ok false
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_fixed_len]:
-    Source: 'src/progressive_list.rs', lines 325:4-327:5
+    Source: 'src/progressive_list.rs', lines 364:4-366:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_fixed_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6797,7 +7077,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_fixed_len
   ssz.BYTES_PER_LENGTH_OFFSET
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 335:12-337:13
+    Source: 'src/progressive_list.rs', lines 374:12-376:13
     Visibility: public -/
 @[rust_loop_body]
 def
@@ -6819,7 +7099,7 @@ def
     ok (cont (iter1, len1))
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]: loop 0:
-    Source: 'src/progressive_list.rs', lines 335:12-337:13
+    Source: 'src/progressive_list.rs', lines 374:12-376:13
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
@@ -6835,7 +7115,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
     (iter, len)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]:
-    Source: 'src/progressive_list.rs', lines 329:4-341:5
+    Source: 'src/progressive_list.rs', lines 368:4-380:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6865,7 +7145,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len
     len + i2
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 348:12-350:13
+    Source: 'src/progressive_list.rs', lines 387:12-389:13
     Visibility: public -/
 @[rust_loop_body]
 def
@@ -6886,7 +7166,7 @@ def
     ok (cont (buf1, iter1))
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop 0:
-    Source: 'src/progressive_list.rs', lines 348:12-350:13
+    Source: 'src/progressive_list.rs', lines 387:12-389:13
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0
@@ -6902,7 +7182,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0
     (buf, iter)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop body 1:
-    Source: 'src/progressive_list.rs', lines 355:12-357:13
+    Source: 'src/progressive_list.rs', lines 394:12-396:13
     Visibility: public -/
 @[rust_loop_body]
 def
@@ -6929,7 +7209,7 @@ def
                         back se1, encoder1, iter1))
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop 1:
-    Source: 'src/progressive_list.rs', lines 355:12-357:13
+    Source: 'src/progressive_list.rs', lines 394:12-396:13
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1
@@ -6948,7 +7228,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1
     (back, encoder, iter)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]:
-    Source: 'src/progressive_list.rs', lines 343:4-361:5
+    Source: 'src/progressive_list.rs', lines 382:4-400:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6991,7 +7271,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append
     ok (container_back se)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::as_ssz_bytes]:
-    Source: 'src/progressive_list.rs', lines 365:4-369:5
+    Source: 'src/progressive_list.rs', lines 404:4-408:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7002,7 +7282,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes
     update_mapUpdateMapInst self (alloc.vec.Vec.new Std.U8)
 
 /-- [milhouse::progressive_list::{impl ssz::decode::try_from_iter::TryFromIter<T, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
-    Source: 'src/progressive_list.rs', lines 379:4-384:5
+    Source: 'src/progressive_list.rs', lines 418:4-423:5
     Visibility: public -/
 def
   progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter
@@ -7015,6 +7295,191 @@ def
   := do
   progressive_list.ProgressiveList.try_from_iter ValueInst
     update_mapUpdateMapInst coreitertraitscollectIntoIteratorInst iter
+
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::is_ssz_fixed_len]:
+    Source: 'src/progressive_list.rs', lines 431:4-433:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszDecodeDecode.is_ssz_fixed_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result Bool
+  := do
+  ok false
+
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_fixed_len]:
+    Source: 'src/progressive_list.rs', lines 436:4-438:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszDecodeDecode.ssz_fixed_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result Std.Usize
+  := do
+  ssz.BYTES_PER_LENGTH_OFFSET
+
+/-- [milhouse::ssz_items::{milhouse::ssz_items::SszItems<'a>}::variable]:
+    Source: 'src/ssz_items.rs', lines 25:4-41:5 -/
+def ssz_items.SszItems.variable
+  (bytes : Slice Std.U8) :
+  Result (core.result.Result ssz_items.SszItems ssz.decode.DecodeError)
+  := do
+  let r ← ssz.decode.read_offset bytes
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue val =>
+    let i := Slice.len bytes
+    if val > i
+    then
+      ok (core.result.Result.Err (ssz.decode.DecodeError.OffsetOutOfBounds
+        val))
+    else
+      let i1 ← ssz.BYTES_PER_LENGTH_OFFSET
+      let i2 ← val % i1
+      if i2 != 0#usize
+      then
+        ok (core.result.Result.Err
+          (ssz.decode.DecodeError.InvalidListFixedBytesLen val))
+      else
+        if val < i1
+        then
+          ok (core.result.Result.Err
+            (ssz.decode.DecodeError.InvalidListFixedBytesLen val))
+        else
+          let i3 ← val / i1
+          ok (core.result.Result.Ok (ssz_items.SszItems.Variable bytes val i3
+            1#usize val))
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      ssz_items.SszItems (core.convert.FromSame ssz.decode.DecodeError)
+      residual
+
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure#1<T, U>}::call_once]:
+    Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
+def
+  progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T)
+  (c : progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1 T U)
+  (tupled_args : error.Error) :
+  Result ssz.decode.DecodeError
+  := do
+  let a ←
+    milhouse_fmt.rt.Argument.new_debug error.Error.Insts.CoreFmtDebug tupled_args
+  let a1 ←
+    milhouse_fmt.Arguments.new
+      (Array.make 36#usize [
+        33#u8, 69#u8, 114#u8, 114#u8, 111#u8, 114#u8, 32#u8, 99#u8, 111#u8,
+        108#u8, 108#u8, 101#u8, 99#u8, 116#u8, 105#u8, 110#u8, 103#u8, 32#u8,
+        105#u8, 110#u8, 116#u8, 111#u8, 32#u8, 99#u8, 111#u8, 110#u8, 116#u8,
+        97#u8, 105#u8, 110#u8, 101#u8, 114#u8, 58#u8, 32#u8, 192#u8, 0#u8
+        ]) (Array.make 1#usize [ a ])
+  let s ← alloc.fmt.format a1
+  let s1 ← core.hint.must_use s
+  ok (ssz.decode.DecodeError.BytesInvalid s1)
+
+/-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure#1<T, U>}]
+    Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
+@[reducible]
+def
+  progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) : core.ops.function.FnOnce
+  (progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1 T U)
+  error.Error ssz.decode.DecodeError := {
+  call_once :=
+    progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
+    ValueInst update_mapUpdateMapInst
+}
+
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure<T, U>}::call_once]:
+    Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
+def
+  progressive_list.DecodeProgressiveList.from_ssz_bytes.closure.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T)
+  (c : progressive_list.DecodeProgressiveList.from_ssz_bytes.closure T U)
+  (tupled_args : error.Error) :
+  Result ssz.decode.DecodeError
+  := do
+  let a ←
+    milhouse_fmt.rt.Argument.new_debug error.Error.Insts.CoreFmtDebug tupled_args
+  let a1 ←
+    milhouse_fmt.Arguments.new
+      (Array.make 39#usize [
+        36#u8, 69#u8, 114#u8, 114#u8, 111#u8, 114#u8, 32#u8, 98#u8, 117#u8,
+        105#u8, 108#u8, 100#u8, 105#u8, 110#u8, 103#u8, 32#u8, 115#u8, 115#u8,
+        122#u8, 32#u8, 80#u8, 114#u8, 111#u8, 103#u8, 114#u8, 101#u8, 115#u8,
+        115#u8, 105#u8, 118#u8, 101#u8, 76#u8, 105#u8, 115#u8, 116#u8, 58#u8,
+        32#u8, 192#u8, 0#u8
+        ]) (Array.make 1#usize [ a ])
+  let s ← alloc.fmt.format a1
+  let s1 ← core.hint.must_use s
+  ok (ssz.decode.DecodeError.BytesInvalid s1)
+
+/-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure<T, U>}]
+    Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
+@[reducible]
+def
+  progressive_list.DecodeProgressiveList.from_ssz_bytes.closure.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) : core.ops.function.FnOnce
+  (progressive_list.DecodeProgressiveList.from_ssz_bytes.closure T U)
+  error.Error ssz.decode.DecodeError := {
+  call_once :=
+    progressive_list.DecodeProgressiveList.from_ssz_bytes.closure.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
+    ValueInst update_mapUpdateMapInst
+}
+
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes]:
+    Source: 'src/progressive_list.rs', lines 440:4-474:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (bytes : Slice Std.U8) :
+  Result (core.result.Result (progressive_list.ProgressiveList T U)
+    ssz.decode.DecodeError)
+  := do
+  let b ← core.slice.Slice.is_empty bytes
+  if b
+  then
+    let pl ←
+      progressive_list.ProgressiveList.empty ValueInst update_mapUpdateMapInst
+    ok (core.result.Result.Ok pl)
+  else
+    let b1 ← ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len
+    if b1
+    then
+      let fixed_len ← ValueInst.sszdecodeDecodeInst.ssz_fixed_len
+      if fixed_len = 0#usize
+      then ok (core.result.Result.Err ssz.decode.DecodeError.ZeroLengthItem)
+      else
+        let (built, decode_error) ←
+          progressive_list.ProgressiveList.decode_ssz_items ValueInst
+            update_mapUpdateMapInst (ssz_items.SszItems.Fixed bytes fixed_len)
+        let built1 ←
+          core.result.Result.map_err
+            (progressive_list.DecodeProgressiveList.from_ssz_bytes.closure.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError
+            ValueInst update_mapUpdateMapInst) built ()
+        match decode_error with
+        | none => ok built1
+        | some error => ok (core.result.Result.Err error)
+    else
+      let r ← ssz_items.SszItems.variable bytes
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        let (built, decode_error) ←
+          progressive_list.ProgressiveList.decode_ssz_items ValueInst
+            update_mapUpdateMapInst val
+        match decode_error with
+        | none =>
+          core.result.Result.map_err
+            (progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError
+            ValueInst update_mapUpdateMapInst) built ()
+        | some error => ok (core.result.Result.Err error)
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          (progressive_list.ProgressiveList T U) (core.convert.FromSame
+          ssz.decode.DecodeError) residual
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::build_from_iter]:
     Source: 'src/progressive_tree.rs', lines 109:4-111:5
@@ -7101,6 +7566,34 @@ def proof_roots.progressive_list_as_ssz_bytes
   := do
   progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes ValueInst
     update_mapUpdateMapInst list
+
+/-- [milhouse::proof_roots::progressive_list_from_ssz_bytes]:
+    Source: 'src/proof_roots.rs', lines 41:0-45:1
+    Visibility: public -/
+def proof_roots.progressive_list_from_ssz_bytes
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (bytes : Slice Std.U8) :
+  Result (core.result.Result (progressive_list.ProgressiveList T U)
+    ssz.decode.DecodeError)
+  := do
+  progressive_list.ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes
+    ValueInst update_mapUpdateMapInst bytes
+
+/-- [milhouse::proof_roots::progressive_list_decode_metadata]:
+    Source: 'src/proof_roots.rs', lines 47:0-52:1
+    Visibility: public -/
+def proof_roots.progressive_list_decode_metadata
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result (Bool × Std.Usize)
+  := do
+  let b ←
+    progressive_list.ProgressiveList.Insts.SszDecodeDecode.is_ssz_fixed_len
+      ValueInst update_mapUpdateMapInst
+  let i ←
+    progressive_list.ProgressiveList.Insts.SszDecodeDecode.ssz_fixed_len
+      ValueInst update_mapUpdateMapInst
+  ok (b, i)
 
 /-- Trait implementation: [milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<T>> for milhouse::tree::Tree<T>}]
     Source: 'src/tree.rs', lines 10:16-10:21 -/

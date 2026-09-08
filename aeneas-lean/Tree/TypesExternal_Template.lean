@@ -95,13 +95,6 @@ axiom parking_lot.raw_rwlock.RawRwLock : Type
 @[rust_type "smallvec::SmallVec"]
 axiom smallvec.SmallVec (A : Type) (Clause0_Item : Type) : Type
 
-/-- [ssz::decode::DecodeError]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/decode.rs', lines 12:0-12:20
-    Name pattern: [ssz::decode::DecodeError]
-    Visibility: public -/
-@[rust_type "ssz::decode::DecodeError"]
-axiom ssz.decode.DecodeError : Type
-
 /-- [ssz::encode::SszEncoder]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 87:0-87:25
     Name pattern: [ssz::encode::SszEncoder]

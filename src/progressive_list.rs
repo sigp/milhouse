@@ -1,11 +1,11 @@
 use crate::{
     Arc, Cow, Error, UpdateMap, Value,
     progressive_tree::{ProgressiveTree, ProgressiveTreeBuilder, ProgressiveTreeIter},
+    ssz_items::SszItems,
     update_map::MaxMap,
     utils::{Length, updated_length},
 };
 use educe::Educe;
-use itertools::process_results;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::convert::TryFrom;
@@ -43,6 +43,45 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
             length: Length(length),
             updates: U::default(),
         })
+    }
+
+    /// Keep construction streaming while retaining process_results' error ordering.
+    /// A decode error ends the input, but the partial builder is still finalized
+    /// before that error is returned. A builder error stops consumption immediately.
+    fn decode_ssz_items(
+        mut items: SszItems<'_>,
+    ) -> (Result<Self, Error>, Option<ssz::DecodeError>) {
+        let mut builder = match ProgressiveTreeBuilder::new() {
+            Ok(builder) => builder,
+            Err(error) => return (Err(error), None),
+        };
+        let mut decode_error = None;
+        while let Some(item) = items.next() {
+            let decoded = match item {
+                Ok(bytes) => T::from_ssz_bytes(bytes),
+                Err(error) => Err(error),
+            };
+            match decoded {
+                Ok(value) => {
+                    if let Err(error) = builder.push(value) {
+                        return (Err(error), None);
+                    }
+                }
+                Err(error) => {
+                    decode_error = Some(error);
+                    break;
+                }
+            }
+        }
+        let built = match builder.finish() {
+            Ok((tree, length)) => Ok(Self {
+                tree: Arc::new(tree),
+                length: Length(length),
+                updates: U::default(),
+            }),
+            Err(error) => Err(error),
+        };
+        (built, decode_error)
     }
 
     /// The length of the backing tree, ignoring any pending updates.
@@ -393,6 +432,11 @@ where
         false
     }
 
+    // Identical to the trait default, without a recursive extraction dictionary.
+    fn ssz_fixed_len() -> usize {
+        BYTES_PER_LENGTH_OFFSET
+    }
+
     fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
         if bytes.is_empty() {
             Ok(ProgressiveList::empty())
@@ -402,15 +446,30 @@ where
                 // Match `List`'s handling of zero-sized items; `chunks(0)` would panic.
                 return Err(ssz::DecodeError::ZeroLengthItem);
             }
-            process_results(bytes.chunks(fixed_len).map(T::from_ssz_bytes), |iter| {
-                ProgressiveList::try_from_iter(iter).map_err(|e| {
-                    ssz::DecodeError::BytesInvalid(format!(
-                        "Error building ssz ProgressiveList: {e:?}"
-                    ))
-                })
-            })?
+            let (built, decode_error) = Self::decode_ssz_items(SszItems::Fixed {
+                remaining: bytes,
+                width: fixed_len,
+            });
+            // The original fixed-item callback formatted builder errors before
+            // process_results selected the decode error.
+            let built = built.map_err(|e| {
+                ssz::DecodeError::BytesInvalid(format!("Error building ssz ProgressiveList: {e:?}"))
+            });
+            match decode_error {
+                Some(error) => Err(error),
+                None => built,
+            }
         } else {
-            ssz::decode_list_of_variable_length_items(bytes, None)
+            let items = SszItems::variable(bytes)?;
+            let (built, decode_error) = Self::decode_ssz_items(items);
+            match decode_error {
+                Some(error) => Err(error),
+                None => built.map_err(|e| {
+                    ssz::DecodeError::BytesInvalid(format!(
+                        "Error collecting into container: {e:?}"
+                    ))
+                }),
+            }
         }
     }
 }
