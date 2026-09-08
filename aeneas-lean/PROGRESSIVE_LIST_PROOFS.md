@@ -51,6 +51,14 @@ lower-level hypothesis and count the wrapper as proved.
   selected-subtree density and update read-back lemmas.
 - `Tree/ProgressiveList.lean`: pending/backing lookup behavior and push/read-back
   at all query indices, conditional only on the relevant insertion law.
+- `Tree/PackedLeaf/Contents.lean`, `Tree/PackedLeaf/BulkUpdate.lean`: exact
+  packed insertion contents and bulk-update window contents, including initial
+  cloning and the complete scan. Pending values override their own slots;
+  absent updates preserve the previous values. No density or map metadata
+  assumptions are needed for these successful-execution content results.
+- `Tree/BulkUpdate.lean`: unpacked-leaf bulk-update contents and lookup
+  read-back. Binary node recursion, zero expansion, and the corresponding
+  progressive-tree content theorem remain outstanding.
 
 ## Validation
 

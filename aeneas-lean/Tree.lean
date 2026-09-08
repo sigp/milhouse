@@ -16,3 +16,4 @@ import Tree.ProgressiveList.ApplyUpdates
 import Tree.ProgressiveList.Mutable
 import Tree.PackedLeaf.Contents
 import Tree.PackedLeaf.BulkUpdate
+import Tree.BulkUpdate
