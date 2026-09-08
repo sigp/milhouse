@@ -6,7 +6,7 @@ import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
 import Tree.ProgressiveTree
-import Tree.ProgressiveTree.BulkUpdate.Layer
+import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
 import Tree.UpdateMap.Length
@@ -14,7 +14,9 @@ import Tree.ProgressiveList.Length
 import Tree.ProgressiveList.Push
 import Tree.ProgressiveList.Contents
 import Tree.ProgressiveList.ApplyUpdates
+import Tree.ProgressiveList.ApplyUpdates.Contents
 import Tree.ProgressiveList.Mutable
+import Tree.ProgressiveList.Spine
 import Tree.PackedLeaf.Contents
 import Tree.PackedLeaf.BulkUpdate
 import Tree.BulkUpdate

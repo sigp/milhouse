@@ -16,16 +16,16 @@ lower-level hypothesis and count the wrapper as proved.
 
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
-| `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Observers.lean` and `Contents.lean`: exact state, observer results, and representation of the empty sequence proved under the relevant empty-map laws; structural invariant still to be instantiated |
+| `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Observers.lean` and `Contents.lean`: exact state, observer results, and representation of the empty sequence proved under the relevant empty-map laws; `Spine.lean` establishes the backing-spine invariant on successful construction without additional map laws |
 | `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | Pending progressive-builder extraction and content proofs |
 | `len` | Length of the merged backing/pending view | `ProgressiveList/Length.lean` and `UpdateMap/Length.lean`: exact empty/nonempty-map arithmetic, backing lower bound, and successful evaluation below overflow proved; sequence agreement is established by constructor/mutation representation lemmas |
 | `is_empty` | Equivalent to merged length zero | `ProgressiveList.is_empty_spec` proved |
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
 | `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence proved; full representation theorem pending |
-| `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; structural tree/map invariant preservation remains for later bulk-update proofs |
-| `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; structural invariant preservation remains |
+| `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` preserves the backing-spine invariant on success without extra map laws or capacity assumptions |
+| `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; `Spine.lean` preserves the backing-spine invariant for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Extracted via the closure-free map helper with lazy backing lookup; semantic and write-back proofs pending |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence proved under the relevant default-map laws; binary-tree bulk-update correctness and progressive-layer read-back (including zero expansion) are proved; induction through the progressive spine, the no-gap argument for skipped zero suffixes, and list representation preservation remain |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence; `ApplyUpdates/Contents.lean`: `apply_updates_represents` preserves the sequence at every index and the backing-spine invariant, using the complete recursive progressive proof. Extension completeness is derived from the old representation. Premises are the input spine invariant and the relevant packing, clone, range, maximum-bound, and default-map laws |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Pending iterator extraction and invariants |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | Pending |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
@@ -61,8 +61,21 @@ lower-level hypothesis and count the wrapper as proved.
   width and alignment derived from the extracted capacity calculations.
   Read-back through the progressive node is proved both for existing layers
   and for expansion from zero. Sibling invariants and extra shift/window
-  arithmetic assumptions are not required. These local layer theorems still
-  need to be assembled into the complete recursive progressive update proof.
+  arithmetic assumptions are not required. The pending-override theorem derives
+  old binary-read success from the update, avoiding a readability premise.
+- `Tree/ProgressiveTree/BulkUpdate/Steps.lean`, `Range.lean`, `Contents.lean`:
+  exact successful execution decomposition and the complete recursive
+  shape/content theorem. The proof preserves the bound on where the spine ends
+  and handles both maximum-index cutoffs and the zero early exit, including
+  saturation. Only extension completeness, false-range exclusion, and the
+  maximum's upper-bound law are required from the update domain and map.
+- `Tree/ProgressiveList/ApplyUpdates/Contents.lean`: sequence representation
+  implies extension completeness; successful `apply_updates` preserves that
+  sequence at every index, with pending-value precedence and no separate
+  backing-readability premise. `ProgressiveList/Spine.lean` establishes and
+  preserves the backing geometry and ending bound for empty/default creation,
+  push, and mutable write-back. Binary density is a separate property for
+  future operations that need more than these structural and sequence facts.
 - `Tree/ProgressiveList.lean`: pending/backing lookup behavior and push/read-back
   at all query indices, conditional only on the relevant insertion law.
 - `Tree/PackedLeaf/Contents.lean`, `Tree/PackedLeaf/BulkUpdate.lean`: exact
@@ -80,8 +93,8 @@ lower-level hypothesis and count the wrapper as proved.
   zero expansion and aligned global map offsets. The extracted-lookup corollary
   derives its shift bound from successful execution. Only false range answers
   must exclude pending values; density and positive-range completeness are not
-  needed for this successful-execution content theorem. The corresponding
-  progressive-tree proof remains outstanding.
+  needed for this successful-execution content theorem. Its capacity bound is
+  also exposed to the progressive-window proof.
 
 ## Validation
 
@@ -91,12 +104,16 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest checkpoint (through `d64a58a`, with the progressive layer modules included
-in `Tree.lean`): the full Lean build passes (1,749 jobs). All 26 audited public
-theorems in the capacity, depth, geometry, and progressive-layer modules and the
-binary bulk-update interfaces depend only on `propext`, `Classical.choice`, and
-`Quot.sound`. The recursive progressive update and remaining API coverage above
-are still incomplete.
+Latest checkpoint (through `e3a0107`, `9e7c79c`, with the recursive and list-level
+modules included in `Tree.lean`): the full Lean build passes (1,756 jobs). All 36
+audited public theorems in the geometry, shape, map-domain, progressive
+bulk-update, list `apply_updates` contents, and list spine modules depend only
+on `propext`, `Classical.choice`, and `Quot.sound`. Recursive progressive
+bulk-update correctness and list `apply_updates` sequence preservation are now
+proved. The other pending API coverage above remains part of the full goal.
+
+The capacity/depth/layer checkpoint through `d64a58a` passed 1,749 build jobs
+and audited 26 public theorems with the same standard-axiom-only result.
 
 Earlier checkpoint (`9055d8d`, `10b5743`): the full Lean build passes (1,745 jobs),
 including existing rebase and builder proofs after arithmetic sharing. All 71
