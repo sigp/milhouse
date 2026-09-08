@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.Decode.Finish
+import Tree.ProgressiveList.Decode.State
 import Tree.ProgressiveList.Backing
 import Tree.Loop
 
@@ -94,5 +95,22 @@ theorem ProgressiveList.decode_ssz_items_backing {T U : Type}
   | Ok builder =>
     exact ProgressiveList.decode_ssz_items_loop_backing ValueInst mapInst items builder
       (ProgressiveTreeBuilder.new_valid ValueInst hlayout hnew) hdecode
+
+/-- Every successful public decoder result has dense, representable backing
+layers and the actual default map. Input validity and element-decoder behavior
+are unrestricted; successful evaluation supplies the necessary control flow. -/
+theorem ProgressiveList.from_ssz_bytes_backing {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (bytes : Slice Std.U8) {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    {self : ProgressiveList T U}
+    (hdecode : ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
+      ok (core.result.Result.Ok self)) :
+    self.BackingValid factor ∧ mapInst.coredefaultDefaultInst.default = ok self.updates := by
+  rcases ProgressiveList.from_ssz_bytes_success_source ValueInst mapInst bytes hdecode with
+    hempty | ⟨items, hitems⟩
+  · exact ⟨ProgressiveList.empty_backing_valid ValueInst mapInst factor hempty,
+      (ProgressiveList.empty_success_state ValueInst mapInst hempty).2.2⟩
+  · exact ProgressiveList.decode_ssz_items_backing ValueInst mapInst items hlayout hitems
 
 end milhouse.progressive_list
