@@ -25,7 +25,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; structural tree/map invariant preservation remains for later bulk-update proofs |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; structural invariant preservation remains |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Extracted via the closure-free map helper with lazy backing lookup; semantic and write-back proofs pending |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence proved under the relevant default-map laws; binary-tree bulk-update shape/content and extracted-lookup correctness are now proved; lifting through ProgressiveTree and establishing the list representation remain |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence proved under the relevant default-map laws; binary-tree bulk-update correctness and progressive-layer read-back (including zero expansion) are proved; induction through the progressive spine, the no-gap argument for skipped zero suffixes, and list representation preservation remain |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Pending iterator extraction and invariants |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | Pending |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
@@ -49,6 +49,20 @@ lower-level hypothesis and count the wrapper as proved.
   separately where the existing result establishes only density.
 - `Tree/ProgressiveTree.lean`: exact routing to binary-tree lookups, plus
   selected-subtree density and update read-back lemmas.
+- `Tree/ProgressiveTree/Capacity.lean`, `Depth.lean`, `Geometry.lean`: exact
+  clamped geometric capacity at every depth, including internal `u128`
+  saturation; checked progressive-to-binary depth conversion; monotonicity,
+  leaf alignment, and exact adjacent layer windows when the binary capacity
+  fits. A nonempty machine-index window has an unclamped start, so its offset
+  alignment can be established before the binary update supplies its capacity
+  bound. These modules are included through the root `Tree` import.
+- `Tree/ProgressiveTree/BulkUpdate/Layer.lean`: a successful binary update in
+  a nonempty progressive layer preserves shape and contents, with its exact
+  width and alignment derived from the extracted capacity calculations.
+  Read-back through the progressive node is proved both for existing layers
+  and for expansion from zero. Sibling invariants and extra shift/window
+  arithmetic assumptions are not required. These local layer theorems still
+  need to be assembled into the complete recursive progressive update proof.
 - `Tree/ProgressiveList.lean`: pending/backing lookup behavior and push/read-back
   at all query indices, conditional only on the relevant insertion law.
 - `Tree/PackedLeaf/Contents.lean`, `Tree/PackedLeaf/BulkUpdate.lean`: exact
@@ -77,7 +91,14 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest checkpoint (`9055d8d`, `10b5743`): the full Lean build passes (1,745 jobs),
+Latest checkpoint (through `d64a58a`, with the progressive layer modules included
+in `Tree.lean`): the full Lean build passes (1,749 jobs). All 26 audited public
+theorems in the capacity, depth, geometry, and progressive-layer modules and the
+binary bulk-update interfaces depend only on `propext`, `Classical.choice`, and
+`Quot.sound`. The recursive progressive update and remaining API coverage above
+are still incomplete.
+
+Earlier checkpoint (`9055d8d`, `10b5743`): the full Lean build passes (1,745 jobs),
 including existing rebase and builder proofs after arithmetic sharing. All 71
 audited public theorems across the new list/map, packed-leaf, binary bulk-update,
 shape, and shared arithmetic modules depend only on `propext`,

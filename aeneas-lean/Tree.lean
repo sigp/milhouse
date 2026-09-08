@@ -6,6 +6,7 @@ import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
 import Tree.ProgressiveTree
+import Tree.ProgressiveTree.BulkUpdate.Layer
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
 import Tree.UpdateMap.Length
