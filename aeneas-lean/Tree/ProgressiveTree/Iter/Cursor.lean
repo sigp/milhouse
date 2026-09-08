@@ -45,6 +45,6 @@ def ProgressiveTreeIter.Valid {T : Type} (ValueInst : Value T) (factor : Option 
     ProgressiveTreeIter.Current ValueInst self.current_iter currentValues ∧
     ProgressiveTreeIter.Pending factor self.length self.prog_depth self.current_prog_node pendingValues ∧
     values = currentValues ++ pendingValues ∧
-    self.yielded.val + values.length ≤ self.length.val
+    values.length ≤ self.length.val - self.yielded.val
 
 end milhouse.progressive_tree

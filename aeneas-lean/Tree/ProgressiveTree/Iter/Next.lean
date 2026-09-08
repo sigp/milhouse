@@ -22,7 +22,7 @@ private theorem next_loop_spec {T : Type} (ValueInst : Value T)
     obtain ⟨flow, next, hstep, hlength, hpost⟩ :=
       ProgressiveTreeIter.next_step_spec ValueInst hlayout self values hvalid
     cases flow with
-    | Continue unit =>
+    | Continue _unit =>
       obtain ⟨hnextValid, hyielded, hdecrease⟩ := hpost
       obtain ⟨rest, hloop, hrestValid, hrestLength, hrestYielded⟩ :=
         ih (ProgressiveTreeIter.pendingSteps next.current_prog_node) (by omega) next hnextValid rfl

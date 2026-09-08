@@ -14,7 +14,7 @@ theorem ProgressiveTreeIter.advance_to_next_subtree_spec {T : Type} (ValueInst :
     (self : ProgressiveTreeIter T) (values : _root_.List T)
     (hpending : ProgressiveTreeIter.Pending factor self.length self.prog_depth
       self.current_prog_node values)
-    (hbound : self.yielded.val + values.length ≤ self.length.val) :
+    (hbound : values.length ≤ self.length.val - self.yielded.val) :
     ∃ next, ProgressiveTreeIter.advance_to_next_subtree ValueInst self = ok next ∧
       ProgressiveTreeIter.Valid ValueInst factor next values ∧
       next.length = self.length ∧ next.yielded = self.yielded ∧
@@ -39,7 +39,7 @@ theorem ProgressiveTreeIter.advance_to_next_subtree_spec {T : Type} (ValueInst :
       refine ⟨{ self with current_iter := none, current_prog_node := none }, ?_, ?_, rfl, rfl, ?_⟩
       · simp [ProgressiveTreeIter.advance_to_next_subtree, hnode]
       · exact ⟨[], [], rfl, rfl, rfl, hbound⟩
-      · simp [hnode, ProgressiveTreeIter.pendingSteps, ProgressiveTree.layerCount]
+      · simp [ProgressiveTreeIter.pendingSteps, ProgressiveTree.layerCount]
     | ProgressiveNode hash left right =>
       obtain ⟨depth, current, henter, hdepth, hyields⟩ :=
         ProgressiveTreeIter.enter_subtree_drains ValueInst hlayout self left right hash hdense hfit.1 0#usize
@@ -51,6 +51,6 @@ theorem ProgressiveTreeIter.advance_to_next_subtree_spec {T : Type} (ValueInst :
         · simpa [ProgressiveTreeIter.Current] using hyields
         · simp only [ProgressiveTreeIter.Pending, hdepth]
           exact ⟨hdense.right_remainder, hfit.2, trivial⟩
-      · simp [hnode, ProgressiveTreeIter.pendingSteps, ProgressiveTree.layerCount]
+      · simp [ProgressiveTreeIter.pendingSteps, ProgressiveTree.layerCount]
 
 end milhouse.progressive_tree
