@@ -17,7 +17,7 @@ lower-level hypothesis and count the wrapper as proved.
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
 | `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Observers.lean` and `Contents.lean`: exact state, observer results, and representation of the empty sequence proved under the relevant empty-map laws; `Spine.lean` establishes the backing-spine invariant on successful construction without additional map laws |
-| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | Pending progressive-builder extraction and content proofs |
+| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | Binary builder contents now proved: empty construction, exact append and length increment on successful push, and sequence preservation through every finishing merge and padding step. Finalization produces a dense tree at the correct length with exact indexed reads under the existing builder invariant. Progressive-builder extraction and sequence/invariant proofs remain pending |
 | `len` | Length of the merged backing/pending view | `ProgressiveList/Length.lean` and `UpdateMap/Length.lean`: exact empty/nonempty-map arithmetic, backing lower bound, and successful evaluation below overflow proved; sequence agreement is established by constructor/mutation representation lemmas |
 | `is_empty` | Equivalent to merged length zero | `ProgressiveList.is_empty_spec` proved |
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
@@ -53,7 +53,16 @@ lower-level hypothesis and count the wrapper as proved.
   the extracted lookup bridge adds only the packing layout and routing shift
   bound. Wrapping modulo capacity is explicit. This supplies a content bridge
   for constructor and iteration proofs; builder sequence preservation remains
-  a separate obligation.
+  a separate obligation discharged by the binary-builder results below.
+- `Tree/Loop.lean`, `Tree/Builder/Contents/Basic.lean`, `Push.lean`,
+  `Finish.lean`, and `Tree/Builder/Contents.lean`: partial-correctness loop
+  induction and the complete binary builder push/finish content proofs.
+  Successful `push` appends exactly one value and increments length once;
+  successful `finish` preserves the complete pending forest, including packed
+  partial leaves and zero padding. These preservation results require no
+  density, packing, clone, arithmetic, or termination assumptions. The combined
+  finalization theorem uses the existing builder invariant to supply density,
+  the correct sequence length, and all routing bounds for exact indexed reads.
 - `Tree/ProgressiveTree.lean`: exact routing to binary-tree lookups, plus
   selected-subtree density and update read-back lemmas.
 - `Tree/ProgressiveTree/Capacity.lean`, `Depth.lean`, `Geometry.lean`: exact

@@ -3,6 +3,7 @@ import Tree.Invariants
 import Tree.Contents
 import Tree.Repeat
 import Tree.Builder
+import Tree.Builder.Contents
 import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
