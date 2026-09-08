@@ -1,0 +1,61 @@
+# ProgressiveList proof coverage
+
+The goal is correctness of every public `ProgressiveList` operation, including
+the iterators and trait implementations exposed by that API. Extraction or a
+wrapper equation alone does not establish an operation's full correctness.
+Unchecked internal helpers are proof dependencies, not substitutes for the
+public-operation specifications below.
+
+Proofs use the extracted Rust definitions. Assumptions about generic update
+maps, element cloning/equality, codecs, and hashing must state the laws actually
+needed by the operation. Representation invariants must be established by
+constructors and preserved by mutations; do not assume the postcondition in a
+lower-level hypothesis and count the wrapper as proved.
+
+## Coverage
+
+| Operation | Required behavior | Current evidence / remaining work |
+| --- | --- | --- |
+| `empty`, `Default::default` | Empty contents, zero length, no pending updates | Extracted `empty`; proofs pending |
+| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | Pending progressive-builder extraction and content proofs |
+| `len` | Length of the merged backing/pending view | Extracted; arithmetic and representation proofs pending |
+| `is_empty` | Equivalent to merged length zero | Pending extraction and proof |
+| `has_pending_updates` | Equivalent to a nonempty update map | Pending extraction and proof |
+| `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence proved; full representation theorem pending |
+| `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `get_after_push_at` and `get_after_push` proved; length, success/failure, and representation preservation pending |
+| `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | Pending extraction and proof |
+| `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Pending extraction and proof |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | Pending bulk-update content proofs for Tree and ProgressiveTree |
+| `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Pending iterator extraction and invariants |
+| `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | Pending |
+| `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
+| `to_vec` | Return the merged sequence in order | Pending iteration proof and element-clone law |
+| `pop_front` | Drop the specified prefix, reindex remaining values; reject oversized drops unchanged | Pending construction and iteration proofs |
+| `rebase`, `rebase_on` | Preserve values, length, and pending updates while changing sharing only | Pending ProgressiveTree rebase content proof |
+| `Clone`, `PartialEq` | Preserve logical contents on clone; characterize equality under element/map laws | Pending extraction and proof |
+| `Debug` | Formatting through the derived formatter | Pending extraction and specification |
+| `TreeHash` methods | Progressive merkleization with length mix-in; reject pending updates and unsupported packed operations | Pending hash model/extraction; existing binary-tree hash extraction limitations remain |
+| `Encode` methods | SSZ encoding/encoded length of the merged sequence | Pending codec models and proofs |
+| `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | Pending codec models and proofs |
+| `Serialize`, `Deserialize` | Serialize merged sequence; reconstruct the deserialized sequence | Pending serializer models and proofs |
+| Context deserialization feature | Reconstruct the contextual element sequence | Pending feature-specific extraction and proof |
+| `Arbitrary` feature | Successful generation establishes a valid backing tree and length | Pending feature-specific extraction and constructor proof |
+
+## Existing foundations
+
+- `Tree/Invariants.lean`, `Tree/Builder.lean`, `Tree/Roundtrip.lean`,
+  `Tree/Rebase.lean`: binary-tree density, builder invariants, leaf-update
+  read-back, and rebase shape preservation. Content preservation must be proved
+  separately where the existing result establishes only density.
+- `Tree/ProgressiveTree.lean`: exact routing to binary-tree lookups, plus
+  selected-subtree density and update read-back lemmas.
+- `Tree/ProgressiveList.lean`: pending/backing lookup behavior and push/read-back
+  at all query indices, conditional only on the relevant insertion law.
+
+## Validation
+
+For each completed piece: build its Lean module, check the assumptions, and
+commit with signing disabled and a model co-author trailer. Before completion:
+regenerate the full extraction, build all proof modules, inspect axiom
+dependencies for admissions, run the relevant Rust tests and formatting checks,
+and audit every row above against concrete theorem statements.
