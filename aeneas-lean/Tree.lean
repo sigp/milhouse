@@ -17,6 +17,7 @@ import Tree.ProgressiveList.ApplyUpdates
 import Tree.ProgressiveList.ApplyUpdates.Contents
 import Tree.ProgressiveList.Mutable
 import Tree.ProgressiveList.Spine
+import Tree.ProgressiveList.CopyOnWrite
 import Tree.PackedLeaf.Contents
 import Tree.PackedLeaf.BulkUpdate
 import Tree.BulkUpdate

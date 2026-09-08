@@ -24,7 +24,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence proved; full representation theorem pending |
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` preserves the backing-spine invariant on success without extra map laws or capacity assumptions |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; `Spine.lean` preserves the backing-spine invariant for every write-back |
-| `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Extracted via the closure-free map helper with lazy backing lookup; semantic and write-back proofs pending |
+| `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release proved under generic map lookup/release laws, without a clone law; every write-back preserves the backing-spine invariant. Rust `Deref` and materializing mutation bridges remain pending Aeneas translation limitations; handle-data observation is not a proof of those methods |
 | `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence; `ApplyUpdates/Contents.lean`: `apply_updates_represents` preserves the sequence at every index and the backing-spine invariant, using the complete recursive progressive proof. Extension completeness is derived from the old representation. Premises are the input spine invariant and the relevant packing, clone, range, maximum-bound, and default-map laws |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Pending iterator extraction and invariants |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | Pending |
@@ -78,6 +78,12 @@ lower-level hypothesis and count the wrapper as proved.
   future operations that need more than these structural and sequence facts.
 - `Tree/ProgressiveList.lean`: pending/backing lookup behavior and push/read-back
   at all query indices, conditional only on the relevant insertion law.
+- `Tree/Cow/Value.lean`, `Tree/UpdateMap/CopyOnWrite.lean`,
+  `Tree/ProgressiveList/CopyOnWrite.lean`: observation of extracted handle data,
+  the generic map's read/release laws, and read-only sequence correctness.
+  Exact unchanged release preserves all list fields, including pending-map
+  metadata; arbitrary write-back preserves the backing spine. No bridge from
+  the data observer to Rust `Deref` or materializing mutation is assumed.
 - `Tree/PackedLeaf/Contents.lean`, `Tree/PackedLeaf/BulkUpdate.lean`: exact
   packed insertion contents and bulk-update window contents, including initial
   cloning and the complete scan. Pending values override their own slots;
