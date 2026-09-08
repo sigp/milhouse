@@ -17,6 +17,20 @@ theorem get_some_of_hasValueAt {T U : Type} (mapInst : UpdateMap U T) (updates :
   have heq : actual = query := UScalar.eq_of_val_eq hindex
   exact ⟨value, by simpa only [heq] using hget⟩
 
+/-- Every newly appended position has a pending value. This is the part of
+    dense-domain validity used by progressive suffix early exits. -/
+def ExtensionComplete {T U : Type} (mapInst : UpdateMap U T) (updates : U)
+    (oldLength newLength : Nat) : Prop :=
+  ∀ query, oldLength ≤ query.val → query.val < newLength →
+    ∃ value, mapInst.get updates query = ok (some value)
+
+theorem extensionComplete_of_denseUpdateDomain {T U : Type}
+    (mapInst : UpdateMap U T) (updates : U) {oldLength newLength : Nat}
+    (hdomain : tree.DenseUpdateDomain oldLength newLength (HasValueAt mapInst updates)) :
+    ExtensionComplete mapInst updates oldLength newLength := by
+  intro query hlo hhi
+  exact get_some_of_hasValueAt mapInst updates (hdomain.extension_complete query.val hlo hhi)
+
 /-- The supplied maximum bounds every pending value. Attainment and the exact
     maximum are not needed to justify skipping a suffix. -/
 def MaximumBoundsValues {T U : Type} (mapInst : UpdateMap U T) (updates : U)
@@ -36,6 +50,23 @@ theorem get_none_of_maximum_before {T U : Type} (mapInst : UpdateMap U T) (updat
     obtain ⟨last, hlast, hbound⟩ := hmaximum query value hget
     have hsmall := hbefore last hlast
     omega
+
+/-- When all pending values lie before a suffix, a complete extension cannot
+    run beyond both the old length and that suffix's starting index. -/
+theorem ExtensionComplete.length_le_max_of_maximum_before {T U : Type}
+    {mapInst : UpdateMap U T} {updates : U} {oldLength : Nat} {newLength start : Std.Usize}
+    {maximum : Option Std.Usize}
+    (hcomplete : ExtensionComplete mapInst updates oldLength newLength.val)
+    (hmaximum : MaximumBoundsValues mapInst updates maximum)
+    (hbefore : ∀ last, maximum = some last → last.val < start.val) :
+    newLength.val ≤ max oldLength start.val := by
+  by_contra hnot
+  have hbound : max oldLength start.val < 2 ^ UScalarTy.Usize.numBits := by scalar_tac
+  let query := Std.Usize.ofNatCore (max oldLength start.val) hbound
+  have hquery : query.val = max oldLength start.val := Usize.ofNatCore_val_eq hbound
+  obtain ⟨value, hget⟩ := hcomplete query (by omega) (by omega)
+  have hnone := get_none_of_maximum_before mapInst updates hmaximum hbefore (by omega) hget
+  cases hnone
 
 end milhouse.update_map
 
