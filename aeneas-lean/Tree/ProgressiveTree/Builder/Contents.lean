@@ -37,7 +37,7 @@ theorem ProgressiveTreeBuilder.new_elements {T : Type} (ValueInst : Value T)
       Builder.new_elements ValueInst _ _ hcurrent]
 
 /-- The common suffix of the extracted push, after any full-subtree rollover. -/
-private def pushTail {T : Type} (ValueInst : Value T)
+def ProgressiveTreeBuilder.pushTail {T : Type} (ValueInst : Value T)
     (self : ProgressiveTreeBuilder T) (value : T) :
     Result (core.result.Result Unit error.Error × ProgressiveTreeBuilder T) := do
   let (status, current) ← Builder.push ValueInst self.current value
@@ -54,11 +54,11 @@ private def pushTail {T : Type} (ValueInst : Value T)
 
 private theorem pushTail_spec {T : Type} (ValueInst : Value T)
     (self : ProgressiveTreeBuilder T) (value : T) {result : ProgressiveTreeBuilder T}
-    (hpush : pushTail ValueInst self value = ok (core.result.Result.Ok (), result)) :
+    (hpush : ProgressiveTreeBuilder.pushTail ValueInst self value = ok (core.result.Result.Ok (), result)) :
     result.elements = self.elements ++ [value] ∧ result.length.val = self.length.val + 1 ∧
       (self.count.val = self.current.elements.length →
         result.count.val = result.current.elements.length) := by
-  unfold pushTail at hpush
+  unfold ProgressiveTreeBuilder.pushTail at hpush
   rw [bind_eq_ok_iff] at hpush
   obtain ⟨⟨status, current⟩, hcurrent, hpush⟩ := hpush
   dsimp! only at hpush
@@ -115,7 +115,7 @@ theorem ProgressiveTreeBuilder.push_contents {T : Type} (ValueInst : Value T)
         rw [bind_eq_ok_iff] at hpush
         obtain ⟨capacity, _, hpush⟩ := hpush
         let prepared := {self with subtrees, current, prog_depth := depth, capacity, count := 0#usize}
-        change pushTail ValueInst prepared value = ok (core.result.Result.Ok (), result) at hpush
+        change ProgressiveTreeBuilder.pushTail ValueInst prepared value = ok (core.result.Result.Ok (), result) at hpush
         obtain ⟨helements, hlength, hcount⟩ := pushTail_spec ValueInst prepared value hpush
         have hempty := Builder.new_elements ValueInst _ _ hnew
         have hfinished := Builder.finish_elements ValueInst _ hfinish
