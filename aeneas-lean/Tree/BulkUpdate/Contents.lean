@@ -266,6 +266,30 @@ private theorem bulk_shape_contents_aux {T U : Type}
         change after.slot factor depth.val (query.val - offset.val) = pending.or none
         simpa only [hzslot] using h
 
+/-- Successful bulk updates also certify that the whole binary capacity fits
+    in a machine word. This result packages that bound with shape and contents
+    so callers can derive surrounding window geometry from the update itself. -/
+theorem Tree.with_updated_leaves_capacity_shape_contents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hrange : update_map.RangeExcludesValues mapInst updates)
+    {before after : Tree T} {prefix1 offset depth : Std.Usize}
+    {hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
+    (hshape : before.Shape factor depth.val)
+    (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
+    (hoffset : offset.val % leafCapacity factor = 0)
+    (hupdate : Tree.with_updated_leaves ValueInst mapInst before updates prefix1 offset depth hashes =
+      ok (core.result.Result.Ok after)) :
+    subtreeCapacity factor depth.val < 2 ^ System.Platform.numBits ∧
+      after.Shape factor depth.val ∧
+      Tree.BulkContents mapInst updates factor before after depth.val prefix1.val offset.val := by
+  exact bulk_shape_contents_aux ValueInst mapInst updates hlayout hclone hrange hashes
+    (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset
+    (Nat.le_refl _) rfl hshape halign hoffset hupdate
+
 /-- Successful binary-tree bulk updates preserve geometric shape and apply
     pending values exactly throughout their assigned window. This includes
     node recursion and zero expansion. Density is not needed for content
@@ -287,9 +311,8 @@ theorem Tree.with_updated_leaves_shape_contents {T U : Type}
       ok (core.result.Result.Ok after)) :
     after.Shape factor depth.val ∧
       Tree.BulkContents mapInst updates factor before after depth.val prefix1.val offset.val := by
-  exact (bulk_shape_contents_aux ValueInst mapInst updates hlayout hclone hrange hashes
-    (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset
-    (Nat.le_refl _) rfl hshape halign hoffset hupdate).2
+  exact (Tree.with_updated_leaves_capacity_shape_contents ValueInst mapInst updates
+    hlayout hclone hrange hshape halign hoffset hupdate).2
 
 /-- Bulk-update correctness through extracted lookup, at every index in the
     assigned binary window. The shift bound follows from successful updates;
