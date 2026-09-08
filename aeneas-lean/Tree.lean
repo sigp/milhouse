@@ -22,6 +22,7 @@ import Tree.ProgressiveList.PopFront.Contents
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveTree.BulkUpdate.Density
+import Tree.ProgressiveTree.Rebase.Density
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
 import Tree.UpdateMap.Length
