@@ -5,6 +5,7 @@ import Tree.Equality.Structure
 import Tree.Equality.Comparisons
 import Tree.Equality.Correctness
 import Tree.Equality.Soundness
+import Tree.Equality.Lookup
 import Tree.Iter.Contents
 import Tree.Repeat
 import Tree.Builder
@@ -18,6 +19,7 @@ import Tree.ProgressiveTree
 import Tree.ProgressiveTree.Equality.Structure
 import Tree.ProgressiveTree.Equality.Correctness
 import Tree.ProgressiveTree.Equality.Soundness
+import Tree.ProgressiveTree.Equality.Lookup
 import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Iter.Construction
