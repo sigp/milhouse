@@ -13,6 +13,8 @@ import Tree.Builder
 import Tree.Builder.Contents
 import Tree.Builder.New
 import Tree.Builder.Carry
+import Tree.Builder.Push.Loop
+import Tree.PackedLeaf.Push
 import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
