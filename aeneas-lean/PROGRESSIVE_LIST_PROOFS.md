@@ -25,7 +25,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` and `Backing.lean` preserve both backing-spine and dense/representable traversal invariants on success without extra map laws or capacity assumptions |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release proved under generic map lookup/release laws, without a clone law; every write-back preserves the backing-spine and dense/representable traversal invariants. Rust `Deref` and materializing mutation bridges remain pending Aeneas translation limitations; handle-data observation is not a proof of those methods |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence; `ApplyUpdates/Contents.lean`: `apply_updates_represents` preserves the sequence at every index and the backing-spine invariant, using the complete recursive progressive proof. Extension completeness is derived from the old representation. Premises are the input spine invariant and the relevant packing, clone, range, maximum-bound, and default-map laws |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence. `ApplyUpdates/Contents.lean` preserves the represented sequence at every index and the backing-spine invariant. `ApplyUpdates/Backing.lean`: `apply_updates_spec` also preserves full `BackingValid`, so the public iteration and collection proofs apply after rebuilding. The complete dense update domain is derived from representation. Premises are the input representation/backing invariant and relevant packing, clone, exact-range, maximum-bound, and empty-default-map laws; backing validity alone needs no clone or default-map law |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. Binary and progressive traversal and the pending overlay are proved underneath. The `IntoIterator` trait bridge remains pending extraction |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | `Iter/Next.lean`: live calls return the represented indexed value and preserve the constructed cursor; exhausted calls return unchanged `none`, including past-end indices. Pending replacements and extensions are covered. `Iter/Length.lean`: both size-hint bounds and exact length equal the represented suffix length; these observers require only agreement of the recorded and sequence lengths |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
@@ -105,8 +105,8 @@ lower-level hypothesis and count the wrapper as proved.
   the combined invariant `BackingValid`, establishes it for empty/default/vector
   construction, and proves preservation by pending append and every mutable or
   CoW write-back without extra map or clone laws. Preservation through the
-  remaining backing-changing operations, including `apply_updates` and rebase,
-  remains part of the full goal.
+  remaining backing-changing operations, including rebase, remains part of the
+  full goal; `ApplyUpdates/Backing.lean` now preserves it through `apply_updates`.
 - `Tree/ProgressiveList/PopFront/Builder.lean`, `State.lean`, and `Contents.lean`:
   the concrete streaming helper appends the proved iterator suffix and preserves
   the progressive builder invariant. The public operation's successful result
@@ -192,8 +192,30 @@ lower-level hypothesis and count the wrapper as proved.
   sequence at every index, with pending-value precedence and no separate
   backing-readability premise. `ProgressiveList/Spine.lean` establishes and
   preserves the backing geometry and ending bound for empty/default creation,
-  push, and mutable write-back. Binary density is a separate property for
-  future operations that need more than these structural and sequence facts.
+  push, and mutable write-back.
+- `Tree/BulkUpdate/Window.lean`, `Tree/UpdateMap/Domain.lean`, and `Range.lean`:
+  a global dense update domain restricts and splits into the exact subtree
+  windows; empty windows retain their old lengths, and windows with updates
+  have positive new lengths. Lookup membership follows from actual successful
+  reads. Exact successful range answers supply both positive witnesses and
+  the existing false-range exclusion law.
+- `Tree/BulkUpdate/Density.lean`: successful binary bulk updates preserve the
+  dense window length with nonzero global offsets, including packed leaves,
+  transient zero expansion, and both node children. Successful arithmetic also
+  supplies representable capacity. No clone-identity law is needed for density.
+- `Tree/ProgressiveTree/BulkUpdate/Density.lean`: selected progressive layers
+  retain their exact dense prefix; untouched layers, maximum-based suffix
+  skips, and the zero early exit preserve density and capacity bounds. The
+  complete recursive and public bulk-update specifications establish the new
+  dense backing length and `Fits` from the old invariant and dense update
+  domain, without independent alignment or arithmetic-success assumptions.
+- `Tree/ProgressiveList/ApplyUpdates/Backing.lean`: representation establishes
+  both extension completeness and boundedness of every pending value, giving
+  the full dense update domain without an extra map law. Successful
+  `apply_updates` preserves `BackingValid`; the combined public specification
+  preserves the represented sequence and traversal invariant and clears pending
+  updates. Density preservation needs no clone or default-map laws; contents
+  and cleared updates use the corresponding laws separately.
 - `Tree/ProgressiveList.lean`: pending/backing lookup behavior and push/read-back
   at all query indices, conditional only on the relevant insertion law.
 - `Tree/Cow/Value.lean`, `Tree/UpdateMap/CopyOnWrite.lean`,
@@ -234,7 +256,18 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest front-removal and backing-invariant checkpoint: fresh extraction and the
+Latest apply-updates backing-invariant checkpoint (through `c286169`): the full
+Lean build passes (1,814 jobs). All 16 new or newly exposed window, range,
+binary/progressive density, and list-level results were audited and use only
+`propext`, `Classical.choice`, and `Quot.sound` (or subsets). The existing public
+`iter` and `to_vec` specifications were audited again with the same result.
+All new modules are included through `Tree.lean`. This checkpoint changes only
+Lean proofs and imports; Rust, generated extraction, and Aeneas are unchanged.
+The full goal remains incomplete: CoW iteration and materializing mutation,
+trait bridges, rebase and its backing preservation, and remaining
+codecs/hash/features still require work.
+
+Previous front-removal and backing-invariant checkpoint: fresh extraction and the
 full Lean build pass (1,810 jobs). All 14 new backing/streaming/front-removal
 lemmas, plus the existing public `iter` and `to_vec` specifications after
 regeneration, were audited and use only `propext`, `Classical.choice`, and
@@ -242,9 +275,8 @@ regeneration, were audited and use only `propext`, `Classical.choice`, and
 concrete streaming builder helper to avoid documented upstream adapter,
 early-return, and trait-dictionary limitations; its allocation strategy, clone
 order, and error restoration are preserved, and Aeneas remains unchanged.
-The full goal remains incomplete: CoW iteration and materializing mutation,
-trait bridges, rebase, remaining codecs/hash/features, and backing-invariant
-preservation through `apply_updates` and the other unproved mutations remain.
+The later apply-updates checkpoint above extends backing-invariant preservation
+to `apply_updates`; the other outstanding API obligations remain in scope.
 
 Latest public-iteration and collection checkpoint: the full Lean build passes
 (1,806 jobs), including all progressive traversal, public list iteration,
