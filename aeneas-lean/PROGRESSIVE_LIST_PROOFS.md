@@ -16,11 +16,11 @@ lower-level hypothesis and count the wrapper as proved.
 
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
-| `empty`, `Default::default` | Empty contents, zero length, no pending updates | Extracted `empty`; proofs pending |
+| `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Tree/ProgressiveList/Observers.lean`: exact empty/default state and all observer results proved under empty-map laws; future representation invariant still to be instantiated |
 | `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | Pending progressive-builder extraction and content proofs |
-| `len` | Length of the merged backing/pending view | Extracted; arithmetic and representation proofs pending |
-| `is_empty` | Equivalent to merged length zero | Pending extraction and proof |
-| `has_pending_updates` | Equivalent to a nonempty update map | Pending extraction and proof |
+| `len` | Length of the merged backing/pending view | `len_of_no_max_index` proved; nonempty-map arithmetic and representation proofs pending |
+| `is_empty` | Equivalent to merged length zero | `ProgressiveList.is_empty_spec` proved |
+| `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
 | `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence proved; full representation theorem pending |
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `get_after_push_at` and `get_after_push` proved; length, success/failure, and representation preservation pending |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | Pending extraction and proof |
@@ -59,3 +59,10 @@ commit with signing disabled and a model co-author trailer. Before completion:
 regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
+
+## Rust corrections
+
+- `0352f19`: `ProgressiveListIterCow::next_cow` advances its cursor only when
+  yielding a handle. Exhaustion no longer increments indefinitely and eventually
+  overflows. A regression test exercises the `usize::MAX` exhausted cursor in
+  release mode; the Lean iterator correctness proof remains outstanding.

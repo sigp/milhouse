@@ -7,3 +7,4 @@ import Tree.Roundtrip
 import Tree.Rebase
 import Tree.ProgressiveTree
 import Tree.ProgressiveList
+import Tree.ProgressiveList.Observers

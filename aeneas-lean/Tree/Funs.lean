@@ -4897,6 +4897,49 @@ def progressive_list.ProgressiveList.push
     let (_, t) ← update_mapUpdateMapInst.insert self.updates index value
     ok (core.result.Result.Ok (), { self with updates := t })
 
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::is_empty]:
+    Source: 'src/progressive_list.rs', lines 102:4-104:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.is_empty
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result Bool
+  := do
+  let i ←
+    progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst self
+  ok (i = 0#usize)
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::has_pending_updates]:
+    Source: 'src/progressive_list.rs', lines 106:4-108:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.has_pending_updates
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result Bool
+  := do
+  let b ← update_mapUpdateMapInst.is_empty self.updates
+  ok (¬ b)
+
+/-- [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}::default]:
+    Source: 'src/progressive_list.rs', lines 250:4-252:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result (progressive_list.ProgressiveList T U)
+  := do
+  progressive_list.ProgressiveList.empty ValueInst update_mapUpdateMapInst
+
+/-- Trait implementation: [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}]
+    Source: 'src/progressive_list.rs', lines 249:0-253:1 -/
+@[reducible]
+def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
+  Type} (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U
+  T) : core.default.Default (progressive_list.ProgressiveList T U) := {
+  default := progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
+    ValueInst update_mapUpdateMapInst
+}
+
 /-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
     Source: 'src/tree.rs', lines 10:16-10:21
     Visibility: public -/

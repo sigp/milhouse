@@ -64,6 +64,9 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_list::_::get' \
     --start-from 'milhouse::progressive_list::_::push' \
     --start-from 'milhouse::progressive_list::_::len' \
+    --start-from 'milhouse::progressive_list::_::is_empty' \
+    --start-from 'milhouse::progressive_list::_::has_pending_updates' \
+    --start-from '{impl core::default::Default for milhouse::progressive_list::ProgressiveList}' \
     --opaque 'ethereum_hashing' \
     --opaque 'tree_hash' \
     --opaque 'ssz' \
