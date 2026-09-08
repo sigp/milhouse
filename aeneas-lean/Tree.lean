@@ -27,6 +27,7 @@ import Tree.ProgressiveList.ToVec
 import Tree.ProgressiveList.Backing
 import Tree.ProgressiveList.Clone
 import Tree.ProgressiveList.Equality.Structure
+import Tree.ProgressiveList.Equality.Correctness
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
 import Tree.ProgressiveList.Rebase.Contents
