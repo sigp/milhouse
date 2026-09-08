@@ -27,6 +27,7 @@ import Tree.ProgressiveList.Push
 import Tree.ProgressiveList.Contents
 import Tree.ProgressiveList.ApplyUpdates
 import Tree.ProgressiveList.ApplyUpdates.Contents
+import Tree.ProgressiveList.ApplyUpdates.Backing
 import Tree.ProgressiveList.Mutable
 import Tree.ProgressiveList.Spine
 import Tree.ProgressiveList.CopyOnWrite
