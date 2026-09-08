@@ -17,6 +17,7 @@ import Tree.ProgressiveList.Iter.Length
 import Tree.ProgressiveList.ToVec
 import Tree.ProgressiveList.Backing
 import Tree.ProgressiveList.Clone
+import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.PopFront.Contents
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
