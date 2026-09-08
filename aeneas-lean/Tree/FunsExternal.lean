@@ -727,13 +727,17 @@ def triomphe.arc.Arc.Insts.CoreConvertAsRef.as_ref
   {T : Type} : triomphe.arc.Arc T → Result T := ok
 
 /-- [triomphe::arc::{impl core::cmp::PartialEq<triomphe::arc::Arc<T>> for triomphe::arc::Arc<T>}::ne]:
-    Delegates to the pointee's `PartialEq` (as triomphe's impl does). -/
+    The actual triomphe implementation returns false for identical pointers,
+    otherwise it invokes the pointee's `ne`. The shortcut also applies to
+    nonreflexive or effectful generic comparisons. -/
 @[rust_fun
   "triomphe::arc::{core::cmp::PartialEq<triomphe::arc::Arc<@T>, triomphe::arc::Arc<@T>>}::ne"]
 def triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.ne
   {T : Type} (corecmpPartialEqInst : core.cmp.PartialEq T T) :
   triomphe.arc.Arc T → triomphe.arc.Arc T → Result Bool :=
-  corecmpPartialEqInst.ne
+  fun x y => do
+    let same ← triomphe.arc.Arc.ptr_eq x y
+    if same then ok false else corecmpPartialEqInst.ne x y
 
 /-- [triomphe::arc::{impl core::cmp::PartialEq<triomphe::arc::Arc<T>> for triomphe::arc::Arc<T>}::eq]: -/
 @[rust_fun
@@ -741,7 +745,9 @@ def triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.ne
 def triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.eq
   {T : Type} (corecmpPartialEqInst : core.cmp.PartialEq T T) :
   triomphe.arc.Arc T → triomphe.arc.Arc T → Result Bool :=
-  corecmpPartialEqInst.eq
+  fun x y => do
+    let same ← triomphe.arc.Arc.ptr_eq x y
+    if same then ok true else corecmpPartialEqInst.eq x y
 
 /-- [triomphe::arc::{impl core::fmt::Debug for triomphe::arc::Arc<T>}::fmt]: -/
 @[rust_fun "triomphe::arc::{core::fmt::Debug<triomphe::arc::Arc<@T>>}::fmt"]

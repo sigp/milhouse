@@ -1,4 +1,5 @@
 import Tree.Rebase.ContentsAction
+import Tree.Arc.Equality
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -51,7 +52,7 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction]
           | true =>
-            have helements := hsound origLeaf.value baseLeaf.value heq
+            have helements := triomphe.arc.Arc.eq_true_imp_eq ValueInst.corecmpPartialEqInst hsound heq
             simp at hrebase
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction,
