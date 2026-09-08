@@ -1,4 +1,5 @@
 import Tree.ProgressiveTree.Builder.Spine
+import Tree.ProgressiveTree.Bounds
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree
@@ -56,7 +57,7 @@ theorem ProgressiveTree.ofSubtrees_dense {T : Type} {factor : Option Std.Usize}
     simpa [ProgressiveTree.ofSubtrees, _root_.List.flatMap_cons,
       hfull.1.elements_length, Nat.add_assoc] using hnode
 
-/-- Actual spine assembly is dense when its completed completed is full and its
+/-- Actual spine assembly is dense when its completed prefix is full and its
     final binary subtree is dense at the next layer. No machine or packing
     assumptions are added by assembly. -/
 theorem ProgressiveTree.from_spine_subtrees_dense_last {T : Type} (ValueInst : Value T)
@@ -76,5 +77,30 @@ theorem ProgressiveTree.from_spine_subtrees_dense_last {T : Type} (ValueInst : V
   have hresult := ProgressiveTree.ofSubtrees_dense completed
     (ProgressiveTree.ofSubtrees [last] .ProgressiveZero) hfull (by simpa using hsuffix)
   simpa [ProgressiveTree.ofSubtrees, _root_.List.foldr_append] using hresult
+
+/-- Assembly preserves the representable-capacity bound of every supplied
+    layer. There is no condition on the terminal zero's depth. -/
+theorem ProgressiveTree.ofSubtrees_fits {T : Type} {factor : Option Std.Usize}
+    {depth : Nat} (subtrees : _root_.List (tree.Tree T)) (suffix : ProgressiveTree T)
+    (hfit : ∀ i, i < subtrees.length →
+      subtreeCapacity factor (2 * (depth + i)) < 2 ^ System.Platform.numBits)
+    (hsuffix : suffix.Fits factor (depth + subtrees.length)) :
+    (ProgressiveTree.ofSubtrees subtrees suffix).Fits factor depth := by
+  induction subtrees generalizing depth with
+  | nil => simpa [ProgressiveTree.ofSubtrees] using hsuffix
+  | cons head tail ih =>
+    refine ⟨by simpa using hfit 0 (by simp), ih ?_ ?_⟩
+    · intro i hi
+      simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hfit (i + 1) (by simp; omega)
+    · simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hsuffix
+
+theorem ProgressiveTree.from_spine_subtrees_fits {T : Type} (ValueInst : Value T)
+    {factor : Option Std.Usize} {subtrees : alloc.vec.Vec (tree.Tree T)} {output : ProgressiveTree T}
+    (hfit : ∀ i, i < subtrees.val.length →
+      subtreeCapacity factor (2 * i) < 2 ^ System.Platform.numBits)
+    (hassemble : ProgressiveTree.from_spine_subtrees ValueInst subtrees = ok output) :
+    output.Fits factor 0 := by
+  rw [ProgressiveTree.from_spine_subtrees_eq ValueInst subtrees hassemble]
+  exact ProgressiveTree.ofSubtrees_fits _ _ (by simpa using hfit) trivial
 
 end milhouse.progressive_tree
