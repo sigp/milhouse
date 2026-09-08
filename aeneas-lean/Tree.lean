@@ -11,6 +11,7 @@ import Tree.Iter.Contents
 import Tree.Repeat
 import Tree.Builder
 import Tree.Builder.Contents
+import Tree.Builder.Contents.Length
 import Tree.Builder.New
 import Tree.Builder.Carry
 import Tree.Builder.Push.Loop
