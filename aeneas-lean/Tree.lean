@@ -15,6 +15,7 @@ import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.ProgressiveTree
 import Tree.ProgressiveTree.Equality.Structure
+import Tree.ProgressiveTree.Equality.Correctness
 import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Iter.Construction
