@@ -1564,7 +1564,7 @@ def iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
           let o1 ← lift (U32.checked_sub i3 i4)
           let to_pop ←
             core.option.Option.expect o1 (toStr
-              "index should have at least `packing_depth` trailing zeroes")
+              "index should have at least `packing_depth` trailing zeroes" (by rw [U32.max_eq]; cbv))
           let i5 ← lift (UScalar.cast .Usize to_pop)
           let i6 ← i5 + 1#usize
           let v2 ← iter.pop_many v1 i6
@@ -1812,7 +1812,7 @@ def level_iter.LevelIter.Insts.CoreIterTraitsIteratorIteratorLevelNode.next
             let o1 ← lift (U32.checked_sub i6 i7)
             let to_pop ←
               core.option.Option.expect o1 (toStr
-                "index should have at least `packing_depth` trailing zeroes")
+                "index should have at least `packing_depth` trailing zeroes" (by rw [U32.max_eq]; cbv))
             let i8 ← lift (UScalar.cast .Usize to_pop)
             let i9 ← i8 + 1#usize
             let v2 ← level_iter.pop_many v1 i9

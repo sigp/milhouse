@@ -332,6 +332,24 @@ from the exact iterator length. The resulting extraction contains the actual
 progressive and list iterator bodies without admissions. Its `Option::or`
 call uses a concrete local standard-library model.
 
+## 14. Aeneas `toStr`: native-evaluated default proof adds caller axioms
+
+**Stage:** axiom audit of proofs over generated iterator definitions.
+**Status:** avoided with explicit kernel-checked literal-size proofs in the
+local extraction post-processing; the Aeneas checkout is unchanged.
+
+The built-in `toStr` takes a proof that a string's byte size fits `U32.max`.
+Its default argument uses `decide +native`. Generated panic messages omit the
+argument, so even a proof of immediate iterator exhaustion inherits a generated
+`_native.decide.ax_*` dependency from the recursive definition's body. This is
+separate from the existing upstream `sorry` warnings.
+
+The extraction script now supplies `(by rw [U32.max_eq]; cbv)` for each emitted
+string literal. Kernel-checked evaluation computes the literal's byte size after
+rewriting the opaque maximum constant. The strings, branches, and error behavior
+are unchanged; only the proof argument is supplied explicitly. Axiom audits of
+the iterator results check that no native-evaluation dependency remains.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

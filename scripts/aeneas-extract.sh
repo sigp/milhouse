@@ -112,3 +112,9 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
 # the no-op the default resolves to.
 perl -0pi -e 's/impl_def (Pair\.Insts\.CoreCmpEq \{U : Type\} \{T : Type\}.*?assert_fields_are_eq := )core\.cmp\.Eq\.assert_fields_are_eq\.default\n\s*\(Pair\.Insts\.CoreCmpEq cmpEqInst cmpEqInst1\)\n\}/def $1fun _ => ok ()\n}/s' \
     aeneas-lean/Tree/Funs.lean
+
+# Aeneas's toStr default proves its byte-size bound with native evaluation,
+# adding a native-decide axiom to callers. Supply a kernel-checked proof for
+# each emitted literal instead, preserving the same string and function body.
+perl -0pi -e 's/\btoStr(\s+"(?:[^"\\]|\\.)*")/toStr$1 (by rw [U32.max_eq]; cbv)/g' \
+    aeneas-lean/Tree/Funs.lean
