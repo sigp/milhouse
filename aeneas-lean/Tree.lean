@@ -11,6 +11,8 @@ import Tree.Rebase
 import Tree.ProgressiveTree
 import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
+import Tree.ProgressiveList.Iter.Construction
+import Tree.ProgressiveList.Iter.Length
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveList
