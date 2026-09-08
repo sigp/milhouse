@@ -71,4 +71,30 @@ theorem ProgressiveList.get_of_located_update {T U : Type}
   exact progressive_tree.ProgressiveTree.get_recursive_of_located_update
     ValueInst hlocate hlayout hdense hlocal hupdate
 
+/-- A successful push changes only the update map, by inserting at the old
+    logical length. Success already rules out a full list and arithmetic
+    failure, so callers do not need separate capacity assumptions. -/
+theorem ProgressiveList.push_success {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (value : T) (index : Std.Usize)
+    (hlen : ProgressiveList.len ValueInst mapInst self = ok index)
+    {pushed : ProgressiveList T U}
+    (hpush : ProgressiveList.push ValueInst mapInst self value =
+      ok (core.result.Result.Ok (), pushed)) :
+    ∃ previous updates, mapInst.insert self.updates index value =
+      ok (previous, updates) ∧ pushed = { self with updates := updates } := by
+  unfold ProgressiveList.push at hpush
+  rw [hlen] at hpush
+  simp only [bind_tc_ok] at hpush
+  by_cases hfull : index = core.num.Usize.MAX
+  · simp [hfull] at hpush
+  · rw [if_neg hfull] at hpush
+    cases hins : mapInst.insert self.updates index value with
+    | fail e => simp [hins] at hpush
+    | div => simp [hins] at hpush
+    | ok inserted =>
+      obtain ⟨previous, updates⟩ := inserted
+      simp [hins] at hpush
+      exact ⟨previous, updates, rfl, hpush.symm⟩
+
 end milhouse.progressive_list
