@@ -31,7 +31,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
 | `to_vec` | Return the merged sequence in order | `ToVec.lean`: actual collection succeeds and returns exactly the represented merged sequence. Uses the proved public iterator and exact-length results, representation, backing density/representability, packing layout, and successful identity cloning only for values in the sequence. Vector-push bounds and loop termination are derived internally |
 | `pop_front` | Drop the specified prefix, reindex remaining values; reject oversized drops unchanged | `PopFront/Contents.lean`: successful removal represents exactly `contents.drop n`, preserves `BackingValid`, and clears pending updates when `n` is nonzero, under representation, backing validity, packing layout, identity cloning only of retained values, and empty-default-map laws. `PopFront/State.lean`: zero is an unconditional no-op; oversized removals return the exact bounds error unchanged; every returned Rust error preserves the original list. `PopFront/Builder.lean` proves exact streaming suffix consumption and builder-invariant preservation. Extraction uses a concrete streaming helper; no intermediate vector or opaque milhouse-method model |
-| `rebase`, `rebase_on` | Preserve values, length, and pending updates while changing sharing only | Both operations and recursive progressive rebasing are extracted. `Rebase/State.lean` proves exact successful state, complete restoration on every returned `rebase_on` error, and unchanged backing length, exact pending-map state, logical length, and pending observer on all returned results, without map or representation assumptions. `Tree/Rebase/Lengths.lean` proves binary rebase length/density preservation with shorter or longer bases and accurate length/depth metadata. Progressive backing-invariant preservation and binary/progressive content preservation remain pending; content reasoning must justify element equality and the cached-hash shortcut |
+| `rebase`, `rebase_on` | Preserve values, length, and pending updates while changing sharing only | `Rebase/Contents.lean`: both successful operations preserve the represented merged sequence and `BackingValid`, under input representation/backing validity, an accurately sized dense base, packing layout, positive element-equality soundness, and agreement of corresponding nonzero cached hashes at equal materialized lengths. Actual binary/progressive rebase content preservation is proved underneath, including shorter or longer bases. In-place rebase preserves exact pending-map state; nonmutating rebase adds only clone read/max laws. `Rebase/Backing.lean` proves backing preservation without equality, hash, or clone laws. `Rebase/State.lean` proves restoration on every returned in-place error and unchanged metadata/observers on all returned results. Deriving cache agreement from the eventual semantic hash model and maintained cache invariant remains part of the hashing work |
 | `Clone` | Preserve logical contents and backing validity | `Clone.lean`: the actual derived clone shares the backing tree and copies its recorded length; successful cloning preserves `BackingValid` without clone laws. Sequence representation is preserved when pending-map cloning preserves reads and maximum; the pending observer is preserved under its corresponding map law. No element-clone law or exact identity of the cloned map is assumed |
 | `PartialEq` | Characterize equality under element/map laws | Pending extraction and proof |
 | `Debug` | Formatting through the derived formatter | Pending extraction and specification |
@@ -56,15 +56,38 @@ lower-level hypothesis and count the wrapper as proved.
   when returning an equality action. Binary rebase density no longer requires
   equally long inputs. These structural results need no element-equality or
   hash-collision law; the operational length and density proofs use the
-  existing trusted `Arc.ptr_eq_spec` model law. They do not yet prove content
-  preservation through the cached-hash shortcut.
+  existing trusted `Arc.ptr_eq_spec` model law. Content preservation is proved
+  separately under the semantic laws below.
+- `Tree/Rebase/ContentsAction.lean`, `Contents.lean`: positive vector equality
+  implies exact contents equality under positive element-equality soundness;
+  no termination or negative-comparison law is assumed. The actual binary
+  rebase action preserves contents, and equality actions also certify agreement
+  with the base. `CachedHashesAgree` states an input cache law at corresponding
+  nodes: equal nonzero hashes imply equal contents when materialized lengths
+  agree. It imposes no constraint on zero caches or different-length sequences,
+  and contains no rebase call or result. Deriving it from semantic hashing and
+  maintained cache validity remains a separate hashing obligation.
+- `Tree/ProgressiveTree/Rebase/Steps.lean`, `Geometry.lean`, `Density.lean`,
+  and `Contents.lean`: actual successful recursive calls either retain the
+  original tree or rebuild from the binary action and recursive suffix. The
+  calculated layer lengths match the dense materialized prefixes. Progressive
+  rebasing preserves density and representable capacities with no equality,
+  hash, or clone laws; only the original tree needs capacity bounds. Exact
+  contents preservation adds positive equality soundness and cache agreement
+  for compared binary layers; unused progressive-node hashes need no law.
 - `Tree/ProgressiveList/Clone.lean`, `Rebase/State.lean`: exact derived-clone
   state, sequence and backing preservation under the relevant pending-map
   clone laws, exact rebase success calls, and complete error restoration.
   In-place rebase preserves backing length, pending-map identity, logical
   length, and pending observers on every returned result. These frame and
-  error results do not require a tree-content theorem; full rebase content
-  and progressive backing-invariant preservation remain separate obligations.
+  error results do not require a tree-content theorem. `Rebase/Backing.lean`
+  lifts full backing preservation through both list methods without clone
+  laws. `Rebase/Contents.lean` proves successful `rebase_on_spec` and
+  `rebase_spec`, preserving represented contents and backing validity under
+  the semantic equality/cache premises above. In-place rebasing needs no map
+  laws; nonmutating rebasing adds only pending-map clone read/max preservation.
+  The general `Represents.with_tree` lemma preserves the pending overlay when
+  valid backing trees have the same materialized sequence.
 - `Tree/Contents.lean`: a dense binary tree's materialized sequence has its
   recorded length, and extracted indexed lookup returns exactly that sequence's
   element. The pure slot theorem requires no packing laws or machine bounds;
@@ -122,9 +145,10 @@ lower-level hypothesis and count the wrapper as proved.
   supply these properties through builder finalization. `Backing.lean` names
   the combined invariant `BackingValid`, establishes it for empty/default/vector
   construction, and proves preservation by pending append and every mutable or
-  CoW write-back without extra map or clone laws. Preservation through the
-  remaining backing-changing operations, including rebase, remains part of the
-  full goal; `ApplyUpdates/Backing.lean` now preserves it through `apply_updates`.
+  CoW write-back without extra map or clone laws. `ApplyUpdates/Backing.lean`,
+  `PopFront/Contents.lean`, and `Rebase/Backing.lean` preserve it through the
+  extracted backing-changing list operations. Remaining trait and CoW bridges
+  must connect their actual calls to these established invariants.
 - `Tree/ProgressiveList/PopFront/Builder.lean`, `State.lean`, and `Contents.lean`:
   the concrete streaming helper appends the proved iterator suffix and preserves
   the progressive builder invariant. The public operation's successful result
@@ -274,7 +298,21 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest cloning and binary-rebase checkpoint (through `091ede4`): fresh
+Latest rebase correctness checkpoint (through `54f84fa`): the full Lean build
+passes (1,827 jobs), with all new modules included through `Tree.lean`. All six
+progressive/list backing results and nine action/equality/content results were
+audited. Five use only standard Lean axioms; ten operational results also use
+the existing trusted `triomphe.arc.Arc.ptr_eq_spec` model law. No admissions or
+new axioms were introduced. Rust, generated extraction, and Aeneas are unchanged
+since the preceding extraction checkpoint. A fresh fetch also confirms that
+`origin/main` at `d67aabd` remains included through merge `473f5c8`.
+Rebase preserves backing validity without semantic equality/hash laws; its
+contents specifications state the necessary positive-equality and cache laws
+explicitly. The full goal remains incomplete: CoW iteration/materializing
+mutation, remaining trait bridges, codecs, semantic hashing and cache-invariant
+proofs, and feature-specific APIs remain in scope.
+
+Previous cloning and binary-rebase checkpoint (through `091ede4`): fresh
 extraction and the full Lean build pass (1,819 jobs), with every new module
 included through `Tree.lean`. All 20 new or newly exposed results were audited.
 The five clone results, seven pure/step foundations, and six list rebase-state
