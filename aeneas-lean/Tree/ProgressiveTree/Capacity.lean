@@ -93,4 +93,42 @@ theorem ProgressiveTree.total_capacity_spec {T : Type}
       prog_tree_exponent_cast, hpower, hdenominator, hquotient, hfactor, hproduct, hsmall]
   · rw [UScalar.cast_val_mod_pow_of_inBounds_eq .Usize small hsmallBound, hsmallVal]
 
+private theorem remove_u128_capacity_clip (power factor : Nat) :
+    min Std.Usize.max (((min Std.U128.max power - 1) / 3) * factor) =
+      min Std.Usize.max (((power - 1) / 3) * factor) := by
+  by_cases hfit : power ≤ Std.U128.max
+  · rw [min_eq_right hfit]
+  · by_cases hz : factor = 0
+    · simp [hz]
+    · have hsmall : Std.Usize.max ≤ (Std.U128.max - 1) / 3 := by
+        rcases Usize.bounds_eq with h | h <;>
+          norm_num [h, U128.max, U128.numBits, U32.max, U32.numBits, U64.max, U64.numBits]
+      have hfactor : 1 ≤ factor := by omega
+      have hmul : (Std.U128.max - 1) / 3 ≤ ((Std.U128.max - 1) / 3) * factor := by
+        simpa using Nat.mul_le_mul_left ((Std.U128.max - 1) / 3) hfactor
+      have hdiv : (Std.U128.max - 1) / 3 ≤ (power - 1) / 3 := by omega
+      have hmul' := Nat.mul_le_mul_right factor hdiv
+      rw [min_eq_left (by omega : Std.U128.max ≤ power),
+        min_eq_left (by omega), min_eq_left (by omega)]
+
+/-- The internal `u128` saturation leaves the final machine-sized capacity
+    equal to the clamped mathematical geometric sum. This formula holds even
+    at depths where checked exponentiation overflows. -/
+theorem ProgressiveTree.total_capacity_formula {T : Type}
+    (ValueInst : Value T) (depth : Std.U32) {factor : Option Std.Usize}
+    (hfactor : utils.opt_packing_factor ValueInst.tree_hashTreeHashInst = ok factor) :
+    ∃ capacity, ProgressiveTree.total_capacity_at_depth ValueInst depth = ok capacity ∧
+      capacity.val = min Std.Usize.max
+        (((4 ^ depth.val - 1) / 3) * (core.option.Option.unwrap_or factor 1#usize).val) := by
+  obtain ⟨capacity, hcapacity, hval⟩ := ProgressiveTree.total_capacity_spec ValueInst depth hfactor
+  exact ⟨capacity, hcapacity, hval.trans (remove_u128_capacity_clip _ _)⟩
+
+/-- Advancing one progressive layer adds precisely that layer's four-power
+    number of leaf positions, before packing and machine-size clamping. -/
+theorem progressive_sum_succ (depth : Nat) :
+    (4 ^ (depth + 1) - 1) / 3 = (4 ^ depth - 1) / 3 + 4 ^ depth := by
+  rw [pow_succ]
+  have hpositive : 0 < 4 ^ depth := by positivity
+  omega
+
 end milhouse.progressive_tree
