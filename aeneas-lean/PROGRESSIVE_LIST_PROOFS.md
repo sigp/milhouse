@@ -25,7 +25,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; structural tree/map invariant preservation remains for later bulk-update proofs |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; structural invariant preservation remains |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Extracted via the closure-free map helper with lazy backing lookup; semantic and write-back proofs pending |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence proved under the relevant default-map laws; content preservation still needs bulk-update content proofs for Tree and ProgressiveTree |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence proved under the relevant default-map laws; binary-tree bulk-update shape/content and extracted-lookup correctness are now proved; lifting through ProgressiveTree and establishing the list representation remain |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Pending iterator extraction and invariants |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | Pending |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
@@ -56,9 +56,18 @@ lower-level hypothesis and count the wrapper as proved.
   cloning and the complete scan. Pending values override their own slots;
   absent updates preserve the previous values. No density or map metadata
   assumptions are needed for these successful-execution content results.
-- `Tree/BulkUpdate.lean`: unpacked-leaf bulk-update contents and lookup
-  read-back. Binary node recursion, zero expansion, and the corresponding
-  progressive-tree content theorem remain outstanding.
+- `Tree/Arithmetic.lean`, `Tree/Shape.lean`: shared checked-arithmetic and
+  routing lemmas, a geometric shape invariant derived from `DenseTree`, and
+  exact correspondence between extracted lookup and mathematical slot contents.
+  Shape admits transient nodes with two zero children without requiring density.
+- `Tree/BulkUpdate.lean`, `Tree/BulkUpdate/Node.lean`,
+  `Tree/BulkUpdate/Contents.lean`: unpacked-leaf contents, exact node-update
+  decomposition, and the complete recursive shape/content theorem, including
+  zero expansion and aligned global map offsets. The extracted-lookup corollary
+  derives its shift bound from successful execution. Only false range answers
+  must exclude pending values; density and positive-range completeness are not
+  needed for this successful-execution content theorem. The corresponding
+  progressive-tree proof remains outstanding.
 
 ## Validation
 
@@ -67,6 +76,13 @@ commit with signing disabled and a model co-author trailer. Before completion:
 regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
+
+Latest checkpoint (`9055d8d`, `10b5743`): the full Lean build passes (1,745 jobs),
+including existing rebase and builder proofs after arithmetic sharing. All 71
+audited public theorems across the new list/map, packed-leaf, binary bulk-update,
+shape, and shared arithmetic modules depend only on `propext`,
+`Classical.choice`, and `Quot.sound`. This does not complete the operation
+coverage obligations above.
 
 ## Rust corrections
 
