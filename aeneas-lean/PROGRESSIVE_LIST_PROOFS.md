@@ -47,6 +47,13 @@ lower-level hypothesis and count the wrapper as proved.
   `Tree/Rebase.lean`: binary-tree density, builder invariants, leaf-update
   read-back, and rebase shape preservation. Content preservation must be proved
   separately where the existing result establishes only density.
+- `Tree/Contents.lean`: a dense binary tree's materialized sequence has its
+  recorded length, and extracted indexed lookup returns exactly that sequence's
+  element. The pure slot theorem requires no packing laws or machine bounds;
+  the extracted lookup bridge adds only the packing layout and routing shift
+  bound. Wrapping modulo capacity is explicit. This supplies a content bridge
+  for constructor and iteration proofs; builder sequence preservation remains
+  a separate obligation.
 - `Tree/ProgressiveTree.lean`: exact routing to binary-tree lookups, plus
   selected-subtree density and update read-back lemmas.
 - `Tree/ProgressiveTree/Capacity.lean`, `Depth.lean`, `Geometry.lean`: exact

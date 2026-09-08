@@ -1,5 +1,6 @@
 import Tree.Funs
 import Tree.Invariants
+import Tree.Contents
 import Tree.Repeat
 import Tree.Builder
 import Tree.Lemmas
