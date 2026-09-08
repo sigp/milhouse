@@ -20,6 +20,7 @@ import Tree.ProgressiveList.Backing
 import Tree.ProgressiveList.Clone
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
+import Tree.ProgressiveList.Rebase.Contents
 import Tree.ProgressiveList.PopFront.Contents
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
