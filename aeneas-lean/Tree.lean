@@ -12,3 +12,4 @@ import Tree.UpdateMap.Length
 import Tree.ProgressiveList.Length
 import Tree.ProgressiveList.Push
 import Tree.ProgressiveList.Contents
+import Tree.ProgressiveList.ApplyUpdates
