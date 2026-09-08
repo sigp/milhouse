@@ -107,4 +107,63 @@ theorem ProgressiveList.get_after_get_mut_at {T U : Type}
     simp only [ProgressiveList.get, hget, ProgressiveList.backing_get,
       ProgressiveList.backing_len]
 
+/-- Replacing a borrowed element within the logical bounds preserves length.
+    The only new map premise is that mutable access records the selected key
+    in its maximum-index metadata. -/
+theorem ProgressiveList.len_after_get_mut {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index length : Std.Usize) (replacement : T)
+    (hlen : ProgressiveList.len ValueInst mapInst self = ok length)
+    (hindex : index.val < length.val)
+    (hmax : update_map.GetMutWithMaxIndex mapInst self.updates index)
+    {value : T} {back : Option T → ProgressiveList T U}
+    (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (some value, back)) :
+    ProgressiveList.len ValueInst mapInst (back (some replacement)) = ok length := by
+  obtain ⟨mapBack, hmap, rfl⟩ :=
+    ProgressiveList.get_mut_success ValueInst mapInst self index hmut
+  rw [ProgressiveList.len_eq_updated_length] at hlen ⊢
+  exact utils.updated_length_insert_below mapInst self.length self.updates
+    (mapBack (some replacement)) index length hlen hindex
+    (hmax _ _ _ _ hmap replacement)
+
+/-- **Sequence replacement correctness.** Writing a new value through a
+    returned mutable element handle preserves length and every other element.
+    The old representation and successful read supply the index bound, so
+    callers need no separate bounds or tree invariants. -/
+theorem ProgressiveList.get_mut_represents_set {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    (index : Std.Usize) (replacement : T)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hreads : update_map.GetMutWithReads mapInst self.updates index)
+    (hwrites : update_map.GetMutWithWrites mapInst self.updates index)
+    (hmax : update_map.GetMutWithMaxIndex mapInst self.updates index)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    {value : T} {back : Option T → ProgressiveList T U}
+    (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (some value, back)) :
+    (back (some replacement)).Represents ValueInst mapInst
+      (contents.set index.val replacement) := by
+  obtain ⟨⟨length, hlen, hlength⟩, hget⟩ := hrep
+  have hread := ProgressiveList.get_mut_reads_get ValueInst mapInst self index hreads hclone hmut
+  rw [hget index] at hread
+  have hindex : index.val < contents.length := by
+    by_contra hout
+    have hnone : contents[index.val]? = none :=
+      _root_.List.getElem?_eq_none_iff.mpr (by omega)
+    simp [hnone] at hread
+  refine ⟨⟨length, ProgressiveList.len_after_get_mut ValueInst mapInst self index length
+    replacement hlen (by omega) hmax hmut, by simp [hlength]⟩, ?_⟩
+  intro query
+  rw [ProgressiveList.get_after_get_mut_at ValueInst mapInst self index query replacement
+    hwrites hmut]
+  by_cases heq : query = index
+  · subst query
+    simp [hindex]
+  · rw [if_neg heq, hget query]
+    have hne : index.val ≠ query.val := by
+      intro heqval
+      apply heq
+      scalar_tac
+    simp [hne]
+
 end milhouse.progressive_list

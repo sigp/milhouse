@@ -30,4 +30,15 @@ def GetMutWithWrites {T U : Type} (mapInst : UpdateMap U T)
     ∀ replacement query, mapInst.get (back (some replacement)) query =
       if query = index then ok (some replacement) else mapInst.get updates query
 
+/-- Mutable access records the borrowed key in maximum-index metadata. This
+    also covers materializing a previously absent entry from the fallback. -/
+def GetMutWithMaxIndex {T U : Type} (mapInst : UpdateMap U T)
+    (updates : U) (index : Std.Usize) : Prop :=
+  ∀ {F : Type} (fnInst : core.ops.function.FnOnce F Std.Usize (Option T))
+    (fallback : F) (value : T) (back : Option T → U),
+    mapInst.get_mut_with fnInst updates index fallback = ok (some value, back) →
+    ∀ replacement oldMax, mapInst.max_index updates = ok oldMax →
+      mapInst.max_index (back (some replacement)) = ok (some (oldMax.elim index
+        (core.cmp.impls.OrdUsize.max index)))
+
 end milhouse.update_map
