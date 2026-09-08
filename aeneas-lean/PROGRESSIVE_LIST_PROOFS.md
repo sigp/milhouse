@@ -16,13 +16,13 @@ lower-level hypothesis and count the wrapper as proved.
 
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
-| `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Tree/ProgressiveList/Observers.lean`: exact empty/default state and all observer results proved under empty-map laws; future representation invariant still to be instantiated |
+| `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Observers.lean` and `Contents.lean`: exact state, observer results, and representation of the empty sequence proved under the relevant empty-map laws; structural invariant still to be instantiated |
 | `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | Pending progressive-builder extraction and content proofs |
-| `len` | Length of the merged backing/pending view | `len_of_no_max_index` proved; nonempty-map arithmetic and representation proofs pending |
+| `len` | Length of the merged backing/pending view | `ProgressiveList/Length.lean` and `UpdateMap/Length.lean`: exact empty/nonempty-map arithmetic, backing lower bound, and successful evaluation below overflow proved; sequence agreement is established by constructor/mutation representation lemmas |
 | `is_empty` | Equivalent to merged length zero | `ProgressiveList.is_empty_spec` proved |
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
 | `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence proved; full representation theorem pending |
-| `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `get_after_push_at` and `get_after_push` proved; length, success/failure, and representation preservation pending |
+| `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; structural tree/map invariant preservation remains for later bulk-update proofs |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | Pending extraction and proof |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Pending extraction and proof |
 | `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | Pending bulk-update content proofs for Tree and ProgressiveTree |
