@@ -6,3 +6,4 @@ import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
 import Tree.ProgressiveTree
+import Tree.ProgressiveList
