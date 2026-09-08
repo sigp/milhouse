@@ -82,6 +82,31 @@ theorem ProgressiveTree.total_capacity_unclamped {T : Type} (ValueInst : Value T
   cases hactual
   omega
 
+/-- Before saturation, advancing one layer gives a nonempty machine-index
+    window. This also holds when the new endpoint itself saturates. -/
+theorem ProgressiveTree.layer_nonempty {T : Type} (ValueInst : Value T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    {depth next : Std.U32} {start stop : Std.Usize}
+    (hnext : depth + 1#u32 = ok next)
+    (hstart : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start)
+    (hstop : ProgressiveTree.total_capacity_at_depth ValueInst next = ok stop)
+    (hsmall : start.val < Std.Usize.max) :
+    start.val < stop.val := by
+  have hstartVal := ProgressiveTree.total_capacity_unclamped ValueInst
+    hlayout.opt_packing_factor_eq hstart hsmall
+  obtain ⟨actualStop, hactualStop, hstopVal⟩ :=
+    ProgressiveTree.total_capacity_eq ValueInst hlayout.opt_packing_factor_eq next
+  rw [hstop] at hactualStop
+  cases hactualStop
+  have hadd := UScalar.add_equiv depth 1#u32
+  rw [hnext] at hadd
+  simp at hadd
+  have hnextVal : next.val = depth.val + 1 := by omega
+  have hpositive := hlayout.subtreeCapacity_pos (2 * depth.val)
+  rw [hnextVal, progressiveCapacity_succ] at hstopVal
+  omega
+
 /-- A representable power-of-two layer also has representable endpoints.
     Thus the saturating capacity calculation does not truncate this window. -/
 theorem progressiveCapacity_succ_fits {T : Type} {ValueInst : Value T}
