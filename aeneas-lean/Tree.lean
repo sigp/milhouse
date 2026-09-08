@@ -33,6 +33,7 @@ import Tree.ProgressiveList.Equality.Correctness
 import Tree.ProgressiveList.Encode.Length
 import Tree.ProgressiveList.Encode.Fixed
 import Tree.ProgressiveList.Encode.Metadata
+import Tree.ProgressiveList.Encode.VariableLoop
 import Tree.Ssz.Bytes
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
