@@ -60,4 +60,25 @@ theorem updated_length_ge_backing {T U : Type}
       rw [updated_length_max_spec mapInst previous updates index length hmax hlen]
       exact Nat.le_max_right _ _
 
+/-- Length calculation succeeds whenever the largest update index has a
+    representable successor. The maximum cannot itself overflow because its
+    other argument is already a machine-sized backing length. -/
+theorem updated_length_succeeds {T U : Type}
+    (mapInst : update_map.UpdateMap U T) (previous : Length) (updates : U)
+    (index : Std.Usize)
+    (hmax : mapInst.max_index updates = ok (some index))
+    (hbound : index.val < Std.Usize.max) :
+    ∃ length, updated_length mapInst previous updates = ok length ∧
+      length.val = max (index.val + 1) previous.val := by
+  have hs := Std.Usize.add_spec (x := index) (y := 1#usize) (by scalar_tac)
+  cases hnext : index + 1#usize with
+  | fail e => rw [hnext] at hs; simp at hs
+  | div => rw [hnext] at hs; simp at hs
+  | ok next =>
+    have hlen : updated_length mapInst previous updates =
+        ok (core.cmp.impls.OrdUsize.max next previous) := by
+      rw [updated_length_of_max_index mapInst previous updates index hmax]
+      simp [hnext]
+    exact ⟨_, hlen, updated_length_max_spec mapInst previous updates index _ hmax hlen⟩
+
 end milhouse.utils
