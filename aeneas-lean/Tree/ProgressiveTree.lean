@@ -72,4 +72,60 @@ theorem ProgressiveTree.get_recursive_eq_locate {T : Type}
         · simpa only [if_neg hi, triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
             bind_tc_ok] using ih next
 
+/-- A read of the located binary subtree is a read of the progressive tree. -/
+theorem ProgressiveTree.get_recursive_of_locate {T : Type}
+    (ValueInst : Value T) {self : ProgressiveTree T}
+    {index local_index depth : Std.Usize} {prog_depth : Std.U32}
+    {binary : tree.Tree T} {opd : Option Std.Usize} {result : Option T}
+    (hlocate : self.locate ValueInst index prog_depth =
+      ok (some (binary, local_index, depth)))
+    (hpd : utils.opt_packing_depth ValueInst.tree_hashTreeHashInst = ok opd)
+    (hread : tree.Tree.get_recursive ValueInst binary local_index depth
+      (core.option.Option.unwrap_or opd 0#usize) = ok result) :
+    ProgressiveTree.get_recursive ValueInst self index prog_depth = ok result := by
+  rw [ProgressiveTree.get_recursive_eq_locate]
+  simp [hlocate, hpd, hread]
+
+/-- The existing dense binary-tree lookup theorem lifts through any number
+    of progressive spine nodes. The index bound and shift bound concern only
+    the selected binary subtree; no invariants on unvisited siblings are needed. -/
+theorem ProgressiveTree.get_recursive_some_of_dense_locate {T : Type}
+    (ValueInst : Value T) {self : ProgressiveTree T}
+    {index local_index depth packing_depth : Std.Usize} {prog_depth : Std.U32}
+    {binary : tree.Tree T} {packing_factor : Option Std.Usize} {len : Nat}
+    (hlocate : self.locate ValueInst index prog_depth =
+      ok (some (binary, local_index, depth)))
+    (hlayout : tree.PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : tree.DenseTree packing_factor binary depth.val len)
+    (hbits : depth.val + packing_depth.val ≤ System.Platform.numBits)
+    (hindex : local_index.val < len) :
+    ∃ value, ProgressiveTree.get_recursive ValueInst self index prog_depth =
+      ok (some value) := by
+  obtain ⟨value, hread⟩ := hdense.get_recursive_some hlayout hbits local_index hindex
+  refine ⟨value, ProgressiveTree.get_recursive_of_locate ValueInst hlocate
+    hlayout.opt_packing_depth_eq ?_⟩
+  simpa only [hlayout.unwrap_opt_packing_depth_eq] using hread
+
+/-- A successful update of the selected dense binary subtree is read back
+    through the progressive spine at the corresponding global index. This
+    is the binary-tree roundtrip theorem lifted through `locate`. -/
+theorem ProgressiveTree.get_recursive_of_located_update {T : Type}
+    (ValueInst : Value T) {self : ProgressiveTree T}
+    {index local_index depth packing_depth : Std.Usize} {prog_depth : Std.U32}
+    {before binary : tree.Tree T} {packing_factor : Option Std.Usize}
+    {len : Nat} {value : T}
+    (hlocate : self.locate ValueInst index prog_depth =
+      ok (some (binary, local_index, depth)))
+    (hlayout : tree.PackingLayout ValueInst packing_factor packing_depth)
+    (hdense : tree.DenseTree packing_factor before depth.val len)
+    (hindex : local_index.val ≤ len)
+    (hupdate : tree.Tree.with_updated_leaf ValueInst before local_index value depth =
+      ok (core.result.Result.Ok binary)) :
+    ProgressiveTree.get_recursive ValueInst self index prog_depth = ok (some value) := by
+  apply ProgressiveTree.get_recursive_of_locate ValueInst hlocate
+    hlayout.opt_packing_depth_eq
+  rw [hlayout.unwrap_opt_packing_depth_eq]
+  exact tree.get_recursive_with_updated_leaf_dense ValueInst hlayout hdense
+    local_index hindex value hupdate
+
 end milhouse.progressive_tree
