@@ -1,10 +1,7 @@
 import Tree.Funs
 import Tree.Invariants
 import Tree.Contents
-import Tree.Iter.Stack
-import Tree.Iter.Path.Contents
-import Tree.Iter.Path.Backtrack
-import Tree.Iter.Construction
+import Tree.Iter.Leaf
 import Tree.Repeat
 import Tree.Builder
 import Tree.Builder.Contents
