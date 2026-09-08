@@ -41,4 +41,13 @@ def GetMutWithMaxIndex {T U : Type} (mapInst : UpdateMap U T)
       mapInst.max_index (back (some replacement)) = ok (some (oldMax.elim index
         (core.cmp.impls.OrdUsize.max index)))
 
+/-- A missing mutable lookup leaves the map unchanged when its absent handle
+    is released. No element reference exists through which to write a value. -/
+def GetMutWithMissing {T U : Type} (mapInst : UpdateMap U T)
+    (updates : U) (index : Std.Usize) : Prop :=
+  ∀ {F : Type} (fnInst : core.ops.function.FnOnce F Std.Usize (Option T))
+    (fallback : F) (back : Option T → U),
+    mapInst.get_mut_with fnInst updates index fallback = ok (none, back) →
+      back none = updates
+
 end milhouse.update_map
