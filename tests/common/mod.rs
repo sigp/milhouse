@@ -9,8 +9,14 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 /// DHAT tests must be isolated in their own process (integration tests with one test per file).
 ///
 /// See: https://docs.rs/dhat/latest/dhat/#heap-usage-testing
-pub fn memory_tracker_accuracy_test<T: MemorySize>(value_producer: impl FnOnce() -> T) {
+pub fn memory_tracker_accuracy_test<T: MemorySize>(value_producer: impl Fn() -> T) {
     let profiler = dhat::Profiler::builder().testing().build();
+
+    // Warm up any one-time allocations (lazy statics, allocator internals, etc)
+    // so they are not attributed to the value under measurement below.
+    // Without this, CI can see a stable under-count (e.g. ~900 bytes) from
+    // first-touch costs that `MemoryTracker` correctly does not include.
+    drop(value_producer());
 
     // Take a snapshot at the start so we can ignore "background allocations" from e.g. the test
     // runner and the process starting up.
