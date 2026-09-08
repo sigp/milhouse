@@ -113,8 +113,7 @@ theorem ProgressiveList.partial_eq_represents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (mapEqInst : core.cmp.PartialEq U U)
     (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
-    {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    {factor : Option Std.Usize}
     (self other : ProgressiveList T U) (contents : _root_.List T)
     (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
     (hmapGet : mapEqInst.ne self.updates other.updates = ok false →
@@ -127,7 +126,7 @@ theorem ProgressiveList.partial_eq_represents {T U : Type}
   let updatesEqual := fun left right => mapEqInst.ne left right = ok false
   have heq := ProgressiveList.partial_eq_true_imp_structural ValueInst mapInst mapEqInst
     hsound updatesEqual (fun h => h) hequal
-  exact ⟨heq.represents ValueInst mapInst hlayout contents hrep hbacking hmapGet hmapMax,
+  exact ⟨heq.represents ValueInst mapInst contents hrep hmapGet hmapMax,
     heq.backing hbacking⟩
 
 end milhouse.progressive_list
