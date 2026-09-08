@@ -284,8 +284,9 @@ contents are proved in `Tree/ProgressiveTree/Builder/Spine.lean`.
 ## 12. Aeneas: selected trait methods require concrete callers
 
 **Stage:** Lean extraction.
-**Status:** avoided for `TryFrom<Vec<T>>` and the selected progressive-list
-iterator methods by making them reachable from existing concrete callers.
+**Status:** avoided for `TryFrom<Vec<T>>`, borrowed `IntoIterator`, and the
+selected progressive-list iterator methods by making them reachable from
+existing concrete callers.
 
 Selecting `{impl core::convert::TryFrom for
 milhouse::progressive_list::ProgressiveList}::try_from` succeeds in Charon.
@@ -308,6 +309,15 @@ when called from the explicit `to_vec` loop. `ExactSizeIterator::len` now has
 an explicit implementation returning `self.size_hint().0`: the concrete size
 hint always has equal lower and upper bounds, so this is equivalent to the
 trait default. Calling `len` from `to_vec` exposes both actual method bodies.
+
+Borrowed `IntoIterator` has an additional root-selection restriction: Charon
+rejects `{impl core::iter::IntoIterator for
+&milhouse::progressive_list::ProgressiveList}::into_iter` because implementation
+roots only support named types. `to_vec` now calls `self.into_iter()`, whose
+actual body delegates directly to `self.iter()`. This preserves the cursor,
+allocation, and clone order while making the trait method reachable.
+`Tree/ProgressiveList/Iter/Traits.lean` proves full merged-sequence enumeration
+through that emitted body, and `ToVec.lean` uses the new trait theorem.
 
 ## 13. Aeneas: progressive traversal borrows and collection adapters
 
@@ -379,6 +389,30 @@ fallible stages succeed. This preserves streaming allocation, element and clone
 order, and error restoration, without an intermediate vector or an opaque model
 of a milhouse method. Fresh extraction and the full Lean build succeed, and all
 315 release tests pass.
+
+## 16. Aeneas: progressive CoW stepping loses borrowed symbolic values
+
+**Stage:** symbolic execution.
+**Status:** unresolved for `ProgressiveListIterCow::next_cow`; the actual
+`iter_cow`, `iter_cow_from`, and shared constructor translate successfully.
+
+Selecting `milhouse::progressive_list::_::next_cow` fails on the borrowed
+fallback closure with `Can't end abstraction 16 as it is set as non-endable`,
+then reports `Could not find var for symbolic value` while translating the
+outer method. Passing the already-read backing value directly to
+`UpdateMap::get_cow_with_value` removes the closure failure but leaves the
+outer-method errors. An inline helper taking the mutable map, mutable index,
+and optional borrowed backing value translates itself, but its caller still
+fails with the same missing-symbolic-value error.
+
+Neither trial rewrite is retained. The extraction selects the supported
+constructors only. `Tree/ProgressiveList/IterCow/Construction.lean` establishes
+the backing-suffix/merged-overlay cursor invariant, exact start and pending
+state, bounds rejection, and constructor write-back behavior. These are
+constructor specifications, not a proof of `next_cow` enumeration or of CoW
+handle dereferencing/materializing mutation (issue 9). The full goal retains
+those obligations; no opaque milhouse-method model, admission, or Aeneas source
+change is used to replace them.
 
 ## Also of note (not bugs)
 

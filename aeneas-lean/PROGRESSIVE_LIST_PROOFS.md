@@ -26,9 +26,9 @@ lower-level hypothesis and count the wrapper as proved.
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release proved under generic map lookup/release laws, without a clone law; every write-back preserves the backing-spine and dense/representable traversal invariants. Rust `Deref` and materializing mutation bridges remain pending Aeneas translation limitations; handle-data observation is not a proof of those methods |
 | `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence. `ApplyUpdates/Contents.lean` preserves the represented sequence at every index and the backing-spine invariant. `ApplyUpdates/Backing.lean`: `apply_updates_spec` also preserves full `BackingValid`, so the public iteration and collection proofs apply after rebuilding. The complete dense update domain is derived from representation. Premises are the input representation/backing invariant and relevant packing, clone, exact-range, maximum-bound, and empty-default-map laws; backing validity alone needs no clone or default-map law |
-| `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. Binary and progressive traversal and the pending overlay are proved underneath. The `IntoIterator` trait bridge remains pending extraction |
+| `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. Binary and progressive traversal and the pending overlay are proved underneath. `Iter/Traits.lean` proves the same complete enumeration through the actual borrowed `IntoIterator` method, made reachable by `to_vec` |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | `Iter/Next.lean`: live calls return the represented indexed value and preserve the constructed cursor; exhausted calls return unchanged `none`, including past-end indices. Pending replacements and extensions are covered. `Iter/Length.lean`: both size-hint bounds and exact length equal the represented suffix length; these observers require only agreement of the recorded and sequence lengths |
-| `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
+| `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | `IterCow/Construction.lean`: the extracted constructors establish the exact backing suffix and merged pending overlay, retain the requested start and pending state, accept the logical end, and reject oversized starts with exact bounds errors and complete restoration. Premises are representation, backing validity, and packing layout, with no additional map or cloning laws. `IterCow/State.lean` proves exact unchanged release, error restoration, and backing preservation through arbitrary constructor continuations without representation or map-law premises. `next_cow` extraction/enumeration and handle dereferencing/materializing mutation remain pending borrowing limitations (UPSTREAM_BUGS issues 9 and 16); constructor invariants do not substitute for those proofs |
 | `to_vec` | Return the merged sequence in order | `ToVec.lean`: actual collection succeeds and returns exactly the represented merged sequence. Uses the proved public iterator and exact-length results, representation, backing density/representability, packing layout, and successful identity cloning only for values in the sequence. Vector-push bounds and loop termination are derived internally |
 | `pop_front` | Drop the specified prefix, reindex remaining values; reject oversized drops unchanged | `PopFront/Contents.lean`: successful removal represents exactly `contents.drop n`, preserves `BackingValid`, and clears pending updates when `n` is nonzero, under representation, backing validity, packing layout, identity cloning only of retained values, and empty-default-map laws. `PopFront/State.lean`: zero is an unconditional no-op; oversized removals return the exact bounds error unchanged; every returned Rust error preserves the original list. `PopFront/Builder.lean` proves exact streaming suffix consumption and builder-invariant preservation. Extraction uses a concrete streaming helper; no intermediate vector or opaque milhouse-method model |
 | `rebase`, `rebase_on` | Preserve values, length, and pending updates while changing sharing only | `Rebase/Contents.lean`: both successful operations preserve the represented merged sequence and `BackingValid`, under input representation/backing validity, an accurately sized dense base, packing layout, positive element-equality soundness, and agreement of corresponding nonzero cached hashes at equal materialized lengths. Actual binary/progressive rebase content preservation is proved underneath, including shorter or longer bases. In-place rebase preserves exact pending-map state; nonmutating rebase adds only clone read/max laws. `Rebase/Backing.lean` proves backing preservation without equality, hash, or clone laws. `Rebase/State.lean` proves restoration on every returned in-place error and unchanged metadata/observers on all returned results. Deriving cache agreement from the eventual semantic hash model and maintained cache invariant remains part of the hashing work |
@@ -139,8 +139,10 @@ lower-level hypothesis and count the wrapper as proved.
   pending/backing overlay law, without extra map-read assumptions. The public
   iterator constructors establish exact merged-suffix enumeration, bounds
   behavior, and a cursor preserved by every live `next`. Both size observers
-  return the remaining sequence length. `Tree/ProgressiveList/ToVec.lean`
-  derives successful exact vector collection from that enumeration.
+  return the remaining sequence length. `Iter/Traits.lean` extends complete
+  merged-sequence enumeration to the actual borrowed `IntoIterator` method.
+  `Tree/ProgressiveList/ToVec.lean` derives successful exact vector collection
+  through that trait bridge.
   These public results use dense, representable backing layers. Constructors
   supply these properties through builder finalization. `Backing.lean` names
   the combined invariant `BackingValid`, establishes it for empty/default/vector
@@ -149,6 +151,17 @@ lower-level hypothesis and count the wrapper as proved.
   `PopFront/Contents.lean`, and `Rebase/Backing.lean` preserve it through the
   extracted backing-changing list operations. Remaining trait and CoW bridges
   must connect their actual calls to these established invariants.
+- `Tree/ProgressiveList/IterCow/Construction.lean`: actual CoW constructors
+  establish the correct backing suffix and pending overlay, preserve pending
+  state, and derive the logical-length bound from representation. Public
+  starts accept the end and reject oversized indices with the exact bounds
+  error. `IterCow/State.lean` proves exact successful state, unchanged-release
+  restoration, restoration through every returned bounds error, and backing
+  validity under arbitrary constructor continuation inputs. These state results
+  require no representation, packing, or map-law assumptions; backing
+  preservation needs only the input backing invariant. Complete CoW stepping
+  and handle-method proofs still
+  require their actual Rust extraction, as documented in UPSTREAM_BUGS.md.
 - `Tree/ProgressiveList/PopFront/Builder.lean`, `State.lean`, and `Contents.lean`:
   the concrete streaming helper appends the proved iterator suffix and preserves
   the progressive builder invariant. The public operation's successful result
@@ -298,7 +311,22 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest rebase correctness checkpoint (through `54f84fa`): the full Lean build
+Latest iterator-bridge and CoW-constructor checkpoint (through `99f4cbb`):
+fresh extraction and the full Lean build pass (1,830 jobs). All 12 new public
+lemmas and the updated `to_vec_spec` were audited and use only `propext`,
+`Classical.choice`, and `Quot.sound`. Formatting and all 315 release tests pass.
+The sole retained Rust change routes `to_vec` through its existing borrowed
+`IntoIterator` implementation, whose body delegates directly to `iter`.
+The new constructors, trait bridge, and proofs are included through `Tree.lean`.
+No admissions, new axioms, opaque milhouse-method models, or Aeneas source
+changes were introduced. CoW stepping still fails translation after both a
+closure-free call and a small helper trial; those trial rewrites were removed
+and the limitation is recorded as UPSTREAM_BUGS issue 16. The full goal remains
+incomplete: CoW stepping/dereferencing/materializing mutation, remaining traits,
+codecs, semantic hashing/cache invariants, and feature-specific APIs remain
+required.
+
+Previous rebase correctness checkpoint (through `54f84fa`): the full Lean build
 passes (1,827 jobs), with all new modules included through `Tree.lean`. All six
 progressive/list backing results and nine action/equality/content results were
 audited. Five use only standard Lean axioms; ten operational results also use
