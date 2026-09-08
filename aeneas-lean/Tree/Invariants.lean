@@ -120,7 +120,7 @@ inductive DenseTree {T : Type} :
     transiently expands a `Zero` into a node with two zero children before it
     recurses. Such an all-empty node is not a canonical `DenseTree`, but every
     recursive child still is. -/
-private inductive UpdateReady {T : Type} :
+inductive UpdateReady {T : Type} :
     Option Std.Usize → Tree T → Nat → Nat → Prop where
   | zero (packing_factor : Option Std.Usize) (depth : Std.Usize) :
       UpdateReady packing_factor (Tree.Zero depth) depth.val 0
@@ -144,7 +144,7 @@ private inductive UpdateReady {T : Type} :
       UpdateReady packing_factor (Tree.Node rl left right) (child_depth + 1)
         (left_len + right_len)
 
-private theorem UpdateReady.ofDense {T : Type}
+theorem UpdateReady.ofDense {T : Type}
     {packing_factor : Option Std.Usize} {tree : Tree T} {depth len : Nat}
     (h : DenseTree packing_factor tree depth len) :
     UpdateReady packing_factor tree depth len := by
@@ -1759,18 +1759,17 @@ private theorem update_loop_length {T U : Type}
         split at hlen1 <;> omega
 
 /-- A successful bulk update of a `Leaf` returns a `Leaf`. -/
-private theorem with_updated_leaves_leaf_shape {T U : Type}
+theorem with_updated_leaves_leaf_shape {T U : Type}
     {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
-    {l : leaf.Leaf T} {prefix1 depth : Std.Usize}
+    {l : leaf.Leaf T} {prefix1 offset depth : Std.Usize}
     {hashes : Option (alloc.collections.btree.map.BTreeMap
       (Std.Usize × Std.Usize)
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
     {updated : triomphe.arc.Arc (Tree T)}
     (hupdate : Tree.with_updated_leaves ValueInst mapInst (Tree.Leaf l)
-      updates prefix1 0#usize depth hashes = ok (core.result.Result.Ok updated)) :
+      updates prefix1 offset depth hashes = ok (core.result.Result.Ok updated)) :
     ∃ leaf', updated = Tree.Leaf leaf' := by
   unfold Tree.with_updated_leaves at hupdate
-  simp only [usize_add_zero_eq, bind_tc_ok] at hupdate
   rw [result_bind_eq_ok_iff] at hupdate
   obtain ⟨opt, hopt, hupdate⟩ := hupdate
   rw [result_bind_eq_ok_iff] at hupdate
@@ -1778,6 +1777,8 @@ private theorem with_updated_leaves_leaf_shape {T U : Type}
   by_cases hdepth : depth = 0#usize
   · subst hdepth
     simp only [↓reduceIte] at hupdate
+    rw [result_bind_eq_ok_iff] at hupdate
+    obtain ⟨index, hindex, hupdate⟩ := hupdate
     rw [result_bind_eq_ok_iff] at hupdate
     obtain ⟨found, hfound, hupdate⟩ := hupdate
     rw [result_bind_eq_ok_iff] at hupdate
@@ -1798,7 +1799,7 @@ private theorem with_updated_leaves_leaf_shape {T U : Type}
 
 /-- A successful bulk update of a packed leaf yields the window's new dense
     length, provided `get` reflects the logical update set on the window. -/
-private theorem packedLeaf_update_length {T U : Type}
+theorem packedLeaf_update_length {T U : Type}
     {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
     {mapInst : update_map.UpdateMap U T} {updates : U}
     {has_update : Nat → Prop}

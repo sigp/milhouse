@@ -17,6 +17,23 @@ theorem get_some_of_hasValueAt {T U : Type} (mapInst : UpdateMap U T) (updates :
   have heq : actual = query := UScalar.eq_of_val_eq hindex
   exact ⟨value, by simpa only [heq] using hget⟩
 
+/-- Successful lookups reflect the update domain defined by those lookups;
+    no independent law about `get` is necessary. -/
+theorem get_isSome_iff_hasValueAt {T U : Type}
+    {mapInst : UpdateMap U T} {updates : U} {query : Std.Usize} {found : Option T}
+    (hget : mapInst.get updates query = ok found) :
+    found.isSome = true ↔ HasValueAt mapInst updates query.val := by
+  cases found with
+  | none =>
+    constructor
+    · simp
+    · intro hhas
+      obtain ⟨value, hvalue⟩ := get_some_of_hasValueAt mapInst updates hhas
+      rw [hget] at hvalue
+      cases hvalue
+  | some value =>
+    exact ⟨fun _ => ⟨query, value, rfl, hget⟩, fun _ => rfl⟩
+
 /-- Every newly appended position has a pending value. This is the part of
     dense-domain validity used by progressive suffix early exits. -/
 def ExtensionComplete {T U : Type} (mapInst : UpdateMap U T) (updates : U)

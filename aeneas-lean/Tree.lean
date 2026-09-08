@@ -33,4 +33,5 @@ import Tree.Cow.Metadata
 import Tree.PackedLeaf.Contents
 import Tree.PackedLeaf.BulkUpdate
 import Tree.BulkUpdate
+import Tree.BulkUpdate.Window
 import Tree.BulkUpdate.Contents
