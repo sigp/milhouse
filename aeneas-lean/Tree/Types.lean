@@ -452,6 +452,27 @@ inductive tree.RebaseAction (T : Type) where
 | EqualNoop : tree.RebaseAction T
 | EqualReplace : triomphe.arc.Arc T → tree.RebaseAction T
 
+/-- [milhouse::progressive_tree::ProgressiveTree]
+    Source: 'src/progressive_tree.rs', lines 25:0-36:1
+    Visibility: public -/
+@[discriminant isize]
+inductive progressive_tree.ProgressiveTree (T : Type) where
+| ProgressiveZero : progressive_tree.ProgressiveTree T
+| ProgressiveNode :
+  lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+    (alloy_primitives.bits.fixed.FixedBytes 32#usize) →
+  triomphe.arc.Arc (tree.Tree T) →
+  triomphe.arc.Arc (progressive_tree.ProgressiveTree T) →
+  progressive_tree.ProgressiveTree T
+
+/-- [milhouse::progressive_list::ProgressiveList]
+    Source: 'src/progressive_list.rs', lines 17:0-21:1
+    Visibility: public -/
+structure progressive_list.ProgressiveList (T : Type) (U : Type) where
+  tree : triomphe.arc.Arc (progressive_tree.ProgressiveTree T)
+  length : utils.Length
+  updates : U
+
 /-- [milhouse::tree::IntraRebaseAction]
     Source: 'src/tree.rs', lines 268:0-271:1
     Visibility: public -/

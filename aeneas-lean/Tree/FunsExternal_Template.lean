@@ -82,6 +82,21 @@ axiom core.mem.take
 @[rust_fun "core::num::{usize}::trailing_zeros"]
 axiom core.num.Usize.trailing_zeros : Std.Usize → Result Std.U32
 
+/-- [core::num::{u128}::checked_pow]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 2346:8-2346:68
+    Name pattern: [core::num::{u128}::checked_pow]
+    Visibility: public -/
+@[rust_fun "core::num::{u128}::checked_pow"]
+axiom core.num.U128.checked_pow
+  : Std.U128 → Std.U32 → Result (Option Std.U128)
+
+/-- [core::num::{u128}::saturating_mul]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 2516:8-2516:60
+    Name pattern: [core::num::{u128}::saturating_mul]
+    Visibility: public -/
+@[rust_fun "core::num::{u128}::saturating_mul"]
+axiom core.num.U128.saturating_mul : Std.U128 → Std.U128 → Result Std.U128
+
 /-- [core::num::{usize}::pow]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3570:8-3570:52
     Name pattern: [core::num::{usize}::pow]

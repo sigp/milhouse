@@ -180,6 +180,19 @@ contain `milhouse.leaf.Leaf.Leaf`, so it is not possible to project the field
 Generated identifiers referencing globals should be qualified (e.g. with
 `_root_.`) or locals should be renamed on collision.
 
+## 8. Aeneas: borrowed fallback closure cannot end an abstraction
+
+**Stage:** Aeneas symbolic execution.
+**Status:** worked around in `ProgressiveList::get` using an explicit match,
+as in the existing `List::get` extraction.
+
+The lazy fallback `self.updates.get(index).or_else(|| self.backing_get(index))`
+fails while translating the closure with
+`Can't end abstraction 6 as it is set as non-endable`.
+Matching on the update lookup and calling `backing_get` only in the `None`
+branch preserves the lookup order and avoids the borrowing closure. No
+Aeneas changes are required.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

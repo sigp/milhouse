@@ -59,7 +59,10 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
-        self.updates.get(index).or_else(|| self.backing_get(index))
+        match self.updates.get(index) {
+            Some(value) => Some(value),
+            None => self.backing_get(index),
+        }
     }
 
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {

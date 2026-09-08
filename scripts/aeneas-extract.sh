@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Extract the core tree, builder, and high-level List API to Lean via Charon + Aeneas.
+# Extract the core tree, builder, and list APIs to Lean via Charon + Aeneas.
 #
 # Produces `tree.llbc` (Charon's LLBC dump) and regenerates the generated
 # files in `aeneas-lean/Tree/` (the hand-written `TypesExternal.lean` and
@@ -58,6 +58,12 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::list::_::pop_front' \
     --start-from 'milhouse::list::_::rebase' \
     --start-from 'milhouse::list::_::intra_rebase' \
+    --start-from 'milhouse::progressive_tree::_::empty' \
+    --start-from 'milhouse::progressive_tree::_::get_recursive' \
+    --start-from 'milhouse::progressive_list::_::empty' \
+    --start-from 'milhouse::progressive_list::_::get' \
+    --start-from 'milhouse::progressive_list::_::push' \
+    --start-from 'milhouse::progressive_list::_::len' \
     --opaque 'ethereum_hashing' \
     --opaque 'tree_hash' \
     --opaque 'ssz' \

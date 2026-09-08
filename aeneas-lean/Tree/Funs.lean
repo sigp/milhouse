@@ -4722,6 +4722,181 @@ def packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
   let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
   ok { hash := rl, values := v }
 
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::empty]:
+    Source: 'src/progressive_tree.rs', lines 52:4-54:5
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.empty
+  {T : Type} (ValueInst : Value T) :
+  Result (progressive_tree.ProgressiveTree T)
+  := do
+  ok progressive_tree.ProgressiveTree.ProgressiveZero
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::empty]:
+    Source: 'src/progressive_list.rs', lines 24:4-30:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.empty
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result (progressive_list.ProgressiveList T U)
+  := do
+  let pt ← progressive_tree.ProgressiveTree.empty ValueInst
+  let a ← triomphe.arc.Arc.new pt
+  let t ← update_mapUpdateMapInst.coredefaultDefaultInst.default
+  ok { tree := a, length := 0#usize, updates := t }
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::backing_len]:
+    Source: 'src/progressive_list.rs', lines 48:4-50:5 -/
+def progressive_list.ProgressiveList.backing_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result Std.Usize
+  := do
+  utils.Length.as_usize self.length
+
+/-- [milhouse::progressive_tree::PROG_TREE_EXPONENT]
+    Source: 'src/progressive_tree.rs', lines 15:0-15:36 -/
+@[global_simps, irreducible]
+def progressive_tree.PROG_TREE_EXPONENT : Std.Usize := 4#usize
+
+/-- [milhouse::progressive_tree::PROG_TREE_BINARY_SCALE]
+    Source: 'src/progressive_tree.rs', lines 19:0-19:83 -/
+@[global_simps, irreducible]
+def progressive_tree.PROG_TREE_BINARY_SCALE : Result Std.Usize := do
+  let i ← core.num.Usize.trailing_zeros progressive_tree.PROG_TREE_EXPONENT
+  ok (UScalar.cast .Usize i)
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::prog_depth_to_binary_depth]:
+    Source: 'src/progressive_tree.rs', lines 88:4-97:5
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.prog_depth_to_binary_depth
+  {T : Type} (ValueInst : Value T) (prog_depth : Std.U32) :
+  Result Std.Usize
+  := do
+  let o ← lift (U32.checked_sub prog_depth 1#u32)
+  match o with
+  | none => ok 0#usize
+  | some prog_depth_minus_one =>
+    let i ← lift (UScalar.cast .Usize prog_depth_minus_one)
+    let i1 ← progressive_tree.PROG_TREE_BINARY_SCALE
+    i1 * i
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::total_capacity_at_depth]:
+    Source: 'src/progressive_tree.rs', lines 76:4-85:5
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.total_capacity_at_depth
+  {T : Type} (ValueInst : Value T) (prog_depth : Std.U32) :
+  Result Std.Usize
+  := do
+  let i ← lift (UScalar.cast .U128 progressive_tree.PROG_TREE_EXPONENT)
+  let o ← core.num.U128.checked_pow i prog_depth
+  let i1 ← lift (core.option.Option.unwrap_or o core.num.U128.MAX)
+  let i2 ← lift (core.num.U128.saturating_sub i1 1#u128)
+  let i3 ← lift (UScalar.cast .U128 progressive_tree.PROG_TREE_EXPONENT)
+  let i4 ← i3 - 1#u128
+  let total_capacity_pre_packing ← i2 / i4
+  let o1 ← utils.opt_packing_factor ValueInst.tree_hashTreeHashInst
+  let i5 ← lift (core.option.Option.unwrap_or o1 1#usize)
+  let i6 ← lift (UScalar.cast .U128 i5)
+  let i7 ← core.num.U128.saturating_mul total_capacity_pre_packing i6
+  let i8 ← lift (UScalar.cast .U128 core.num.Usize.MAX)
+  let i9 ← core.cmp.Ord.min.trait_default core.cmp.OrdU128 i7 i8
+  ok (UScalar.cast .Usize i9)
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::get_recursive]:
+    Source: 'src/progressive_tree.rs', lines 151:4-169:5
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.get_recursive
+  {T : Type} (ValueInst : Value T) (self : progressive_tree.ProgressiveTree T)
+  (index : Std.Usize) (prog_depth : Std.U32) :
+  Result (Option T)
+  := do
+  match self with
+  | progressive_tree.ProgressiveTree.ProgressiveZero => ok none
+  | progressive_tree.ProgressiveTree.ProgressiveNode _ left right =>
+    let i ← prog_depth + 1#u32
+    let total_capacity ←
+      progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst i
+    if index < total_capacity
+    then
+      let i1 ←
+        progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst
+          prog_depth
+      let subtree_index ← lift (core.num.Usize.saturating_sub index i1)
+      let binary_depth ←
+        progressive_tree.ProgressiveTree.prog_depth_to_binary_depth ValueInst i
+      let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+      let packing_depth ← lift (core.option.Option.unwrap_or o 0#usize)
+      let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+      tree.Tree.get_recursive ValueInst t subtree_index binary_depth
+        packing_depth
+    else
+      let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+      progressive_tree.ProgressiveTree.get_recursive ValueInst pt index i
+partial_fixpoint
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::backing_get]:
+    Source: 'src/progressive_list.rs', lines 53:4-59:5 -/
+def progressive_list.ProgressiveList.backing_get
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (index : Std.Usize) :
+  Result (Option T)
+  := do
+  let i ←
+    progressive_list.ProgressiveList.backing_len ValueInst
+      update_mapUpdateMapInst self
+  if index < i
+  then
+    let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+    progressive_tree.ProgressiveTree.get_recursive ValueInst pt index 0#u32
+  else ok none
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get]:
+    Source: 'src/progressive_list.rs', lines 61:4-66:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.get
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (index : Std.Usize) :
+  Result (Option T)
+  := do
+  let o ← update_mapUpdateMapInst.get self.updates index
+  match o with
+  | none =>
+    progressive_list.ProgressiveList.backing_get ValueInst
+      update_mapUpdateMapInst self index
+  | some _ => ok o
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::len]:
+    Source: 'src/progressive_list.rs', lines 98:4-100:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result Std.Usize
+  := do
+  let l ←
+    utils.updated_length update_mapUpdateMapInst self.length self.updates
+  utils.Length.as_usize l
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::push]:
+    Source: 'src/progressive_list.rs', lines 88:4-96:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.push
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (value : T) :
+  Result ((core.result.Result Unit error.Error) ×
+    (progressive_list.ProgressiveList T U))
+  := do
+  let index ←
+    progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst self
+  if index = core.num.Usize.MAX
+  then ok (core.result.Result.Err (error.Error.ListFull index), self)
+  else
+    let (_, t) ← update_mapUpdateMapInst.insert self.updates index value
+    ok (core.result.Result.Ok (), { self with updates := t })
+
 /-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
     Source: 'src/tree.rs', lines 10:16-10:21
     Visibility: public -/

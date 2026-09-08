@@ -153,6 +153,28 @@ def core.num.Usize.checked_next_power_of_two (x : Std.Usize) :
   let p := Nat.nextPowerOfTwo x.val
   if p < Usize.size then ok (some ⟨ BitVec.ofNat _ p ⟩) else ok none
 
+/-- Rust's checked exponentiation returns `none` when the mathematical
+    result does not fit in `u128`. -/
+@[rust_fun "core::num::{u128}::checked_pow"]
+def core.num.U128.checked_pow (x : Std.U128) (n : Std.U32) :
+    Result (Option Std.U128) :=
+  let p := x.val ^ n.val
+  if p < U128.size then ok (some ⟨BitVec.ofNat _ p⟩) else ok none
+
+/-- Rust's saturating multiplication clamps the mathematical product to
+    `u128::MAX`. -/
+@[rust_fun "core::num::{u128}::saturating_mul"]
+def core.num.U128.saturating_mul (x y : Std.U128) : Result Std.U128 :=
+  ok ⟨BitVec.ofNat _ (min U128.max (x.val * y.val))⟩
+
+#assert core.num.U128.checked_pow 0#u128 0#u32 == ok (some 1#u128)
+#assert core.num.U128.checked_pow 2#u128 127#u32 ==
+  ok (some 170141183460469231731687303715884105728#u128)
+#assert core.num.U128.checked_pow 2#u128 128#u32 == ok none
+#assert core.num.U128.saturating_mul core.num.U128.MAX 0#u128 == ok 0#u128
+#assert core.num.U128.saturating_mul core.num.U128.MAX 1#u128 == ok core.num.U128.MAX
+#assert core.num.U128.saturating_mul core.num.U128.MAX 2#u128 == ok core.num.U128.MAX
+
 /-! ## core::option -/
 
 /-- [core::option::{core::option::Option<T>}::as_ref]: references are erased
