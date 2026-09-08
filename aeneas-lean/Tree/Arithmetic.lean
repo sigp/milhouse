@@ -250,4 +250,15 @@ theorem usize_shift_left_one_val {shift shifted : Std.Usize}
   rw [hval, hone, Nat.one_shiftLeft, UScalar.size_def]
   exact Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) hbound)
 
+/-- Within one aligned window, reduction modulo its width subtracts exactly
+    the window start. The bounds already imply a positive width. -/
+theorem mod_eq_sub_of_aligned {start width index : Nat}
+    (halign : start % width = 0) (hlo : start ≤ index) (hhi : index < start + width) :
+    index % width = index - start := by
+  have hindex : index = start + (index - start) := by omega
+  calc
+    index % width = (start + (index - start)) % width := congrArg (· % width) hindex
+    _ = (index - start) % width := by simp [Nat.add_mod, halign]
+    _ = index - start := Nat.mod_eq_of_lt (by omega)
+
 end milhouse.tree
