@@ -25,8 +25,8 @@ theorem ProgressiveList.get_of_backing {T U : Type}
     (hindex : index < self.length) :
     ProgressiveList.get ValueInst mapInst self index =
       progressive_tree.ProgressiveTree.get_recursive ValueInst self.tree index 0#u32 := by
-  simp [ProgressiveList.get, hget, ProgressiveList.backing_get,
-    ProgressiveList.backing_len, utils.Length.as_usize, hindex,
+  simp only [ProgressiveList.get, hget, bind_tc_ok, ProgressiveList.backing_get,
+    ProgressiveList.backing_len, utils.Length.as_usize, if_pos hindex,
     triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref]
 
 /-- The binary-tree density theorem, through the progressive spine, ensures
