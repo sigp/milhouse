@@ -23,9 +23,9 @@ lower-level hypothesis and count the wrapper as proved.
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
 | `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence proved; full representation theorem pending |
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; structural tree/map invariant preservation remains for later bulk-update proofs |
-| `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | Pending extraction and proof |
-| `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Pending extraction and proof |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | Pending bulk-update content proofs for Tree and ProgressiveTree |
+| `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | Extracted; semantic and write-back proofs pending |
+| `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | Extracted via the closure-free map helper with lazy backing lookup; semantic and write-back proofs pending |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | Extracted; pending bulk-update content proofs for Tree and ProgressiveTree |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Pending iterator extraction and invariants |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | Pending |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |

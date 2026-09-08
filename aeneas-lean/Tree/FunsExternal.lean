@@ -193,6 +193,17 @@ def core.option.Option.is_none_or
     | none => ok true
     | some x => opsfunctionFnOnceT1TupleTBoolInst.call_once f x
 
+/-- `is_some_and` calls its predicate only for `Some`; `None` is false. -/
+@[rust_fun "core::option::{core::option::Option<@T>}::is_some_and"]
+def core.option.Option.is_some_and
+  {T : Type} {T1 : Type} (opsfunctionFnOnceT1TupleTBoolInst :
+  core.ops.function.FnOnce T1 T Bool) :
+  Option T → T1 → Result Bool :=
+  fun o f =>
+    match o with
+    | none => ok false
+    | some x => opsfunctionFnOnceT1TupleTBoolInst.call_once f x
+
 /-- [core::option::{core::option::Option<T>}::unwrap_or_default]: -/
 @[rust_fun "core::option::{core::option::Option<@T>}::unwrap_or_default"]
 def core.option.Option.unwrap_or_default

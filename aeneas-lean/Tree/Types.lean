@@ -453,7 +453,7 @@ inductive tree.RebaseAction (T : Type) where
 | EqualReplace : triomphe.arc.Arc T → tree.RebaseAction T
 
 /-- [milhouse::progressive_tree::ProgressiveTree]
-    Source: 'src/progressive_tree.rs', lines 25:0-36:1
+    Source: 'src/progressive_tree.rs', lines 24:0-35:1
     Visibility: public -/
 @[discriminant isize]
 inductive progressive_tree.ProgressiveTree (T : Type) where
@@ -472,6 +472,18 @@ structure progressive_list.ProgressiveList (T : Type) (U : Type) where
   tree : triomphe.arc.Arc (progressive_tree.ProgressiveTree T)
   length : utils.Length
   updates : U
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::closure]
+    Source: 'src/progressive_list.rs', lines 69:41-75:9 -/
+def progressive_list.ProgressiveList.get_mut.closure (T : Type) (U : Type) :=
+  triomphe.arc.Arc (progressive_tree.ProgressiveTree T) × utils.Length
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::closure]
+    Source: 'src/progressive_tree.rs', lines 216:49-216:73 -/
+@[reducible]
+def progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure (T :
+  Type) (U : Type) :=
+  Std.Usize
 
 /-- [milhouse::tree::IntraRebaseAction]
     Source: 'src/tree.rs', lines 268:0-271:1

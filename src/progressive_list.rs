@@ -76,13 +76,17 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
-        self.updates.get_cow_with(index, |index| {
-            if index < self.length.as_usize() {
-                self.tree.get_recursive(index, 0)
-            } else {
-                None
-            }
-        })
+        // Keep the backing lookup lazy while avoiding a borrowed fallback
+        // closure, which Aeneas cannot translate.
+        if self.updates.get(index).is_some() {
+            return self.updates.get_cow_with_value(index, None);
+        }
+        let backing_value = if index < self.length.as_usize() {
+            self.tree.get_recursive(index, 0)
+        } else {
+            None
+        };
+        self.updates.get_cow_with_value(index, backing_value)
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {

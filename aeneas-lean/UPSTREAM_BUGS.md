@@ -193,6 +193,13 @@ Matching on the update lookup and calling `backing_get` only in the `None`
 branch preserves the lookup order and avoids the borrowing closure. No
 Aeneas changes are required.
 
+The same failure occurs in `ProgressiveList::get_cow` (`Can't end abstraction
+10 as it is set as non-endable`). Its workaround checks whether an update
+already exists, reads the backing value only when needed, and delegates to
+the branch's `UpdateMap::get_cow_with_value` helper. It adds a map lookup but
+preserves lazy backing reads, does not allocate on read-only access, and uses
+the existing copy-on-write maximum-index tracking.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

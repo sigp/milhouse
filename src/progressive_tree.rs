@@ -8,7 +8,6 @@ use crate::{
 use educe::Educe;
 use ethereum_hashing::hash32_concat;
 use parking_lot::RwLock;
-use std::ops::ControlFlow;
 use tree_hash::Hash256;
 
 /// The size of each binary subtree in a progressive tree is `4^prog_depth` at depth `prog_depth`.
@@ -229,15 +228,7 @@ impl<T: Value> ProgressiveTree<T> {
 
     /// Whether `updates` contains any index in `[start, end)`.
     fn has_updates_in_range<U: UpdateMap<T>>(updates: &U, start: usize, end: usize) -> bool {
-        if start >= end {
-            return false;
-        }
-        let mut found = false;
-        let _: Result<(), Error> = updates.for_each_range(start, end, |_, _| {
-            found = true;
-            ControlFlow::Break(())
-        });
-        found
+        start < end && updates.has_any_in_range(start, end)
     }
 
     /// Rebase `orig` onto `base`, exploiting structural sharing between equal subtrees to reduce

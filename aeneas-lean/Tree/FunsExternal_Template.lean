@@ -119,6 +119,16 @@ axiom core.num.Usize.div_ceil : Std.Usize → Std.Usize → Result Std.Usize
 axiom core.num.Usize.checked_next_power_of_two
   : Std.Usize → Result (Option Std.Usize)
 
+/-- [core::option::{core::option::Option<T>}::is_some_and]:
+    Source: '/rustc/library/core/src/option.rs', lines 658:4-658:96
+    Name pattern: [core::option::{core::option::Option<@T>}::is_some_and]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<@T>}::is_some_and"]
+axiom core.option.Option.is_some_and
+  {T : Type} {T1 : Type} (opsfunctionFnOnceT1TupleTBoolInst :
+  core.ops.function.FnOnce T1 T Bool) :
+  Option T → T1 → Result Bool
+
 /-- [core::option::{core::option::Option<T>}::is_none_or]:
     Source: '/rustc/library/core/src/option.rs', lines 707:4-707:95
     Name pattern: [core::option::{core::option::Option<@T>}::is_none_or]

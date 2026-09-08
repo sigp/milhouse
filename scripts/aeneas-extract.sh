@@ -62,6 +62,9 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_tree::_::get_recursive' \
     --start-from 'milhouse::progressive_list::_::empty' \
     --start-from 'milhouse::progressive_list::_::get' \
+    --start-from 'milhouse::progressive_list::_::get_mut' \
+    --start-from 'milhouse::progressive_list::_::get_cow' \
+    --start-from 'milhouse::progressive_list::_::apply_updates' \
     --start-from 'milhouse::progressive_list::_::push' \
     --start-from 'milhouse::progressive_list::_::len' \
     --start-from 'milhouse::progressive_list::_::is_empty' \

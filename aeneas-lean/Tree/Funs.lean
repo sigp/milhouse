@@ -4723,7 +4723,7 @@ def packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
   ok { hash := rl, values := v }
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::empty]:
-    Source: 'src/progressive_tree.rs', lines 52:4-54:5
+    Source: 'src/progressive_tree.rs', lines 51:4-53:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.empty
   {T : Type} (ValueInst : Value T) :
@@ -4754,19 +4754,19 @@ def progressive_list.ProgressiveList.backing_len
   utils.Length.as_usize self.length
 
 /-- [milhouse::progressive_tree::PROG_TREE_EXPONENT]
-    Source: 'src/progressive_tree.rs', lines 15:0-15:36 -/
+    Source: 'src/progressive_tree.rs', lines 14:0-14:36 -/
 @[global_simps, irreducible]
 def progressive_tree.PROG_TREE_EXPONENT : Std.Usize := 4#usize
 
 /-- [milhouse::progressive_tree::PROG_TREE_BINARY_SCALE]
-    Source: 'src/progressive_tree.rs', lines 19:0-19:83 -/
+    Source: 'src/progressive_tree.rs', lines 18:0-18:83 -/
 @[global_simps, irreducible]
 def progressive_tree.PROG_TREE_BINARY_SCALE : Result Std.Usize := do
   let i ← core.num.Usize.trailing_zeros progressive_tree.PROG_TREE_EXPONENT
   ok (UScalar.cast .Usize i)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::prog_depth_to_binary_depth]:
-    Source: 'src/progressive_tree.rs', lines 88:4-97:5
+    Source: 'src/progressive_tree.rs', lines 87:4-96:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.prog_depth_to_binary_depth
   {T : Type} (ValueInst : Value T) (prog_depth : Std.U32) :
@@ -4781,7 +4781,7 @@ def progressive_tree.ProgressiveTree.prog_depth_to_binary_depth
     i1 * i
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::total_capacity_at_depth]:
-    Source: 'src/progressive_tree.rs', lines 76:4-85:5
+    Source: 'src/progressive_tree.rs', lines 75:4-84:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.total_capacity_at_depth
   {T : Type} (ValueInst : Value T) (prog_depth : Std.U32) :
@@ -4803,7 +4803,7 @@ def progressive_tree.ProgressiveTree.total_capacity_at_depth
   ok (UScalar.cast .Usize i9)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::get_recursive]:
-    Source: 'src/progressive_tree.rs', lines 151:4-169:5
+    Source: 'src/progressive_tree.rs', lines 150:4-168:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.get_recursive
   {T : Type} (ValueInst : Value T) (self : progressive_tree.ProgressiveTree T)
@@ -4867,8 +4867,100 @@ def progressive_list.ProgressiveList.get
       update_mapUpdateMapInst self index
   | some _ => ok o
 
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}::call_once]:
+    Source: 'src/progressive_list.rs', lines 69:41-75:9 -/
+def
+  progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T)
+  (c : progressive_list.ProgressiveList.get_mut.closure T U)
+  (tupled_args : Std.Usize) :
+  Result (Option T)
+  := do
+  let (a, l) := c
+  let i ← utils.Length.as_usize l
+  if tupled_args < i
+  then
+    let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref a
+    let o ←
+      progressive_tree.ProgressiveTree.get_recursive ValueInst pt tupled_args
+        0#u32
+    core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o
+  else ok none
+
+/-- Trait implementation: [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}]
+    Source: 'src/progressive_list.rs', lines 69:41-75:9 -/
+@[reducible]
+def
+  progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) : core.ops.function.FnOnce
+  (progressive_list.ProgressiveList.get_mut.closure T U) Std.Usize (Option T)
+  := {
+  call_once :=
+    progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
+    ValueInst update_mapUpdateMapInst
+}
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut]:
+    Source: 'src/progressive_list.rs', lines 68:4-76:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.get_mut
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (index : Std.Usize) :
+  Result ((Option T) × (Option T → progressive_list.ProgressiveList T U))
+  := do
+  let (o, get_mut_with_back) ←
+    update_mapUpdateMapInst.get_mut_with
+      (progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
+      ValueInst update_mapUpdateMapInst) self.updates index (self.tree,
+      self.length)
+  let back :=
+    fun o1 => let t := get_mut_with_back o1
+              { self with updates := t }
+  ok (o, back)
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_cow]:
+    Source: 'src/progressive_list.rs', lines 78:4-90:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.get_cow
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (index : Std.Usize) :
+  Result ((Option (cow.Cow T)) × (Option (cow.Cow T) →
+    progressive_list.ProgressiveList T U))
+  := do
+  let o ← update_mapUpdateMapInst.get self.updates index
+  let b := core.option.Option.is_some o
+  if b
+  then
+    let (o1, get_cow_with_value_back) ←
+      update_mapUpdateMapInst.get_cow_with_value ValueInst.corecloneCloneInst
+        self.updates index none
+    let back :=
+      fun o2 => let t := get_cow_with_value_back o2
+                { self with updates := t }
+    ok (o1, back)
+  else
+    let i ← utils.Length.as_usize self.length
+    let backing_value ←
+      if index < i
+      then
+        do
+        let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+        progressive_tree.ProgressiveTree.get_recursive ValueInst pt index 0#u32
+      else ok none
+    let (o1, get_cow_with_value_back) ←
+      update_mapUpdateMapInst.get_cow_with_value ValueInst.corecloneCloneInst
+        self.updates index backing_value
+    let back :=
+      fun o2 => let t := get_cow_with_value_back o2
+                { self with updates := t }
+    ok (o1, back)
+
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 98:4-100:5
+    Source: 'src/progressive_list.rs', lines 102:4-104:5
     Visibility: public -/
 def progressive_list.ProgressiveList.len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -4880,7 +4972,7 @@ def progressive_list.ProgressiveList.len
   utils.Length.as_usize l
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::push]:
-    Source: 'src/progressive_list.rs', lines 88:4-96:5
+    Source: 'src/progressive_list.rs', lines 92:4-100:5
     Visibility: public -/
 def progressive_list.ProgressiveList.push
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -4898,7 +4990,7 @@ def progressive_list.ProgressiveList.push
     ok (core.result.Result.Ok (), { self with updates := t })
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::is_empty]:
-    Source: 'src/progressive_list.rs', lines 102:4-104:5
+    Source: 'src/progressive_list.rs', lines 106:4-108:5
     Visibility: public -/
 def progressive_list.ProgressiveList.is_empty
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -4910,7 +5002,7 @@ def progressive_list.ProgressiveList.is_empty
   ok (i = 0#usize)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::has_pending_updates]:
-    Source: 'src/progressive_list.rs', lines 106:4-108:5
+    Source: 'src/progressive_list.rs', lines 110:4-112:5
     Visibility: public -/
 def progressive_list.ProgressiveList.has_pending_updates
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -4920,8 +5012,249 @@ def progressive_list.ProgressiveList.has_pending_updates
   let b ← update_mapUpdateMapInst.is_empty self.updates
   ok (¬ b)
 
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::has_updates_in_range]:
+    Source: 'src/progressive_tree.rs', lines 230:4-232:5 -/
+def progressive_tree.ProgressiveTree.has_updates_in_range
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (updates : U) (start : Std.Usize)
+  (end1 : Std.Usize) :
+  Result Bool
+  := do
+  if start < end1
+  then update_mapUpdateMapInst.has_any_in_range updates start end1
+  else ok false
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::closure<'_0, T, U>}::call_once]:
+    Source: 'src/progressive_tree.rs', lines 216:49-216:73 -/
+def
+  progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool.call_once
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T)
+  (c : progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure T
+  U) (tupled_args : Std.Usize) :
+  Result Bool
+  := do
+  ok (tupled_args >= c)
+
+/-- Trait implementation: [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::closure<'_0, T, U>}]
+    Source: 'src/progressive_tree.rs', lines 216:49-216:73 -/
+@[reducible]
+def
+  progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) : core.ops.function.FnOnce
+  (progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure T U)
+  Std.Usize Bool := {
+  call_once :=
+    progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool.call_once
+    ValueInst update_mapUpdateMapInst
+}
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive]:
+    Source: 'src/progressive_tree.rs', lines 179:4-227:5 -/
+def progressive_tree.ProgressiveTree.with_updated_leaves_recursive
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_tree.ProgressiveTree T)
+  (updates : U) (max_index : Option Std.Usize) (prog_depth : Std.U32) :
+  Result (core.result.Result (progressive_tree.ProgressiveTree T) error.Error)
+  := do
+  let subtree_start ←
+    progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst
+      prog_depth
+  let i ← prog_depth + 1#u32
+  let subtree_end ←
+    progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst i
+  let binary_depth ←
+    progressive_tree.ProgressiveTree.prog_depth_to_binary_depth ValueInst i
+  let has_updates ←
+    progressive_tree.ProgressiveTree.has_updates_in_range ValueInst
+      update_mapUpdateMapInst updates subtree_start subtree_end
+  match self with
+  | progressive_tree.ProgressiveTree.ProgressiveZero =>
+    if has_updates
+    then
+      let left ← tree.Tree.zero ValueInst binary_depth
+      let right ←
+        triomphe.arc.Arc.new progressive_tree.ProgressiveTree.ProgressiveZero
+      let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+      let r ←
+        tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
+          updates 0#usize subtree_start binary_depth none
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        let b ←
+          core.option.Option.is_some_and
+            (progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool
+            ValueInst update_mapUpdateMapInst) max_index subtree_end
+        if b
+        then
+          let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+          let r1 ←
+            progressive_tree.ProgressiveTree.with_updated_leaves_recursive
+              ValueInst update_mapUpdateMapInst pt updates max_index i
+          let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+          match cf1 with
+          | core.ops.control_flow.ControlFlow.Continue val1 =>
+            let new_right ← triomphe.arc.Arc.new val1
+            let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+            let rl ←
+              lock_api.rwlock.RwLock.new
+                parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                fb
+            ok (core.result.Result.Ok
+              (progressive_tree.ProgressiveTree.ProgressiveNode rl val
+              new_right))
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              (progressive_tree.ProgressiveTree T) (core.convert.FromSame
+              error.Error) residual
+        else
+          let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+          let rl ←
+            lock_api.rwlock.RwLock.new
+              parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+              fb
+          ok (core.result.Result.Ok
+            (progressive_tree.ProgressiveTree.ProgressiveNode rl val right))
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          (progressive_tree.ProgressiveTree T) (core.convert.FromSame
+          error.Error) residual
+    else
+      ok (core.result.Result.Ok
+        progressive_tree.ProgressiveTree.ProgressiveZero)
+  | progressive_tree.ProgressiveTree.ProgressiveNode _ left right =>
+    let left1 ← triomphe.arc.Arc.Insts.CoreCloneClone.clone left
+    let right1 ← triomphe.arc.Arc.Insts.CoreCloneClone.clone right
+    if has_updates
+    then
+      let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left1
+      let r ←
+        tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
+          updates 0#usize subtree_start binary_depth none
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue val =>
+        let b ←
+          core.option.Option.is_some_and
+            (progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool
+            ValueInst update_mapUpdateMapInst) max_index subtree_end
+        if b
+        then
+          let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right1
+          let r1 ←
+            progressive_tree.ProgressiveTree.with_updated_leaves_recursive
+              ValueInst update_mapUpdateMapInst pt updates max_index i
+          let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+          match cf1 with
+          | core.ops.control_flow.ControlFlow.Continue val1 =>
+            let new_right ← triomphe.arc.Arc.new val1
+            let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+            let rl ←
+              lock_api.rwlock.RwLock.new
+                parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                fb
+            ok (core.result.Result.Ok
+              (progressive_tree.ProgressiveTree.ProgressiveNode rl val
+              new_right))
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              (progressive_tree.ProgressiveTree T) (core.convert.FromSame
+              error.Error) residual
+        else
+          let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+          let rl ←
+            lock_api.rwlock.RwLock.new
+              parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+              fb
+          ok (core.result.Result.Ok
+            (progressive_tree.ProgressiveTree.ProgressiveNode rl val right1))
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          (progressive_tree.ProgressiveTree T) (core.convert.FromSame
+          error.Error) residual
+    else
+      let b ←
+        core.option.Option.is_some_and
+          (progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool
+          ValueInst update_mapUpdateMapInst) max_index subtree_end
+      if b
+      then
+        let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right1
+        let r ←
+          progressive_tree.ProgressiveTree.with_updated_leaves_recursive
+            ValueInst update_mapUpdateMapInst pt updates max_index i
+        let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          let new_right ← triomphe.arc.Arc.new val
+          let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+          let rl ←
+            lock_api.rwlock.RwLock.new
+              parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+              fb
+          ok (core.result.Result.Ok
+            (progressive_tree.ProgressiveTree.ProgressiveNode rl left1
+            new_right))
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            (progressive_tree.ProgressiveTree T) (core.convert.FromSame
+            error.Error) residual
+      else
+        let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+        let rl ←
+          lock_api.rwlock.RwLock.new
+            parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+            fb
+        ok (core.result.Result.Ok
+          (progressive_tree.ProgressiveTree.ProgressiveNode rl left1 right1))
+partial_fixpoint
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves]:
+    Source: 'src/progressive_tree.rs', lines 175:4-177:5
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.with_updated_leaves
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_tree.ProgressiveTree T)
+  (updates : U) :
+  Result (core.result.Result (progressive_tree.ProgressiveTree T) error.Error)
+  := do
+  let o ← update_mapUpdateMapInst.max_index updates
+  progressive_tree.ProgressiveTree.with_updated_leaves_recursive ValueInst
+    update_mapUpdateMapInst self updates o 0#u32
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::apply_updates]:
+    Source: 'src/progressive_list.rs', lines 115:4-136:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.apply_updates
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result ((core.result.Result Unit error.Error) ×
+    (progressive_list.ProgressiveList T U))
+  := do
+  let b ← update_mapUpdateMapInst.is_empty self.updates
+  if b
+  then ok (core.result.Result.Ok (), self)
+  else
+    let (updates, t) ←
+      core.mem.take update_mapUpdateMapInst.coredefaultDefaultInst self.updates
+    let new_length ←
+      utils.updated_length update_mapUpdateMapInst self.length updates
+    let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+    let r ←
+      progressive_tree.ProgressiveTree.with_updated_leaves ValueInst
+        update_mapUpdateMapInst pt updates
+    match r with
+    | core.result.Result.Ok tree =>
+      let a ← triomphe.arc.Arc.new tree
+      ok (core.result.Result.Ok (),
+        { tree := a, length := new_length, updates := t })
+    | core.result.Result.Err e =>
+      ok (core.result.Result.Err e, { self with updates })
+
 /-- [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}::default]:
-    Source: 'src/progressive_list.rs', lines 250:4-252:5
+    Source: 'src/progressive_list.rs', lines 254:4-256:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -4931,7 +5264,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   progressive_list.ProgressiveList.empty ValueInst update_mapUpdateMapInst
 
 /-- Trait implementation: [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}]
-    Source: 'src/progressive_list.rs', lines 249:0-253:1 -/
+    Source: 'src/progressive_list.rs', lines 253:0-257:1 -/
 @[reducible]
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
   Type} (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U
