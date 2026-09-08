@@ -449,7 +449,6 @@ pub struct ProgressiveListIterCow<'a, T: Value, U: UpdateMap<T>> {
 impl<T: Value, U: UpdateMap<T>> ProgressiveListIterCow<'_, T, U> {
     pub fn next_cow(&mut self) -> Option<(usize, Cow<'_, T>)> {
         let index = self.index;
-        self.index += 1;
 
         // Advance the tree iterator so that it moves in step with this iterator.
         let backing_value = self.tree_iter.next();
@@ -457,6 +456,25 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveListIterCow<'_, T, U> {
         // Construct a CoW pointer using the updated entry from the map, or the corresponding
         // vacant entry and the value from the backing iterator.
         let cow = self.updates.get_cow_with(index, |_| backing_value)?;
+        self.index += 1;
         Some((index, cow))
+    }
+}
+
+#[cfg(test)]
+mod cow_iterator_tests {
+    use super::ProgressiveList;
+
+    #[test]
+    fn exhausted_cow_iterator_does_not_overflow() {
+        let mut list = ProgressiveList::<u64>::empty();
+        let mut iter = list.iter_cow();
+        // The old implementation reached this state after repeated exhausted
+        // reads. Set the cursor directly to exercise the overflow boundary.
+        iter.index = usize::MAX;
+        assert!(iter.next_cow().is_none());
+        assert_eq!(iter.index, usize::MAX);
+        assert!(iter.next_cow().is_none());
+        assert_eq!(iter.index, usize::MAX);
     }
 }
