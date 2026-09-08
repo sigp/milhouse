@@ -32,7 +32,7 @@ theorem prog_tree_binary_scale : PROG_TREE_BINARY_SCALE = ok 2#usize := by
   rw [u32_cast_usize_val]
   simp
 
-private theorem checked_sub_of_successor {depth next : Std.U32}
+theorem checked_sub_of_successor {depth next : Std.U32}
     (hnext : depth + 1#u32 = ok next) : U32.checked_sub next 1#u32 = some depth := by
   have hadd := UScalar.add_equiv depth 1#u32
   rw [hnext] at hadd

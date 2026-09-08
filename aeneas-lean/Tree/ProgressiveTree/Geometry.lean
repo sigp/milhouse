@@ -165,4 +165,19 @@ theorem ProgressiveTree.layer_window {T : Type} (ValueInst : Value T)
   · rw [hstartVal]
     exact progressiveCapacity_aligned factor depth.val
 
+/-- Cached capacity equals the next binary layer's capacity, with only the
+    final machine clamp remaining. This needs the packing query, not a full
+    power-of-two layout law. -/
+theorem ProgressiveTree.capacity_successor_eq {T : Type} (ValueInst : Value T)
+    {factor : Option Std.Usize} {depth next : Std.U32}
+    (hfactor : utils.opt_packing_factor ValueInst.tree_hashTreeHashInst = ok factor)
+    (hnext : depth + 1#u32 = ok next) :
+    ∃ capacity, ProgressiveTree.capacity_at_depth ValueInst next = ok capacity ∧
+      capacity.val = min Std.Usize.max (tree.subtreeCapacity factor (2 * depth.val)) := by
+  obtain ⟨capacity, hcapacity, hval⟩ := ProgressiveTree.capacity_successor_formula ValueInst hnext hfactor
+  refine ⟨capacity, hcapacity, ?_⟩
+  have hpower : 2 ^ (2 * depth.val) = 4 ^ depth.val := by rw [pow_mul]; rfl
+  cases factor <;> simpa [tree.subtreeCapacity, tree.leafCapacity,
+    core.option.Option.unwrap_or, hpower, Nat.mul_comm] using hval
+
 end milhouse.progressive_tree

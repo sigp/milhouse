@@ -1,4 +1,4 @@
-import Tree.ProgressiveTree
+import Tree.ProgressiveTree.Depth
 import Tree.Arithmetic
 
 open Aeneas Aeneas.Std Result
@@ -130,5 +130,57 @@ theorem progressive_sum_succ (depth : Nat) :
   rw [pow_succ]
   have hpositive : 0 < 4 ^ depth := by positivity
   omega
+
+private theorem remove_u128_product_clip (power factor : Nat) :
+    min Std.Usize.max (min Std.U128.max power * factor) =
+      min Std.Usize.max (power * factor) := by
+  by_cases hfit : power ≤ Std.U128.max
+  · rw [min_eq_right hfit]
+  · by_cases hz : factor = 0
+    · simp [hz]
+    · have hbound : Std.Usize.max ≤ Std.U128.max := by
+        rcases Usize.bounds_eq with h | h <;>
+          norm_num [h, U128.max, U128.numBits, U32.max, U32.numBits, U64.max, U64.numBits]
+      have hmul : Std.U128.max ≤ Std.U128.max * factor := by
+        simpa using Nat.mul_le_mul_left Std.U128.max (show 1 ≤ factor by omega)
+      have hmul' := Nat.mul_le_mul_right factor (show Std.U128.max ≤ power by omega)
+      rw [min_eq_left (by omega : Std.U128.max ≤ power),
+        min_eq_left (by omega), min_eq_left (by omega)]
+
+/-- The cached capacity of the next layer is the clamped mathematical power,
+    including internal exponentiation and multiplication saturation. -/
+theorem ProgressiveTree.capacity_successor_formula {T : Type}
+    (ValueInst : Value T) {depth next : Std.U32} {factor : Option Std.Usize}
+    (hnext : depth + 1#u32 = ok next)
+    (hfactor : utils.opt_packing_factor ValueInst.tree_hashTreeHashInst = ok factor) :
+    ∃ capacity, ProgressiveTree.capacity_at_depth ValueInst next = ok capacity ∧
+      capacity.val = min Std.Usize.max
+        (4 ^ depth.val * (core.option.Option.unwrap_or factor 1#usize).val) := by
+  obtain ⟨power, hpower, hpowerVal⟩ := checked_pow_default_spec 4#u128 depth
+  change (core.option.Option.unwrap_or power core.num.U128.MAX).val =
+    min Std.U128.max (4 ^ depth.val) at hpowerVal
+  obtain ⟨product, hproduct, hproductVal⟩ := saturating_mul_spec
+    (core.option.Option.unwrap_or power core.num.U128.MAX)
+    (UScalar.cast .U128 (core.option.Option.unwrap_or factor 1#usize))
+  obtain ⟨small, hsmall, hsmallEq⟩ := Aeneas.Std.WP.spec_imp_exists
+    (core.cmp.Ord.min.trait_default_U128.spec product (UScalar.cast .U128 core.num.Usize.MAX))
+  have hsmallVal : small.val = min Std.Usize.max
+      (4 ^ depth.val * (core.option.Option.unwrap_or factor 1#usize).val) := by
+    have hmaxCast : (UScalar.cast .U128 core.num.Usize.MAX).val = Std.Usize.max := by
+      rw [usize_cast_u128_val]
+      simp
+    rw [hsmallEq, core.cmp.impls.OrdU128.min_val, hproductVal, hmaxCast,
+      usize_cast_u128_val, hpowerVal]
+    have hmaxBound : Std.Usize.max ≤ Std.U128.max := by scalar_tac
+    have hclip := remove_u128_product_clip (4 ^ depth.val)
+      (core.option.Option.unwrap_or factor 1#usize).val
+    omega
+  have hsmallBound : small.val < 2 ^ UScalarTy.Usize.numBits := by
+    have hle : small.val ≤ Std.Usize.max := by rw [hsmallVal]; exact min_le_left _ _
+    scalar_tac
+  refine ⟨UScalar.cast .Usize small, ?_, ?_⟩
+  · simp only [ProgressiveTree.capacity_at_depth, checked_sub_of_successor hnext,
+      lift, bind_tc_ok, prog_tree_exponent_cast, hpower, hfactor, hproduct, hsmall]
+  · rw [UScalar.cast_val_mod_pow_of_inBounds_eq .Usize small hsmallBound, hsmallVal]
 
 end milhouse.progressive_tree
