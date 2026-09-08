@@ -210,7 +210,7 @@ structure builder.Builder (T : Type) where
   capacity : Std.Usize
 
 /-- Trait declaration: [milhouse::Value]
-    Source: 'src/lib.rs', lines 54:0-54:66
+    Source: 'src/lib.rs', lines 59:0-59:66
     Visibility: public -/
 structure Value (Self : Type) where
   sszencodeEncodeInst : ssz.encode.Encode Self
@@ -256,8 +256,21 @@ inductive error.Error where
 | IntraRebaseZeroDepth : error.Error
 | IntraRebaseRepeatVisit : error.Error
 
+/-- [milhouse::update_map::MaxIndexState]
+    Source: 'src/update_map.rs', lines 222:0-228:1 -/
+@[discriminant isize]
+inductive update_map.MaxIndexState where
+| Empty : update_map.MaxIndexState
+| Known : Std.Usize → update_map.MaxIndexState
+
+/-- [milhouse::cow::CowOnMut]
+    Source: 'src/cow.rs', lines 12:0-14:1
+    Visibility: public -/
+structure cow.CowOnMut where
+  max_index : Option (update_map.MaxIndexState × Std.Usize)
+
 /-- [milhouse::cow::VecCow]
-    Source: 'src/cow.rs', lines 91:0-99:1
+    Source: 'src/cow.rs', lines 135:0-143:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.VecCow (T : Type) where
@@ -265,7 +278,7 @@ inductive cow.VecCow (T : Type) where
 | Mutable : T → cow.VecCow T
 
 /-- [milhouse::cow::BTreeCow]
-    Source: 'src/cow.rs', lines 43:0-51:1
+    Source: 'src/cow.rs', lines 87:0-95:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.BTreeCow (T : Type) where
@@ -276,12 +289,12 @@ inductive cow.BTreeCow (T : Type) where
 | Mutable : T → cow.BTreeCow T
 
 /-- [milhouse::cow::Cow]
-    Source: 'src/cow.rs', lines 5:0-8:1
+    Source: 'src/cow.rs', lines 24:0-27:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.Cow (T : Type) where
-| BTree : cow.BTreeCow T → cow.Cow T
-| Vec : cow.VecCow T → cow.Cow T
+| BTree : cow.BTreeCow T → cow.CowOnMut → cow.Cow T
+| Vec : cow.VecCow T → cow.CowOnMut → cow.Cow T
 
 /-- [milhouse::level_iter::LevelIter]
     Source: 'src/level_iter.rs', lines 8:0-27:1
@@ -318,7 +331,7 @@ structure interface.ImmList (Self : Type) (T : Type) where
   level_iter_from : Self → Std.Usize → Result (level_iter.LevelIter T)
 
 /-- Trait declaration: [milhouse::update_map::UpdateMap]
-    Source: 'src/update_map.rs', lines 9:0-45:1
+    Source: 'src/update_map.rs', lines 9:0-46:1
     Visibility: public -/
 structure update_map.UpdateMap (Self : Type) (T : Type) where
   coredefaultDefaultInst : core.default.Default Self
@@ -420,17 +433,17 @@ structure list.List (T : Type) (N : Type) (U : Type) where
   interface : interface.Interface T (list.ListInner T N) U
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure#1]
-    Source: 'src/tree.rs', lines 317:25-330:21 -/
+    Source: 'src/tree.rs', lines 328:25-341:21 -/
 @[reducible]
 def tree.Tree.rebase_on.closure_1 (T : Type) := Std.Usize
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure]
-    Source: 'src/tree.rs', lines 310:42-310:97 -/
+    Source: 'src/tree.rs', lines 321:42-321:97 -/
 @[reducible]
 def tree.Tree.rebase_on.closure (T : Type) := Unit
 
 /-- [milhouse::tree::RebaseAction]
-    Source: 'src/tree.rs', lines 246:0-255:1
+    Source: 'src/tree.rs', lines 257:0-266:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.RebaseAction (T : Type) where
@@ -440,7 +453,7 @@ inductive tree.RebaseAction (T : Type) where
 | EqualReplace : triomphe.arc.Arc T → tree.RebaseAction T
 
 /-- [milhouse::tree::IntraRebaseAction]
-    Source: 'src/tree.rs', lines 257:0-260:1
+    Source: 'src/tree.rs', lines 268:0-271:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.IntraRebaseAction (T : Type) where

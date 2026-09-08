@@ -365,6 +365,9 @@ private theorem usize_add_eq_of_val {x y z : Std.Usize}
     have hresult : result = z := by scalar_tac
     exact congrArg ok hresult
 
+private theorem usize_add_zero_eq (x : Std.Usize) : x + 0#usize = ok x :=
+  usize_add_eq_of_val (by simp)
+
 /-- Successful checked addition agrees with natural-number addition. -/
 private theorem usize_add_val {x y sum : Std.Usize}
     (h : x + y = ok sum) : sum.val = x.val + y.val := by
@@ -2011,9 +2014,10 @@ private theorem with_updated_leaves_leaf_shape {T U : Type}
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
     {updated : triomphe.arc.Arc (Tree T)}
     (hupdate : Tree.with_updated_leaves ValueInst mapInst (Tree.Leaf l)
-      updates prefix1 depth hashes = ok (core.result.Result.Ok updated)) :
+      updates prefix1 0#usize depth hashes = ok (core.result.Result.Ok updated)) :
     ∃ leaf', updated = Tree.Leaf leaf' := by
   unfold Tree.with_updated_leaves at hupdate
+  simp only [usize_add_zero_eq, bind_tc_ok] at hupdate
   rw [result_bind_eq_ok_iff] at hupdate
   obtain ⟨opt, hopt, hupdate⟩ := hupdate
   rw [result_bind_eq_ok_iff] at hupdate
@@ -2110,14 +2114,14 @@ private theorem with_updated_leaves_preserves_dense_aux {T U : Type}
       (∀ i, old_len ≤ i → i < new_len → has_update (prefix1.val + i)) →
       (∀ i, i < subtreeCapacity packing_factor tree_depth →
         has_update (prefix1.val + i) → i < new_len) →
-      Tree.with_updated_leaves ValueInst mapInst self updates prefix1 depth
+      Tree.with_updated_leaves ValueInst mapInst self updates prefix1 0#usize depth
         hashes = ok (core.result.Result.Ok updated) →
       DenseTree packing_factor updated tree_depth new_len := by
   have leaf_case : ∀ (l : leaf.Leaf T) (prefix1 depth : Std.Usize)
       (updated : triomphe.arc.Arc (Tree T)) (new_len : Nat),
       0 < new_len → new_len ≤ subtreeCapacity none 0 →
       Tree.with_updated_leaves ValueInst mapInst (Tree.Leaf l) updates prefix1
-        depth hashes = ok (core.result.Result.Ok updated) →
+        0#usize depth hashes = ok (core.result.Result.Ok updated) →
       DenseTree none updated 0 new_len := by
     intro l prefix1 depth updated new_len hpos hcap hupdate
     obtain ⟨leaf', rfl⟩ := with_updated_leaves_leaf_shape hupdate
@@ -2139,6 +2143,7 @@ private theorem with_updated_leaves_preserves_dense_aux {T U : Type}
       have hdepth0 : depth = 0#usize := by scalar_tac
       subst hdepth0
       unfold Tree.with_updated_leaves at hupdate
+      simp only [usize_add_zero_eq, bind_tc_ok] at hupdate
       rw [result_bind_eq_ok_iff] at hupdate
       obtain ⟨opt, hopt, hupdate⟩ := hupdate
       rw [result_bind_eq_ok_iff] at hupdate
@@ -2179,6 +2184,7 @@ private theorem with_updated_leaves_preserves_dense_aux {T U : Type}
       have hdepth0 : depth = 0#usize := by scalar_tac
       subst hdepth0
       unfold Tree.with_updated_leaves at hupdate
+      simp only [usize_add_zero_eq, bind_tc_ok] at hupdate
       rw [result_bind_eq_ok_iff] at hupdate
       obtain ⟨opt, hopt, hupdate⟩ := hupdate
       rw [result_bind_eq_ok_iff] at hupdate
@@ -2209,6 +2215,7 @@ private theorem with_updated_leaves_preserves_dense_aux {T U : Type}
       have hz : zero_depth = depth := by scalar_tac
       subst hz
       unfold Tree.with_updated_leaves at hupdate
+      simp only [usize_add_zero_eq, bind_tc_ok] at hupdate
       rw [result_bind_eq_ok_iff] at hupdate
       obtain ⟨opt, hopt, hupdate⟩ := hupdate
       rw [result_bind_eq_ok_iff] at hupdate
@@ -2310,6 +2317,7 @@ private theorem with_updated_leaves_preserves_dense_aux {T U : Type}
     | node packing_factor rl left right child_depth left_len right_len
         left_dense right_dense shape =>
       unfold Tree.with_updated_leaves at hupdate
+      simp only [usize_add_zero_eq, bind_tc_ok] at hupdate
       rw [result_bind_eq_ok_iff] at hupdate
       obtain ⟨opt, hopt, hupdate⟩ := hupdate
       rw [result_bind_eq_ok_iff] at hupdate
@@ -2613,8 +2621,8 @@ private theorem with_updated_leaves_preserves_dense_aux {T U : Type}
                 hside_full
 
 /-- **Bulk-update preservation.** A successful `with_updated_leaves` from
-    the root prefix on a dense tree is dense at the new length of the update
-    domain. Besides the packing layout and the input density, the premises
+    the root prefix with zero offset on a dense tree is dense at the new
+    length of the update domain. Besides the packing layout and the input density, the premises
     are: the update domain itself, its two feasibility bounds (a positive new
     length, since a Zero tree with no updates would otherwise produce a
     non-canonical empty packed leaf, and the subtree capacity bound), and
@@ -2641,7 +2649,7 @@ theorem with_updated_leaves_preserves_dense {T U : Type}
       mapInst.has_any_in_range updates lo hi = ok r →
       (r = true ↔ ∃ j, lo.val ≤ j ∧ j < hi.val ∧ has_update j))
     (hupdate : Tree.with_updated_leaves ValueInst mapInst tree updates
-      0#usize depth hashes = ok (core.result.Result.Ok updated)) :
+      0#usize 0#usize depth hashes = ok (core.result.Result.Ok updated)) :
     DenseTree packing_factor updated depth.val new_len := by
   obtain ⟨hmono, hcomplete, hbounded⟩ := hdomain
   refine with_updated_leaves_preserves_dense_aux ValueInst mapInst updates

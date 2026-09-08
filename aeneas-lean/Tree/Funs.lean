@@ -266,7 +266,7 @@ def utils.opt_packing_depth
       Std.Usize residual
 
 /-- [milhouse::MAX_TREE_DEPTH]
-    Source: 'src/lib.rs', lines 43:0-43:57
+    Source: 'src/lib.rs', lines 48:0-48:57
     Visibility: public -/
 @[global_simps, irreducible]
 def MAX_TREE_DEPTH : Result Std.Usize := do
@@ -1255,7 +1255,7 @@ def utils.updated_length
     update_mapUpdateMapInst) o prev_len prev_len
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::len]:
-    Source: 'src/interface.rs', lines 132:4-134:5
+    Source: 'src/interface.rs', lines 140:4-142:5
     Visibility: public -/
 def interface.Interface.len
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1291,7 +1291,7 @@ def interface.Interface.push
     ok (r1, self)
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::apply_updates]:
-    Source: 'src/interface.rs', lines 86:4-93:5
+    Source: 'src/interface.rs', lines 86:4-101:5
     Visibility: public -/
 def interface.Interface.apply_updates
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1307,10 +1307,13 @@ def interface.Interface.apply_updates
       core.mem.take update_mapUpdateMapInst.coredefaultDefaultInst self.updates
     let (r, t1) ←
       MutListInst.update update_mapUpdateMapInst self.backing updates none
-    ok (r, { self with backing := t1, updates := t })
+    match r with
+    | core.result.Result.Ok _ =>
+      ok (core.result.Result.Ok (), { self with backing := t1, updates := t })
+    | core.result.Result.Err _ => ok (r, { self with backing := t1, updates })
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::has_pending_updates]:
-    Source: 'src/interface.rs', lines 95:4-97:5
+    Source: 'src/interface.rs', lines 103:4-105:5
     Visibility: public -/
 def interface.Interface.has_pending_updates
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1322,7 +1325,7 @@ def interface.Interface.has_pending_updates
   ok (¬ b)
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter_from]:
-    Source: 'src/interface.rs', lines 103:4-110:5
+    Source: 'src/interface.rs', lines 111:4-118:5
     Visibility: public -/
 def interface.Interface.iter_from
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1336,7 +1339,7 @@ def interface.Interface.iter_from
   ok { tree_iter := i, updates := self.updates, index, length := i1 }
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter]:
-    Source: 'src/interface.rs', lines 99:4-101:5
+    Source: 'src/interface.rs', lines 107:4-109:5
     Visibility: public -/
 def interface.Interface.iter
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1348,7 +1351,7 @@ def interface.Interface.iter
     self 0#usize
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter_cow_from]:
-    Source: 'src/interface.rs', lines 116:4-122:5
+    Source: 'src/interface.rs', lines 124:4-130:5
     Visibility: public -/
 def interface.Interface.iter_cow_from
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1362,7 +1365,7 @@ def interface.Interface.iter_cow_from
   ok ({ tree_iter := i, updates := self.updates, index }, back)
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::iter_cow]:
-    Source: 'src/interface.rs', lines 112:4-114:5
+    Source: 'src/interface.rs', lines 120:4-122:5
     Visibility: public -/
 def interface.Interface.iter_cow
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1385,7 +1388,7 @@ def interface.Interface.iter_cow
   ok (iic, back)
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::level_iter_from]:
-    Source: 'src/interface.rs', lines 124:4-130:5
+    Source: 'src/interface.rs', lines 132:4-138:5
     Visibility: public -/
 def interface.Interface.level_iter_from
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1403,7 +1406,7 @@ def interface.Interface.level_iter_from
     ok (core.result.Result.Ok li)
 
 /-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::is_empty]:
-    Source: 'src/interface.rs', lines 136:4-138:5
+    Source: 'src/interface.rs', lines 144:4-146:5
     Visibility: public -/
 def interface.Interface.is_empty
   {T : Type} {B : Type} {U : Type} (ValueInst : Value T) (MutListInst :
@@ -1961,12 +1964,12 @@ def packed_leaf.PackedLeaf.empty
   ok { hash := rl, values := v }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::with_updated_leaves]:
-    Source: 'src/tree.rs', lines 157:4-230:5
+    Source: 'src/tree.rs', lines 163:4-241:5
     Visibility: public -/
 def tree.Tree.with_updated_leaves
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : tree.Tree T) (updates : U)
-  (prefix1 : Std.Usize) (depth : Std.Usize)
+  (prefix1 : Std.Usize) (offset : Std.Usize) (depth : Std.Usize)
   (hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize ×
   Std.Usize) (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)) :
   Result (core.result.Result (triomphe.arc.Arc (tree.Tree T)) error.Error)
@@ -1980,11 +1983,12 @@ def tree.Tree.with_updated_leaves
   | tree.Tree.Leaf _ =>
     if depth = 0#usize
     then
-      let o1 ← update_mapUpdateMapInst.get updates prefix1
+      let index ← prefix1 + offset
+      let o1 ← update_mapUpdateMapInst.get updates index
       let o2 ←
         core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o1
       let r ←
-        core.option.Option.ok_or o2 (error.Error.LeafUpdateMissing prefix1)
+        core.option.Option.ok_or o2 (error.Error.LeafUpdateMissing index)
       let cf ← core.result.Result.Insts.CoreOpsTry.branch r
       match cf with
       | core.ops.control_flow.ControlFlow.Continue val =>
@@ -1998,9 +2002,10 @@ def tree.Tree.with_updated_leaves
   | tree.Tree.PackedLeaf pl =>
     if depth = 0#usize
     then
+      let i ← prefix1 + offset
       let r ←
         packed_leaf.PackedLeaf.update ValueInst.tree_hashTreeHashInst
-          ValueInst.corecloneCloneInst update_mapUpdateMapInst pl prefix1 hash
+          ValueInst.corecloneCloneInst update_mapUpdateMapInst pl i hash
           updates
       let cf ← core.result.Result.Insts.CoreOpsTry.branch r
       match cf with
@@ -2024,17 +2029,19 @@ def tree.Tree.with_updated_leaves
       let i2 ← depth + packing_depth
       let i3 ← 1#usize <<< i2
       let right_subtree_end ← prefix1 + i3
+      let i4 ← prefix1 + offset
+      let i5 ← right_prefix + offset
       let has_left_updates ←
-        update_mapUpdateMapInst.has_any_in_range updates prefix1 right_prefix
+        update_mapUpdateMapInst.has_any_in_range updates i4 i5
+      let i6 ← right_subtree_end + offset
       let has_right_updates ←
-        update_mapUpdateMapInst.has_any_in_range updates right_prefix
-          right_subtree_end
+        update_mapUpdateMapInst.has_any_in_range updates i5 i6
       if has_left_updates
       then
         let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
         let r ←
           tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
-            updates prefix1 new_depth hashes
+            updates prefix1 offset new_depth hashes
         let cf ← core.result.Result.Insts.CoreOpsTry.branch r
         match cf with
         | core.ops.control_flow.ControlFlow.Continue val =>
@@ -2043,7 +2050,7 @@ def tree.Tree.with_updated_leaves
             let t1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
             let r1 ←
               tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst
-                t1 updates right_prefix new_depth hashes
+                t1 updates right_prefix offset new_depth hashes
             let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
             match cf1 with
             | core.ops.control_flow.ControlFlow.Continue val1 =>
@@ -2068,7 +2075,7 @@ def tree.Tree.with_updated_leaves
           let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
           let r ←
             tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
-              updates right_prefix new_depth hashes
+              updates right_prefix offset new_depth hashes
           let cf ← core.result.Result.Insts.CoreOpsTry.branch r
           match cf with
           | core.ops.control_flow.ControlFlow.Continue val =>
@@ -2093,10 +2100,11 @@ def tree.Tree.with_updated_leaves
           let pl ←
             packed_leaf.PackedLeaf.empty ValueInst.tree_hashTreeHashInst
               ValueInst.corecloneCloneInst
+          let i ← prefix1 + offset
           let r ←
             packed_leaf.PackedLeaf.update ValueInst.tree_hashTreeHashInst
-              ValueInst.corecloneCloneInst update_mapUpdateMapInst pl prefix1
-              hash updates
+              ValueInst.corecloneCloneInst update_mapUpdateMapInst pl i hash
+              updates
           let cf ← core.result.Result.Insts.CoreOpsTry.branch r
           match cf with
           | core.ops.control_flow.ControlFlow.Continue val =>
@@ -2107,11 +2115,12 @@ def tree.Tree.with_updated_leaves
               (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame
               error.Error) residual
         else
-          let o2 ← update_mapUpdateMapInst.get updates prefix1
+          let index ← prefix1 + offset
+          let o2 ← update_mapUpdateMapInst.get updates index
           let o3 ←
             core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o2
           let r ←
-            core.option.Option.ok_or o3 (error.Error.LeafUpdateMissing prefix1)
+            core.option.Option.ok_or o3 (error.Error.LeafUpdateMissing index)
           let cf ← core.result.Result.Insts.CoreOpsTry.branch r
           match cf with
           | core.ops.control_flow.ControlFlow.Continue val =>
@@ -2128,12 +2137,12 @@ def tree.Tree.with_updated_leaves
         let a1 ← tree.Tree.node ValueInst a new_zero hash
         let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref a1
         tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
-          updates prefix1 depth hashes
+          updates prefix1 offset depth hashes
     else ok (core.result.Result.Err error.Error.UpdateLeavesError)
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::update]:
-    Source: 'src/list.rs', lines 357:4-375:5
+    Source: 'src/list.rs', lines 357:4-377:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.update
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -2152,22 +2161,22 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.update
     if max_index >= i
     then ok (core.result.Result.Err error.Error.InvalidListUpdate, self)
     else
-      let l ←
-        utils.updated_length update_mapUpdateMapInst self.length updates
       let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
       let o1 ← core.option.Option.as_ref hash_updates
       let r ←
         tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
-          updates 0#usize self.depth o1
+          updates 0#usize 0#usize self.depth o1
       let cf ← core.result.Result.Insts.CoreOpsTry.branch r
       match cf with
       | core.ops.control_flow.ControlFlow.Continue val =>
+        let l ←
+          utils.updated_length update_mapUpdateMapInst self.length updates
         ok (core.result.Result.Ok (), { self with tree := val, length := l })
       | core.ops.control_flow.ControlFlow.Break residual =>
         let r1 ←
           core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
             Unit (core.convert.FromSame error.Error) residual
-        ok (r1, { self with length := l })
+        ok (r1, self)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf]:
     Source: 'src/tree.rs', lines 60:4-62:5
@@ -2474,7 +2483,7 @@ impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
 }
 
 /-- Trait implementation: [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}]
-    Source: 'src/list.rs', lines 329:0-376:1 -/
+    Source: 'src/list.rs', lines 329:0-378:1 -/
 @[reducible]
 def list.ListInner.Insts.MilhouseInterfaceMutList {T : Type} {N : Type}
   (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
@@ -3975,7 +3984,7 @@ impl_def utils.Length.Insts.CoreCmpOrd : core.cmp.Ord utils.Length := {
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure#1<'_0, T>}::call_once]:
-    Source: 'src/tree.rs', lines 317:25-330:21 -/
+    Source: 'src/tree.rs', lines 328:25-341:21 -/
 def
   tree.Tree.rebase_on.closure_1.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthPairPairLengthLengthPairLengthLength.call_once
   {T : Type} (ValueInst : Value T) (c : tree.Tree.rebase_on.closure_1 T)
@@ -3997,7 +4006,7 @@ def
   ok ((orig_left_length, base_left_length), (i3, i6))
 
 /-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure#1<'_0, T>}]
-    Source: 'src/tree.rs', lines 317:25-330:21 -/
+    Source: 'src/tree.rs', lines 328:25-341:21 -/
 @[reducible]
 def
   tree.Tree.rebase_on.closure_1.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthPairPairLengthLengthPairLengthLength
@@ -4010,7 +4019,7 @@ def
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure<T>}::call_once]:
-    Source: 'src/tree.rs', lines 310:42-310:97 -/
+    Source: 'src/tree.rs', lines 321:42-321:97 -/
 def
   tree.Tree.rebase_on.closure.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthBool.call_once
   {T : Type} (ValueInst : Value T) (c : tree.Tree.rebase_on.closure T)
@@ -4021,7 +4030,7 @@ def
   utils.Length.Insts.CoreCmpPartialEqLength.eq orig_length base_length
 
 /-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure<T>}]
-    Source: 'src/tree.rs', lines 310:42-310:97 -/
+    Source: 'src/tree.rs', lines 321:42-321:97 -/
 @[reducible]
 def
   tree.Tree.rebase_on.closure.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthBool
@@ -4033,7 +4042,7 @@ def
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on]:
-    Source: 'src/tree.rs', lines 263:4-401:5
+    Source: 'src/tree.rs', lines 274:4-412:5
     Visibility: public -/
 def tree.Tree.rebase_on
   {T : Type} (ValueInst : Value T) (orig : triomphe.arc.Arc (tree.Tree T))
@@ -4617,7 +4626,7 @@ def tree.Tree.rebase_on
 partial_fixpoint
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase_on]:
-    Source: 'src/list.rs', lines 385:4-401:5
+    Source: 'src/list.rs', lines 387:4-403:5
     Visibility: public -/
 def list.List.rebase_on
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4665,7 +4674,7 @@ def list.List.rebase_on
     ok (r1, self)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase]:
-    Source: 'src/list.rs', lines 379:4-383:5
+    Source: 'src/list.rs', lines 381:4-385:5
     Visibility: public -/
 def list.List.rebase
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4813,7 +4822,7 @@ def tree.Tree.zero_unboxed
   ok (tree.Tree.Zero depth)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::compute_len]:
-    Source: 'src/tree.rs', lines 236:4-243:5
+    Source: 'src/tree.rs', lines 247:4-254:5
     Visibility: public -/
 def tree.Tree.compute_len
   {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
@@ -4832,7 +4841,7 @@ def tree.Tree.compute_len
 partial_fixpoint
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::intra_rebase]:
-    Source: 'src/tree.rs', lines 438:4-522:5
+    Source: 'src/tree.rs', lines 449:4-533:5
     Visibility: public -/
 def tree.Tree.intra_rebase
   {T : Type} (ValueInst : Value T) (orig : triomphe.arc.Arc (tree.Tree T))

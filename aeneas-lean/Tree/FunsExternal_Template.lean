@@ -639,7 +639,7 @@ axiom triomphe.arc.Arc.Insts.CoreConvertAsRef.as_ref
   {T : Type} : triomphe.arc.Arc T → Result T
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::intra_rebase]:
-    Source: 'src/list.rs', lines 405:4-422:5
+    Source: 'src/list.rs', lines 407:4-424:5
     Visibility: public -/
 axiom list.List.intra_rebase
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
