@@ -8,3 +8,4 @@ import Tree.Rebase
 import Tree.ProgressiveTree
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
+import Tree.UpdateMap.Length
