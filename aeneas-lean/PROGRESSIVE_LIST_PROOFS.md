@@ -366,20 +366,26 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest variable-decoding checkpoint (through `2124555`): the full Lean build
-passes (1,869 jobs). Both fixed- and variable-element public decoders now have
+Latest variable-decoding and builder-totality checkpoint (through `2a59a23`):
+the full Lean build passes (1,871 jobs). Both fixed- and variable-element public decoders now have
 sequence-level partial correctness specifications, deriving actual cursor and
 builder invariants internally. Canonical variable offsets identify every
 payload, including empty payloads; exhausted cursors do not advance. Index and
 offset arithmetic bounds follow from the input slice and table size. Only
 offsets actually emitted require SSZ's 32-bit bound, with no additional bound
-on the final payload end. All 12 new variable cursor/public decoder lemmas
-were audited and use only `propext`, `Classical.choice`, and `Quot.sound`.
+on the final payload end. `Tree/Builder/New.lean` proves binary builder
+initialization succeeds from representable capacity, deriving its arithmetic
+and depth checks. `Tree/ProgressiveTree/Builder/New.lean` proves initial
+progressive builder success and the complete empty-state invariant from the
+packing layout alone. All 16 new variable cursor/public decoder and builder
+initialization lemmas were audited and use only `propext`, `Classical.choice`,
+and `Quot.sound`.
 The preceding fixed-decoding and streaming-construction proofs are included
 in this full build, as is the canonical offset-reader bridge in `eb433d2`.
 No Rust, generated extraction, external models, or Aeneas sources changed.
 The remaining decoding work includes malformed-input specifications and
-valid-input success/totality for full list roundtrips. Serialization,
+valid-input success/totality for full list roundtrips, including builder push
+and finalization totality and their streaming-loop composition. Serialization,
 deserialization, CoW stepping/materialization, Debug, semantic hashing/cache
 invariants, and feature-specific APIs remain part of the full objective.
 
