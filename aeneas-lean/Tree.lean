@@ -8,7 +8,7 @@ import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
 import Tree.ProgressiveTree
-import Tree.ProgressiveList.Construction
+import Tree.ProgressiveList.Construction.Representation
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveList
