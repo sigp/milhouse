@@ -457,30 +457,35 @@ impl<'a, T: Value> ProgressiveTreeIter<'a, T> {
     /// Skip whole binary subtrees along the right spine until the one containing `start_index` is
     /// reached, then set up its inner iterator at the matching local offset.
     fn seek_to_subtree(&mut self, start_index: usize) {
-        loop {
-            match self.current_prog_node {
-                None | Some(ProgressiveTree::ProgressiveZero) => {
-                    self.current_iter = None;
-                    self.current_prog_node = None;
-                    return;
-                }
-                Some(ProgressiveTree::ProgressiveNode { left, right, .. }) => {
-                    // This node's binary subtree is at progressive depth `prog_depth + 1` and
-                    // covers the global index range `[subtree_start, subtree_end)`.
-                    let subtree_start =
-                        ProgressiveTree::<T>::total_capacity_at_depth(self.prog_depth);
-                    let subtree_end =
-                        ProgressiveTree::<T>::total_capacity_at_depth(self.prog_depth + 1);
+        while self.seek_step(start_index) {}
+    }
 
-                    if start_index < subtree_end {
-                        // The target lives in this subtree; seek to it and stop.
-                        self.enter_subtree(left, right, start_index - subtree_start);
-                        return;
-                    }
+    // Keep the shared-node match outside the mutable loop: this lets Aeneas
+    // translate each step without carrying its borrows across loop iterations.
+    #[inline]
+    fn seek_step(&mut self, start_index: usize) -> bool {
+        match self.current_prog_node {
+            None | Some(ProgressiveTree::ProgressiveZero) => {
+                self.current_iter = None;
+                self.current_prog_node = None;
+                false
+            }
+            Some(ProgressiveTree::ProgressiveNode { left, right, .. }) => {
+                // This node's binary subtree is at progressive depth `prog_depth + 1` and
+                // covers the global index range `[subtree_start, subtree_end)`.
+                let subtree_start = ProgressiveTree::<T>::total_capacity_at_depth(self.prog_depth);
+                let subtree_end =
+                    ProgressiveTree::<T>::total_capacity_at_depth(self.prog_depth + 1);
 
-                    // `start_index` is past this subtree; skip it without building an iterator.
+                if start_index < subtree_end {
+                    // The target lives in this subtree; seek to it and stop.
+                    self.enter_subtree(left, right, start_index - subtree_start);
+                    false
+                } else {
+                    // Skip this subtree without building an iterator.
                     self.prog_depth += 1;
                     self.current_prog_node = Some(right);
+                    true
                 }
             }
         }
@@ -528,6 +533,25 @@ impl<'a, T: Value> ProgressiveTreeIter<'a, T> {
         ));
         self.current_prog_node = Some(right);
     }
+    // As with seek_step, keep borrows of the current iterator inside one call.
+    #[inline]
+    fn next_step(&mut self) -> std::ops::ControlFlow<Option<&'a T>> {
+        // Try to get the next item from the current binary tree iterator.
+        if let Some(iter) = &mut self.current_iter
+            && let Some(value) = iter.next()
+        {
+            self.yielded += 1;
+            return std::ops::ControlFlow::Break(Some(value));
+        }
+
+        // Current subtree exhausted, move to the next one.
+        if self.current_prog_node.is_some() {
+            self.advance_to_next_subtree();
+            std::ops::ControlFlow::Continue(())
+        } else {
+            std::ops::ControlFlow::Break(None)
+        }
+    }
 }
 
 impl<'a, T: Value> Iterator for ProgressiveTreeIter<'a, T> {
@@ -535,20 +559,9 @@ impl<'a, T: Value> Iterator for ProgressiveTreeIter<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // Try to get the next item from the current binary tree iterator
-            if let Some(iter) = &mut self.current_iter
-                && let Some(value) = iter.next()
-            {
-                self.yielded += 1;
-                return Some(value);
-            }
-
-            // Current subtree exhausted, move to the next one
-            if self.current_prog_node.is_some() {
-                self.advance_to_next_subtree();
-            } else {
-                // No more subtrees to iterate
-                return None;
+            match self.next_step() {
+                std::ops::ControlFlow::Break(value) => return value,
+                std::ops::ControlFlow::Continue(()) => {}
             }
         }
     }

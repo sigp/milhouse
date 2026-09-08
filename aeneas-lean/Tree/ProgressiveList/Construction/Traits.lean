@@ -5,6 +5,35 @@ open milhouse
 
 namespace milhouse.progressive_list
 
+/-- The extracted vector conversion delegates to the inherent iterator
+    constructor, including its failure behavior. -/
+theorem ProgressiveList.try_from_vec_eq {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (values : alloc.vec.Vec T) :
+    ProgressiveList.Insts.CoreConvertTryFromVecError.try_from ValueInst mapInst values =
+      ProgressiveList.try_from_iter ValueInst mapInst
+        (core.iter.traits.collect.IntoIteratorVec T) values := rfl
+
+/-- Successful `TryFrom<Vec<T>>` preserves all indexed contents and the exact
+    length, establishes the backing-spine invariant, and leaves no pending
+    updates. The vector's iterator law follows from its concrete model. -/
+theorem ProgressiveList.try_from_vec_spec {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (values : alloc.vec.Vec T) {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hdefault : ∀ updates, mapInst.coredefaultDefaultInst.default = ok updates →
+      (∀ i, mapInst.get updates i = ok none) ∧
+        mapInst.max_index updates = ok none ∧ mapInst.is_empty updates = ok true)
+    {self : ProgressiveList T U}
+    (hnew : ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
+      ValueInst mapInst values = ok (core.result.Result.Ok self)) :
+    self.Represents ValueInst mapInst values.val ∧ self.SpineValid factor ∧
+      ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
+  rw [ProgressiveList.try_from_vec_eq] at hnew
+  exact ProgressiveList.try_from_iter_spec ValueInst mapInst
+    (core.iter.traits.collect.IntoIteratorVec T) values values.val
+    (vec_into_iterator_yields values) hlayout hdefault hnew
+
 /-- The SSZ construction trait delegates to the inherent constructor, including
     its failure behavior. This equation concerns the extracted Rust wrapper. -/
 theorem ProgressiveList.ssz_try_from_iter_eq {T U Input I : Type}

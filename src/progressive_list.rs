@@ -30,7 +30,7 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
-        Self::try_from_iter(vec)
+        Self::try_from(vec)
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
@@ -193,7 +193,12 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().cloned().collect()
+        let mut iter = self.iter();
+        let mut values = Vec::with_capacity(iter.len());
+        while let Some(value) = iter.next() {
+            values.push(value.clone());
+        }
+        values
     }
 
     /// Remove `n` elements from the front of `self`.
@@ -441,7 +446,13 @@ impl<'a, T: Value, U: UpdateMap<T>> Iterator for ProgressiveListIter<'a, T, U> {
     }
 }
 
-impl<T: Value, U: UpdateMap<T>> ExactSizeIterator for ProgressiveListIter<'_, T, U> {}
+impl<T: Value, U: UpdateMap<T>> ExactSizeIterator for ProgressiveListIter<'_, T, U> {
+    // Equivalent to the trait default; keep the concrete size_hint call visible
+    // to extraction instead of dispatching through the generic Iterator model.
+    fn len(&self) -> usize {
+        self.size_hint().0
+    }
+}
 
 #[derive(Debug)]
 pub struct ProgressiveListIterCow<'a, T: Value, U: UpdateMap<T>> {

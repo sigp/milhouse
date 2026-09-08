@@ -26,8 +26,10 @@
 # - List methods are selected individually so its serde/ssz trait impls remain
 #   outside the extraction boundary. `List::intra_rebase` is opaque because its
 #   pointer-sharing and hash-cache effects are intentionally erased in Lean.
-# - The selected TryFrom<Vec<T>> wrapper reaches LLBC but is not emitted by
-#   Aeneas; its trait bridge remains pending (UPSTREAM_BUGS.md issue 12).
+# - Constructor and iterator trait methods need concrete callers to be emitted
+#   by Aeneas; explicit roots alone were insufficient (UPSTREAM_BUGS.md issue 12).
+# - Progressive traversal steps use inline helpers to keep borrows out of loop
+#   contexts; to_vec uses an explicit loop (UPSTREAM_BUGS.md issue 13).
 # - Cow metadata helpers are included. Deref and mutation of Cow handles still
 #   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
 
@@ -78,6 +80,12 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_list::_::len' \
     --start-from 'milhouse::progressive_list::_::is_empty' \
     --start-from 'milhouse::progressive_list::_::has_pending_updates' \
+    --start-from 'milhouse::progressive_list::_::iter' \
+    --start-from 'milhouse::progressive_list::_::iter_from' \
+    --start-from 'milhouse::progressive_list::_::to_vec' \
+    --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::next' \
+    --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::size_hint' \
+    --start-from '{impl core::iter::ExactSizeIterator for milhouse::progressive_list::ProgressiveListIter}::len' \
     --start-from '{impl core::default::Default for milhouse::progressive_list::ProgressiveList}' \
     --start-from '{impl core::convert::TryFrom for milhouse::progressive_list::ProgressiveList}::try_from' \
     --start-from '{impl ssz::TryFromIter for milhouse::progressive_list::ProgressiveList}::try_from_iter' \

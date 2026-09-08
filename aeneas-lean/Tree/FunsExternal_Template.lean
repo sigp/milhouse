@@ -183,6 +183,14 @@ axiom core.option.Option.map_or
 axiom core.option.Option.ok_or
   {T : Type} {E : Type} : Option T → E → Result (core.result.Result T E)
 
+/-- [core::option::{core::option::Option<T>}::or]:
+    Source: '/rustc/library/core/src/option.rs', lines 1618:4-1620:28
+    Name pattern: [core::option::{core::option::Option<@T>}::or]
+    Visibility: public -/
+@[rust_fun "core::option::{core::option::Option<@T>}::or"]
+axiom core.option.Option.or
+  {T : Type} : Option T → Option T → Result (Option T)
+
 /-- [core::option::{core::option::Option<(T, U)>}::unzip]:
     Source: '/rustc/library/core/src/option.rs', lines 2111:4-2111:48
     Name pattern: [core::option::{core::option::Option<(@T, @U)>}::unzip]

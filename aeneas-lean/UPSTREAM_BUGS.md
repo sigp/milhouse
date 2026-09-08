@@ -281,28 +281,56 @@ stores its remaining vector, so the new definition delegates to the existing
 model does. Reverse-iterator assembly remains extracted Rust; its order and
 contents are proved in `Tree/ProgressiveTree/Builder/Spine.lean`.
 
-## 12. Aeneas: selected `TryFrom<Vec<T>>` wrapper is not emitted
+## 12. Aeneas: selected trait methods require concrete callers
 
 **Stage:** Lean extraction.
-**Status:** unresolved; this trait wrapper remains outside the proved Lean API.
+**Status:** avoided for `TryFrom<Vec<T>>` and the selected progressive-list
+iterator methods by making them reachable from existing concrete callers.
 
 Selecting `{impl core::convert::TryFrom for
 milhouse::progressive_list::ProgressiveList}::try_from` succeeds in Charon.
-`tree.llbc` contains the local transparent method, its body from
-`src/progressive_list.rs:248-250`, and the `TryFrom` implementation. Aeneas
-finishes successfully but emits neither a `try_from` declaration nor this
-trait instance in the generated Lean files. Selecting the whole implementation
-has the same result. The cause has not been isolated; the presence of the Rust
-body in LLBC is not a proof of the omitted method.
+`tree.llbc` contains the local transparent method and the `TryFrom`
+implementation, but Aeneas initially emitted neither the method nor the
+trait instance. Selecting the whole implementation had the same result.
+Changing `ProgressiveList::new` to delegate through `Self::try_from(vec)`
+makes the method reachable and emits its actual body. The trait still delegates
+to the same inherent `try_from_iter`, preserving construction and error behavior.
+The cause of the root-selection behavior has not been isolated.
 
-The neighboring SSZ `TryFromIter` method does emit as
-`ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter`,
-and its full indexed-constructor specification is proved in
-`Tree/ProgressiveList/Construction/Traits.lean`. The inherent `new` and
-`try_from_iter` methods remain proved as before. No replacement model or
-post-extraction body for the missing `TryFrom<Vec<T>>` bridge has been added,
-and the Aeneas checkout has not been changed. A translator-side explanation or
-an agreed extraction workaround is still needed for that bridge.
+The SSZ `TryFromIter` method emits when selected directly. Both trait methods
+have full indexed-constructor specifications in
+`Tree/ProgressiveList/Construction/Traits.lean`, derived from the complete
+inherent constructor proof. No replacement model or post-extraction body is
+used for either method.
+
+The selected `ProgressiveListIter::next` and `size_hint` methods likewise emit
+when called from the explicit `to_vec` loop. `ExactSizeIterator::len` now has
+an explicit implementation returning `self.size_hint().0`: the concrete size
+hint always has equal lower and upper bounds, so this is equivalent to the
+trait default. Calling `len` from `to_vec` exposes both actual method bodies.
+
+## 13. Aeneas: progressive traversal borrows and collection adapters
+
+**Stage:** symbolic execution and signature translation.
+**Status:** avoided with inline traversal-step helpers and an explicit
+collection loop in milhouse; the Aeneas checkout is unchanged.
+
+The original `ProgressiveTreeIter::seek_to_subtree` loop fails on the match
+of its current shared progressive node inside the mutable loop. Moving one
+iteration into `seek_step` keeps those borrows inside a call and translates
+successfully. Once `next` is reachable, its mutable inner-iterator borrow
+fails similarly. Its inline `next_step` returns `ControlFlow`, allowing the
+outer loop to repeat or return without carrying that borrow across iterations.
+Both helpers preserve the original traversal, state changes, and arithmetic
+order without allocating or replacing traversal with repeated indexed lookup.
+
+The original `ProgressiveList::to_vec` uses `cloned().collect()`, which fails
+in `SymbolicToPureTypes.translate_fun_sigs` while translating the generic
+iterator adapter signatures. The explicit loop follows the existing binary
+`List::to_vec` implementation, preserves value and clone order, and reserves
+from the exact iterator length. The resulting extraction contains the actual
+progressive and list iterator bodies without admissions. Its `Option::or`
+call uses a concrete local standard-library model.
 
 ## Also of note (not bugs)
 

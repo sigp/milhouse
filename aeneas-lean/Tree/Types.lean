@@ -495,6 +495,25 @@ def progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure (T :
   Type) (U : Type) :=
   Std.Usize
 
+/-- [milhouse::progressive_tree::ProgressiveTreeIter]
+    Source: 'src/progressive_tree.rs', lines 422:0-433:1
+    Visibility: public -/
+structure progressive_tree.ProgressiveTreeIter (T : Type) where
+  current_prog_node : Option (progressive_tree.ProgressiveTree T)
+  current_iter : Option (iter.Iter T)
+  prog_depth : Std.U32
+  length : Std.Usize
+  yielded : Std.Usize
+
+/-- [milhouse::progressive_list::ProgressiveListIter]
+    Source: 'src/progressive_list.rs', lines 418:0-423:1
+    Visibility: public -/
+structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
+  tree_iter : progressive_tree.ProgressiveTreeIter T
+  updates : U
+  index : Std.Usize
+  length : Std.Usize
+
 /-- [milhouse::tree::IntraRebaseAction]
     Source: 'src/tree.rs', lines 268:0-271:1
     Visibility: public -/

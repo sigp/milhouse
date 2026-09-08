@@ -5177,6 +5177,18 @@ def progressive_list.ProgressiveList.try_from_iter
       (progressive_list.ProgressiveList T U) (core.convert.FromSame
       error.Error) residual
 
+/-- [milhouse::progressive_list::{impl core::convert::TryFrom<alloc::vec::Vec<T>, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from]:
+    Source: 'src/progressive_list.rs', lines 253:4-255:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (vec : alloc.vec.Vec T) :
+  Result (core.result.Result (progressive_list.ProgressiveList T U)
+    error.Error)
+  := do
+  progressive_list.ProgressiveList.try_from_iter ValueInst
+    update_mapUpdateMapInst (core.iter.traits.collect.IntoIteratorVec T) vec
+
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::new]:
     Source: 'src/progressive_list.rs', lines 32:4-34:5
     Visibility: public -/
@@ -5186,8 +5198,8 @@ def progressive_list.ProgressiveList.new
   Result (core.result.Result (progressive_list.ProgressiveList T U)
     error.Error)
   := do
-  progressive_list.ProgressiveList.try_from_iter ValueInst
-    update_mapUpdateMapInst (core.iter.traits.collect.IntoIteratorVec T) vec
+  progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
+    ValueInst update_mapUpdateMapInst vec
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::backing_len]:
     Source: 'src/progressive_list.rs', lines 48:4-50:5 -/
@@ -5671,8 +5683,393 @@ def progressive_list.ProgressiveList.apply_updates
     | core.result.Result.Err e =>
       ok (core.result.Result.Err e, { self with updates })
 
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::enter_subtree]:
+    Source: 'src/progressive_tree.rs', lines 513:4-535:5 -/
+def progressive_tree.ProgressiveTreeIter.enter_subtree
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T)
+  (left : triomphe.arc.Arc (tree.Tree T))
+  (right : progressive_tree.ProgressiveTree T) (local_index : Std.Usize) :
+  Result (progressive_tree.ProgressiveTreeIter T)
+  := do
+  let i ← self.prog_depth + 1#u32
+  let i1 ← i - 1#u32
+  let subtree_start ←
+    progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst i1
+  let binary_depth ←
+    progressive_tree.ProgressiveTree.prog_depth_to_binary_depth ValueInst i
+  let capacity ←
+    progressive_tree.ProgressiveTree.capacity_at_depth ValueInst i
+  let remaining ←
+    lift (core.num.Usize.saturating_sub self.length subtree_start)
+  let subtree_length ←
+    core.cmp.Ord.min.trait_default core.cmp.OrdUsize remaining capacity
+  let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+  let i2 ←
+    iter.Iter.from_index ValueInst local_index t binary_depth subtree_length
+  ok
+    {
+      self
+        with
+        current_prog_node := (some right),
+        current_iter := (some i2),
+        prog_depth := i
+    }
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_step]:
+    Source: 'src/progressive_tree.rs', lines 466:4-492:5 -/
+def progressive_tree.ProgressiveTreeIter.seek_step
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) (start_index : Std.Usize) :
+  Result (Bool × (progressive_tree.ProgressiveTreeIter T))
+  := do
+  match self.current_prog_node with
+  | none => ok (false, { self with current_iter := none })
+  | some pt =>
+    match pt with
+    | progressive_tree.ProgressiveTree.ProgressiveZero =>
+      ok (false, { self with current_prog_node := none, current_iter := none })
+    | progressive_tree.ProgressiveTree.ProgressiveNode _ left right =>
+      let subtree_start ←
+        progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst
+          self.prog_depth
+      let i ← self.prog_depth + 1#u32
+      let subtree_end ←
+        progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst i
+      if start_index < subtree_end
+      then
+        let pt1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+        let i1 ← start_index - subtree_start
+        let self1 ←
+          progressive_tree.ProgressiveTreeIter.enter_subtree ValueInst self
+            left pt1 i1
+        ok (false, self1)
+      else
+        let pt1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+        ok (true,
+          { self with current_prog_node := (some pt1), prog_depth := i })
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_to_subtree]: loop body 0:
+    Source: 'src/progressive_tree.rs', lines 460:8-460:44 -/
+@[rust_loop_body]
+def progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop.body
+  {T : Type} (ValueInst : Value T) (start_index : Std.Usize)
+  (self : progressive_tree.ProgressiveTreeIter T) :
+  Result (ControlFlow (progressive_tree.ProgressiveTreeIter T)
+    (progressive_tree.ProgressiveTreeIter T))
+  := do
+  let (b, self1) ←
+    progressive_tree.ProgressiveTreeIter.seek_step ValueInst self start_index
+  if b
+  then ok (cont self1)
+  else ok (done self1)
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_to_subtree]: loop 0:
+    Source: 'src/progressive_tree.rs', lines 460:8-460:44 -/
+@[rust_loop]
+def progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) (start_index : Std.Usize) :
+  Result (progressive_tree.ProgressiveTreeIter T)
+  := do
+  loop
+    (fun self1 =>
+      progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop.body ValueInst
+      start_index self1)
+    self
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_to_subtree]:
+    Source: 'src/progressive_tree.rs', lines 459:4-461:5 -/
+@[reducible]
+def progressive_tree.ProgressiveTreeIter.seek_to_subtree
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) (start_index : Std.Usize) :
+  Result (progressive_tree.ProgressiveTreeIter T)
+  := do
+  progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop ValueInst self
+    start_index
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::from_index]:
+    Source: 'src/progressive_tree.rs', lines 445:4-455:5 -/
+def progressive_tree.ProgressiveTreeIter.from_index
+  {T : Type} (ValueInst : Value T) (root : progressive_tree.ProgressiveTree T)
+  (start_index : Std.Usize) (length : Std.Usize) :
+  Result (progressive_tree.ProgressiveTreeIter T)
+  := do
+  progressive_tree.ProgressiveTreeIter.seek_to_subtree ValueInst
+    {
+      current_prog_node := (some root),
+      current_iter := none,
+      prog_depth := 0#u32,
+      length,
+      yielded := start_index
+    } start_index
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::iter_from]:
+    Source: 'src/progressive_tree.rs', lines 144:4-146:5
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.iter_from
+  {T : Type} (ValueInst : Value T) (self : progressive_tree.ProgressiveTree T)
+  (index : Std.Usize) (length : Std.Usize) :
+  Result (progressive_tree.ProgressiveTreeIter T)
+  := do
+  progressive_tree.ProgressiveTreeIter.from_index ValueInst self index length
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_from_unchecked]:
+    Source: 'src/progressive_list.rs', lines 153:4-165:5 -/
+def progressive_list.ProgressiveList.iter_from_unchecked
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (index : Std.Usize) :
+  Result (progressive_list.ProgressiveListIter T U)
+  := do
+  let backing_len ←
+    progressive_list.ProgressiveList.backing_len ValueInst
+      update_mapUpdateMapInst self
+  let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref self.tree
+  let i ← core.cmp.Ord.min.trait_default core.cmp.OrdUsize index backing_len
+  let tree_iter ←
+    progressive_tree.ProgressiveTree.iter_from ValueInst pt i backing_len
+  let i1 ←
+    progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst self
+  ok { tree_iter, updates := self.updates, index, length := i1 }
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter]:
+    Source: 'src/progressive_list.rs', lines 138:4-140:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.iter
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result (progressive_list.ProgressiveListIter T U)
+  := do
+  progressive_list.ProgressiveList.iter_from_unchecked ValueInst
+    update_mapUpdateMapInst self 0#usize
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_from]:
+    Source: 'src/progressive_list.rs', lines 142:4-151:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.iter_from
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (index : Std.Usize) :
+  Result (core.result.Result (progressive_list.ProgressiveListIter T U)
+    error.Error)
+  := do
+  let i ←
+    progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst self
+  if index > i
+  then ok (core.result.Result.Err (error.Error.OutOfBoundsIterFrom index i))
+  else
+    let pli ←
+      progressive_list.ProgressiveList.iter_from_unchecked ValueInst
+        update_mapUpdateMapInst self index
+    ok (core.result.Result.Ok pli)
+
+/-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::size_hint]:
+    Source: 'src/progressive_list.rs', lines 443:4-446:5
+    Visibility: public -/
+def
+  progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U) :
+  Result (Std.Usize × (Option Std.Usize))
+  := do
+  let remaining ← lift (core.num.Usize.saturating_sub self.length self.index)
+  ok (remaining, some remaining)
+
+/-- [milhouse::progressive_list::{impl core::iter::traits::exact_size::ExactSizeIterator<&'_ T> for milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::len]:
+    Source: 'src/progressive_list.rs', lines 452:4-454:5
+    Visibility: public -/
+def
+  progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U) :
+  Result Std.Usize
+  := do
+  let (i, _) ←
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
+      ValueInst update_mapUpdateMapInst self
+  ok i
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::advance_to_next_subtree]:
+    Source: 'src/progressive_tree.rs', lines 496:4-509:5 -/
+def progressive_tree.ProgressiveTreeIter.advance_to_next_subtree
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) :
+  Result (progressive_tree.ProgressiveTreeIter T)
+  := do
+  match self.current_prog_node with
+  | none => ok { self with current_iter := none }
+  | some pt =>
+    match pt with
+    | progressive_tree.ProgressiveTree.ProgressiveZero =>
+      ok { self with current_prog_node := none, current_iter := none }
+    | progressive_tree.ProgressiveTree.ProgressiveNode _ left right =>
+      let pt1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+      progressive_tree.ProgressiveTreeIter.enter_subtree ValueInst self left
+        pt1 0#usize
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next_step]:
+    Source: 'src/progressive_tree.rs', lines 538:4-554:5 -/
+def progressive_tree.ProgressiveTreeIter.next_step
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) :
+  Result ((core.ops.control_flow.ControlFlow (Option T) Unit) ×
+    (progressive_tree.ProgressiveTreeIter T))
+  := do
+  match self.current_iter with
+  | none =>
+    let b := core.option.Option.is_some self.current_prog_node
+    if b
+    then
+      let self1 ←
+        progressive_tree.ProgressiveTreeIter.advance_to_next_subtree ValueInst
+          self
+      ok (core.ops.control_flow.ControlFlow.Continue (), self1)
+    else ok (core.ops.control_flow.ControlFlow.Break none, self)
+  | some i =>
+    let (o, i1) ←
+      iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst i
+    match o with
+    | none =>
+      let b := core.option.Option.is_some self.current_prog_node
+      if b
+      then
+        let self1 ←
+          progressive_tree.ProgressiveTreeIter.advance_to_next_subtree
+            ValueInst { self with current_iter := (some i1) }
+        ok (core.ops.control_flow.ControlFlow.Continue (), self1)
+      else
+        ok (core.ops.control_flow.ControlFlow.Break none,
+          { self with current_iter := (some i1) })
+    | some _ =>
+      let i2 ← self.yielded + 1#usize
+      ok (core.ops.control_flow.ControlFlow.Break o,
+        { self with current_iter := (some i1), yielded := i2 })
+
+/-- [milhouse::progressive_tree::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next]: loop body 0:
+    Source: 'src/progressive_tree.rs', lines 561:8-566:9
+    Visibility: public -/
+@[rust_loop_body]
+def
+  progressive_tree.ProgressiveTreeIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next_loop.body
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) :
+  Result (ControlFlow (progressive_tree.ProgressiveTreeIter T)
+    ((progressive_tree.ProgressiveTreeIter T) × (Option T)))
+  := do
+  let (cf, self1) ←
+    progressive_tree.ProgressiveTreeIter.next_step ValueInst self
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ => ok (cont self1)
+  | core.ops.control_flow.ControlFlow.Break o => ok (done (self1, o))
+
+/-- [milhouse::progressive_tree::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next]: loop 0:
+    Source: 'src/progressive_tree.rs', lines 561:8-566:9
+    Visibility: public -/
+@[rust_loop]
+def
+  progressive_tree.ProgressiveTreeIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next_loop
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) :
+  Result ((progressive_tree.ProgressiveTreeIter T) × (Option T))
+  := do
+  loop
+    (fun self1 =>
+      progressive_tree.ProgressiveTreeIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next_loop.body
+      ValueInst self1)
+    self
+
+/-- [milhouse::progressive_tree::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next]:
+    Source: 'src/progressive_tree.rs', lines 560:4-567:5
+    Visibility: public -/
+def
+  progressive_tree.ProgressiveTreeIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+  {T : Type} (ValueInst : Value T)
+  (self : progressive_tree.ProgressiveTreeIter T) :
+  Result ((Option T) × (progressive_tree.ProgressiveTreeIter T))
+  := do
+  let (self1, value) ←
+    progressive_tree.ProgressiveTreeIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next_loop
+      ValueInst self
+  ok (value, self1)
+
+/-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::next]:
+    Source: 'src/progressive_list.rs', lines 428:4-441:5
+    Visibility: public -/
+def
+  progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U) :
+  Result ((Option T) × (progressive_list.ProgressiveListIter T U))
+  := do
+  if self.index >= self.length
+  then ok (none, self)
+  else
+    let i ← self.index + 1#usize
+    let (backing_value, pti) ←
+      progressive_tree.ProgressiveTreeIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+        ValueInst self.tree_iter
+    let o ← update_mapUpdateMapInst.get self.updates self.index
+    let o1 ← core.option.Option.or o backing_value
+    ok (o1, { self with tree_iter := pti, index := i })
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]: loop body 0:
+    Source: 'src/progressive_list.rs', lines 198:8-200:9
+    Visibility: public -/
+@[rust_loop_body]
+def progressive_list.ProgressiveList.to_vec_loop.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
+  (values : alloc.vec.Vec T) :
+  Result (ControlFlow ((progressive_list.ProgressiveListIter T U) ×
+    (alloc.vec.Vec T)) (alloc.vec.Vec T))
+  := do
+  let (o, iter1) ←
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+      ValueInst update_mapUpdateMapInst iter
+  match o with
+  | none => ok (done values)
+  | some value =>
+    let t ← ValueInst.corecloneCloneInst.clone value
+    let values1 ← alloc.vec.Vec.push values t
+    ok (cont (iter1, values1))
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]: loop 0:
+    Source: 'src/progressive_list.rs', lines 198:8-200:9
+    Visibility: public -/
+@[rust_loop]
+def progressive_list.ProgressiveList.to_vec_loop
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
+  (values : alloc.vec.Vec T) :
+  Result (alloc.vec.Vec T)
+  := do
+  loop
+    (fun (iter1, values1) => progressive_list.ProgressiveList.to_vec_loop.body
+      ValueInst update_mapUpdateMapInst iter1 values1)
+    (iter, values)
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]:
+    Source: 'src/progressive_list.rs', lines 195:4-202:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.to_vec
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result (alloc.vec.Vec T)
+  := do
+  let iter ←
+    progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst
+      self
+  let i ←
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
+      ValueInst update_mapUpdateMapInst iter
+  let values := alloc.vec.Vec.with_capacity T i
+  progressive_list.ProgressiveList.to_vec_loop ValueInst
+    update_mapUpdateMapInst iter values
+
 /-- [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}::default]:
-    Source: 'src/progressive_list.rs', lines 254:4-256:5
+    Source: 'src/progressive_list.rs', lines 259:4-261:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5682,7 +6079,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   progressive_list.ProgressiveList.empty ValueInst update_mapUpdateMapInst
 
 /-- Trait implementation: [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}]
-    Source: 'src/progressive_list.rs', lines 253:0-257:1 -/
+    Source: 'src/progressive_list.rs', lines 258:0-262:1 -/
 @[reducible]
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
   Type} (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U
@@ -5692,7 +6089,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
 }
 
 /-- [milhouse::progressive_list::{impl ssz::decode::try_from_iter::TryFromIter<T, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
-    Source: 'src/progressive_list.rs', lines 345:4-350:5
+    Source: 'src/progressive_list.rs', lines 350:4-355:5
     Visibility: public -/
 def
   progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter
