@@ -40,6 +40,7 @@ import Tree.ProgressiveList.Encode.Owning
 import Tree.ProgressiveList.Decode.Entry
 import Tree.ProgressiveList.Decode.ErrorMessages
 import Tree.ProgressiveList.Decode.Finish
+import Tree.ProgressiveList.Decode.Contents
 import Tree.Ssz.Bytes
 import Tree.Ssz.ReadOffset
 import Tree.Ssz.Encoder
