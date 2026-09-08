@@ -195,4 +195,31 @@ theorem ProgressiveTree.with_updated_leaves_recursive_shape_contents {T U : Type
   exact bulk_contents_aux ValueInst mapInst updates hlayout hclone hrange hmaximum hcomplete
     (Std.U32.max - depth.val) depth before after (Nat.le_refl _) hshape hends hupdate
 
+/-- Public bulk update starts at the root and obtains its maximum from the
+    map. The map law is required only for the answer actually returned. -/
+theorem ProgressiveTree.with_updated_leaves_shape_contents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hrange : update_map.RangeExcludesValues mapInst updates)
+    (hmaximum : ∀ maximum, mapInst.max_index updates = ok maximum →
+      update_map.MaximumBoundsValues mapInst updates maximum)
+    {oldLength : Nat} {newLength : Std.Usize}
+    (hcomplete : update_map.ExtensionComplete mapInst updates oldLength newLength.val)
+    {before after : ProgressiveTree T}
+    (hshape : before.Shape factor 0) (hends : before.EndsAfter factor 0 oldLength)
+    (hupdate : ProgressiveTree.with_updated_leaves ValueInst mapInst before updates =
+      ok (core.result.Result.Ok after)) :
+    after.Shape factor 0 ∧ after.EndsAfter factor 0 newLength.val ∧
+      ProgressiveTree.BulkContents ValueInst mapInst updates factor before after 0#u32 newLength := by
+  unfold ProgressiveTree.with_updated_leaves at hupdate
+  cases hmax : mapInst.max_index updates with
+  | fail e => simp [hmax] at hupdate
+  | div => simp [hmax] at hupdate
+  | ok maximum =>
+    simp only [hmax, bind_tc_ok] at hupdate
+    exact ProgressiveTree.with_updated_leaves_recursive_shape_contents ValueInst mapInst updates
+      hlayout hclone hrange (hmaximum maximum hmax) hcomplete hshape hends hupdate
+
 end milhouse.progressive_tree
