@@ -626,7 +626,9 @@ private theorem usize_trailing_zeros_padic {value : Std.Usize} {zeros : Std.U32}
   rw [natTrailingZeros_eq_padicValNat System.Platform.numBits value.val
     hvalue hpadic_le]
   simp only [BitVec.toNat_ofNat]
-  have hword : System.Platform.numBits < 2 ^ 32 := by native_decide
+  have hword : System.Platform.numBits < 2 ^ 32 := by
+    have := System.Platform.numBits_le
+    omega
   have : padicValNat 2 value.val < 2 ^ 32 := by omega
   exact Nat.mod_eq_of_lt this
 
@@ -977,7 +979,8 @@ private theorem usize_saturating_add_value (left right : Std.Usize)
     exact hfit
   rw [min_eq_right hfit', BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
   have hmax_lt : Usize.max < 2 ^ System.Platform.numBits := by
-    native_decide
+    rcases System.Platform.numBits_eq with hplatform | hplatform <;>
+      norm_num [Usize.max, Usize.numBits, UScalarTy.numBits, hplatform]
   have hmax_lt' : UScalar.max UScalarTy.Usize <
       2 ^ UScalarTy.Usize.numBits := by
     rw [UScalar.max_USize_eq]
@@ -1055,7 +1058,9 @@ private theorem PackingLayout.packing_depth_lt_u32 {T : Type}
         Nat.pow_le_pow_right (by omega) (by omega)
       rw [← factor_is_power] at hpow_le
       exact (Nat.not_le_of_gt factor.hBounds) hpow_le
-    have hbits : System.Platform.numBits < 2 ^ 32 := by native_decide
+    have hbits : System.Platform.numBits < 2 ^ 32 := by
+      have := System.Platform.numBits_le
+      omega
     omega
 
 private theorem PackingLayout.packing_depth_cast_u32 {T : Type}
@@ -1843,13 +1848,17 @@ private theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
   have hcast : (UScalar.cast .Usize zeros).val = zeros.val := by
     rw [UScalar.cast_val_eq]
     apply Nat.mod_eq_of_lt
-    exact zeros.hBounds.trans_le (by native_decide)
+    exact zeros.hBounds.trans_le (by
+      rcases System.Platform.numBits_eq with hplatform | hplatform <;>
+        norm_num [UScalarTy.numBits, hplatform])
   have hexponent_bits : exponent < System.Platform.numBits := by
     dsimp [exponent]
     omega
   have hadd_fit : (UScalar.cast .Usize zeros).val + level.val ≤ Usize.max := by
     rw [hcast, hsum]
-    have hbits_le_max : System.Platform.numBits ≤ Usize.max := by native_decide
+    have hbits_le_max : System.Platform.numBits ≤ Usize.max := by
+      rcases System.Platform.numBits_eq with hplatform | hplatform <;>
+        norm_num [Usize.max, Usize.numBits, UScalarTy.numBits, hplatform]
     omega
   rw [usize_saturating_sub_value,
     usize_saturating_add_value _ _ hadd_fit, hcast, hsum]
@@ -3590,7 +3599,9 @@ private theorem finish_tree_body_preserves_normalized {T : Type}
                                     2 ^ 32 := by
                                   rw [hincrement_exponent]
                                   have hbits_u32 : System.Platform.numBits <
-                                      2 ^ 32 := by native_decide
+                                      2 ^ 32 := by
+                                    have := System.Platform.numBits_le
+                                    omega
                                   omega
                                 have hcast_exponent := usize_cast_u32_value
                                   increment_exponent hexponent_u32
