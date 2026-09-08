@@ -1,4 +1,4 @@
-use crate::{List, Value, Vector};
+use crate::{List, ProgressiveList, UpdateMap, Value, Vector};
 use context_deserialize::ContextDeserialize;
 use serde::de::Deserializer;
 use typenum::Unsigned;
@@ -40,6 +40,26 @@ where
         // Then convert to Vector, which will check the length
         Vector::try_from(list).map_err(|e| {
             serde::de::Error::custom(format!("Failed to convert List to Vector: {:?}", e))
+        })
+    }
+}
+
+impl<'de, C, T, U> ContextDeserialize<'de, C> for ProgressiveList<T, U>
+where
+    T: ContextDeserialize<'de, C> + Value,
+    U: UpdateMap<T>,
+    C: Clone,
+{
+    fn context_deserialize<D>(deserializer: D, context: C) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Deserialize as a `Vec` first. Unlike the plain serde impl this cannot easily stream into
+        // the builder, because threading `context` through a visitor requires `DeserializeSeed`.
+        let vec = Vec::<T>::context_deserialize(deserializer, context)?;
+
+        ProgressiveList::try_from(vec).map_err(|e| {
+            serde::de::Error::custom(format!("Failed to create ProgressiveList: {:?}", e))
         })
     }
 }
