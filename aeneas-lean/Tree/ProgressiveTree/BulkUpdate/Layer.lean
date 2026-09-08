@@ -94,4 +94,42 @@ theorem ProgressiveTree.get_after_updated_layer {T U : Type}
     hlayout.opt_packing_depth_eq, hlayout.unwrap_opt_packing_depth_eq, lift, bind_tc_ok,
     triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] using hread
 
+/-- Expanding an empty progressive suffix reads back the pending value in the
+    newly created layer. No prior binary contents or sibling invariant is
+    assumed; the untouched zero layer supplies `none` directly. -/
+theorem ProgressiveTree.get_after_expanded_layer {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hrange : update_map.RangeExcludesValues mapInst updates)
+    {depth next : Std.U32} {start stop binary query : Std.Usize}
+    {after : tree.Tree T} {right : ProgressiveTree T}
+    {hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize)}
+    {pending : Option T}
+    (hnext : depth + 1#u32 = ok next)
+    (hstart : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start)
+    (hstop : ProgressiveTree.total_capacity_at_depth ValueInst next = ok stop)
+    (hbinary : ProgressiveTree.prog_depth_to_binary_depth ValueInst next = ok binary)
+    (hqueryLo : start.val ≤ query.val) (hqueryHi : query.val < stop.val)
+    (hget : mapInst.get updates query = ok pending)
+    (hupdate : tree.Tree.with_updated_leaves ValueInst mapInst (.Zero binary) updates
+      0#usize start binary none = ok (core.result.Result.Ok after)) :
+    ProgressiveTree.get_recursive ValueInst (.ProgressiveNode hash after right) query depth =
+      ok pending := by
+  have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
+  have hshape : (tree.Tree.Zero binary : tree.Tree T).Shape factor (2 * depth.val) := by
+    rw [← hbinaryVal]
+    exact .zero factor binary
+  have hread := ProgressiveTree.get_after_updated_layer ValueInst mapInst updates
+    hlayout hclone hrange (oldHash := hash) (oldRight := .ProgressiveZero)
+    (newHash := hash) (newRight := right)
+    hnext hstart hstop hbinary hshape hqueryLo hqueryHi hget hupdate
+  have hroute : query < stop := by scalar_tac
+  simpa only [ProgressiveTree.get_recursive, hnext, hstop, hstart, hbinary, if_pos hroute,
+    hlayout.opt_packing_depth_eq, hlayout.unwrap_opt_packing_depth_eq, lift, bind_tc_ok,
+    triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref, tree.get_recursive_zero,
+    Option.or_none] using hread
+
 end milhouse.progressive_tree
