@@ -2,7 +2,7 @@ import Tree.Funs
 import Tree.Invariants
 import Tree.Contents
 import Tree.Iter.Stack
-import Tree.Iter.Path
+import Tree.Iter.Path.Contents
 import Tree.Repeat
 import Tree.Builder
 import Tree.Builder.Contents
