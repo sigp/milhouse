@@ -2394,7 +2394,7 @@ theorem BuilderStack.remove_partial_last {T : Type} {ValueInst : Value T}
         · rw [Nat.add_mod, hchild_aligned, hright_aligned]
           rfl
 
-private theorem vec_pop_append_last {A X : Type}
+theorem vec_pop_append_last {A X : Type}
     (source : alloc.vec.Vec X) (items : List X) (last : X)
     (hsource : source.val = items ++ [last]) :
     ∃ rest : alloc.vec.Vec X,
@@ -2450,7 +2450,7 @@ private theorem vec_push_values {X : Type} (items : alloc.vec.Vec X) (last : X)
   simp at h
   grind
 
-private theorem push_loop0_step {T : Type} (ValueInst : Value T)
+theorem push_loop0_step {T : Type} (ValueInst : Value T)
     (iter : core.ops.range.Range Std.U32)
     (stack : alloc.vec.Vec (utils.MaybeArced (Tree T)))
     (length : utils.Length) (top : Tree T) :
@@ -2721,7 +2721,7 @@ private theorem finish_tree_body_cont_lt_capacity {T : Type}
       rw [hshift_value, hcapacity] at hne_value
       omega
 
-private theorem range_u32_next_none
+theorem range_u32_next_none
     (iter : core.ops.range.Range Std.U32)
     (hge : iter.start.val ≥ iter.end.val) :
     core.iter.range.IteratorRange.next core.iter.range.StepU32 iter =
@@ -2742,7 +2742,7 @@ private theorem range_u32_next_none
     obtain ⟨rfl, rfl⟩ := hspec
     rfl
 
-private theorem range_u32_next_some
+theorem range_u32_next_some
     (iter : core.ops.range.Range Std.U32)
     (hlt : iter.start.val < iter.end.val) :
     ∃ iter1,
@@ -3984,7 +3984,7 @@ private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
   | packed factor packing_depth factor_eq depth_eq factor_is_power =>
     simp at hfactor
 
-private theorem push_full_base_merge_count_eq {T : Type}
+theorem push_full_base_merge_count_eq {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
     {packing_depth : Std.Usize}
     (hlayout : PackingLayout ValueInst packing_factor packing_depth)
@@ -4011,7 +4011,7 @@ private theorem push_full_base_merge_count_eq {T : Type}
     hcount]
   omega
 
-private theorem push_partial_base_merge_count_zero {T : Type}
+theorem push_partial_base_merge_count_zero {T : Type}
     {ValueInst : Value T} {factor packing_depth : Std.Usize}
     (hlayout : PackingLayout ValueInst (some factor) packing_depth)
     {next_index : Std.Usize} {zeros : Std.U32}
