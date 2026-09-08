@@ -109,7 +109,7 @@ def applyRebaseAction {T : Type} (orig : Tree T) :
   | tree.RebaseAction.EqualNoop => orig
   | tree.RebaseAction.EqualReplace replacement => replacement
 
-private def combineRebaseActions {T : Type}
+def combineRebaseActions {T : Type}
     (orig_hash base_hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
     (orig_left orig_right base_left base_right : Tree T)
     (left_action right_action : tree.RebaseAction (Tree T)) :
@@ -166,7 +166,7 @@ private theorem combineRebaseActions_is_positional {T : Type}
     | exact PositionalMix.node orig_hash base_hash orig_hash _ _ _ _ _ _
         hleft hright
 
-private def rebaseChildren {T : Type} (ValueInst : Value T)
+def rebaseChildren {T : Type} (ValueInst : Value T)
     (orig_hash base_hash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
     (orig_left orig_right base_left base_right : Tree T)
     (lengths : Option (utils.Length × utils.Length))
@@ -596,7 +596,7 @@ private theorem usize_sub_val {x y difference : Std.Usize}
 
 /-- The translated `core::cmp::min` on `Length` is the natural-number
     minimum. -/
-private theorem length_min_val {x y minimum : utils.Length}
+theorem length_min_val {x y minimum : utils.Length}
     (h : core.cmp.min utils.Length.Insts.CoreCmpOrd x y = ok minimum) :
     (minimum.val = x.val ∧ x.val ≤ y.val) ∨
       (minimum.val = y.val ∧ y.val ≤ x.val) := by

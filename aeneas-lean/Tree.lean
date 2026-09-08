@@ -8,6 +8,7 @@ import Tree.Builder.Contents
 import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
+import Tree.Rebase.Steps
 import Tree.ProgressiveTree
 import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
@@ -15,6 +16,7 @@ import Tree.ProgressiveList.Iter.Construction
 import Tree.ProgressiveList.Iter.Length
 import Tree.ProgressiveList.ToVec
 import Tree.ProgressiveList.Backing
+import Tree.ProgressiveList.Clone
 import Tree.ProgressiveList.PopFront.Contents
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
