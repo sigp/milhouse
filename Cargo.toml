@@ -57,5 +57,9 @@ harness = false
 name = "pop_front"
 harness = false
 
+[[bench]]
+name = "cow"
+harness = false
+
 [profile.bench]
 debug = true

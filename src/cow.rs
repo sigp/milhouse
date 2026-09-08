@@ -1,10 +1,29 @@
 use crate::Error;
+use crate::update_map::MaxIndexState;
 use std::collections::btree_map::VacantEntry;
 use std::ops::Deref;
 
+/// State updated when a [`Cow`] is made mutable.
+///
+/// This is public because it is part of the public `Cow` variants, but its contents are an
+/// implementation detail.
+#[doc(hidden)]
+#[derive(Default)]
+pub struct CowOnMut<'a> {
+    max_index: Option<(&'a mut MaxIndexState, usize)>,
+}
+
+impl CowOnMut<'_> {
+    fn run(&mut self) {
+        if let Some((max_index, index)) = self.max_index.take() {
+            max_index.record_insert(index);
+        }
+    }
+}
+
 pub enum Cow<'a, T: Clone> {
-    BTree(BTreeCow<'a, T>),
-    Vec(VecCow<'a, T>),
+    BTree(BTreeCow<'a, T>, CowOnMut<'a>),
+    Vec(VecCow<'a, T>, CowOnMut<'a>),
 }
 
 impl<T: Clone> Deref for Cow<'_, T> {
@@ -12,8 +31,8 @@ impl<T: Clone> Deref for Cow<'_, T> {
 
     fn deref(&self) -> &T {
         match self {
-            Self::BTree(cow) => cow.deref(),
-            Self::Vec(cow) => cow.deref(),
+            Self::BTree(cow, _) => cow.deref(),
+            Self::Vec(cow, _) => cow.deref(),
         }
     }
 }
@@ -21,16 +40,41 @@ impl<T: Clone> Deref for Cow<'_, T> {
 impl<'a, T: Clone> Cow<'a, T> {
     pub fn into_mut(self) -> Result<&'a mut T, Error> {
         match self {
-            Self::BTree(cow) => cow.into_mut(),
-            Self::Vec(cow) => cow.into_mut(),
+            Self::BTree(cow, mut on_mut) => {
+                let value = cow.into_mut()?;
+                on_mut.run();
+                Ok(value)
+            }
+            Self::Vec(cow, mut on_mut) => {
+                let value = cow.into_mut()?;
+                on_mut.run();
+                Ok(value)
+            }
         }
     }
 
     pub fn make_mut(&mut self) -> Result<&mut T, Error> {
         match self {
-            Self::BTree(cow) => cow.make_mut(),
-            Self::Vec(cow) => cow.make_mut(),
+            Self::BTree(cow, on_mut) => {
+                let value = cow.make_mut()?;
+                on_mut.run();
+                Ok(value)
+            }
+            Self::Vec(cow, on_mut) => {
+                let value = cow.make_mut()?;
+                on_mut.run();
+                Ok(value)
+            }
         }
+    }
+
+    pub(crate) fn with_max_index(mut self, max_index: &'a mut MaxIndexState, index: usize) -> Self {
+        match &mut self {
+            Self::BTree(_, on_mut) | Self::Vec(_, on_mut) => {
+                on_mut.max_index = Some((max_index, index));
+            }
+        }
+        self
     }
 }
 
@@ -133,5 +177,44 @@ impl<T: Clone> Deref for VecCow<'_, T> {
             Self::Immutable { value, .. } => value,
             Self::Mutable { value } => value,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cow, CowOnMut, VecCow};
+    use crate::Error;
+    use crate::update_map::MaxIndexState;
+
+    #[test]
+    fn on_mut_records_max_index_once() {
+        let mut value = 1;
+        let mut max_index = MaxIndexState::Empty;
+        let mut cow = Cow::Vec(VecCow::Mutable { value: &mut value }, CowOnMut::default())
+            .with_max_index(&mut max_index, 3);
+
+        *cow.make_mut().expect("mutable cow should remain mutable") = 2;
+        *cow.make_mut().expect("mutable cow should remain mutable") = 3;
+
+        assert_eq!(max_index, MaxIndexState::Known(3));
+        assert_eq!(value, 3);
+    }
+
+    #[test]
+    fn on_mut_does_not_record_max_index_on_error() {
+        let value = 1;
+        let mut max_index = MaxIndexState::Empty;
+        let mut cow = Cow::Vec(
+            VecCow::Immutable {
+                value: &value,
+                entry: None,
+            },
+            CowOnMut::default(),
+        )
+        .with_max_index(&mut max_index, 3);
+
+        assert_eq!(cow.make_mut(), Err(Error::CowMissingEntry));
+
+        assert_eq!(max_index, MaxIndexState::Empty);
     }
 }
