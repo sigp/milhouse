@@ -17,11 +17,11 @@ lower-level hypothesis and count the wrapper as proved.
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
 | `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Observers.lean` and `Contents.lean`: exact state, observer results, and representation of the empty sequence proved under the relevant empty-map laws; `Spine.lean` establishes the backing-spine invariant on successful construction without additional map laws |
-| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | ProgressiveList/Construction.lean proves successful `new` and `try_from_iter` preserve the exact materialized input sequence and backing length and create the default update map. This is derived from extracted progressive building, including every push, rollover, iterator step, and finishing assembly. Vector input needs no separate iterator law. Progressive density, mathematical slot indexing, and dense spine assembly are proved as foundations. Establishing the progressive builder geometric invariant and constructor indexed representation remains pending, as do extraction/proofs of the `TryFrom<Vec<T>>` and SSZ `TryFromIter` trait wrappers |
+| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | `Construction/Representation.lean`: successful `new` and `try_from_iter` represent the exact input sequence at every machine index (including out of bounds), have its exact logical length, establish `SpineValid`, and have no pending updates. The progressive builder invariant is established by construction and preserved through every push, rollover, and iterator step; finalization establishes density and representable layer capacities. Indexed-read bounds are derived internally. Premises are the relevant packing and empty-default-map laws, plus actual iterator output for generic input; vector input needs no iterator premise. Extraction and specifications of `TryFrom<Vec<T>>` and SSZ `TryFromIter` trait wrappers remain pending |
 | `len` | Length of the merged backing/pending view | `ProgressiveList/Length.lean` and `UpdateMap/Length.lean`: exact empty/nonempty-map arithmetic, backing lower bound, and successful evaluation below overflow proved; sequence agreement is established by constructor/mutation representation lemmas |
 | `is_empty` | Equivalent to merged length zero | `ProgressiveList.is_empty_spec` proved |
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
-| `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence proved; full representation theorem pending |
+| `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence; `Construction/Representation.lean` connects dense bounded backing trees to sequence representation, including out-of-bounds reads. Representation is now established by successful `new`/`try_from_iter`, as well as empty/default, and preserved by the proved mutations under their respective map laws |
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` preserves the backing-spine invariant on success without extra map laws or capacity assumptions |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; `Spine.lean` preserves the backing-spine invariant for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release proved under generic map lookup/release laws, without a clone law; every write-back preserves the backing-spine invariant. Rust `Deref` and materializing mutation bridges remain pending Aeneas translation limitations; handle-data observation is not a proof of those methods |
@@ -72,18 +72,36 @@ lower-level hypothesis and count the wrapper as proved.
   no fused-iterator law is imposed. The owning vector iterator satisfies this
   relation for its supplied vector without additional assumptions. Construction
   establishes all counter premises internally. The corresponding public list
-  sequence results are in `Tree/ProgressiveList/Construction.lean`; these do not
-  yet establish `Represents` or the constructor geometry.
+  sequence results are in `Tree/ProgressiveList/Construction.lean`; the full
+  indexed representation results are in `Construction/Representation.lean`.
 - `Tree/ProgressiveTree/Density.lean` and `Builder/Density.lean`: progressive
   density implies shape, an adequate ending bound, exact materialized length,
   and mathematical slot/sequence agreement. Completed full layers occupy their
   precise geometric interval. Prepending them to a dense suffix preserves
   density, and actual spine assembly with a dense final layer produces a dense
-  tree. These pure results add no packing or machine bounds. The progressive
-  builder must still be proved to maintain the full-layer forest and current
-  binary-builder invariant, including matching depths and cached capacity.
-  The bridge from mathematical slots to extracted indexed reads must then
-  derive its routing bounds from that invariant.
+  tree. These pure results add no packing or machine bounds.
+- `Tree/Builder/Metadata.lean`, `Tree/ProgressiveTree/Builder/Invariant.lean`,
+  `Finish.lean`: binary builder parameters remain fixed through push; successful
+  progressive construction establishes the full-layer forest, correct current
+  binary-builder depth and level, matching cached capacity, and exact counters.
+  Every successful push preserves this invariant, including rollover, and every
+  successful iterator loop preserves it without a separate finiteness premise.
+  Finalization returns the same values and length in a dense bounded spine.
+  The cached capacity formula is derived through both internal saturation stages
+  and the final machine clamp in `Capacity.lean` and `Geometry.lean`.
+- `Tree/ProgressiveTree/Bounds.lean`, `Lookup.lean`: representable layer
+  capacities are preserved by assembly. From these bounds and packing layout,
+  extracted lookup derives successful depth arithmetic, binary-depth conversion,
+  layer endpoints, and routing shifts, and agrees with mathematical slots.
+  Density then gives exact sequence indexing, including the missing suffix and
+  saturating offsets for non-root suffixes. No independent routing bound or
+  arithmetic-success hypothesis is required.
+- `Tree/ProgressiveList/Construction/Representation.lean`: dense bounded backing
+  trees with an empty pending map represent their materialized sequence. The
+  public successful-constructor specifications establish exact indexed contents
+  and logical length, `SpineValid`, and no pending updates. Only the packing,
+  input-iterator, and empty-default-map laws remain as semantic premises; none
+  assumes the builder's result or the desired lookup postcondition.
 - `Tree/ProgressiveTree.lean`: exact routing to binary-tree lookups, plus
   selected-subtree density and update read-back lemmas.
 - `Tree/ProgressiveTree/Capacity.lean`, `Depth.lean`, `Geometry.lean`: exact
@@ -153,7 +171,17 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest progressive-construction checkpoint (through `63260ec`, with density
+Latest indexed-constructor checkpoint (through `cd982c5`): the full Lean build
+passes (1,780 jobs), with all new modules included through `Tree.lean`. All 19
+newly added or exposed results audited at this checkpoint use only `propext`,
+`Classical.choice`, and `Quot.sound`. The successful `new` and `try_from_iter`
+specifications now establish full sequence representation, including every
+machine-indexed read, exact logical length, `SpineValid`, and no pending updates.
+Builder validity and machine routing bounds are established internally. No Rust
+or Aeneas sources changed at this checkpoint. The trait constructor wrappers,
+public iteration APIs, and all other pending rows remain in the full objective.
+
+Earlier progressive-construction checkpoint (through `63260ec`, with density
 foundations in `b15cc65` and `088615d`): the full Lean build
 passes (1,774 jobs), including every new module through `Tree.lean`. All 22
 public results added in this checkpoint use only `propext`, `Classical.choice`,
