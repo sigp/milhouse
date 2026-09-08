@@ -36,7 +36,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `PartialEq` | Characterize equality under element/map laws | `Equality/Correctness.lean`: actual extracted `eq` and `ne` terminate and characterize backing-tree structure, recorded length, and the explicit pending-map relation, under the element `ne` law and a law for the actual map pair only when preceding comparisons succeed. Hash caches are ignored. Positive equality transfers the represented sequence and `BackingValid` under only soundness of false element `ne` and pending-map read/max agreement; it assumes no comparison termination, completeness, reflexivity, packing layout, literal map identity, or representation/backing validity of the other list. Direct structural representation transfer needs no backing-validity premise. Binary/progressive recursive equality, pointer shortcuts, and structural invariant transport are proved underneath. This is structural equality, so identical merged contents alone do not imply a true comparison |
 | `Debug` | Formatting through the derived formatter | Pending extraction and specification |
 | `TreeHash` methods | Progressive merkleization with length mix-in; reject pending updates and unsupported packed operations | Pending hash model/extraction; existing binary-tree hash extraction limitations remain |
-| `Encode` methods | SSZ encoding/encoded length of the merged sequence | Pending codec models and proofs |
+| `Encode` methods | SSZ encoding/encoded length of the merged sequence | `Encode/Length.lean`: exact fixed-width multiplication and variable payload-size sum plus four-byte offsets, with intermediate arithmetic bounds derived from the final byte bound. Fixed-size calculation needs no backing or traversal assumptions. `Encode/Fixed.lean`, `VariableLoop.lean`, and `Variable.lean`: actual `ssz_append` preserves the destination prefix and writes the exact represented merged payload, with the complete offset table for variable elements. `Encode/Owning.lean` proves both exact `as_ssz_bytes` formats. `Encode/Metadata.lean` proves variable-list classification, four-byte fixed-section width, and the concrete owning wrapper. Premises are representation, relevant traversal invariants/layout only for methods that iterate, element codec laws on the consumed values, final output-size bounds, and 32-bit bounds only on offsets actually emitted. No clone law or assumed iterator output is needed. `Tree/Ssz` models and proves the pinned external encoder state, offset writes, payload accumulation, and finalization |
 | `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | Pending codec models and proofs |
 | `Serialize`, `Deserialize` | Serialize merged sequence; reconstruct the deserialized sequence | Pending serializer models and proofs |
 | Context deserialization feature | Reconstruct the contextual element sequence | Pending feature-specific extraction and proof |
@@ -44,6 +44,32 @@ lower-level hypothesis and count the wrapper as proved.
 
 ## Existing foundations
 
+- `Tree/ProgressiveList/Encode/Length.lean`: complete payload-size accumulation
+  over the proved merged iterator. The fixed branch returns declared element
+  width times represented length without traversal; the variable branch adds
+  one four-byte offset per element to the sum of represented element sizes.
+  Element size laws concern only consumed values, and one aggregate bound
+  supplies all arithmetic bounds.
+- `Tree/ProgressiveList/Encode/Fixed.lean`, `VariableLoop.lean`, `Variable.lean`,
+  `Owning.lean`, and `Metadata.lean`: exact SSZ bytes through all actual encoding
+  methods, including pending replacements/extensions and nonempty destination
+  prefixes. Variable encoding writes offsets relative to the beginning of the
+  encoded list, followed by the payloads in iterator order. Encoder continuation
+  composition and final borrowed-buffer release are proved. `as_ssz_bytes`
+  delegates to the proved append body with an empty vector, without cloning or
+  a separate length pass. Primitive element append laws preserve the supplied
+  buffer prefix and are required only for represented values and fitting
+  buffers; fixed elements additionally match their declared width.
+- `Tree/Ssz/Models.lean`, `Bytes.lean`, and `Encoder.lean`: concrete external
+  models for ethereum_ssz 0.10.0 and specifications of its offset writes,
+  accumulation, and finalization. `offsetBytes` gives the canonical four-byte
+  little-endian encoding, `offsets` advances by preceding payload lengths, and
+  `variableEncoding` concatenates the table and payload. `OffsetsFit` constrains
+  only offsets actually written, without a 32-bit bound on the final payload's
+  end. Allocation/capacity is erased consistently with the existing vector
+  abstraction, while logical size overflow is checked. The external offset
+  writer models the development-profile assertion; the successful encoding
+  proofs use fitting offsets, whose bytes agree in both debug and release.
 - `Tree/Invariants.lean`, `Tree/Builder.lean`, `Tree/Roundtrip.lean`,
   `Tree/Rebase.lean`: binary-tree density, builder invariants, leaf-update
   read-back, and rebase shape preservation. Content preservation must be proved
@@ -340,7 +366,25 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest equality checkpoint (through `f986ee9`): the full Lean build passes
+Latest encoding checkpoint (through `5ef4652`): all five SSZ `Encode` methods
+are extracted and have metadata, exact length, and exact output specifications,
+covering both fixed and variable element types. Fresh extraction and the full
+Lean build pass (1,851 jobs), formatting passes, and all 319 release tests pass.
+The two new differential tests compare with vector encoding across empty,
+subtree-boundary, pending-replacement/extension, and prefixed-output cases,
+before and after applying updates. All 19 new public lemmas were audited and
+use only `propext`, `Classical.choice`, and `Quot.sound`; none inherits admissions,
+native-evaluation axioms, or the Arc pointer axiom. All new modules are included
+through `Tree.lean`. The retained Rust changes preserve streaming order and
+allocation: explicit iterator loops replace adapters, and identical SSZ defaults
+are written explicitly to avoid recursive trait dictionaries. External models
+are concrete definitions over the pinned encoder's complete state, with no
+replacement model of a milhouse method or Aeneas source change. The full goal
+remains incomplete: decoding, serialization/deserialization, CoW stepping and
+materializing mutation, Debug, semantic hashing/cache invariants, and
+feature-specific APIs remain required.
+
+Previous equality checkpoint (through `f986ee9`): the full Lean build passes
 (1,842 jobs), all 317 release tests pass, and formatting passes. All 23 public
 lemmas added since the preceding draft checkpoint were audited: eleven use
 only standard Lean axioms, and twelve additionally use the existing trusted

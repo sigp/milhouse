@@ -468,6 +468,50 @@ tree/list equality uses element `ne` throughout: its total specification needs
 the corresponding complete comparison law, while positive-result soundness
 needs only the false-`ne` implication and assumes no comparison termination.
 
+## 18. SSZ encoding: iterator adapters and recursive default dictionaries
+
+**Stage:** Lean elaboration of generated encoding bodies and trait dictionaries.
+**Status:** avoided in milhouse with explicit streaming loops and identical
+explicit SSZ defaults; all five progressive-list encoding methods now extract
+and have metadata, exact size, and exact byte-output specifications.
+
+The original variable-size calculation uses `map(...).sum()`, and `ssz_append`
+uses `for item in self`. Making these methods reachable exposes adapter
+closures and the full iterator dictionary, including fields missing from the
+Aeneas iterator model (`map`, `sum`, `size_hint`, and `rev`). Explicit
+`while let Some(item) = iter.next()` loops remove the adapters and dictionary
+dependency. They retain the same initial iterator, traversal and element-call
+order, left-to-right additions, streaming allocation, and encoder operations.
+
+The list encoder's default `ssz_fixed_len` field then fails with
+`impl_def: could not resolve recursive fields: [ssz_fixed_len]`. Providing the
+same four-byte constant explicitly avoids the self-reference. The identical
+`as_ssz_bytes` default is also explicit, calling the actual concrete
+`ssz_append` on a new empty vector. Extraction-only callers in `proof_roots`
+make every actual method reachable, as in issue 12. Neither default changes
+encoding behavior or introduces an intermediate element vector.
+
+`Tree/TypesExternal.lean` represents the external ethereum_ssz 0.10.0 encoder's
+offset, borrowed output buffer, and variable payload. `Tree/Ssz/Models.lean`
+defines reserve, four-byte offset writing, container construction, append, and
+finalization with their exact borrowed-buffer continuations. The generic
+element encoder remains the real extracted trait argument. The development
+profile's offset assertion is explicit; `OffsetsFit` requires only the offsets
+actually emitted to fit 32 bits. Allocation/capacity erasure follows the
+existing Aeneas vector abstraction, with logical size overflow checked.
+
+`Tree/Ssz/{Bytes,Encoder}.lean` proves those operations and canonical offset
+layout. `Tree/ProgressiveList/Encode` proves complete traversal, exact fixed and
+variable sizes, exact append bytes with destination-prefix preservation, and
+owning output. The successful offset bounds also make the bytes agree with
+release encoding; no assertion about out-of-range release behavior is needed.
+All 19 new public results use only standard Lean axioms. Fresh extraction,
+the full 1,851-job build, formatting, and all 319 release tests pass, including
+new fixed/variable differential encoding tests with pending updates and
+nonempty output buffers. No Aeneas source changes, admissions, new axioms, or
+opaque models of milhouse encoding methods were introduced. Decode and the
+other remaining API obligations remain separate work.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
