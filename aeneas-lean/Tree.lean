@@ -1,7 +1,7 @@
 import Tree.Funs
 import Tree.Invariants
 import Tree.Contents
-import Tree.Iter.Leaf
+import Tree.Iter.Packed
 import Tree.Repeat
 import Tree.Builder
 import Tree.Builder.Contents
