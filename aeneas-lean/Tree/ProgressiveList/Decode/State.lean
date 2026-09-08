@@ -60,6 +60,32 @@ theorem ProgressiveList.from_ssz_bytes_fixed_success {T U : Type}
       rw [hb] at hbuild
       exact hbuild
 
+/-- A successful nonempty variable-format decode comes from the initialized
+cursor and a streaming construction with no retained decode error. -/
+theorem ProgressiveList.from_ssz_bytes_variable_success {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (bytes : Slice Std.U8) (items : ssz_items.SszItems) (hnonempty : bytes.val ≠ [])
+    (hvariable : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
+    (hitems : ssz_items.SszItems.variable bytes = ok (core.result.Result.Ok items))
+    {self : ProgressiveList T U}
+    (hdecode : ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
+      ok (core.result.Result.Ok self)) :
+    ProgressiveList.decode_ssz_items ValueInst mapInst items =
+      ok (core.result.Result.Ok self, none) := by
+  have hempty : core.slice.Slice.is_empty bytes = ok false := by
+    simp [core.slice.Slice.is_empty, hnonempty]
+  simp! only [ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes, hempty,
+    hvariable, hitems, bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
+    core.result.Result.Insts.CoreOpsTry.branch] at hdecode
+  rw [bind_eq_ok_iff] at hdecode
+  obtain ⟨⟨built, error⟩, hbuild, hdecode⟩ := hdecode
+  dsimp! only at hdecode
+  cases error with
+  | some error => simp at hdecode
+  | none =>
+    have hb := map_err_success _ _ _ hdecode
+    simpa only [hb] using hbuild
+
 /-- Every successful public decode is either the actual empty constructor or
 a completed streaming construction with no decode error. This state theorem
 does not assume metadata, parser validity, packing, or element-codec laws. -/

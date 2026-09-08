@@ -44,6 +44,7 @@ import Tree.ProgressiveList.Decode.State
 import Tree.ProgressiveList.Decode.Contents
 import Tree.ProgressiveList.Decode.Backing
 import Tree.ProgressiveList.Decode.Fixed
+import Tree.ProgressiveList.Decode.Variable
 import Tree.Ssz.Bytes
 import Tree.Ssz.ReadOffset
 import Tree.Ssz.FixedCursor
