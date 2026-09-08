@@ -52,8 +52,8 @@ lower-level hypothesis and count the wrapper as proved.
   element. The pure slot theorem requires no packing laws or machine bounds;
   the extracted lookup bridge adds only the packing layout and routing shift
   bound. Wrapping modulo capacity is explicit. This supplies a content bridge
-  for constructor and iteration proofs; builder sequence preservation remains
-  a separate obligation discharged by the binary-builder results below.
+  for constructor and iteration proofs. Binary-builder sequence preservation
+  is established by the separate results below.
 - `Tree/Loop.lean`, `Tree/Builder/Contents/Basic.lean`, `Push.lean`,
   `Finish.lean`, and `Tree/Builder/Contents.lean`: partial-correctness loop
   induction and the complete binary builder push/finish content proofs.
@@ -132,7 +132,16 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest copy-on-write checkpoint (read/release proofs in `55e9e18`, plus the
+Latest binary-builder checkpoint (through `205ac24`): the full Lean build
+passes (1,766 jobs). All 21 public loop and builder-content theorems depend
+only on `propext`, `Classical.choice`, and `Quot.sound`. The two combined
+finalization theorems initially exposed inherited `native_decide` dependencies
+in older builder arithmetic; six checks were replaced with ordinary Lean
+proofs covering both 32-bit and 64-bit platforms. No Rust or extracted-function
+changes were needed. Progressive builder construction, iteration, and the
+other pending API coverage remain part of the full objective.
+
+Copy-on-write checkpoint (read/release proofs in `55e9e18`, plus the
 metadata helpers): regenerated extraction and the full Lean build pass (1,760
 jobs). All 13 public list read/release and metadata theorems depend only on
 `propext`, `Classical.choice`, and `Quot.sound`. The equivalent Rust metadata
