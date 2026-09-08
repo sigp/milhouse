@@ -118,7 +118,8 @@ Source closures: `src/packed_leaf.rs:100`, `src/tree.rs:187` and `:192`.
 ## 5. Aeneas Lean backend: recursive derived impls emitted with forward references
 
 **Stage:** Lean elaboration of generated code.
-**Status:** worked around by excluding Tree's `Debug` and `PartialEq` impls.
+**Status:** `Debug` remains excluded. `PartialEq` is now extracted using
+concrete Arc-comparison helpers in milhouse (commit `89044cc`).
 
 For a recursive type (`Tree` contains `Arc<Tree<T>>`), the derived
 `Debug`/`PartialEq` impls generate a method body that references the trait
@@ -129,6 +130,19 @@ defined, and no mutual block or `impl_def` is emitted to tie the knot:
 error: Tree/Funs.lean:677:9: Unknown constant `milhouse.tree.Tree.Insts.CoreFmtDebug`
 error: Tree/Funs.lean:740:11: Unknown constant `milhouse.tree.Tree.Insts.CoreCmpPartialEqTree`
 ```
+
+For equality, the retained inline `Tree::arc_eq` and
+`ProgressiveTree::arc_eq` helpers perform `Arc::ptr_eq(left, right) ||
+Self::eq(left, right)`. Educe's custom field-comparison attributes call these
+helpers instead of constructing the recursive Arc trait dictionary. They
+preserve the original pointer shortcut, comparison order, and cache omission;
+Aeneas emits the actual recursive comparisons and helpers in mutual blocks.
+The list's tree field uses the same progressive helper. Regression tests cover
+nonreflexive values with shared subtrees and differently populated hash caches.
+`Tree/Equality`, `Tree/ProgressiveTree/Equality`, and
+`Tree/ProgressiveList/Equality` prove the actual emitted comparisons, including
+shortcuts, structural characterization, and sequence soundness. No Aeneas
+source change or replacement model of a milhouse equality method is used.
 
 ## 6. Aeneas Lean backend: `impl_def` fails on self-referential default method
 
@@ -284,9 +298,9 @@ contents are proved in `Tree/ProgressiveTree/Builder/Spine.lean`.
 ## 12. Aeneas: selected trait methods require concrete callers
 
 **Stage:** Lean extraction.
-**Status:** avoided for `TryFrom<Vec<T>>`, borrowed `IntoIterator`, and the
-selected progressive-list iterator methods by making them reachable from
-existing concrete callers.
+**Status:** avoided for `TryFrom<Vec<T>>`, borrowed `IntoIterator`, the selected
+progressive-list iterator methods, and list `PartialEq` by making their actual
+bodies reachable from concrete callers.
 
 Selecting `{impl core::convert::TryFrom for
 milhouse::progressive_list::ProgressiveList}::try_from` succeeds in Charon.
@@ -318,6 +332,14 @@ actual body delegates directly to `self.iter()`. This preserves the cursor,
 allocation, and clone order while making the trait method reachable.
 `Tree/ProgressiveList/Iter/Traits.lean` proves full merged-sequence enumeration
 through that emitted body, and `ToVec.lean` uses the new trait theorem.
+
+List `PartialEq::eq` likewise appears as a transparent local body in LLBC when
+selected by its implementation root, but is omitted by Aeneas without a caller.
+`src/proof_roots.rs` now contains a concrete `left == right` caller, compiled
+only with `cfg(milhouse_aeneas)` by the extraction script. It exposes the actual
+derived public method and trait instance without adding a production call or
+changing comparison behavior. The proofs target that public method, not a
+replacement body or an assumed result for the caller.
 
 ## 13. Aeneas: progressive traversal borrows and collection adapters
 
@@ -413,6 +435,38 @@ constructor specifications, not a proof of `next_cow` enumeration or of CoW
 handle dereferencing/materializing mutation (issue 9). The full goal retains
 those obligations; no opaque milhouse-method model, admission, or Aeneas source
 change is used to replace them.
+
+## 17. External equality models must preserve Arc shortcuts and slice `ne` calls
+
+**Stage:** external-model fidelity review and proof premise audit.
+**Status:** corrected locally in commits `2d2ca69` and `89044cc`; Aeneas is
+unchanged. These are modeling corrections, not changes to Rust equality.
+
+The pinned `triomphe` 0.1.14 implementation (`src/arc.rs`, `PartialEq for
+Arc<T>`) defines `eq` as pointer equality OR pointee equality, and `ne` as
+pointer inequality AND pointee inequality. The earlier local model delegated
+directly to the pointee operation, losing the shortcut for nonreflexive values
+or failing comparisons. `Tree/FunsExternal.lean` now uses the existing
+`Arc.ptr_eq` model before calling the pointee operation. `Tree/Arc/Equality.lean`
+proves the shortcut cases and positive-equality soundness using the existing
+trusted `Arc.ptr_eq_spec`; no new axiom was introduced.
+
+In the pinned nightly-2026-06-01 Rust source, `alloc/src/vec/partial_eq.rs`
+delegates vector comparison to slices. The generic loop in
+`core/src/slice/cmp.rs` tests element `ne` and returns false at the first
+difference. Aeneas's `PartialEqVec.eq` instead calls element `eq`, which requires
+an unstated coherence law for custom `PartialEq` implementations. Its vector
+`ne` model already follows the Rust loop. The local `milhouse_models.vec_eq`
+negates that vector `ne`, and the extraction script redirects generated calls
+to this faithful external model. No milhouse method body is replaced.
+
+Consequently, successful packed rebase equality requires soundness of false
+element `ne`, while unpacked leaf rebasing requires soundness of true element
+`eq`. Both premises now appear explicitly in the public rebase content
+theorems; structural backing preservation still requires neither. Derived
+tree/list equality uses element `ne` throughout: its total specification needs
+the corresponding complete comparison law, while positive-result soundness
+needs only the false-`ne` implication and assumes no comparison termination.
 
 ## Also of note (not bugs)
 
