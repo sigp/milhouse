@@ -1,0 +1,97 @@
+import Tree.ProgressiveTree.Geometry
+import Tree.BulkUpdate.Contents
+
+open Aeneas Aeneas.Std Result
+open milhouse
+
+namespace milhouse.progressive_tree
+
+/-- Updating a nonempty progressive layer preserves binary shape and applies
+    exactly its pending values. Both alignment and the exact window width are
+    derived from extracted capacities and successful update execution. -/
+theorem ProgressiveTree.updated_layer_contents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hrange : update_map.RangeExcludesValues mapInst updates)
+    {depth next : Std.U32} {start stop binary : Std.Usize}
+    {before after : tree.Tree T}
+    (hnext : depth + 1#u32 = ok next)
+    (hstart : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start)
+    (hstop : ProgressiveTree.total_capacity_at_depth ValueInst next = ok stop)
+    (hbinary : ProgressiveTree.prog_depth_to_binary_depth ValueInst next = ok binary)
+    (hnonempty : start.val < stop.val)
+    (hshape : before.Shape factor (2 * depth.val))
+    (hupdate : tree.Tree.with_updated_leaves ValueInst mapInst before updates
+      0#usize start binary none = ok (core.result.Result.Ok after)) :
+    after.Shape factor (2 * depth.val) ∧
+      start.val % tree.leafCapacity factor = 0 ∧
+      stop.val = start.val + tree.subtreeCapacity factor binary.val ∧
+      tree.Tree.BulkContents mapInst updates factor before after binary.val 0 start.val := by
+  have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
+  have hstartVal := ProgressiveTree.total_capacity_unclamped ValueInst
+    hlayout.opt_packing_factor_eq hstart (by scalar_tac)
+  have hoffset : start.val % tree.leafCapacity factor = 0 := by
+    rw [hstartVal]
+    exact progressiveCapacity_aligned factor depth.val
+  have hshape' : before.Shape factor binary.val := by simpa only [hbinaryVal] using hshape
+  obtain ⟨hfit, hafter, hcontents⟩ := tree.Tree.with_updated_leaves_capacity_shape_contents
+    ValueInst mapInst updates hlayout hclone hrange hshape' (by simp) hoffset hupdate
+  obtain ⟨actualStart, actualStop, hactualStart, hactualStop, _, hwidth, _⟩ :=
+    ProgressiveTree.layer_window ValueInst hlayout hnext hbinary hfit
+  rw [hstart] at hactualStart
+  rw [hstop] at hactualStop
+  cases hactualStart
+  cases hactualStop
+  exact ⟨by simpa only [hbinaryVal] using hafter, hoffset, hwidth, hcontents⟩
+
+private theorem saturating_sub_val (index start : Std.Usize) :
+    (core.num.Usize.saturating_sub index start).val = index.val - start.val := by
+  change (index.val - start.val) % 2 ^ UScalarTy.Usize.numBits = index.val - start.val
+  apply Nat.mod_eq_of_lt
+  scalar_tac
+
+/-- Read-back through a progressive node after updating its selected binary
+    layer. The query is global; the proof derives the local index, aligned map
+    offset, and binary bounds required by the binary read-back theorem. -/
+theorem ProgressiveTree.get_after_updated_layer {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hrange : update_map.RangeExcludesValues mapInst updates)
+    {depth next : Std.U32} {start stop binary query : Std.Usize}
+    {before after : tree.Tree T} {oldRight newRight : ProgressiveTree T}
+    {oldHash newHash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize)}
+    {pending : Option T}
+    (hnext : depth + 1#u32 = ok next)
+    (hstart : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start)
+    (hstop : ProgressiveTree.total_capacity_at_depth ValueInst next = ok stop)
+    (hbinary : ProgressiveTree.prog_depth_to_binary_depth ValueInst next = ok binary)
+    (hshape : before.Shape factor (2 * depth.val))
+    (hqueryLo : start.val ≤ query.val) (hqueryHi : query.val < stop.val)
+    (hget : mapInst.get updates query = ok pending)
+    (hupdate : tree.Tree.with_updated_leaves ValueInst mapInst before updates
+      0#usize start binary none = ok (core.result.Result.Ok after)) :
+    ProgressiveTree.get_recursive ValueInst (.ProgressiveNode newHash after newRight) query depth =
+      (do let previous ← ProgressiveTree.get_recursive ValueInst
+            (.ProgressiveNode oldHash before oldRight) query depth
+          ok (pending.or previous)) := by
+  obtain ⟨_, hoffset, hwidth, _⟩ := ProgressiveTree.updated_layer_contents
+    ValueInst mapInst updates hlayout hclone hrange hnext hstart hstop hbinary
+    (by omega) hshape hupdate
+  have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
+  have hshape' : before.Shape factor binary.val := by simpa only [hbinaryVal] using hshape
+  have hlocal := saturating_sub_val query start
+  have hread := tree.Tree.get_after_with_updated_leaves ValueInst mapInst updates
+    hlayout hclone hrange hshape' (by simp) hoffset
+    (index := core.num.Usize.saturating_sub query start) (by omega)
+    (by simp) (by simp only [hlocal]; omega) hget hupdate
+  have hroute : query < stop := by scalar_tac
+  simpa only [ProgressiveTree.get_recursive, hnext, hstop, hstart, hbinary, if_pos hroute,
+    hlayout.opt_packing_depth_eq, hlayout.unwrap_opt_packing_depth_eq, lift, bind_tc_ok,
+    triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] using hread
+
+end milhouse.progressive_tree
