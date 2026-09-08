@@ -26,6 +26,8 @@
 # - List methods are selected individually so its serde/ssz trait impls remain
 #   outside the extraction boundary. `List::intra_rebase` is opaque because its
 #   pointer-sharing and hash-cache effects are intentionally erased in Lean.
+# - The selected TryFrom<Vec<T>> wrapper reaches LLBC but is not emitted by
+#   Aeneas; its trait bridge remains pending (UPSTREAM_BUGS.md issue 12).
 # - Cow metadata helpers are included. Deref and mutation of Cow handles still
 #   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
 
@@ -77,6 +79,8 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_list::_::is_empty' \
     --start-from 'milhouse::progressive_list::_::has_pending_updates' \
     --start-from '{impl core::default::Default for milhouse::progressive_list::ProgressiveList}' \
+    --start-from '{impl core::convert::TryFrom for milhouse::progressive_list::ProgressiveList}::try_from' \
+    --start-from '{impl ssz::TryFromIter for milhouse::progressive_list::ProgressiveList}::try_from_iter' \
     --opaque 'ethereum_hashing' \
     --opaque 'tree_hash' \
     --opaque 'ssz' \

@@ -281,6 +281,29 @@ stores its remaining vector, so the new definition delegates to the existing
 model does. Reverse-iterator assembly remains extracted Rust; its order and
 contents are proved in `Tree/ProgressiveTree/Builder/Spine.lean`.
 
+## 12. Aeneas: selected `TryFrom<Vec<T>>` wrapper is not emitted
+
+**Stage:** Lean extraction.
+**Status:** unresolved; this trait wrapper remains outside the proved Lean API.
+
+Selecting `{impl core::convert::TryFrom for
+milhouse::progressive_list::ProgressiveList}::try_from` succeeds in Charon.
+`tree.llbc` contains the local transparent method, its body from
+`src/progressive_list.rs:248-250`, and the `TryFrom` implementation. Aeneas
+finishes successfully but emits neither a `try_from` declaration nor this
+trait instance in the generated Lean files. Selecting the whole implementation
+has the same result. The cause has not been isolated; the presence of the Rust
+body in LLBC is not a proof of the omitted method.
+
+The neighboring SSZ `TryFromIter` method does emit as
+`ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter`,
+and its full indexed-constructor specification is proved in
+`Tree/ProgressiveList/Construction/Traits.lean`. The inherent `new` and
+`try_from_iter` methods remain proved as before. No replacement model or
+post-extraction body for the missing `TryFrom<Vec<T>>` bridge has been added,
+and the Aeneas checkout has not been changed. A translator-side explanation or
+an agreed extraction workaround is still needed for that bridge.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

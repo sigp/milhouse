@@ -5691,6 +5691,21 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
     ValueInst update_mapUpdateMapInst
 }
 
+/-- [milhouse::progressive_list::{impl ssz::decode::try_from_iter::TryFromIter<T, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
+    Source: 'src/progressive_list.rs', lines 345:4-350:5
+    Visibility: public -/
+def
+  progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter
+  {T : Type} {U : Type} {I : Type} {Clause2_IntoIter : Type} (ValueInst : Value
+  T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (coreitertraitscollectIntoIteratorInst :
+  core.iter.traits.collect.IntoIterator I T Clause2_IntoIter) (iter : I) :
+  Result (core.result.Result (progressive_list.ProgressiveList T U)
+    error.Error)
+  := do
+  progressive_list.ProgressiveList.try_from_iter ValueInst
+    update_mapUpdateMapInst coreitertraitscollectIntoIteratorInst iter
+
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::build_from_iter]:
     Source: 'src/progressive_tree.rs', lines 100:4-102:5
     Visibility: public -/
