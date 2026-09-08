@@ -5,3 +5,4 @@ import Tree.Builder
 import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
+import Tree.ProgressiveTree
