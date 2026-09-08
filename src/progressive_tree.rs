@@ -28,8 +28,10 @@ pub enum ProgressiveTree<T: Value> {
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
         hash: RwLock<Hash256>,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
+        #[educe(PartialEq(method(Tree::arc_eq)))]
         left: Arc<Tree<T>>,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
+        #[educe(PartialEq(method(Self::arc_eq)))]
         right: Arc<Self>,
     },
 }
@@ -48,6 +50,13 @@ impl<T: Value> Clone for ProgressiveTree<T> {
 }
 
 impl<T: Value> ProgressiveTree<T> {
+    // Preserve triomphe's pointer shortcut with concrete recursive calls,
+    // avoiding a recursive trait dictionary during extraction.
+    #[inline]
+    pub(crate) fn arc_eq(left: &Arc<Self>, right: &Arc<Self>) -> bool {
+        Arc::ptr_eq(left, right) || Self::eq(left, right)
+    }
+
     pub fn empty() -> Self {
         Self::ProgressiveZero
     }

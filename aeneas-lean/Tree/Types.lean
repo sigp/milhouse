@@ -183,7 +183,7 @@ structure leaf.Leaf (T : Type) where
   value : triomphe.arc.Arc T
 
 /-- [milhouse::tree::Tree]
-    Source: 'src/tree.rs', lines 13:0-26:1
+    Source: 'src/tree.rs', lines 13:0-28:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.Tree (T : Type) where
@@ -210,7 +210,7 @@ structure builder.Builder (T : Type) where
   capacity : Std.Usize
 
 /-- Trait declaration: [milhouse::Value]
-    Source: 'src/lib.rs', lines 59:0-59:66
+    Source: 'src/lib.rs', lines 61:0-61:66
     Visibility: public -/
 structure Value (Self : Type) where
   sszencodeEncodeInst : ssz.encode.Encode Self
@@ -433,17 +433,17 @@ structure list.List (T : Type) (N : Type) (U : Type) where
   interface : interface.Interface T (list.ListInner T N) U
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure#1]
-    Source: 'src/tree.rs', lines 328:25-341:21 -/
+    Source: 'src/tree.rs', lines 337:25-350:21 -/
 @[reducible]
 def tree.Tree.rebase_on.closure_1 (T : Type) := Std.Usize
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure]
-    Source: 'src/tree.rs', lines 321:42-321:97 -/
+    Source: 'src/tree.rs', lines 330:42-330:97 -/
 @[reducible]
 def tree.Tree.rebase_on.closure (T : Type) := Unit
 
 /-- [milhouse::tree::RebaseAction]
-    Source: 'src/tree.rs', lines 257:0-266:1
+    Source: 'src/tree.rs', lines 266:0-275:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.RebaseAction (T : Type) where
@@ -453,7 +453,7 @@ inductive tree.RebaseAction (T : Type) where
 | EqualReplace : triomphe.arc.Arc T → tree.RebaseAction T
 
 /-- [milhouse::progressive_tree::ProgressiveTree]
-    Source: 'src/progressive_tree.rs', lines 24:0-35:1
+    Source: 'src/progressive_tree.rs', lines 24:0-37:1
     Visibility: public -/
 @[discriminant isize]
 inductive progressive_tree.ProgressiveTree (T : Type) where
@@ -466,7 +466,7 @@ inductive progressive_tree.ProgressiveTree (T : Type) where
   progressive_tree.ProgressiveTree T
 
 /-- [milhouse::progressive_list::ProgressiveList]
-    Source: 'src/progressive_list.rs', lines 17:0-21:1
+    Source: 'src/progressive_list.rs', lines 17:0-22:1
     Visibility: public -/
 structure progressive_list.ProgressiveList (T : Type) (U : Type) where
   tree : triomphe.arc.Arc (progressive_tree.ProgressiveTree T)
@@ -474,7 +474,7 @@ structure progressive_list.ProgressiveList (T : Type) (U : Type) where
   updates : U
 
 /-- [milhouse::progressive_tree::ProgressiveTreeBuilder]
-    Source: 'src/progressive_tree.rs', lines 350:0-364:1 -/
+    Source: 'src/progressive_tree.rs', lines 359:0-373:1 -/
 structure progressive_tree.ProgressiveTreeBuilder (T : Type) where
   subtrees : alloc.vec.Vec (triomphe.arc.Arc (tree.Tree T))
   current : builder.Builder T
@@ -484,19 +484,19 @@ structure progressive_tree.ProgressiveTreeBuilder (T : Type) where
   length : Std.Usize
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::closure]
-    Source: 'src/progressive_list.rs', lines 69:41-75:9 -/
+    Source: 'src/progressive_list.rs', lines 70:41-76:9 -/
 def progressive_list.ProgressiveList.get_mut.closure (T : Type) (U : Type) :=
   triomphe.arc.Arc (progressive_tree.ProgressiveTree T) × utils.Length
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::closure]
-    Source: 'src/progressive_tree.rs', lines 214:49-214:73 -/
+    Source: 'src/progressive_tree.rs', lines 223:49-223:73 -/
 @[reducible]
 def progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure (T :
   Type) (U : Type) :=
   Std.Usize
 
 /-- [milhouse::progressive_tree::ProgressiveTreeIter]
-    Source: 'src/progressive_tree.rs', lines 422:0-433:1
+    Source: 'src/progressive_tree.rs', lines 431:0-442:1
     Visibility: public -/
 structure progressive_tree.ProgressiveTreeIter (T : Type) where
   current_prog_node : Option (progressive_tree.ProgressiveTree T)
@@ -506,7 +506,7 @@ structure progressive_tree.ProgressiveTreeIter (T : Type) where
   yielded : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIter]
-    Source: 'src/progressive_list.rs', lines 426:0-431:1
+    Source: 'src/progressive_list.rs', lines 427:0-432:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T
@@ -515,7 +515,7 @@ structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   length : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIterCow]
-    Source: 'src/progressive_list.rs', lines 477:0-481:1
+    Source: 'src/progressive_list.rs', lines 478:0-482:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T
@@ -523,7 +523,7 @@ structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
   index : Std.Usize
 
 /-- [milhouse::tree::IntraRebaseAction]
-    Source: 'src/tree.rs', lines 268:0-271:1
+    Source: 'src/tree.rs', lines 277:0-280:1
     Visibility: public -/
 @[discriminant isize]
 inductive tree.IntraRebaseAction (T : Type) where

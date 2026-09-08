@@ -44,11 +44,11 @@ theorem combineRebaseActions_contents_correct {T : Type}
     simp_all [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction,
       combineRebaseActions, Tree.elements]
 
-private theorem allM_zip_eq {T : Type} (eqInst : core.cmp.PartialEq T T)
-    (hsound : ∀ x y, eqInst.eq x y = ok true → x = y)
+private theorem anyM_zip_ne_false_eq {T : Type} (eqInst : core.cmp.PartialEq T T)
+    (hsound : ∀ x y, eqInst.ne x y = ok false → x = y)
     (orig base : _root_.List T) (hlength : orig.length = base.length)
-    (heq : _root_.List.allM (fun (x, y) => eqInst.eq x y)
-      (_root_.List.zip orig base) = ok true) : orig = base := by
+    (heq : _root_.List.anyM (fun (x, y) => eqInst.ne x y)
+      (_root_.List.zip orig base) = ok false) : orig = base := by
   induction orig generalizing base with
   | nil =>
     cases base <;> simp_all
@@ -57,28 +57,37 @@ private theorem allM_zip_eq {T : Type} (eqInst : core.cmp.PartialEq T T)
     | nil => simp at hlength
     | cons y ys =>
       simp only [_root_.List.length_cons, Nat.add_right_cancel_iff] at hlength
-      simp only [_root_.List.zip_cons_cons, _root_.List.allM_cons] at heq
-      cases hxy : eqInst.eq x y with
+      simp only [_root_.List.zip_cons_cons, _root_.List.anyM_cons] at heq
+      cases hxy : eqInst.ne x y with
       | fail e => simp [hxy] at heq
       | div => simp [hxy] at heq
       | ok equal =>
         cases equal with
-        | false => simp [hxy, pure] at heq
-        | true =>
+        | true => simp [hxy, pure] at heq
+        | false =>
           simp only [hxy, bind_tc_ok, ↓reduceIte] at heq
           exact congrArg₂ _root_.List.cons (hsound x y hxy) (ih ys hlength heq)
 
-/-- A successful positive vector comparison implies exact contents equality
-    under positive element-equality soundness. No termination or negative
-    comparison law is required. -/
+/-- A successful positive Rust vector comparison implies exact contents
+    equality when a false element `ne` identifies equal values. Rust's generic
+    slice loop uses `ne`; no element `eq`, reflexivity, or termination law is
+    required by this successful-execution result. -/
 theorem vec_eq_contents {T : Type} (eqInst : core.cmp.PartialEq T T)
-    (hsound : ∀ x y, eqInst.eq x y = ok true → x = y)
+    (hsound : ∀ x y, eqInst.ne x y = ok false → x = y)
     {orig base : alloc.vec.Vec T}
-    (heq : alloc.vec.partial_eq.PartialEqVec.eq eqInst orig base = ok true) :
+    (heq : milhouse_models.vec_eq eqInst orig base = ok true) :
     orig.val = base.val := by
-  unfold alloc.vec.partial_eq.PartialEqVec.eq at heq
-  split at heq
-  · exact allM_zip_eq eqInst hsound orig.val base.val (by assumption) heq
-  · simp at heq
+  unfold milhouse_models.vec_eq at heq
+  cases hne : alloc.vec.partial_eq.PartialEqVec.ne eqInst orig base with
+  | fail e => simp [hne] at heq
+  | div => simp [hne] at heq
+  | ok different =>
+    cases different with
+    | true => simp [hne] at heq
+    | false =>
+      unfold alloc.vec.partial_eq.PartialEqVec.ne at hne
+      split at hne
+      · exact anyM_zip_ne_false_eq eqInst hsound orig.val base.val (by assumption) hne
+      · simp at hne
 
 end milhouse.tree

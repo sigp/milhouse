@@ -15,6 +15,7 @@ use vec_map::VecMap;
 #[derive(Debug, Clone, Educe)]
 #[educe(PartialEq(bound(T: Value, U: UpdateMap<T> + PartialEq)))]
 pub struct ProgressiveList<T: Value, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
+    #[educe(PartialEq(method(ProgressiveTree::arc_eq)))]
     pub(crate) tree: Arc<ProgressiveTree<T>>,
     pub(crate) length: Length,
     pub(crate) updates: U,

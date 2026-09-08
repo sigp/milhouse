@@ -18,8 +18,10 @@ pub enum Tree<T: Value> {
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_rwlock))]
         hash: RwLock<Hash256>,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
+        #[educe(PartialEq(method(Self::arc_eq)))]
         left: Arc<Self>,
         #[cfg_attr(feature = "arbitrary", arbitrary(with = crate::utils::arb_arc))]
+        #[educe(PartialEq(method(Self::arc_eq)))]
         right: Arc<Self>,
     },
     Zero(usize),
@@ -41,6 +43,13 @@ impl<T: Value> Clone for Tree<T> {
 }
 
 impl<T: Value> Tree<T> {
+    // Keep the pointer shortcut while exposing recursive equality as concrete
+    // calls: Aeneas cannot emit a recursive Arc<Tree> trait dictionary.
+    #[inline]
+    pub(crate) fn arc_eq(left: &Arc<Self>, right: &Arc<Self>) -> bool {
+        Arc::ptr_eq(left, right) || Self::eq(left, right)
+    }
+
     pub fn empty(depth: usize) -> Arc<Self> {
         Self::zero(depth)
     }

@@ -757,6 +757,18 @@ def triomphe.arc.Arc.Insts.CoreFmtDebug.fmt
     Unit core.fmt.Error) × core.fmt.Formatter) :=
   corefmtDebugInst.fmt
 
+/-! ## Rust vector equality -/
+
+/-- The pinned Rust vector comparison delegates to slice comparison, whose
+    generic loop checks each element's `ne`. Equal-length vectors compare
+    equal exactly when no such comparison returns true. This local external
+    model preserves short-circuiting, failure, and divergence without assuming
+    that a custom element `eq` and `ne` are coherent. -/
+def milhouse_models.vec_eq {T U : Type} (eqInst : core.cmp.PartialEq T U)
+    (left : alloc.vec.Vec T) (right : alloc.vec.Vec U) : Result Bool := do
+  let different ← alloc.vec.partial_eq.PartialEqVec.ne eqInst left right
+  ok (!different)
+
 /-! ## milhouse::list -/
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::intra_rebase]:

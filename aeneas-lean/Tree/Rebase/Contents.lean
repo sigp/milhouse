@@ -14,7 +14,8 @@ private theorem bind_eq_ok_iff {A B : Type} {x : Result A}
 private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y) :
+    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
+    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y) :
     ∀ (n : Nat) (orig base : Tree T) (depth : Nat) (origLength baseLength fullDepth : Std.Usize)
       (action : RebaseAction (Tree T)),
       fullDepth.val ≤ n → fullDepth.val = depth + packingDepth.val →
@@ -58,7 +59,7 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction,
               Tree.elements, helements]
       case PackedLeaf.PackedLeaf origLeaf baseLeaf =>
-        cases heq : alloc.vec.partial_eq.PartialEqVec.eq ValueInst.corecmpPartialEqInst
+        cases heq : milhouse_models.vec_eq ValueInst.corecmpPartialEqInst
             origLeaf.values baseLeaf.values with
         | fail e => simp [heq] at hrebase
         | div => simp [heq] at hrebase
@@ -70,7 +71,7 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction]
           | true =>
-            have hvalues := vec_eq_contents ValueInst.corecmpPartialEqInst hsound heq
+            have hvalues := vec_eq_contents ValueInst.corecmpPartialEqInst hneSound heq
             simp at hrebase
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction, Tree.elements, hvalues]
@@ -151,12 +152,14 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
 
 /-- Successful rebasing preserves the original materialized sequence, and
     equality actions also certify agreement with the base. Length and depth
-    metadata describe the dense inputs; positive element equality is sound,
-    and corresponding cached hashes agree at equal materialized lengths. -/
+    metadata describe the dense inputs. Positive element `eq` and false element
+    `ne` identify equal values, covering unpacked and packed comparisons
+    respectively; corresponding caches agree at equal materialized lengths. -/
 theorem Tree.rebase_on_contents_correct {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
     (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
+    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     {orig base : Tree T} {depth : Nat} {origLength baseLength fullDepth : Std.Usize}
     {action : RebaseAction (Tree T)}
     (hdepth : fullDepth.val = depth + packingDepth.val)
@@ -165,7 +168,7 @@ theorem Tree.rebase_on_contents_correct {T : Type} (ValueInst : Value T)
     (hhashes : orig.CachedHashesAgree base)
     (hrebase : Tree.rebase_on ValueInst orig base (some (origLength, baseLength)) fullDepth =
       ok (core.result.Result.Ok action)) : action.ContentsCorrect orig base := by
-  exact rebase_contents_aux ValueInst hlayout hsound fullDepth.val orig base depth origLength baseLength fullDepth action
+  exact rebase_contents_aux ValueInst hlayout hsound hneSound fullDepth.val orig base depth origLength baseLength fullDepth action
     (Nat.le_refl _) hdepth horig hbase hhashes hrebase
 
 end milhouse.tree

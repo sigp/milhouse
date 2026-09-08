@@ -12,9 +12,9 @@ private theorem bind_eq_ok_iff {A B : Type} {x : Result A}
 
 private theorem vec_eq_length {T : Type} (eqInst : core.cmp.PartialEq T T)
     {orig base : alloc.vec.Vec T}
-    (heq : alloc.vec.partial_eq.PartialEqVec.eq eqInst orig base = ok true) :
+    (heq : milhouse_models.vec_eq eqInst orig base = ok true) :
     orig.val.length = base.val.length := by
-  unfold alloc.vec.partial_eq.PartialEqVec.eq at heq
+  simp only [milhouse_models.vec_eq, alloc.vec.partial_eq.PartialEqVec.ne] at heq
   split at heq
   · assumption
   · simp at heq
@@ -55,7 +55,7 @@ private theorem rebase_length_aux {T : Type} (ValueInst : Value T)
           cases equal <;> simp at hrebase <;> subst action <;>
             simp [RebaseAction.LengthCorrect, RebaseAction.IsEqual, applyRebaseAction, Tree.elements]
       case PackedLeaf.PackedLeaf origLeaf baseLeaf =>
-        cases heq : alloc.vec.partial_eq.PartialEqVec.eq ValueInst.corecmpPartialEqInst
+        cases heq : milhouse_models.vec_eq ValueInst.corecmpPartialEqInst
             origLeaf.values baseLeaf.values with
         | fail e => simp [heq] at hrebase
         | div => simp [heq] at hrebase

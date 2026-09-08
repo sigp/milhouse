@@ -238,6 +238,16 @@ axiom
   core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
   (T : Type) : Option core.convert.Infallible → Result (Option T)
 
+/-- [core::tuple::{impl core::cmp::PartialEq<(U, T)> for (U, T)}::ne]:
+    Source: '/rustc/library/core/src/tuple.rs', lines 34:16-34:55
+    Name pattern: [core::tuple::{core::cmp::PartialEq<(@U, @T), (@U, @T)>}::ne]
+    Visibility: public -/
+@[rust_fun "core::tuple::{core::cmp::PartialEq<(@U, @T), (@U, @T)>}::ne"]
+axiom Pair.Insts.CoreCmpPartialEqPair.ne
+  {U : Type} {T : Type} (cmpPartialEqInst : core.cmp.PartialEq U U)
+  (cmpPartialEqInst1 : core.cmp.PartialEq T T) :
+  (U × T) → (U × T) → Result Bool
+
 /-- [core::tuple::{impl core::cmp::PartialEq<(U, T)> for (U, T)}::eq]:
     Source: '/rustc/library/core/src/tuple.rs', lines 30:16-30:55
     Name pattern: [core::tuple::{core::cmp::PartialEq<(@U, @T), (@U, @T)>}::eq]
@@ -663,6 +673,16 @@ axiom triomphe.arc.Arc.Insts.CoreCloneClone.clone
   "triomphe::arc::{core::ops::deref::Deref<triomphe::arc::Arc<@T>, @T>}::deref"]
 axiom triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref
   {T : Type} : triomphe.arc.Arc T → Result T
+
+/-- [triomphe::arc::{impl core::cmp::PartialEq<triomphe::arc::Arc<T>> for triomphe::arc::Arc<T>}::ne]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/triomphe-0.1.14/src/arc.rs', lines 673:4-673:40
+    Name pattern: [triomphe::arc::{core::cmp::PartialEq<triomphe::arc::Arc<@T>, triomphe::arc::Arc<@T>>}::ne]
+    Visibility: public -/
+@[rust_fun
+  "triomphe::arc::{core::cmp::PartialEq<triomphe::arc::Arc<@T>, triomphe::arc::Arc<@T>>}::ne"]
+axiom triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.ne
+  {T : Type} (corecmpPartialEqInst : core.cmp.PartialEq T T) :
+  triomphe.arc.Arc T → triomphe.arc.Arc T → Result Bool
 
 /-- [triomphe::arc::{impl core::cmp::PartialEq<triomphe::arc::Arc<T>> for triomphe::arc::Arc<T>}::eq]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/triomphe-0.1.14/src/arc.rs', lines 667:4-667:40

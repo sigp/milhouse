@@ -432,7 +432,7 @@ private theorem rebase_on_is_positional_aux {T : Type} (ValueInst : Value T) :
           · subst action; exact PositionalMix.orig _ _
           · subst action; exact PositionalMix.base _ _
       case PackedLeaf.PackedLeaf orig_leaf base_leaf =>
-        cases heq : alloc.vec.partial_eq.PartialEqVec.eq
+        cases heq : milhouse_models.vec_eq
             ValueInst.corecmpPartialEqInst orig_leaf.values base_leaf.values with
         | fail e => rw [heq] at hrebase; simp at hrebase
         | div => rw [heq] at hrebase; simp at hrebase

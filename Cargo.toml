@@ -15,6 +15,9 @@ debug = []
 arbitrary = ["dep:arbitrary", "alloy-primitives/arbitrary"]
 context_deserialize = ["dep:context_deserialize"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(milhouse_aeneas)"] }
+
 [dependencies]
 educe = "0.6.0"
 ethereum_hashing = "0.8"

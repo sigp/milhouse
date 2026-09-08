@@ -19,8 +19,9 @@
 # - `Tree::with_updated_leaves` and `PackedLeaf::update` are included since
 #   their `FnMut` closures were replaced by closure-free code (the Aeneas
 #   Lean backend mistranslates `FnMut` calling conventions).
-# - Tree's derived `Debug`/`PartialEq` impls are excluded: recursive trait
-#   impls are emitted with forward references (Aeneas Lean-backend bug).
+# - Tree's derived Debug impl is excluded: recursive trait dictionaries are
+#   emitted with forward references. Tree/ProgressiveTree equality uses concrete
+#   arc_eq helpers that preserve pointer shortcuts and avoid that dictionary.
 # - serde/ssz/hashing/mem are opaque: signatures only, modelled by hand in
 #   `aeneas-lean/Tree/FunsExternal.lean` per the `-split-files` workflow.
 # - List methods are selected individually so its serde/ssz trait impls remain
@@ -29,6 +30,7 @@
 # - Constructor and iterator trait methods need concrete callers to be emitted
 #   by Aeneas; explicit roots alone were insufficient (UPSTREAM_BUGS.md issue 12).
 #   to_vec also makes the borrowed IntoIterator body reachable.
+#   Additional trait callers live in proof_roots, compiled only for extraction.
 # - Progressive traversal steps use inline helpers to keep borrows out of loop
 #   contexts; to_vec uses an explicit loop (UPSTREAM_BUGS.md issue 13).
 # - Progressive pop_front uses a concrete iterator-to-builder helper to avoid
@@ -47,6 +49,8 @@ CHARON="${CHARON:-$AENEAS_DIR/charon/bin/charon}"
 AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
 
 "$CHARON" cargo --preset=aeneas \
+    --rustc-arg=--cfg=milhouse_aeneas \
+    --start-from 'milhouse::proof_roots' \
     --start-from 'milhouse::tree' \
     --start-from 'milhouse::builder' \
     --start-from 'milhouse::cow::_::run' \
@@ -75,6 +79,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_tree::_::empty' \
     --start-from 'milhouse::progressive_tree::_::build_from_iter' \
     --start-from 'milhouse::progressive_tree::_::get_recursive' \
+    --start-from 'milhouse::progressive_tree::_::arc_eq' \
     --start-from 'milhouse::progressive_list::_::empty' \
     --start-from 'milhouse::progressive_list::_::new' \
     --start-from 'milhouse::progressive_list::_::try_from_iter' \
@@ -94,6 +99,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_list::_::pop_front' \
     --start-from 'milhouse::progressive_list::_::rebase' \
     --start-from 'milhouse::progressive_list::_::rebase_on' \
+    --start-from '{impl core::cmp::PartialEq for milhouse::progressive_list::ProgressiveList}::eq' \
     --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::next' \
     --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::size_hint' \
     --start-from '{impl core::iter::ExactSizeIterator for milhouse::progressive_list::ProgressiveListIter}::len' \
@@ -111,11 +117,16 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --exclude 'milhouse::update_map::UpdateMap::is_empty' \
     --exclude 'milhouse::builder::{impl core::fmt::Debug for milhouse::builder::Builder<_>}' \
     --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
-    --exclude 'milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<_>> for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \
     --dest-file tree.llbc
 
 "$AENEAS" -backend lean -split-files -dest aeneas-lean/Tree tree.llbc
+
+# The pinned Rust Vec equality uses its slice's element-ne loop. Aeneas's
+# built-in Vec.eq calls element eq instead; use the faithful local external
+# model so custom eq/ne implementations need no unstated coherence assumption.
+perl -0pi -e 's/\balloc\.vec\.partial_eq\.PartialEqVec\.eq\b/milhouse_models.vec_eq/g' \
+    aeneas-lean/Tree/Funs.lean
 
 # Workaround for an Aeneas Lean-backend bug: the `impl_def` for `Eq<(U, T)>`
 # fails to resolve its self-referential `assert_fields_are_eq` default method

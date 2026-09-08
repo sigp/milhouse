@@ -17,11 +17,13 @@ def ProgressiveTree.CachedHashesAgree {T : Type} : ProgressiveTree T → Progres
   | _, _ => True
 
 /-- Recursive rebasing preserves the exact materialized suffix under sound
-    positive element equality and agreement of the compared binary caches. -/
+    positive element `eq`, false element `ne`, and agreement of the compared
+    binary caches. -/
 theorem ProgressiveTree.rebase_on_recursive_preserves_contents {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
     (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
+    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     {orig base after : ProgressiveTree T} {origLength baseLength : Std.Usize} {depth : Std.U32}
     (horig : orig.Dense factor depth.val (origLength.val - progressiveCapacity factor depth.val))
     (hbase : base.Dense factor depth.val (baseLength.val - progressiveCapacity factor depth.val))
@@ -50,7 +52,7 @@ theorem ProgressiveTree.rebase_on_recursive_preserves_contents {T : Type} (Value
         simpa only [horigLengthVal] using horig.split_layer.1
       have hbaseLeft : DenseTree factor baseLeft (2 * depth.val) baseLeftLength.val := by
         simpa only [hbaseLengthVal] using hbase.split_layer.1
-      have hnewLeft := tree.Tree.rebase_on_contents_correct ValueInst hlayout hsound
+      have hnewLeft := tree.Tree.rebase_on_contents_correct ValueInst hlayout hsound hneSound
         (by omega) horigLeft hbaseLeft hhashes.1 hleft
       have hadd := UScalar.add_equiv depth 1#u32
       rw [hnext] at hadd
@@ -71,6 +73,7 @@ theorem ProgressiveTree.rebase_on_preserves_contents {T : Type} (ValueInst : Val
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
     (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
+    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     {orig base after : ProgressiveTree T} {origLength baseLength : Std.Usize}
     (horig : orig.Dense factor 0 origLength.val) (hbase : base.Dense factor 0 baseLength.val)
     (hfit : orig.Fits factor 0)
@@ -82,7 +85,7 @@ theorem ProgressiveTree.rebase_on_preserves_contents {T : Type} (ValueInst : Val
     simpa [progressiveCapacity] using horig
   have hbase' : base.Dense factor (0#u32).val (baseLength.val - progressiveCapacity factor (0#u32).val) := by
     simpa [progressiveCapacity] using hbase
-  exact ProgressiveTree.rebase_on_recursive_preserves_contents ValueInst hlayout hsound
+  exact ProgressiveTree.rebase_on_recursive_preserves_contents ValueInst hlayout hsound hneSound
     horig' hbase' hfit hhashes hrebase
 
 end milhouse.progressive_tree

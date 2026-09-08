@@ -54,6 +54,7 @@ def Pair.Insts.CoreCmpPartialEqPair {U : Type} {T : Type} (cmpPartialEqInst :
   core.cmp.PartialEq U U) (cmpPartialEqInst1 : core.cmp.PartialEq T T) :
   core.cmp.PartialEq (U × T) (U × T) := {
   eq := Pair.Insts.CoreCmpPartialEqPair.eq cmpPartialEqInst cmpPartialEqInst1
+  ne := Pair.Insts.CoreCmpPartialEqPair.ne cmpPartialEqInst cmpPartialEqInst1
 }
 
 /-- Trait implementation: [core::tuple::{impl core::cmp::Eq for (U, T)}]
@@ -157,11 +158,14 @@ def alloy_primitives.bits.fixed.FixedBytes.Insts.CoreMarkerCopy (N : Std.Usize)
     Name pattern: [core::cmp::PartialEq<alloy_primitives::bits::fixed::FixedBytes<@N>, alloy_primitives::bits::fixed::FixedBytes<@N>>] -/
 @[reducible, rust_trait_impl
   "core::cmp::PartialEq<alloy_primitives::bits::fixed::FixedBytes<@N>, alloy_primitives::bits::fixed::FixedBytes<@N>>"]
-def alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes (N
-  : Std.Usize) : core.cmp.PartialEq (alloy_primitives.bits.fixed.FixedBytes N)
+impl_def
+  alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes (N :
+  Std.Usize) : core.cmp.PartialEq (alloy_primitives.bits.fixed.FixedBytes N)
   (alloy_primitives.bits.fixed.FixedBytes N) := {
   eq :=
     alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes.eq
+  ne := core.cmp.PartialEq.ne.trait_default
+    (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes N)
 }
 
 /-- Trait implementation: [alloy_primitives::bits::fixed::{impl core::cmp::Eq for alloy_primitives::bits::fixed::FixedBytes<N>}]
@@ -234,6 +238,18 @@ def Array.Insts.SmallvecArray (T : Type) (N : Std.Usize) : smallvec.Array
   size := Array.Insts.SmallvecArray.size T N
 }
 
+/-- Trait implementation: [triomphe::arc::{impl core::cmp::PartialEq<triomphe::arc::Arc<T>> for triomphe::arc::Arc<T>}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/triomphe-0.1.14/src/arc.rs', lines 666:0-666:48
+    Name pattern: [core::cmp::PartialEq<triomphe::arc::Arc<@T>, triomphe::arc::Arc<@T>>] -/
+@[reducible, rust_trait_impl
+  "core::cmp::PartialEq<triomphe::arc::Arc<@T>, triomphe::arc::Arc<@T>>"]
+def triomphe.arc.Arc.Insts.CoreCmpPartialEqArc {T : Type} (corecmpPartialEqInst
+  : core.cmp.PartialEq T T) : core.cmp.PartialEq (triomphe.arc.Arc T)
+  (triomphe.arc.Arc T) := {
+  eq := triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.eq corecmpPartialEqInst
+  ne := triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.ne corecmpPartialEqInst
+}
+
 /-- [milhouse::utils::opt_packing_factor]:
     Source: 'src/utils.rs', lines 67:0-72:1
     Visibility: public -/
@@ -280,7 +296,7 @@ def utils.opt_packing_depth
       Std.Usize residual
 
 /-- [milhouse::MAX_TREE_DEPTH]
-    Source: 'src/lib.rs', lines 48:0-48:57
+    Source: 'src/lib.rs', lines 50:0-50:57
     Visibility: public -/
 @[global_simps, irreducible]
 def MAX_TREE_DEPTH : Result Std.Usize := do
@@ -363,7 +379,7 @@ def leaf.Leaf.new {T : Type} (value : T) : Result (leaf.Leaf T) := do
   leaf.Leaf.with_hash value fb
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf_unboxed]:
-    Source: 'src/tree.rs', lines 80:4-82:5
+    Source: 'src/tree.rs', lines 89:4-91:5
     Visibility: public -/
 def tree.Tree.leaf_unboxed
   {T : Type} (ValueInst : Value T) (value : T) : Result (tree.Tree T) := do
@@ -371,7 +387,7 @@ def tree.Tree.leaf_unboxed
   ok (tree.Tree.Leaf l)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::node_unboxed]:
-    Source: 'src/tree.rs', lines 68:4-74:5
+    Source: 'src/tree.rs', lines 77:4-83:5
     Visibility: public -/
 def tree.Tree.node_unboxed
   {T : Type} (ValueInst : Value T) (left : triomphe.arc.Arc (tree.Tree T))
@@ -924,7 +940,7 @@ def builder.Builder.finish_level
     })
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero]:
-    Source: 'src/tree.rs', lines 56:4-58:5
+    Source: 'src/tree.rs', lines 65:4-67:5
     Visibility: public -/
 def tree.Tree.zero
   {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
@@ -1637,6 +1653,30 @@ def iter.Iter.from_index
       length
     }
 
+/-- [milhouse::leaf::{impl core::cmp::PartialEq<milhouse::leaf::Leaf<T>> for milhouse::leaf::Leaf<T>}::eq]:
+    Source: 'src/leaf.rs', lines 6:16-6:21
+    Visibility: public -/
+def leaf.Leaf.Insts.CoreCmpPartialEqLeaf.eq
+  {T : Type} (corecmpPartialEqArcArcInst : core.cmp.PartialEq (triomphe.arc.Arc
+  T) (triomphe.arc.Arc T)) (self : leaf.Leaf T) (other : leaf.Leaf T) :
+  Result Bool
+  := do
+  let b ← corecmpPartialEqArcArcInst.ne self.value other.value
+  if b
+  then ok false
+  else ok true
+
+/-- Trait implementation: [milhouse::leaf::{impl core::cmp::PartialEq<milhouse::leaf::Leaf<T>> for milhouse::leaf::Leaf<T>}]
+    Source: 'src/leaf.rs', lines 6:16-6:21 -/
+@[reducible]
+impl_def leaf.Leaf.Insts.CoreCmpPartialEqLeaf {T : Type}
+  (corecmpPartialEqArcArcInst : core.cmp.PartialEq (triomphe.arc.Arc T)
+  (triomphe.arc.Arc T)) : core.cmp.PartialEq (leaf.Leaf T) (leaf.Leaf T) := {
+  eq := leaf.Leaf.Insts.CoreCmpPartialEqLeaf.eq corecmpPartialEqArcArcInst
+  ne := core.cmp.PartialEq.ne.trait_default
+    (leaf.Leaf.Insts.CoreCmpPartialEqLeaf corecmpPartialEqArcArcInst)
+}
+
 /-- [milhouse::leaf::{impl core::clone::Clone for milhouse::leaf::Leaf<T>}::clone]:
     Source: 'src/leaf.rs', lines 21:4-26:5
     Visibility: public -/
@@ -1881,7 +1921,7 @@ def utils.opt_hash
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) residual
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf_with_hash]:
-    Source: 'src/tree.rs', lines 64:4-66:5
+    Source: 'src/tree.rs', lines 73:4-75:5
     Visibility: public -/
 def tree.Tree.leaf_with_hash
   {T : Type} (ValueInst : Value T) (value : T)
@@ -1892,7 +1932,7 @@ def tree.Tree.leaf_with_hash
   triomphe.arc.Arc.new (tree.Tree.Leaf l)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::node]:
-    Source: 'src/tree.rs', lines 48:4-54:5
+    Source: 'src/tree.rs', lines 57:4-63:5
     Visibility: public -/
 def tree.Tree.node
   {T : Type} (ValueInst : Value T) (left : triomphe.arc.Arc (tree.Tree T))
@@ -2036,7 +2076,7 @@ def packed_leaf.PackedLeaf.empty
   ok { hash := rl, values := v }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::with_updated_leaves]:
-    Source: 'src/tree.rs', lines 163:4-241:5
+    Source: 'src/tree.rs', lines 172:4-250:5
     Visibility: public -/
 def tree.Tree.with_updated_leaves
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -2251,7 +2291,7 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.update
         ok (r1, self)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::leaf]:
-    Source: 'src/tree.rs', lines 60:4-62:5
+    Source: 'src/tree.rs', lines 69:4-71:5
     Visibility: public -/
 def tree.Tree.leaf
   {T : Type} (ValueInst : Value T) (value : T) :
@@ -2289,7 +2329,7 @@ def packed_leaf.PackedLeaf.insert_at_index
       (packed_leaf.PackedLeaf T) (core.convert.FromSame error.Error) residual
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::with_updated_leaf]:
-    Source: 'src/tree.rs', lines 108:4-155:5
+    Source: 'src/tree.rs', lines 117:4-164:5
     Visibility: public -/
 def tree.Tree.with_updated_leaf
   {T : Type} (ValueInst : Value T) (self : tree.Tree T) (index : Std.Usize)
@@ -2473,7 +2513,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.iter_from
   iter.Iter.from_index ValueInst index t self.depth self.length
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::get_recursive]:
-    Source: 'src/tree.rs', lines 84:4-103:5
+    Source: 'src/tree.rs', lines 93:4-112:5
     Visibility: public -/
 def tree.Tree.get_recursive
   {T : Type} (ValueInst : Value T) (self : tree.Tree T) (index : Std.Usize)
@@ -2871,7 +2911,7 @@ def list.List.new
     update_mapUpdateMapInst (core.iter.traits.collect.IntoIteratorVec T) vec
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::empty]:
-    Source: 'src/tree.rs', lines 44:4-46:5
+    Source: 'src/tree.rs', lines 53:4-55:5
     Visibility: public -/
 def tree.Tree.empty
   {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
@@ -4016,9 +4056,11 @@ def utils.Length.Insts.CoreCmpPartialEqLength.eq
 /-- Trait implementation: [milhouse::utils::{impl core::cmp::PartialEq<milhouse::utils::Length> for milhouse::utils::Length}]
     Source: 'src/utils.rs', lines 23:16-23:25 -/
 @[reducible]
-def utils.Length.Insts.CoreCmpPartialEqLength : core.cmp.PartialEq utils.Length
-  utils.Length := {
+impl_def utils.Length.Insts.CoreCmpPartialEqLength : core.cmp.PartialEq
+  utils.Length utils.Length := {
   eq := utils.Length.Insts.CoreCmpPartialEqLength.eq
+  ne := core.cmp.PartialEq.ne.trait_default
+    utils.Length.Insts.CoreCmpPartialEqLength
 }
 
 /-- Trait implementation: [milhouse::utils::{impl core::cmp::PartialOrd<milhouse::utils::Length> for milhouse::utils::Length}]
@@ -4056,7 +4098,7 @@ impl_def utils.Length.Insts.CoreCmpOrd : core.cmp.Ord utils.Length := {
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure#1<'_0, T>}::call_once]:
-    Source: 'src/tree.rs', lines 328:25-341:21 -/
+    Source: 'src/tree.rs', lines 337:25-350:21 -/
 def
   tree.Tree.rebase_on.closure_1.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthPairPairLengthLengthPairLengthLength.call_once
   {T : Type} (ValueInst : Value T) (c : tree.Tree.rebase_on.closure_1 T)
@@ -4078,7 +4120,7 @@ def
   ok ((orig_left_length, base_left_length), (i3, i6))
 
 /-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure#1<'_0, T>}]
-    Source: 'src/tree.rs', lines 328:25-341:21 -/
+    Source: 'src/tree.rs', lines 337:25-350:21 -/
 @[reducible]
 def
   tree.Tree.rebase_on.closure_1.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthPairPairLengthLengthPairLengthLength
@@ -4091,7 +4133,7 @@ def
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure<T>}::call_once]:
-    Source: 'src/tree.rs', lines 321:42-321:97 -/
+    Source: 'src/tree.rs', lines 330:42-330:97 -/
 def
   tree.Tree.rebase_on.closure.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthBool.call_once
   {T : Type} (ValueInst : Value T) (c : tree.Tree.rebase_on.closure T)
@@ -4102,7 +4144,7 @@ def
   utils.Length.Insts.CoreCmpPartialEqLength.eq orig_length base_length
 
 /-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure<T>}]
-    Source: 'src/tree.rs', lines 321:42-321:97 -/
+    Source: 'src/tree.rs', lines 330:42-330:97 -/
 @[reducible]
 def
   tree.Tree.rebase_on.closure.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthBool
@@ -4114,7 +4156,7 @@ def
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on]:
-    Source: 'src/tree.rs', lines 274:4-412:5
+    Source: 'src/tree.rs', lines 283:4-421:5
     Visibility: public -/
 def tree.Tree.rebase_on
   {T : Type} (ValueInst : Value T) (orig : triomphe.arc.Arc (tree.Tree T))
@@ -4150,7 +4192,7 @@ def tree.Tree.rebase_on
         ok (core.result.Result.Err error.Error.InvalidRebaseLeaf)
       | tree.Tree.PackedLeaf l2 =>
         let b1 ←
-          alloc.vec.partial_eq.PartialEqVec.eq ValueInst.corecmpPartialEqInst
+          milhouse_models.vec_eq ValueInst.corecmpPartialEqInst
             l1.values l2.values
         if b1
         then ok (core.result.Result.Ok (tree.RebaseAction.EqualReplace base))
@@ -4771,6 +4813,36 @@ def list.List.rebase
     core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
       (list.List T N U) (core.convert.FromSame error.Error) residual
 
+/-- [milhouse::packed_leaf::{impl core::cmp::PartialEq<milhouse::packed_leaf::PackedLeaf<T>> for milhouse::packed_leaf::PackedLeaf<T>}::eq]:
+    Source: 'src/packed_leaf.rs', lines 6:16-6:21
+    Visibility: public -/
+def packed_leaf.PackedLeaf.Insts.CoreCmpPartialEqPackedLeaf.eq
+  {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
+  : core.clone.Clone T) (corecmpPartialEqVecVecInst : core.cmp.PartialEq
+  (alloc.vec.Vec T) (alloc.vec.Vec T)) (self : packed_leaf.PackedLeaf T)
+  (other : packed_leaf.PackedLeaf T) :
+  Result Bool
+  := do
+  let b ← corecmpPartialEqVecVecInst.ne self.values other.values
+  if b
+  then ok false
+  else ok true
+
+/-- Trait implementation: [milhouse::packed_leaf::{impl core::cmp::PartialEq<milhouse::packed_leaf::PackedLeaf<T>> for milhouse::packed_leaf::PackedLeaf<T>}]
+    Source: 'src/packed_leaf.rs', lines 6:16-6:21 -/
+@[reducible]
+impl_def packed_leaf.PackedLeaf.Insts.CoreCmpPartialEqPackedLeaf {T : Type}
+  (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst :
+  core.clone.Clone T) (corecmpPartialEqVecVecInst : core.cmp.PartialEq
+  (alloc.vec.Vec T) (alloc.vec.Vec T)) : core.cmp.PartialEq
+  (packed_leaf.PackedLeaf T) (packed_leaf.PackedLeaf T) := {
+  eq := packed_leaf.PackedLeaf.Insts.CoreCmpPartialEqPackedLeaf.eq
+    tree_hashTreeHashInst corecloneCloneInst corecmpPartialEqVecVecInst
+  ne := core.cmp.PartialEq.ne.trait_default
+    (packed_leaf.PackedLeaf.Insts.CoreCmpPartialEqPackedLeaf
+    tree_hashTreeHashInst corecloneCloneInst corecmpPartialEqVecVecInst)
+}
+
 /-- [milhouse::packed_leaf::{impl core::clone::Clone for milhouse::packed_leaf::PackedLeaf<T>}::clone]:
     Source: 'src/packed_leaf.rs', lines 20:4-25:5
     Visibility: public -/
@@ -4808,8 +4880,188 @@ def progressive_list.ProgressiveList.Insts.CoreCloneClone.clone
   let t ← corecloneCloneInst1.clone self.updates
   ok { tree := a, length := l, updates := t }
 
+mutual
+
+/-- [milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<T>> for milhouse::tree::Tree<T>}::eq]:
+    Source: 'src/tree.rs', lines 10:16-10:21
+    Visibility: public -/
+def tree.Tree.Insts.CoreCmpPartialEqTree.eq
+  {T : Type} (ValueInst : Value T) (ValueInst1 : Value T) (self : tree.Tree T)
+  (other : tree.Tree T) :
+  Result Bool
+  := do
+  match self with
+  | tree.Tree.Leaf _0 =>
+    match other with
+    | tree.Tree.Leaf __0 =>
+      let b ←
+        core.cmp.PartialEq.ne.trait_default
+          (leaf.Leaf.Insts.CoreCmpPartialEqLeaf
+          (triomphe.arc.Arc.Insts.CoreCmpPartialEqArc
+          ValueInst.corecmpPartialEqInst)) _0 __0
+      if b
+      then ok false
+      else ok true
+    | tree.Tree.PackedLeaf _ => ok false
+    | tree.Tree.Node _ _ _ => ok false
+    | tree.Tree.Zero _ => ok false
+  | tree.Tree.PackedLeaf _0 =>
+    match other with
+    | tree.Tree.Leaf _ => ok false
+    | tree.Tree.PackedLeaf __0 =>
+      let b ←
+        core.cmp.PartialEq.ne.trait_default
+          (packed_leaf.PackedLeaf.Insts.CoreCmpPartialEqPackedLeaf
+          ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst
+          (core.cmp.PartialEqVec ValueInst.corecmpPartialEqInst)) _0 __0
+      if b
+      then ok false
+      else ok true
+    | tree.Tree.Node _ _ _ => ok false
+    | tree.Tree.Zero _ => ok false
+  | tree.Tree.Node _ _s_left _s_right =>
+    match other with
+    | tree.Tree.Leaf _ => ok false
+    | tree.Tree.PackedLeaf _ => ok false
+    | tree.Tree.Node _ _o_left _o_right =>
+      let b ← tree.Tree.arc_eq ValueInst _s_left _o_left
+      if b
+      then
+        let b1 ← tree.Tree.arc_eq ValueInst _s_right _o_right
+        if b1
+        then ok true
+        else ok false
+      else ok false
+    | tree.Tree.Zero _ => ok false
+  | tree.Tree.Zero _0 =>
+    match other with
+    | tree.Tree.Leaf _ => ok false
+    | tree.Tree.PackedLeaf _ => ok false
+    | tree.Tree.Node _ _ _ => ok false
+    | tree.Tree.Zero __0 =>
+      let b ← lift (core.cmp.impls.PartialEqUsize.ne _0 __0)
+      if b
+      then ok false
+      else ok true
+partial_fixpoint
+
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::arc_eq]:
+    Source: 'src/tree.rs', lines 49:4-51:5 -/
+def tree.Tree.arc_eq
+  {T : Type} (ValueInst : Value T) (left : triomphe.arc.Arc (tree.Tree T))
+  (right : triomphe.arc.Arc (tree.Tree T)) :
+  Result Bool
+  := do
+  let b ← triomphe.arc.Arc.ptr_eq left right
+  if b
+  then ok true
+  else
+    let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+    let t1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+    tree.Tree.Insts.CoreCmpPartialEqTree.eq ValueInst ValueInst t t1
+partial_fixpoint
+
+end
+
+mutual
+
+/-- [milhouse::progressive_tree::{impl core::cmp::PartialEq<milhouse::progressive_tree::ProgressiveTree<T>> for milhouse::progressive_tree::ProgressiveTree<T>}::eq]:
+    Source: 'src/progressive_tree.rs', lines 21:16-21:21
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.Insts.CoreCmpPartialEqProgressiveTree.eq
+  {T : Type} (ValueInst : Value T) (ValueInst1 : Value T)
+  (self : progressive_tree.ProgressiveTree T)
+  (other : progressive_tree.ProgressiveTree T) :
+  Result Bool
+  := do
+  match self with
+  | progressive_tree.ProgressiveTree.ProgressiveZero =>
+    match other with
+    | progressive_tree.ProgressiveTree.ProgressiveZero => ok true
+    | progressive_tree.ProgressiveTree.ProgressiveNode _ _ _ => ok false
+  | progressive_tree.ProgressiveTree.ProgressiveNode _ _s_left _s_right =>
+    match other with
+    | progressive_tree.ProgressiveTree.ProgressiveZero => ok false
+    | progressive_tree.ProgressiveTree.ProgressiveNode _ _o_left _o_right =>
+      let b ← tree.Tree.arc_eq ValueInst _s_left _o_left
+      if b
+      then
+        let b1 ←
+          progressive_tree.ProgressiveTree.arc_eq ValueInst _s_right _o_right
+        if b1
+        then ok true
+        else ok false
+      else ok false
+partial_fixpoint
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::arc_eq]:
+    Source: 'src/progressive_tree.rs', lines 56:4-58:5 -/
+def progressive_tree.ProgressiveTree.arc_eq
+  {T : Type} (ValueInst : Value T)
+  (left : triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
+  (right : triomphe.arc.Arc (progressive_tree.ProgressiveTree T)) :
+  Result Bool
+  := do
+  let b ← triomphe.arc.Arc.ptr_eq left right
+  if b
+  then ok true
+  else
+    let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
+    let pt1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref right
+    progressive_tree.ProgressiveTree.Insts.CoreCmpPartialEqProgressiveTree.eq
+      ValueInst ValueInst pt pt1
+partial_fixpoint
+
+end
+
+/-- [milhouse::progressive_list::{impl core::cmp::PartialEq<milhouse::progressive_list::ProgressiveList<T, U>> for milhouse::progressive_list::ProgressiveList<T, U>}::eq]:
+    Source: 'src/progressive_list.rs', lines 15:23-15:28
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.CoreCmpPartialEqProgressiveList.eq
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (ValueInst1 : Value T) (update_mapUpdateMapInst1 :
+  update_map.UpdateMap U T) (corecmpPartialEqInst : core.cmp.PartialEq U U)
+  (self : progressive_list.ProgressiveList T U)
+  (other : progressive_list.ProgressiveList T U) :
+  Result Bool
+  := do
+  let b ←
+    progressive_tree.ProgressiveTree.arc_eq ValueInst self.tree other.tree
+  if b
+  then
+    let b1 ←
+      core.cmp.PartialEq.ne.trait_default
+        utils.Length.Insts.CoreCmpPartialEqLength self.length other.length
+    if b1
+    then ok false
+    else
+      let b2 ← corecmpPartialEqInst.ne self.updates other.updates
+      if b2
+      then ok false
+      else ok true
+  else ok false
+
+/-- Trait implementation: [milhouse::progressive_list::{impl core::cmp::PartialEq<milhouse::progressive_list::ProgressiveList<T, U>> for milhouse::progressive_list::ProgressiveList<T, U>}]
+    Source: 'src/progressive_list.rs', lines 15:23-15:28 -/
+@[reducible]
+impl_def progressive_list.ProgressiveList.Insts.CoreCmpPartialEqProgressiveList
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (ValueInst1 : Value T) (update_mapUpdateMapInst1 :
+  update_map.UpdateMap U T) (corecmpPartialEqInst : core.cmp.PartialEq U U) :
+  core.cmp.PartialEq (progressive_list.ProgressiveList T U)
+  (progressive_list.ProgressiveList T U) := {
+  eq :=
+    progressive_list.ProgressiveList.Insts.CoreCmpPartialEqProgressiveList.eq
+    ValueInst update_mapUpdateMapInst ValueInst update_mapUpdateMapInst
+    corecmpPartialEqInst
+  ne := core.cmp.PartialEq.ne.trait_default
+    (progressive_list.ProgressiveList.Insts.CoreCmpPartialEqProgressiveList
+    ValueInst update_mapUpdateMapInst ValueInst1 update_mapUpdateMapInst1
+    corecmpPartialEqInst)
+}
+
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::empty]:
-    Source: 'src/progressive_tree.rs', lines 51:4-53:5
+    Source: 'src/progressive_tree.rs', lines 60:4-62:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.empty
   {T : Type} (ValueInst : Value T) :
@@ -4818,7 +5070,7 @@ def progressive_tree.ProgressiveTree.empty
   ok progressive_tree.ProgressiveTree.ProgressiveZero
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::empty]:
-    Source: 'src/progressive_list.rs', lines 24:4-30:5
+    Source: 'src/progressive_list.rs', lines 25:4-31:5
     Visibility: public -/
 def progressive_list.ProgressiveList.empty
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -4831,7 +5083,7 @@ def progressive_list.ProgressiveList.empty
   ok { tree := a, length := 0#usize, updates := t }
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::from_spine_subtrees]: loop body 0:
-    Source: 'src/progressive_tree.rs', lines 117:8-123:9 -/
+    Source: 'src/progressive_tree.rs', lines 126:8-132:9 -/
 @[rust_loop_body]
 def progressive_tree.ProgressiveTree.from_spine_subtrees_loop.body
   {T : Type}
@@ -4859,7 +5111,7 @@ def progressive_tree.ProgressiveTree.from_spine_subtrees_loop.body
       a))
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::from_spine_subtrees]: loop 0:
-    Source: 'src/progressive_tree.rs', lines 117:8-123:9 -/
+    Source: 'src/progressive_tree.rs', lines 126:8-132:9 -/
 @[rust_loop]
 def progressive_tree.ProgressiveTree.from_spine_subtrees_loop
   {T : Type}
@@ -4875,7 +5127,7 @@ def progressive_tree.ProgressiveTree.from_spine_subtrees_loop
     (iter, current)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::from_spine_subtrees]:
-    Source: 'src/progressive_tree.rs', lines 115:4-125:5 -/
+    Source: 'src/progressive_tree.rs', lines 124:4-134:5 -/
 def progressive_tree.ProgressiveTree.from_spine_subtrees
   {T : Type} (ValueInst : Value T)
   (subtrees : alloc.vec.Vec (triomphe.arc.Arc (tree.Tree T))) :
@@ -4892,7 +5144,7 @@ def progressive_tree.ProgressiveTree.from_spine_subtrees
     progressive_tree.ProgressiveTree.ProgressiveZero
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeBuilder<T>}::finish]:
-    Source: 'src/progressive_tree.rs', lines 405:4-414:5 -/
+    Source: 'src/progressive_tree.rs', lines 414:4-423:5 -/
 def progressive_tree.ProgressiveTreeBuilder.finish
   {T : Type} (ValueInst : Value T)
   (self : progressive_tree.ProgressiveTreeBuilder T) :
@@ -4933,7 +5185,7 @@ def progressive_tree.PROG_TREE_BINARY_SCALE : Result Std.Usize := do
   ok (UScalar.cast .Usize i)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::prog_depth_to_binary_depth]:
-    Source: 'src/progressive_tree.rs', lines 87:4-96:5
+    Source: 'src/progressive_tree.rs', lines 96:4-105:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.prog_depth_to_binary_depth
   {T : Type} (ValueInst : Value T) (prog_depth : Std.U32) :
@@ -4948,7 +5200,7 @@ def progressive_tree.ProgressiveTree.prog_depth_to_binary_depth
     i1 * i
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::capacity_at_depth]:
-    Source: 'src/progressive_tree.rs', lines 59:4-69:5
+    Source: 'src/progressive_tree.rs', lines 68:4-78:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.capacity_at_depth
   {T : Type} (ValueInst : Value T) (prog_depth : Std.U32) :
@@ -4972,7 +5224,7 @@ def progressive_tree.ProgressiveTree.capacity_at_depth
   ok (UScalar.cast .Usize i4)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeBuilder<T>}::new]:
-    Source: 'src/progressive_tree.rs', lines 376:4-385:5 -/
+    Source: 'src/progressive_tree.rs', lines 385:4-394:5 -/
 def progressive_tree.ProgressiveTreeBuilder.new
   {T : Type} (ValueInst : Value T) :
   Result (core.result.Result (progressive_tree.ProgressiveTreeBuilder T)
@@ -5001,7 +5253,7 @@ def progressive_tree.ProgressiveTreeBuilder.new
       error.Error) residual
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeBuilder<T>}::push]:
-    Source: 'src/progressive_tree.rs', lines 387:4-403:5 -/
+    Source: 'src/progressive_tree.rs', lines 396:4-412:5 -/
 def progressive_tree.ProgressiveTreeBuilder.push
   {T : Type} (ValueInst : Value T)
   (self : progressive_tree.ProgressiveTreeBuilder T) (value : T) :
@@ -5081,7 +5333,7 @@ def progressive_tree.ProgressiveTreeBuilder.push
       ok (r1, { self with current := b })
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeBuilder<T>}::extend_from_iter]: loop body 0:
-    Source: 'src/progressive_tree.rs', lines 370:8-374:5 -/
+    Source: 'src/progressive_tree.rs', lines 379:8-383:5 -/
 @[rust_loop_body]
 def progressive_tree.ProgressiveTreeBuilder.extend_from_iter_loop.body
   {T : Type} {T1 : Type} (ValueInst : Value T)
@@ -5107,7 +5359,7 @@ def progressive_tree.ProgressiveTreeBuilder.extend_from_iter_loop.body
       ok (done (r1, self1))
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeBuilder<T>}::extend_from_iter]: loop 0:
-    Source: 'src/progressive_tree.rs', lines 370:8-374:5 -/
+    Source: 'src/progressive_tree.rs', lines 379:8-383:5 -/
 @[rust_loop]
 def progressive_tree.ProgressiveTreeBuilder.extend_from_iter_loop
   {T : Type} {T1 : Type} (ValueInst : Value T)
@@ -5123,7 +5375,7 @@ def progressive_tree.ProgressiveTreeBuilder.extend_from_iter_loop
     (iter, self)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeBuilder<T>}::extend_from_iter]:
-    Source: 'src/progressive_tree.rs', lines 369:4-374:5 -/
+    Source: 'src/progressive_tree.rs', lines 378:4-383:5 -/
 @[reducible]
 def progressive_tree.ProgressiveTreeBuilder.extend_from_iter
   {T : Type} {T1 : Type} (ValueInst : Value T)
@@ -5136,7 +5388,7 @@ def progressive_tree.ProgressiveTreeBuilder.extend_from_iter
     coreitertraitsiteratorIteratorInst iter self
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::build_from_iter_with_len]:
-    Source: 'src/progressive_tree.rs', lines 106:4-112:5 -/
+    Source: 'src/progressive_tree.rs', lines 115:4-121:5 -/
 def progressive_tree.ProgressiveTree.build_from_iter_with_len
   {T : Type} {T1 : Type} {Clause1_IntoIter : Type} (ValueInst : Value T)
   (coreitertraitscollectIntoIteratorInst :
@@ -5166,7 +5418,7 @@ def progressive_tree.ProgressiveTree.build_from_iter_with_len
       (core.convert.FromSame error.Error) residual
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
-    Source: 'src/progressive_list.rs', lines 36:4-45:5
+    Source: 'src/progressive_list.rs', lines 37:4-46:5
     Visibility: public -/
 def progressive_list.ProgressiveList.try_from_iter
   {T : Type} {U : Type} {T2 : Type} {Clause2_IntoIter : Type} (ValueInst :
@@ -5192,7 +5444,7 @@ def progressive_list.ProgressiveList.try_from_iter
       error.Error) residual
 
 /-- [milhouse::progressive_list::{impl core::convert::TryFrom<alloc::vec::Vec<T>, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from]:
-    Source: 'src/progressive_list.rs', lines 261:4-263:5
+    Source: 'src/progressive_list.rs', lines 262:4-264:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5204,7 +5456,7 @@ def progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
     update_mapUpdateMapInst (core.iter.traits.collect.IntoIteratorVec T) vec
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::new]:
-    Source: 'src/progressive_list.rs', lines 32:4-34:5
+    Source: 'src/progressive_list.rs', lines 33:4-35:5
     Visibility: public -/
 def progressive_list.ProgressiveList.new
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5216,7 +5468,7 @@ def progressive_list.ProgressiveList.new
     ValueInst update_mapUpdateMapInst vec
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::backing_len]:
-    Source: 'src/progressive_list.rs', lines 48:4-50:5 -/
+    Source: 'src/progressive_list.rs', lines 49:4-51:5 -/
 def progressive_list.ProgressiveList.backing_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
@@ -5225,7 +5477,7 @@ def progressive_list.ProgressiveList.backing_len
   utils.Length.as_usize self.length
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::total_capacity_at_depth]:
-    Source: 'src/progressive_tree.rs', lines 75:4-84:5
+    Source: 'src/progressive_tree.rs', lines 84:4-93:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.total_capacity_at_depth
   {T : Type} (ValueInst : Value T) (prog_depth : Std.U32) :
@@ -5247,7 +5499,7 @@ def progressive_tree.ProgressiveTree.total_capacity_at_depth
   ok (UScalar.cast .Usize i9)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::get_recursive]:
-    Source: 'src/progressive_tree.rs', lines 148:4-166:5
+    Source: 'src/progressive_tree.rs', lines 157:4-175:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.get_recursive
   {T : Type} (ValueInst : Value T) (self : progressive_tree.ProgressiveTree T)
@@ -5279,7 +5531,7 @@ def progressive_tree.ProgressiveTree.get_recursive
 partial_fixpoint
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::backing_get]:
-    Source: 'src/progressive_list.rs', lines 53:4-59:5 -/
+    Source: 'src/progressive_list.rs', lines 54:4-60:5 -/
 def progressive_list.ProgressiveList.backing_get
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
@@ -5296,7 +5548,7 @@ def progressive_list.ProgressiveList.backing_get
   else ok none
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get]:
-    Source: 'src/progressive_list.rs', lines 61:4-66:5
+    Source: 'src/progressive_list.rs', lines 62:4-67:5
     Visibility: public -/
 def progressive_list.ProgressiveList.get
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5312,7 +5564,7 @@ def progressive_list.ProgressiveList.get
   | some _ => ok o
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}::call_once]:
-    Source: 'src/progressive_list.rs', lines 69:41-75:9 -/
+    Source: 'src/progressive_list.rs', lines 70:41-76:9 -/
 def
   progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5333,7 +5585,7 @@ def
   else ok none
 
 /-- Trait implementation: [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}]
-    Source: 'src/progressive_list.rs', lines 69:41-75:9 -/
+    Source: 'src/progressive_list.rs', lines 70:41-76:9 -/
 @[reducible]
 def
   progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
@@ -5347,7 +5599,7 @@ def
 }
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut]:
-    Source: 'src/progressive_list.rs', lines 68:4-76:5
+    Source: 'src/progressive_list.rs', lines 69:4-77:5
     Visibility: public -/
 def progressive_list.ProgressiveList.get_mut
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5366,7 +5618,7 @@ def progressive_list.ProgressiveList.get_mut
   ok (o, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_cow]:
-    Source: 'src/progressive_list.rs', lines 78:4-90:5
+    Source: 'src/progressive_list.rs', lines 79:4-91:5
     Visibility: public -/
 def progressive_list.ProgressiveList.get_cow
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5404,7 +5656,7 @@ def progressive_list.ProgressiveList.get_cow
     ok (o1, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 102:4-104:5
+    Source: 'src/progressive_list.rs', lines 103:4-105:5
     Visibility: public -/
 def progressive_list.ProgressiveList.len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5416,7 +5668,7 @@ def progressive_list.ProgressiveList.len
   utils.Length.as_usize l
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::push]:
-    Source: 'src/progressive_list.rs', lines 92:4-100:5
+    Source: 'src/progressive_list.rs', lines 93:4-101:5
     Visibility: public -/
 def progressive_list.ProgressiveList.push
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5434,7 +5686,7 @@ def progressive_list.ProgressiveList.push
     ok (core.result.Result.Ok (), { self with updates := t })
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::is_empty]:
-    Source: 'src/progressive_list.rs', lines 106:4-108:5
+    Source: 'src/progressive_list.rs', lines 107:4-109:5
     Visibility: public -/
 def progressive_list.ProgressiveList.is_empty
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5446,7 +5698,7 @@ def progressive_list.ProgressiveList.is_empty
   ok (i = 0#usize)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::has_pending_updates]:
-    Source: 'src/progressive_list.rs', lines 110:4-112:5
+    Source: 'src/progressive_list.rs', lines 111:4-113:5
     Visibility: public -/
 def progressive_list.ProgressiveList.has_pending_updates
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5457,7 +5709,7 @@ def progressive_list.ProgressiveList.has_pending_updates
   ok (¬ b)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::has_updates_in_range]:
-    Source: 'src/progressive_tree.rs', lines 228:4-230:5 -/
+    Source: 'src/progressive_tree.rs', lines 237:4-239:5 -/
 def progressive_tree.ProgressiveTree.has_updates_in_range
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (updates : U) (start : Std.Usize)
@@ -5469,7 +5721,7 @@ def progressive_tree.ProgressiveTree.has_updates_in_range
   else ok false
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::closure<'_0, T, U>}::call_once]:
-    Source: 'src/progressive_tree.rs', lines 214:49-214:73 -/
+    Source: 'src/progressive_tree.rs', lines 223:49-223:73 -/
 def
   progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool.call_once
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5481,7 +5733,7 @@ def
   ok (tupled_args >= c)
 
 /-- Trait implementation: [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::closure<'_0, T, U>}]
-    Source: 'src/progressive_tree.rs', lines 214:49-214:73 -/
+    Source: 'src/progressive_tree.rs', lines 223:49-223:73 -/
 @[reducible]
 def
   progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool
@@ -5495,7 +5747,7 @@ def
 }
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive]:
-    Source: 'src/progressive_tree.rs', lines 177:4-225:5 -/
+    Source: 'src/progressive_tree.rs', lines 186:4-234:5 -/
 def progressive_tree.ProgressiveTree.with_updated_leaves_recursive
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_tree.ProgressiveTree T)
@@ -5656,7 +5908,7 @@ def progressive_tree.ProgressiveTree.with_updated_leaves_recursive
 partial_fixpoint
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves]:
-    Source: 'src/progressive_tree.rs', lines 173:4-175:5
+    Source: 'src/progressive_tree.rs', lines 182:4-184:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.with_updated_leaves
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5669,7 +5921,7 @@ def progressive_tree.ProgressiveTree.with_updated_leaves
     update_mapUpdateMapInst self updates o 0#u32
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::apply_updates]:
-    Source: 'src/progressive_list.rs', lines 115:4-136:5
+    Source: 'src/progressive_list.rs', lines 116:4-137:5
     Visibility: public -/
 def progressive_list.ProgressiveList.apply_updates
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5698,7 +5950,7 @@ def progressive_list.ProgressiveList.apply_updates
       ok (core.result.Result.Err e, { self with updates })
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::enter_subtree]:
-    Source: 'src/progressive_tree.rs', lines 513:4-535:5 -/
+    Source: 'src/progressive_tree.rs', lines 522:4-544:5 -/
 def progressive_tree.ProgressiveTreeIter.enter_subtree
   {T : Type} (ValueInst : Value T)
   (self : progressive_tree.ProgressiveTreeIter T)
@@ -5731,7 +5983,7 @@ def progressive_tree.ProgressiveTreeIter.enter_subtree
     }
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_step]:
-    Source: 'src/progressive_tree.rs', lines 466:4-492:5 -/
+    Source: 'src/progressive_tree.rs', lines 475:4-501:5 -/
 def progressive_tree.ProgressiveTreeIter.seek_step
   {T : Type} (ValueInst : Value T)
   (self : progressive_tree.ProgressiveTreeIter T) (start_index : Std.Usize) :
@@ -5764,7 +6016,7 @@ def progressive_tree.ProgressiveTreeIter.seek_step
           { self with current_prog_node := (some pt1), prog_depth := i })
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_to_subtree]: loop body 0:
-    Source: 'src/progressive_tree.rs', lines 460:8-460:44 -/
+    Source: 'src/progressive_tree.rs', lines 469:8-469:44 -/
 @[rust_loop_body]
 def progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop.body
   {T : Type} (ValueInst : Value T) (start_index : Std.Usize)
@@ -5779,7 +6031,7 @@ def progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop.body
   else ok (done self1)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_to_subtree]: loop 0:
-    Source: 'src/progressive_tree.rs', lines 460:8-460:44 -/
+    Source: 'src/progressive_tree.rs', lines 469:8-469:44 -/
 @[rust_loop]
 def progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop
   {T : Type} (ValueInst : Value T)
@@ -5793,7 +6045,7 @@ def progressive_tree.ProgressiveTreeIter.seek_to_subtree_loop
     self
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::seek_to_subtree]:
-    Source: 'src/progressive_tree.rs', lines 459:4-461:5 -/
+    Source: 'src/progressive_tree.rs', lines 468:4-470:5 -/
 @[reducible]
 def progressive_tree.ProgressiveTreeIter.seek_to_subtree
   {T : Type} (ValueInst : Value T)
@@ -5804,7 +6056,7 @@ def progressive_tree.ProgressiveTreeIter.seek_to_subtree
     start_index
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::from_index]:
-    Source: 'src/progressive_tree.rs', lines 445:4-455:5 -/
+    Source: 'src/progressive_tree.rs', lines 454:4-464:5 -/
 def progressive_tree.ProgressiveTreeIter.from_index
   {T : Type} (ValueInst : Value T) (root : progressive_tree.ProgressiveTree T)
   (start_index : Std.Usize) (length : Std.Usize) :
@@ -5820,7 +6072,7 @@ def progressive_tree.ProgressiveTreeIter.from_index
     } start_index
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::iter_from]:
-    Source: 'src/progressive_tree.rs', lines 144:4-146:5
+    Source: 'src/progressive_tree.rs', lines 153:4-155:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.iter_from
   {T : Type} (ValueInst : Value T) (self : progressive_tree.ProgressiveTree T)
@@ -5830,7 +6082,7 @@ def progressive_tree.ProgressiveTree.iter_from
   progressive_tree.ProgressiveTreeIter.from_index ValueInst self index length
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_from_unchecked]:
-    Source: 'src/progressive_list.rs', lines 153:4-165:5 -/
+    Source: 'src/progressive_list.rs', lines 154:4-166:5 -/
 def progressive_list.ProgressiveList.iter_from_unchecked
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
@@ -5849,7 +6101,7 @@ def progressive_list.ProgressiveList.iter_from_unchecked
   ok { tree_iter, updates := self.updates, index, length := i1 }
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter]:
-    Source: 'src/progressive_list.rs', lines 138:4-140:5
+    Source: 'src/progressive_list.rs', lines 139:4-141:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5860,7 +6112,7 @@ def progressive_list.ProgressiveList.iter
     update_mapUpdateMapInst self 0#usize
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_from]:
-    Source: 'src/progressive_list.rs', lines 142:4-151:5
+    Source: 'src/progressive_list.rs', lines 143:4-152:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5880,7 +6132,7 @@ def progressive_list.ProgressiveList.iter_from
     ok (core.result.Result.Ok pli)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_cow_from_unchecked]:
-    Source: 'src/progressive_list.rs', lines 184:4-193:5 -/
+    Source: 'src/progressive_list.rs', lines 185:4-194:5 -/
 def progressive_list.ProgressiveList.iter_cow_from_unchecked
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
@@ -5900,7 +6152,7 @@ def progressive_list.ProgressiveList.iter_cow_from_unchecked
   ok ({ tree_iter, updates := self.updates, index }, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_cow]:
-    Source: 'src/progressive_list.rs', lines 167:4-169:5
+    Source: 'src/progressive_list.rs', lines 168:4-170:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter_cow
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5929,7 +6181,7 @@ def progressive_list.ProgressiveList.iter_cow
   ok (plic, back)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::iter_cow_from]:
-    Source: 'src/progressive_list.rs', lines 171:4-182:5
+    Source: 'src/progressive_list.rs', lines 172:4-183:5
     Visibility: public -/
 def progressive_list.ProgressiveList.iter_cow_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5975,7 +6227,7 @@ def progressive_list.ProgressiveList.iter_cow_from
     ok (core.result.Result.Ok plic, back)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::size_hint]:
-    Source: 'src/progressive_list.rs', lines 462:4-465:5
+    Source: 'src/progressive_list.rs', lines 463:4-466:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
@@ -5987,7 +6239,7 @@ def
   ok (remaining, some remaining)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::exact_size::ExactSizeIterator<&'_ T> for milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 471:4-473:5
+    Source: 'src/progressive_list.rs', lines 472:4-474:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
@@ -6001,7 +6253,7 @@ def
   ok i
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::advance_to_next_subtree]:
-    Source: 'src/progressive_tree.rs', lines 496:4-509:5 -/
+    Source: 'src/progressive_tree.rs', lines 505:4-518:5 -/
 def progressive_tree.ProgressiveTreeIter.advance_to_next_subtree
   {T : Type} (ValueInst : Value T)
   (self : progressive_tree.ProgressiveTreeIter T) :
@@ -6019,7 +6271,7 @@ def progressive_tree.ProgressiveTreeIter.advance_to_next_subtree
         pt1 0#usize
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next_step]:
-    Source: 'src/progressive_tree.rs', lines 538:4-554:5 -/
+    Source: 'src/progressive_tree.rs', lines 547:4-563:5 -/
 def progressive_tree.ProgressiveTreeIter.next_step
   {T : Type} (ValueInst : Value T)
   (self : progressive_tree.ProgressiveTreeIter T) :
@@ -6057,7 +6309,7 @@ def progressive_tree.ProgressiveTreeIter.next_step
         { self with current_iter := (some i1), yielded := i2 })
 
 /-- [milhouse::progressive_tree::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next]: loop body 0:
-    Source: 'src/progressive_tree.rs', lines 561:8-566:9
+    Source: 'src/progressive_tree.rs', lines 570:8-575:9
     Visibility: public -/
 @[rust_loop_body]
 def
@@ -6074,7 +6326,7 @@ def
   | core.ops.control_flow.ControlFlow.Break o => ok (done (self1, o))
 
 /-- [milhouse::progressive_tree::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next]: loop 0:
-    Source: 'src/progressive_tree.rs', lines 561:8-566:9
+    Source: 'src/progressive_tree.rs', lines 570:8-575:9
     Visibility: public -/
 @[rust_loop]
 def
@@ -6090,7 +6342,7 @@ def
     self
 
 /-- [milhouse::progressive_tree::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_tree::ProgressiveTreeIter<'a, T>}::next]:
-    Source: 'src/progressive_tree.rs', lines 560:4-567:5
+    Source: 'src/progressive_tree.rs', lines 569:4-576:5
     Visibility: public -/
 def
   progressive_tree.ProgressiveTreeIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6104,7 +6356,7 @@ def
   ok (value, self1)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::next]:
-    Source: 'src/progressive_list.rs', lines 447:4-460:5
+    Source: 'src/progressive_list.rs', lines 448:4-461:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6124,7 +6376,7 @@ def
     ok (o1, { self with tree_iter := pti, index := i })
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::collect::IntoIterator<&'a T, milhouse::progressive_list::ProgressiveListIter<'a, T, U>> for &'a milhouse::progressive_list::ProgressiveList<T, U>}::into_iter]:
-    Source: 'src/progressive_list.rs', lines 276:4-278:5
+    Source: 'src/progressive_list.rs', lines 277:4-279:5
     Visibility: public -/
 def
   SharedAProgressiveList.Insts.CoreIterTraitsCollectIntoIteratorSharedATProgressiveListIter.into_iter
@@ -6135,7 +6387,7 @@ def
   progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst self
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 198:8-200:9
+    Source: 'src/progressive_list.rs', lines 199:8-201:9
     Visibility: public -/
 @[rust_loop_body]
 def progressive_list.ProgressiveList.to_vec_loop.body
@@ -6156,7 +6408,7 @@ def progressive_list.ProgressiveList.to_vec_loop.body
     ok (cont (iter1, values1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]: loop 0:
-    Source: 'src/progressive_list.rs', lines 198:8-200:9
+    Source: 'src/progressive_list.rs', lines 199:8-201:9
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.to_vec_loop
@@ -6171,7 +6423,7 @@ def progressive_list.ProgressiveList.to_vec_loop
     (iter, values)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]:
-    Source: 'src/progressive_list.rs', lines 195:4-202:5
+    Source: 'src/progressive_list.rs', lines 196:4-203:5
     Visibility: public -/
 def progressive_list.ProgressiveList.to_vec
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6189,7 +6441,7 @@ def progressive_list.ProgressiveList.to_vec
     update_mapUpdateMapInst iter values
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 437:8-441:5 -/
+    Source: 'src/progressive_list.rs', lines 438:8-442:5 -/
 @[rust_loop_body]
 def progressive_list.ProgressiveListIter.extend_builder_loop.body
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6219,7 +6471,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop.body
       ok (done (r1, builder1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop 0:
-    Source: 'src/progressive_list.rs', lines 437:8-441:5 -/
+    Source: 'src/progressive_list.rs', lines 438:8-442:5 -/
 @[rust_loop]
 def progressive_list.ProgressiveListIter.extend_builder_loop
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6235,7 +6487,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop
     (self, builder)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]:
-    Source: 'src/progressive_list.rs', lines 436:4-441:5 -/
+    Source: 'src/progressive_list.rs', lines 437:4-442:5 -/
 @[reducible]
 def progressive_list.ProgressiveListIter.extend_builder
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6248,7 +6500,7 @@ def progressive_list.ProgressiveListIter.extend_builder
     update_mapUpdateMapInst self builder
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::pop_front]:
-    Source: 'src/progressive_list.rs', lines 207:4-232:5
+    Source: 'src/progressive_list.rs', lines 208:4-233:5
     Visibility: public -/
 def progressive_list.ProgressiveList.pop_front
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6315,7 +6567,7 @@ def progressive_list.ProgressiveList.pop_front
         ok (r1, self)
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::rebase_on_recursive]:
-    Source: 'src/progressive_tree.rs', lines 244:4-316:5 -/
+    Source: 'src/progressive_tree.rs', lines 253:4-325:5 -/
 def progressive_tree.ProgressiveTree.rebase_on_recursive
   {T : Type} (ValueInst : Value T)
   (orig : triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
@@ -6440,7 +6692,7 @@ def progressive_tree.ProgressiveTree.rebase_on_recursive
 partial_fixpoint
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::rebase_on]:
-    Source: 'src/progressive_tree.rs', lines 235:4-242:5
+    Source: 'src/progressive_tree.rs', lines 244:4-251:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.rebase_on
   {T : Type} (ValueInst : Value T)
@@ -6454,7 +6706,7 @@ def progressive_tree.ProgressiveTree.rebase_on
     orig_length base_length 0#u32
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::rebase_on]:
-    Source: 'src/progressive_list.rs', lines 246:4-255:5
+    Source: 'src/progressive_list.rs', lines 247:4-256:5
     Visibility: public -/
 def progressive_list.ProgressiveList.rebase_on
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6479,7 +6731,7 @@ def progressive_list.ProgressiveList.rebase_on
     ok (r1, self)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::rebase]:
-    Source: 'src/progressive_list.rs', lines 236:4-240:5
+    Source: 'src/progressive_list.rs', lines 237:4-241:5
     Visibility: public -/
 def progressive_list.ProgressiveList.rebase
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6505,7 +6757,7 @@ def progressive_list.ProgressiveList.rebase
       error.Error) residual
 
 /-- [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}::default]:
-    Source: 'src/progressive_list.rs', lines 267:4-269:5
+    Source: 'src/progressive_list.rs', lines 268:4-270:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6515,7 +6767,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   progressive_list.ProgressiveList.empty ValueInst update_mapUpdateMapInst
 
 /-- Trait implementation: [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}]
-    Source: 'src/progressive_list.rs', lines 266:0-270:1 -/
+    Source: 'src/progressive_list.rs', lines 267:0-271:1 -/
 @[reducible]
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
   Type} (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U
@@ -6525,7 +6777,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
 }
 
 /-- [milhouse::progressive_list::{impl ssz::decode::try_from_iter::TryFromIter<T, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
-    Source: 'src/progressive_list.rs', lines 358:4-363:5
+    Source: 'src/progressive_list.rs', lines 359:4-364:5
     Visibility: public -/
 def
   progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter
@@ -6540,7 +6792,7 @@ def
     update_mapUpdateMapInst coreitertraitscollectIntoIteratorInst iter
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::build_from_iter]:
-    Source: 'src/progressive_tree.rs', lines 100:4-102:5
+    Source: 'src/progressive_tree.rs', lines 109:4-111:5
     Visibility: public -/
 def progressive_tree.ProgressiveTree.build_from_iter
   {T : Type} {T1 : Type} {Clause1_IntoIter : Type} (ValueInst : Value T)
@@ -6560,6 +6812,30 @@ def progressive_tree.ProgressiveTree.build_from_iter
     core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
       (progressive_tree.ProgressiveTree T) (core.convert.FromSame error.Error)
       residual
+
+/-- [milhouse::proof_roots::progressive_list_eq]:
+    Source: 'src/proof_roots.rs', lines 8:0-13:1
+    Visibility: public -/
+def proof_roots.progressive_list_eq
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (corecmpPartialEqInst : core.cmp.PartialEq U U)
+  (left : progressive_list.ProgressiveList T U)
+  (right : progressive_list.ProgressiveList T U) :
+  Result Bool
+  := do
+  progressive_list.ProgressiveList.Insts.CoreCmpPartialEqProgressiveList.eq
+    ValueInst update_mapUpdateMapInst ValueInst update_mapUpdateMapInst
+    corecmpPartialEqInst left right
+
+/-- Trait implementation: [milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<T>> for milhouse::tree::Tree<T>}]
+    Source: 'src/tree.rs', lines 10:16-10:21 -/
+@[reducible]
+impl_def tree.Tree.Insts.CoreCmpPartialEqTree {T : Type} (ValueInst : Value T)
+  (ValueInst1 : Value T) : core.cmp.PartialEq (tree.Tree T) (tree.Tree T) := {
+  eq := tree.Tree.Insts.CoreCmpPartialEqTree.eq ValueInst ValueInst
+  ne := core.cmp.PartialEq.ne.trait_default
+    (tree.Tree.Insts.CoreCmpPartialEqTree ValueInst ValueInst1)
+}
 
 /-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
     Source: 'src/tree.rs', lines 10:16-10:21
@@ -6609,7 +6885,7 @@ def tree.Tree.Insts.CoreHashHash {T : Type} (ValueInst : Value T)
 }
 
 /-- [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}::clone]:
-    Source: 'src/tree.rs', lines 29:4-40:5
+    Source: 'src/tree.rs', lines 31:4-42:5
     Visibility: public -/
 def tree.Tree.Insts.CoreCloneClone.clone
   {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
@@ -6644,7 +6920,7 @@ def tree.Tree.Insts.CoreCloneClone.clone
   | tree.Tree.Zero _ => ok self
 
 /-- Trait implementation: [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}]
-    Source: 'src/tree.rs', lines 28:0-41:1 -/
+    Source: 'src/tree.rs', lines 30:0-43:1 -/
 @[reducible]
 def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
   core.clone.Clone (tree.Tree T) := {
@@ -6652,7 +6928,7 @@ def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero_unboxed]:
-    Source: 'src/tree.rs', lines 76:4-78:5
+    Source: 'src/tree.rs', lines 85:4-87:5
     Visibility: public -/
 def tree.Tree.zero_unboxed
   {T : Type} (ValueInst : Value T) (depth : Std.Usize) :
@@ -6661,7 +6937,7 @@ def tree.Tree.zero_unboxed
   ok (tree.Tree.Zero depth)
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::compute_len]:
-    Source: 'src/tree.rs', lines 247:4-254:5
+    Source: 'src/tree.rs', lines 256:4-263:5
     Visibility: public -/
 def tree.Tree.compute_len
   {T : Type} (ValueInst : Value T) (self : tree.Tree T) :
@@ -6680,7 +6956,7 @@ def tree.Tree.compute_len
 partial_fixpoint
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::intra_rebase]:
-    Source: 'src/tree.rs', lines 449:4-533:5
+    Source: 'src/tree.rs', lines 458:4-542:5
     Visibility: public -/
 def tree.Tree.intra_rebase
   {T : Type} (ValueInst : Value T) (orig : triomphe.arc.Arc (tree.Tree T))
