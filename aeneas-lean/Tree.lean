@@ -37,6 +37,7 @@ import Tree.ProgressiveList.Encode.VariableLoop
 import Tree.ProgressiveList.Encode.Variable
 import Tree.ProgressiveList.Encode.Owning
 import Tree.Ssz.Bytes
+import Tree.Ssz.ReadOffset
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
