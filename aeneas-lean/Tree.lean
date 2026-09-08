@@ -34,6 +34,7 @@ import Tree.ProgressiveList.Encode.Length
 import Tree.ProgressiveList.Encode.Fixed
 import Tree.ProgressiveList.Encode.Metadata
 import Tree.Ssz.Bytes
+import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
 import Tree.ProgressiveList.Rebase.Contents
