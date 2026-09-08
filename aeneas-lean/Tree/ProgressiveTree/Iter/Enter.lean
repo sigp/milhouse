@@ -19,7 +19,7 @@ private theorem usize_saturating_sub_val (length start : Std.Usize) :
     that enumerates exactly the requested suffix of that layer. The spine's
     remaining length determines the binary iterator length; representable layer
     capacity supplies all depth arithmetic and binary routing bounds. -/
-theorem ProgressiveTreeIter.enter_subtree_spec {T : Type} (ValueInst : Value T)
+theorem ProgressiveTreeIter.enter_subtree_drains {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
     (self : ProgressiveTreeIter T) (left : tree.Tree T) (right : ProgressiveTree T)
@@ -32,7 +32,7 @@ theorem ProgressiveTreeIter.enter_subtree_spec {T : Type} (ValueInst : Value T)
     ∃ next current, ProgressiveTreeIter.enter_subtree ValueInst self left right localIndex =
         ok { self with current_prog_node := some right, current_iter := some current, prog_depth := next } ∧
       next.val = self.prog_depth.val + 1 ∧
-      IteratorYields (iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst)
+      IteratorDrains (iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst)
         current (left.elements.drop localIndex.val) := by
   obtain ⟨next, binary, hnext, hbinary, hbinaryVal, hbits⟩ := next_layer_bounds ValueInst hlayout self.prog_depth hfit
   have hnextVal : next.val = self.prog_depth.val + 1 := by
@@ -61,11 +61,31 @@ theorem ProgressiveTreeIter.enter_subtree_spec {T : Type} (ValueInst : Value T)
   have hleft : DenseTree factor left binary.val subtreeLength.val := by
     rw [hbinaryVal, hsubtreeLength]
     exact hdense.split_layer.1
-  obtain ⟨current, hcurrent, hyields⟩ := iter.Iter.from_index_yields ValueInst hlayout hleft (by omega) localIndex
+  obtain ⟨current, hcurrent, hyields⟩ := iter.Iter.from_index_drains ValueInst hlayout hleft (by omega) localIndex
   refine ⟨next, current, ?_, hnextVal, hyields⟩
   dsimp only [remaining] at hmin
   unfold ProgressiveTreeIter.enter_subtree
   simp! only [hnext, hprevious, hstart, hbinary, hcapacity, lift, bind_tc_ok, hmin,
     triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref, hcurrent]
+
+/-- Layer entry enumerates the exact local suffix through its first `none`. -/
+theorem ProgressiveTreeIter.enter_subtree_spec {T : Type} (ValueInst : Value T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    (self : ProgressiveTreeIter T) (left : tree.Tree T) (right : ProgressiveTree T)
+    (hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize))
+    (hdense : (ProgressiveTree.ProgressiveNode hash left right).Dense factor self.prog_depth.val
+      (self.length.val - progressiveCapacity factor self.prog_depth.val))
+    (hfit : subtreeCapacity factor (2 * self.prog_depth.val) < 2 ^ System.Platform.numBits)
+    (localIndex : Std.Usize) :
+    ∃ next current, ProgressiveTreeIter.enter_subtree ValueInst self left right localIndex =
+        ok { self with current_prog_node := some right, current_iter := some current, prog_depth := next } ∧
+      next.val = self.prog_depth.val + 1 ∧
+      IteratorYields (iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst)
+        current (left.elements.drop localIndex.val) := by
+  obtain ⟨next, current, henter, hdepth, hdrains⟩ :=
+    ProgressiveTreeIter.enter_subtree_drains ValueInst hlayout self left right hash hdense hfit localIndex
+  exact ⟨next, current, henter, hdepth, hdrains.yields⟩
 
 end milhouse.progressive_tree
