@@ -26,6 +26,8 @@
 # - List methods are selected individually so its serde/ssz trait impls remain
 #   outside the extraction boundary. `List::intra_rebase` is opaque because its
 #   pointer-sharing and hash-cache effects are intentionally erased in Lean.
+# - Cow metadata helpers are included. Deref and mutation of Cow handles still
+#   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -37,6 +39,8 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
 "$CHARON" cargo --preset=aeneas \
     --start-from 'milhouse::tree' \
     --start-from 'milhouse::builder' \
+    --start-from 'milhouse::cow::_::run' \
+    --start-from 'milhouse::cow::_::with_max_index' \
     --start-from 'milhouse::repeat::repeat_list' \
     --start-from 'milhouse::list::_::new' \
     --start-from 'milhouse::list::_::empty' \

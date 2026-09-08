@@ -84,6 +84,12 @@ lower-level hypothesis and count the wrapper as proved.
   Exact unchanged release preserves all list fields, including pending-map
   metadata; arbitrary write-back preserves the backing spine. No bridge from
   the data observer to Rust `Deref` or materializing mutation is assumed.
+- `Tree/Cow/Metadata.lean`: the extracted callback records the exact maximum,
+  clears its action, and executes only once; attaching maximum-index tracking
+  changes no carried value and unchanged release restores the original handle
+  and metadata. Equivalent direct Rust metadata updates avoid built-in
+  `Option::take` and `Ord::max` model mismatches. Full handle-method limitations
+  and the supported extraction boundary are documented in `UPSTREAM_BUGS.md`.
 - `Tree/PackedLeaf/Contents.lean`, `Tree/PackedLeaf/BulkUpdate.lean`: exact
   packed insertion contents and bulk-update window contents, including initial
   cloning and the complete scan. Pending values override their own slots;
@@ -110,7 +116,15 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest checkpoint (through `e3a0107`, `9e7c79c`, with the recursive and list-level
+Latest copy-on-write checkpoint (read/release proofs in `55e9e18`, plus the
+metadata helpers): regenerated extraction and the full Lean build pass (1,760
+jobs). All 13 public list read/release and metadata theorems depend only on
+`propext`, `Classical.choice`, and `Quot.sound`. The equivalent Rust metadata
+updates pass all 312 unit tests and three integration tests in release mode;
+formatting passes. Rust handle dereferencing/materialization bridges and all
+other pending operation coverage remain outstanding.
+
+Previous checkpoint (through `e3a0107`, `9e7c79c`, with the recursive and list-level
 modules included in `Tree.lean`): the full Lean build passes (1,756 jobs). All 36
 audited public theorems in the geometry, shape, map-domain, progressive
 bulk-update, list `apply_updates` contents, and list spine modules depend only

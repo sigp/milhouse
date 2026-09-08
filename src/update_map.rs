@@ -231,7 +231,12 @@ impl MaxIndexState {
     pub(crate) fn record_insert(&mut self, index: usize) {
         match self {
             Self::Empty => *self = Self::Known(index),
-            Self::Known(max_index) => *max_index = (*max_index).max(index),
+            Self::Known(max_index) => {
+                // Keep this comparison explicit for Aeneas's Ord::max boundary.
+                if index > *max_index {
+                    *max_index = index;
+                }
+            }
         }
     }
 }

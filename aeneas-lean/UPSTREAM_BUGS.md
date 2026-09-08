@@ -200,6 +200,60 @@ the branch's `UpdateMap::get_cow_with_value` helper. It adds a map lookup but
 preserves lazy backing reads, does not allocate on read-only access, and uses
 the existing copy-on-write maximum-index tracking.
 
+## 9. Aeneas: copy-on-write handle methods fail on borrowed fields
+
+**Stage:** Aeneas symbolic execution.
+**Status:** unresolved for handle dereferencing and materializing mutation;
+the extraction includes `get_cow`, `Cow::with_max_index`, and `CowOnMut::run`.
+
+Expanding the extraction roots to `milhouse::cow` fails when translating the
+`Deref::deref` implementations for `BTreeCow` and `VecCow`. Returning the
+immutable variant's borrowed value raises `Unreachable`. Equivalent explicit
+dereferences (`*value` and `&**value`) fail as well. Translating the `make_mut`
+methods also raises `Unreachable` and `Could not find var for symbolic value`
+errors while handling the borrowed fields and returned mutable reference.
+
+The `into_mut` closures fail with `Can't end abstraction 17 as it is set as
+non-endable`. An explicit match/early-return formulation avoids that particular
+closure failure, but does not resolve the other handle-method failures; that
+trial rewrite was not retained. Excluding individual methods from the full
+module root also leaves generated trait implementations referencing missing
+translated methods. The script instead selects just the supported helpers.
+
+`Tree/Cow/Value.lean` observes the carried value in the already-extracted data
+type. `Tree/ProgressiveList/CopyOnWrite.lean` proves lookup and unchanged-release
+behavior under generic map laws using that observer. This is not a replacement
+model or a proof of Rust `Deref`, `make_mut`, or `into_mut`. Those translation
+bridges and the resulting end-to-end mutation proof remain outstanding. No
+Aeneas source changes or axioms for the missing methods have been introduced.
+
+## 10. Aeneas Lean backend: borrowed `Option::take` and `Ord::max` model mismatch
+
+**Stage:** Lean elaboration of generated code.
+**Status:** avoided with equivalent direct updates in the milhouse metadata
+helpers; extraction and the corresponding Lean proofs succeed.
+
+The original `CowOnMut::run` takes its `Option<(&mut MaxIndexState, usize)>`
+before updating the maximum. The generated use of `Option::take` expects a
+triple containing the taken value, new option, and a backward continuation;
+the built-in Lean model returns a pair. Updating through the borrowed option
+first and then assigning `None` avoids that call. `record_insert` only compares
+and assigns unsigned indices, so moving the clear past it does not change
+successful, error, or panic behavior. The callback remains one-shot.
+
+The original `MaxIndexState::record_insert` uses `usize::max`. Extracting it
+introduces calls to `core.cmp.Ord.max.default` with an `Ord` dictionary, whereas
+the library model expects the comparison function. The same mismatch also
+appears in generated tuple and `Length` trait fields when that default method
+is pulled in. An explicit `if index > *max_index` update avoids the default
+method and retains the exact maximum-index semantics.
+
+`Tree/Cow/Metadata.lean` proves exact maximum recording, callback clearing and
+one-shot behavior, and unchanged attachment/release for the extracted helpers.
+The existing Rust callback and map regression tests cover the corresponding
+runtime paths. These local workarounds do not fix the handle-method limitations
+in issue 9.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

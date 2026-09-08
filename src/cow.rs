@@ -15,9 +15,12 @@ pub struct CowOnMut<'a> {
 
 impl CowOnMut<'_> {
     fn run(&mut self) {
-        if let Some((max_index, index)) = self.max_index.take() {
-            max_index.record_insert(index);
+        // Update through the borrow before clearing the one-shot action. This
+        // avoids a borrowed Option::take, which Aeneas cannot currently model.
+        if let Some((max_index, index)) = &mut self.max_index {
+            max_index.record_insert(*index);
         }
+        self.max_index = None;
     }
 }
 
