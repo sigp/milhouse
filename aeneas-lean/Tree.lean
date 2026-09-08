@@ -48,6 +48,7 @@ import Tree.Ssz.Bytes
 import Tree.Ssz.ReadOffset
 import Tree.Ssz.FixedCursor
 import Tree.Ssz.VariableInit
+import Tree.Ssz.VariableStep
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
