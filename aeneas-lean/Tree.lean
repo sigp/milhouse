@@ -36,6 +36,7 @@ import Tree.ProgressiveList.Encode.Metadata
 import Tree.ProgressiveList.Encode.VariableLoop
 import Tree.ProgressiveList.Encode.Variable
 import Tree.ProgressiveList.Encode.Owning
+import Tree.ProgressiveList.Decode.Entry
 import Tree.Ssz.Bytes
 import Tree.Ssz.ReadOffset
 import Tree.Ssz.Encoder
