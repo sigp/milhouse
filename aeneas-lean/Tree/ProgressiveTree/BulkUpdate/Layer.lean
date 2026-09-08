@@ -132,4 +132,57 @@ theorem ProgressiveTree.get_after_expanded_layer {T U : Type}
     triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref, tree.get_recursive_zero,
     Option.or_none] using hread
 
+/-- A pending value determines the updated read directly. Successful update
+    execution certifies that the old selected binary read succeeds, so this
+    law needs no separate readability premise. -/
+theorem ProgressiveTree.get_after_updated_layer_override {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hrange : update_map.RangeExcludesValues mapInst updates)
+    {depth next : Std.U32} {start stop binary query : Std.Usize}
+    {before after : tree.Tree T} {oldRight newRight : ProgressiveTree T}
+    {oldHash newHash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize)}
+    {pending : Option T}
+    (hnext : depth + 1#u32 = ok next)
+    (hstart : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start)
+    (hstop : ProgressiveTree.total_capacity_at_depth ValueInst next = ok stop)
+    (hbinary : ProgressiveTree.prog_depth_to_binary_depth ValueInst next = ok binary)
+    (hshape : before.Shape factor (2 * depth.val))
+    (hqueryLo : start.val ≤ query.val) (hqueryHi : query.val < stop.val)
+    (hget : mapInst.get updates query = ok pending)
+    (hupdate : tree.Tree.with_updated_leaves ValueInst mapInst before updates
+      0#usize start binary none = ok (core.result.Result.Ok after)) :
+    ProgressiveTree.get_recursive ValueInst (.ProgressiveNode newHash after newRight) query depth =
+      match pending with
+      | some value => ok (some value)
+      | none => ProgressiveTree.get_recursive ValueInst (.ProgressiveNode oldHash before oldRight) query depth := by
+  obtain ⟨_, _, hwidth, _⟩ := ProgressiveTree.updated_layer_contents ValueInst mapInst updates
+    hlayout hclone hrange hnext hstart hstop hbinary (by omega) hshape hupdate
+  have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
+  have hshape' : before.Shape factor binary.val := by simpa only [hbinaryVal] using hshape
+  have hstopBound : stop.val < 2 ^ System.Platform.numBits := by simpa using stop.hBounds
+  have hcapacity : tree.subtreeCapacity factor binary.val < 2 ^ System.Platform.numBits := by omega
+  have hbits : binary.val + packingDepth.val ≤ System.Platform.numBits := by
+    rw [hlayout.subtreeCapacity_eq_two_pow] at hcapacity
+    by_contra hnot
+    have hle : System.Platform.numBits ≤ packingDepth.val + binary.val := by omega
+    have hpow := Nat.pow_le_pow_right (by decide : 0 < 2) hle
+    omega
+  have hbeforeRead := hshape'.get_recursive_eq_slot hlayout binary rfl hbits
+    (core.num.Usize.saturating_sub query start)
+  have hroute : query < stop := by scalar_tac
+  have hbefore : ProgressiveTree.get_recursive ValueInst
+      (.ProgressiveNode oldHash before oldRight) query depth =
+      ok (before.slot factor binary.val (core.num.Usize.saturating_sub query start).val) := by
+    simpa only [ProgressiveTree.get_recursive, hnext, hstop, hstart, hbinary, if_pos hroute,
+      hlayout.opt_packing_depth_eq, hlayout.unwrap_opt_packing_depth_eq, lift, bind_tc_ok,
+      triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] using hbeforeRead
+  have hread := ProgressiveTree.get_after_updated_layer ValueInst mapInst updates hlayout hclone hrange
+    (oldHash := oldHash) (newHash := newHash) (oldRight := oldRight) (newRight := newRight)
+    hnext hstart hstop hbinary hshape hqueryLo hqueryHi hget hupdate
+  cases pending <;> simpa only [hbefore, bind_tc_ok, Option.none_or, Option.some_or] using hread
+
 end milhouse.progressive_tree
