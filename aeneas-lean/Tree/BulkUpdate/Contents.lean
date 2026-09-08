@@ -86,7 +86,7 @@ private theorem bulk_shape_contents_aux {T U : Type}
       offset.val % leafCapacity factor = 0 →
       Tree.with_updated_leaves ValueInst mapInst before updates prefix1 offset depth hashes =
         ok (core.result.Result.Ok after) →
-      after.Shape factor treeDepth ∧
+      subtreeCapacity factor treeDepth < 2 ^ System.Platform.numBits ∧ after.Shape factor treeDepth ∧
         Tree.BulkContents mapInst updates factor before after treeDepth prefix1.val offset.val := by
   intro n
   induction n using Nat.strong_induction_on with
@@ -96,7 +96,8 @@ private theorem bulk_shape_contents_aux {T U : Type}
     | leaf value =>
       obtain ⟨_, index, result, hindex, hget, rfl⟩ :=
         Tree.with_updated_leaves_leaf_value ValueInst mapInst hclone hupdate
-      exact ⟨.leaf result, Tree.bulkContents_of_leaf_value hindex hget⟩
+      exact ⟨by simpa [subtreeCapacity, leafCapacity] using (1#usize).hBounds,
+        .leaf result, Tree.bulkContents_of_leaf_value hindex hget⟩
     | packed factor value =>
       have hz : depth = 0#usize := by scalar_tac
       subst depth
@@ -118,7 +119,7 @@ private theorem bulk_shape_contents_aux {T U : Type}
       | Ok result =>
         simp [core.result.Result.Insts.CoreOpsTry.branch, triomphe.arc.Arc.new] at hupdate
         subst after
-        exact ⟨.packed factor result,
+        exact ⟨by simpa [subtreeCapacity, leafCapacity] using factor.hBounds, .packed factor result,
           Tree.bulkContents_of_packed_update ValueInst mapInst hclone
             hlayout.tree_hash_packing_factor_eq
             (by simpa [subtreeCapacity, leafCapacity] using halign) hoffset hstart hresult⟩
@@ -159,13 +160,16 @@ private theorem bulk_shape_contents_aux {T U : Type}
             have := zeroBit_le_one old
             simp only [zeroBit] at hmeasure
             omega
-          exact ih (2 * nd.val + zeroBit old) hsmall nd child old new start offset
-            (Nat.le_refl _) hndDepth hshape halign hoffset hupdate
+          exact (ih (2 * nd.val + zeroBit old) hsmall nd child old new start offset
+            (Nat.le_refl _) hndDepth hshape halign hoffset hupdate).2
       obtain ⟨hnewLeft, hleftContents⟩ := childCorrect left newLeft prefix1 lo middle
         hleft halignLeft hlo (by omega) leftStep
       obtain ⟨hnewRight, hrightContents⟩ := childCorrect right newRight rightPrefix middle stop
         hright halignRight hmiddle (by omega) rightStep
-      refine ⟨.node hash hnewLeft hnewRight, ?_⟩
+      have hcapBound : subtreeCapacity factor (child + 1) < 2 ^ System.Platform.numBits := by
+        have hstopBound : stop.val < 2 ^ System.Platform.numBits := by simpa using stop.hBounds
+        omega
+      refine ⟨hcapBound, .node hash hnewLeft hnewRight, ?_⟩
       intro query pending hquery hqueryLo hqueryHi
       have hmod := mod_eq_sub_of_aligned halign
         (show prefix1.val ≤ query.val - offset.val by omega)
@@ -213,7 +217,8 @@ private theorem bulk_shape_contents_aux {T U : Type}
               core.result.Result.Insts.CoreOpsTry.branch, Tree.leaf_with_hash,
               leaf.Leaf.with_hash, lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
             subst after
-            exact ⟨.leaf { hash, value }, Tree.bulkContents_of_leaf_value hindex hfound⟩
+            exact ⟨by simpa [subtreeCapacity, leafCapacity] using (1#usize).hBounds,
+              .leaf { hash, value }, Tree.bulkContents_of_leaf_value hindex hfound⟩
         | some factor =>
           have hfactor := hlayout.tree_hash_packing_factor_eq
           simp only [core.option.Option.is_some, Option.isSome, ↓reduceIte, packed_leaf.PackedLeaf.empty,
@@ -231,7 +236,8 @@ private theorem bulk_shape_contents_aux {T U : Type}
           | Ok result =>
             simp [core.result.Result.Insts.CoreOpsTry.branch, triomphe.arc.Arc.new] at hupdate
             subst after
-            refine ⟨.packed factor result, ?_⟩
+            refine ⟨by simpa [subtreeCapacity, leafCapacity] using factor.hBounds,
+              .packed factor result, ?_⟩
             have hcontents := Tree.bulkContents_of_packed_update ValueInst mapInst hclone hfactor
               (by simpa [subtreeCapacity, leafCapacity] using halign) hoffset hstart hresult
             simpa [Tree.BulkContents, Tree.slot, alloc.vec.Vec.with_capacity, alloc.vec.Vec.new] using hcontents
@@ -247,10 +253,10 @@ private theorem bulk_shape_contents_aux {T U : Type}
         have hexpanded : Tree.Shape factor (Tree.Node hash (.Zero nd) (.Zero nd) : Tree T) depth.val := by
           rw [hndVal]
           exact .node hash (.zero factor nd) (.zero factor nd)
-        obtain ⟨hshape, hcontents⟩ := ih _ hsmall depth depth.val
+        obtain ⟨hcapBound, hshape, hcontents⟩ := ih _ hsmall depth depth.val
           (Tree.Node hash (.Zero nd) (.Zero nd)) after prefix1 offset (Nat.le_refl _) rfl
           hexpanded halign hoffset hupdate
-        refine ⟨hshape, ?_⟩
+        refine ⟨hcapBound, hshape, ?_⟩
         intro query pending hquery hlo hhi
         have hzslot : (Tree.Node hash (.Zero nd) (.Zero nd) : Tree T).slot factor depth.val
             (query.val - offset.val) = none := by
@@ -281,8 +287,50 @@ theorem Tree.with_updated_leaves_shape_contents {T U : Type}
       ok (core.result.Result.Ok after)) :
     after.Shape factor depth.val ∧
       Tree.BulkContents mapInst updates factor before after depth.val prefix1.val offset.val := by
-  exact bulk_shape_contents_aux ValueInst mapInst updates hlayout hclone hrange hashes
+  exact (bulk_shape_contents_aux ValueInst mapInst updates hlayout hclone hrange hashes
     (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset
-    (Nat.le_refl _) rfl hshape halign hoffset hupdate
+    (Nat.le_refl _) rfl hshape halign hoffset hupdate).2
+
+/-- Bulk-update correctness through extracted lookup, at every index in the
+    assigned binary window. The shift bound follows from successful updates;
+    callers supply no extra machine-arithmetic precondition. -/
+theorem Tree.get_after_with_updated_leaves {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hrange : update_map.RangeExcludesValues mapInst updates)
+    {before after : Tree T} {prefix1 offset depth index query : Std.Usize} {pending : Option T}
+    {hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
+    (hshape : before.Shape factor depth.val)
+    (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
+    (hoffset : offset.val % leafCapacity factor = 0)
+    (hquery : query.val = index.val + offset.val)
+    (hindexLo : prefix1.val ≤ index.val)
+    (hindexHi : index.val < prefix1.val + subtreeCapacity factor depth.val)
+    (hget : mapInst.get updates query = ok pending)
+    (hupdate : Tree.with_updated_leaves ValueInst mapInst before updates prefix1 offset depth hashes =
+      ok (core.result.Result.Ok after)) :
+    Tree.get_recursive ValueInst after index depth packingDepth = (do
+      let previous ← Tree.get_recursive ValueInst before index depth packingDepth
+      ok (pending.or previous)) := by
+  obtain ⟨hcapacity, hafter, hcontents⟩ :=
+    bulk_shape_contents_aux ValueInst mapInst updates hlayout hclone hrange hashes
+      (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset
+      (Nat.le_refl _) rfl hshape halign hoffset hupdate
+  have hbits : depth.val + packingDepth.val ≤ System.Platform.numBits := by
+    rw [hlayout.subtreeCapacity_eq_two_pow] at hcapacity
+    by_contra hnot
+    have hle : System.Platform.numBits ≤ packingDepth.val + depth.val := by omega
+    have hpow := Nat.pow_le_pow_right (by decide : 0 < 2) hle
+    omega
+  rw [hafter.get_recursive_eq_slot hlayout depth rfl hbits,
+    hshape.get_recursive_eq_slot hlayout depth rfl hbits]
+  simp only [bind_tc_ok]
+  apply congrArg ok
+  have hread := hcontents query pending hget (by omega) (by omega)
+  have hlocal : query.val - offset.val = index.val := by omega
+  simpa only [hlocal] using hread
 
 end milhouse.tree
