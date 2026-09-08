@@ -473,13 +473,23 @@ structure progressive_list.ProgressiveList (T : Type) (U : Type) where
   length : utils.Length
   updates : U
 
+/-- [milhouse::progressive_tree::ProgressiveTreeBuilder]
+    Source: 'src/progressive_tree.rs', lines 350:0-364:1 -/
+structure progressive_tree.ProgressiveTreeBuilder (T : Type) where
+  subtrees : alloc.vec.Vec (triomphe.arc.Arc (tree.Tree T))
+  current : builder.Builder T
+  prog_depth : Std.U32
+  capacity : Std.Usize
+  count : Std.Usize
+  length : Std.Usize
+
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::closure]
     Source: 'src/progressive_list.rs', lines 69:41-75:9 -/
 def progressive_list.ProgressiveList.get_mut.closure (T : Type) (U : Type) :=
   triomphe.arc.Arc (progressive_tree.ProgressiveTree T) × utils.Length
 
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::closure]
-    Source: 'src/progressive_tree.rs', lines 216:49-216:73 -/
+    Source: 'src/progressive_tree.rs', lines 214:49-214:73 -/
 @[reducible]
 def progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure (T :
   Type) (U : Type) :=

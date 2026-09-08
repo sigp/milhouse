@@ -63,8 +63,11 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::list::_::rebase' \
     --start-from 'milhouse::list::_::intra_rebase' \
     --start-from 'milhouse::progressive_tree::_::empty' \
+    --start-from 'milhouse::progressive_tree::_::build_from_iter' \
     --start-from 'milhouse::progressive_tree::_::get_recursive' \
     --start-from 'milhouse::progressive_list::_::empty' \
+    --start-from 'milhouse::progressive_list::_::new' \
+    --start-from 'milhouse::progressive_list::_::try_from_iter' \
     --start-from 'milhouse::progressive_list::_::get' \
     --start-from 'milhouse::progressive_list::_::get_mut' \
     --start-from 'milhouse::progressive_list::_::get_cow' \

@@ -254,6 +254,33 @@ The existing Rust callback and map regression tests cover the corresponding
 runtime paths. These local workarounds do not fix the handle-method limitations
 in issue 9.
 
+## 11. Aeneas: generic loop drops an input type retained by `IntoIterator`
+
+**Stage:** Lean extraction after symbolic execution.
+**Status:** avoided by moving the progressive build loop into an
+`Iterator<Item = T>` helper, following the existing binary-list builder.
+
+The original `ProgressiveTree::build_from_iter_with_len` builds directly in a
+`for item in iter` loop, where `iter: impl IntoIterator<Item = T>`. The extracted
+loop retains the iterator and element types but drops the original input type.
+Its `IntoIterator` dictionary still requires that dropped type, so extraction
+reports `Could not find: type_var_id: 1 from ExtractBase.Item` and emits partial
+loop signatures with `sorry` in the missing type position.
+
+`ProgressiveTreeBuilder::extend_from_iter` now accepts `impl Iterator<Item = T>`;
+the public builder performs `into_iter()` before calling that helper. Builder
+creation, item consumption, error propagation, and finalization keep their
+original order. This avoids the dictionary dependency without allocating an
+intermediate collection or changing Aeneas. The regenerated extraction has no
+missing-type admissions.
+
+Spine assembly also reaches `Vec::IntoIter::next_back`, which was absent from
+the existing local standard-library models. The owning iterator model already
+stores its remaining vector, so the new definition delegates to the existing
+`Vec::pop` model and erases the allocator parameter as the forward iterator
+model does. Reverse-iterator assembly remains extracted Rust; its order and
+contents are proved in `Tree/ProgressiveTree/Builder/Spine.lean`.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

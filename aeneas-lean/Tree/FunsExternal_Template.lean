@@ -341,6 +341,18 @@ axiom
   {T : Type} {A : Type} :
   alloc.vec.into_iter.IntoIter T → Result (Std.Usize × (Option Std.Usize))
 
+/-- [alloc::vec::into_iter::{impl core::iter::traits::double_ended::DoubleEndedIterator<T> for alloc::vec::into_iter::IntoIter<T, A>}::next_back]:
+    Source: '/rustc/library/alloc/src/vec/into_iter.rs', lines 426:4-426:40
+    Name pattern: [alloc::vec::into_iter::{core::iter::traits::double_ended::DoubleEndedIterator<alloc::vec::into_iter::IntoIter<@T, @A>, @T>}::next_back]
+    Visibility: public -/
+@[rust_fun
+  "alloc::vec::into_iter::{core::iter::traits::double_ended::DoubleEndedIterator<alloc::vec::into_iter::IntoIter<@T, @A>, @T>}::next_back"]
+axiom
+  alloc.vec.into_iter.IntoIter.Insts.CoreIterTraitsDouble_endedDoubleEndedIterator.next_back
+  {T : Type} {A : Type} :
+  alloc.vec.into_iter.IntoIter T → Result ((Option T) ×
+    (alloc.vec.into_iter.IntoIter T))
+
 /-- [alloc::vec::{alloc::vec::Vec<T>}::pop]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2850:4-2850:38
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::pop]

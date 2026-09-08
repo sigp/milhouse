@@ -107,9 +107,7 @@ impl<T: Value> ProgressiveTree<T> {
         iter: impl IntoIterator<Item = T>,
     ) -> Result<(Self, usize), Error> {
         let mut builder = ProgressiveTreeBuilder::new()?;
-        for item in iter {
-            builder.push(item)?;
-        }
+        builder.extend_from_iter(iter.into_iter())?;
         builder.finish()
     }
 
@@ -366,6 +364,15 @@ pub(crate) struct ProgressiveTreeBuilder<T: Value> {
 }
 
 impl<T: Value> ProgressiveTreeBuilder<T> {
+    // Keep the loop generic over Iterator alone: Aeneas drops the original
+    // input type from a loop while retaining its IntoIterator dictionary.
+    fn extend_from_iter(&mut self, iter: impl Iterator<Item = T>) -> Result<(), Error> {
+        for item in iter {
+            self.push(item)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn new() -> Result<Self, Error> {
         Ok(Self {
             subtrees: Vec::new(),

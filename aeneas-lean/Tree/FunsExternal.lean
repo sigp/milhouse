@@ -437,6 +437,17 @@ def alloc.vec.Vec.pop
         simpa using Nat.le_of_lt hl
       exact hl'.trans hv ⟩)
 
+/-- An owning vector iterator is modelled by its remaining vector. Taking
+    from the back therefore has the same sequence semantics as `Vec::pop`.
+    This supplies the standard-library boundary used to assemble the spine. -/
+@[rust_fun
+  "alloc::vec::into_iter::{core::iter::traits::double_ended::DoubleEndedIterator<alloc::vec::into_iter::IntoIter<@T, @A>, @T>}::next_back"
+  (keepParams := [true, false])]
+def alloc.vec.into_iter.IntoIter.Insts.CoreIterTraitsDouble_endedDoubleEndedIterator.next_back
+    {T : Type} (iter : alloc.vec.into_iter.IntoIter T) :
+    Result (Option T × alloc.vec.into_iter.IntoIter T) :=
+  alloc.vec.Vec.pop Global iter
+
 /-- [alloc::vec::{alloc::vec::Vec<T>}::is_empty]. -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::is_empty"]
 def alloc.vec.Vec.is_empty
