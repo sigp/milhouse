@@ -52,6 +52,51 @@ theorem ProgressiveList.get_mut_fallback_eq {T U : Type}
   · simp only [if_pos hindex]
   · simp only [if_neg hindex, bind_tc_ok, core.option.OptionShared0T.cloned]
 
+/-- Projecting the value from mutable access has exactly the behavior of
+    `get`, including missing indices and failures, when map lookup is lawful
+    and cloning preserves elements. -/
+theorem ProgressiveList.get_mut_read_eq_get {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index : Std.Usize)
+    (hreads : update_map.GetMutWithReads mapInst self.updates index)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value) :
+    (do let (value, _) ← ProgressiveList.get_mut ValueInst mapInst self index
+        ok value) = ProgressiveList.get ValueInst mapInst self index := by
+  have hread := hreads
+    (ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
+      ValueInst mapInst) (self.tree, self.length)
+  have hfallback :
+      ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
+        ValueInst mapInst (self.tree, self.length) index =
+      ProgressiveList.backing_get ValueInst mapInst self index := by
+    rw [ProgressiveList.get_mut_fallback_eq]
+    cases ProgressiveList.backing_get ValueInst mapInst self index with
+    | fail e => rfl
+    | div => rfl
+    | ok found => cases found <;> simp [core.option.OptionShared0T.cloned, hclone]
+  have hproject :
+      (do let (value, _) ← ProgressiveList.get_mut ValueInst mapInst self index
+          ok value) = (do
+        let (value, _) ← mapInst.get_mut_with
+          (ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
+            ValueInst mapInst) self.updates index (self.tree, self.length)
+        ok value) := by
+    unfold ProgressiveList.get_mut
+    cases mapInst.get_mut_with
+        (ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
+          ValueInst mapInst) self.updates index (self.tree, self.length) with
+    | fail e => rfl
+    | div => rfl
+    | ok handle => obtain ⟨value, back⟩ := handle; rfl
+  refine hproject.trans (hread.trans ?_)
+  simp only [hfallback]
+  unfold ProgressiveList.get
+  cases hpending : mapInst.get self.updates index with
+  | fail e => rfl
+  | div => rfl
+  | ok pending =>
+    cases pending <;> rfl
+
 /-- Mutable access reads the same value as `get`, including `none` at missing
     indices, under the map lookup law and value-preserving element cloning. -/
 theorem ProgressiveList.get_mut_reads_get {T U : Type}
@@ -62,29 +107,29 @@ theorem ProgressiveList.get_mut_reads_get {T U : Type}
     {value : Option T} {back : Option T → ProgressiveList T U}
     (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (value, back)) :
     ProgressiveList.get ValueInst mapInst self index = ok value := by
-  obtain ⟨mapBack, hmap, _⟩ :=
-    ProgressiveList.get_mut_success ValueInst mapInst self index hmut
-  have hread := hreads
-    (ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
-      ValueInst mapInst) (self.tree, self.length)
-  rw [hmap] at hread
-  simp only [bind_tc_ok] at hread
-  have hfallback :
-      ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
-        ValueInst mapInst (self.tree, self.length) index =
-      ProgressiveList.backing_get ValueInst mapInst self index := by
-    rw [ProgressiveList.get_mut_fallback_eq]
-    cases ProgressiveList.backing_get ValueInst mapInst self index with
-    | fail e => rfl
-    | div => rfl
-    | ok found => cases found <;> simp [core.option.OptionShared0T.cloned, hclone]
-  simp only [hfallback] at hread
-  unfold ProgressiveList.get
-  cases hpending : mapInst.get self.updates index with
-  | fail e => simp [hpending] at hread
-  | div => simp [hpending] at hread
-  | ok pending =>
-    cases pending <;> simpa [hpending] using hread.symm
+  have hread := ProgressiveList.get_mut_read_eq_get ValueInst mapInst self index hreads hclone
+  simpa [hmut] using hread.symm
+
+/-- Whenever the corresponding immutable read succeeds, mutable access also
+    succeeds with the same optional element and a write-back continuation. -/
+theorem ProgressiveList.get_mut_succeeds {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index : Std.Usize)
+    (hreads : update_map.GetMutWithReads mapInst self.updates index)
+    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    {value : Option T}
+    (hget : ProgressiveList.get ValueInst mapInst self index = ok value) :
+    ∃ back, ProgressiveList.get_mut ValueInst mapInst self index = ok (value, back) := by
+  have hread := ProgressiveList.get_mut_read_eq_get ValueInst mapInst self index hreads hclone
+  rw [hget] at hread
+  cases hmut : ProgressiveList.get_mut ValueInst mapInst self index with
+  | fail e => simp [hmut] at hread
+  | div => simp [hmut] at hread
+  | ok handle =>
+    obtain ⟨found, back⟩ := handle
+    simp [hmut] at hread
+    subst found
+    exact ⟨back, rfl⟩
 
 /-- Writing through a present mutable handle changes only the selected list
     element, including all pending and backing lookups at other indices. -/
