@@ -129,4 +129,24 @@ theorem ProgressiveList.get_after_push_at {T U : Type}
     simp only [ProgressiveList.get, hget, ProgressiveList.backing_get,
       ProgressiveList.backing_len]
 
+/-- **Read back the appended value.** After successful `push`, `get` at the
+    old length returns that value. The map law is required only at the inserted
+    index; no assumptions about any other map entries or the backing tree
+    are needed. -/
+theorem ProgressiveList.get_after_push {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (value : T) (index : Std.Usize)
+    (hlen : ProgressiveList.len ValueInst mapInst self = ok index)
+    (hinsert_get : ∀ previous updates,
+      mapInst.insert self.updates index value = ok (previous, updates) →
+      mapInst.get updates index = ok (some value))
+    {pushed : ProgressiveList T U}
+    (hpush : ProgressiveList.push ValueInst mapInst self value =
+      ok (core.result.Result.Ok (), pushed)) :
+    ProgressiveList.get ValueInst mapInst pushed index = ok (some value) := by
+  have h := ProgressiveList.get_after_push_at ValueInst mapInst self value index index
+    hlen (by intro previous updates hins; simpa using hinsert_get previous updates hins)
+    hpush
+  simpa using h
+
 end milhouse.progressive_list
