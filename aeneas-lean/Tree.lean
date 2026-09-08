@@ -14,6 +14,7 @@ import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Iter.Construction
 import Tree.ProgressiveList.Iter.Length
 import Tree.ProgressiveList.ToVec
+import Tree.ProgressiveList.Backing
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveList
