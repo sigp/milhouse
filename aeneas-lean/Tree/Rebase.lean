@@ -586,21 +586,6 @@ private theorem result_bind_eq_ok_iff {A B : Type} {x : Result A}
     (x >>= f) = ok y ↔ ∃ a, x = ok a ∧ f a = ok y := by
   cases x <;> simp [Bind.bind, Std.bind]
 
-private theorem usize_add_val {x y sum : Std.Usize}
-    (h : x + y = ok sum) : sum.val = x.val + y.val := by
-  have hadd := UScalar.add_equiv x y
-  rw [h] at hadd
-  simp at hadd
-  omega
-
-private theorem usize_sub_one_val {x predecessor : Std.Usize}
-    (h : x - 1#usize = ok predecessor) :
-    x.val = predecessor.val + 1 := by
-  have hsub := UScalar.sub_equiv x 1#usize
-  rw [h] at hsub
-  obtain ⟨-, hone, -⟩ := hsub
-  scalar_tac
-
 private theorem usize_sub_val {x y difference : Std.Usize}
     (h : x - y = ok difference) :
     difference.val = x.val - y.val := by
@@ -608,24 +593,6 @@ private theorem usize_sub_val {x y difference : Std.Usize}
   rw [h] at hsub
   obtain ⟨-, heq, -⟩ := hsub
   omega
-
-/-- A successful `1 << shift` is exactly the power of two. -/
-private theorem usize_shift_left_one_val {shift shifted : Std.Usize}
-    (h : 1#usize <<< shift = ok shifted) :
-    shifted.val = 2 ^ shift.val := by
-  have hbound : shift.val < UScalarTy.Usize.numBits := by
-    change UScalar.shiftLeft 1#usize shift.val = ok shifted at h
-    unfold UScalar.shiftLeft at h
-    split at h
-    · assumption
-    · simp at h
-  have hspec := UScalar.ShiftLeft_spec 1#usize shift
-    (UScalar.size UScalarTy.Usize) hbound rfl
-  rw [h] at hspec
-  obtain ⟨hval, -⟩ := hspec
-  have hone : (1#usize).val = 1 := by simp
-  rw [hval, hone, Nat.one_shiftLeft, UScalar.size_def]
-  exact Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) hbound)
 
 /-- The translated `core::cmp::min` on `Length` is the natural-number
     minimum. -/
