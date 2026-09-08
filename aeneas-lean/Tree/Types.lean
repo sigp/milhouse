@@ -506,7 +506,7 @@ structure progressive_tree.ProgressiveTreeIter (T : Type) where
   yielded : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIter]
-    Source: 'src/progressive_list.rs', lines 418:0-423:1
+    Source: 'src/progressive_list.rs', lines 426:0-431:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T

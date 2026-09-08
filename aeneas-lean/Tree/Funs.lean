@@ -5178,7 +5178,7 @@ def progressive_list.ProgressiveList.try_from_iter
       error.Error) residual
 
 /-- [milhouse::progressive_list::{impl core::convert::TryFrom<alloc::vec::Vec<T>, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from]:
-    Source: 'src/progressive_list.rs', lines 253:4-255:5
+    Source: 'src/progressive_list.rs', lines 261:4-263:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -5866,7 +5866,7 @@ def progressive_list.ProgressiveList.iter_from
     ok (core.result.Result.Ok pli)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::size_hint]:
-    Source: 'src/progressive_list.rs', lines 443:4-446:5
+    Source: 'src/progressive_list.rs', lines 462:4-465:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
@@ -5878,7 +5878,7 @@ def
   ok (remaining, some remaining)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::exact_size::ExactSizeIterator<&'_ T> for milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 452:4-454:5
+    Source: 'src/progressive_list.rs', lines 471:4-473:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
@@ -5995,7 +5995,7 @@ def
   ok (value, self1)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::next]:
-    Source: 'src/progressive_list.rs', lines 428:4-441:5
+    Source: 'src/progressive_list.rs', lines 447:4-460:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6068,8 +6068,134 @@ def progressive_list.ProgressiveList.to_vec
   progressive_list.ProgressiveList.to_vec_loop ValueInst
     update_mapUpdateMapInst iter values
 
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop body 0:
+    Source: 'src/progressive_list.rs', lines 437:8-441:5 -/
+@[rust_loop_body]
+def progressive_list.ProgressiveListIter.extend_builder_loop.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U)
+  (builder : progressive_tree.ProgressiveTreeBuilder T) :
+  Result (ControlFlow ((progressive_list.ProgressiveListIter T U) ×
+    (progressive_tree.ProgressiveTreeBuilder T)) ((core.result.Result Unit
+    error.Error) × (progressive_tree.ProgressiveTreeBuilder T)))
+  := do
+  let (o, self1) ←
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+      ValueInst update_mapUpdateMapInst self
+  match o with
+  | none => ok (done (core.result.Result.Ok (), builder))
+  | some value =>
+    let t ← ValueInst.corecloneCloneInst.clone value
+    let (r, builder1) ←
+      progressive_tree.ProgressiveTreeBuilder.push ValueInst builder t
+    let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue _ =>
+      ok (cont (self1, builder1))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      let r1 ←
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+          Unit (core.convert.FromSame error.Error) residual
+      ok (done (r1, builder1))
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop 0:
+    Source: 'src/progressive_list.rs', lines 437:8-441:5 -/
+@[rust_loop]
+def progressive_list.ProgressiveListIter.extend_builder_loop
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U)
+  (builder : progressive_tree.ProgressiveTreeBuilder T) :
+  Result ((core.result.Result Unit error.Error) ×
+    (progressive_tree.ProgressiveTreeBuilder T))
+  := do
+  loop
+    (fun (self1, builder1) =>
+      progressive_list.ProgressiveListIter.extend_builder_loop.body ValueInst
+      update_mapUpdateMapInst self1 builder1)
+    (self, builder)
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]:
+    Source: 'src/progressive_list.rs', lines 436:4-441:5 -/
+@[reducible]
+def progressive_list.ProgressiveListIter.extend_builder
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U)
+  (builder : progressive_tree.ProgressiveTreeBuilder T) :
+  Result ((core.result.Result Unit error.Error) ×
+    (progressive_tree.ProgressiveTreeBuilder T))
+  := do
+  progressive_list.ProgressiveListIter.extend_builder_loop ValueInst
+    update_mapUpdateMapInst self builder
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::pop_front]:
+    Source: 'src/progressive_list.rs', lines 207:4-232:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.pop_front
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (n : Std.Usize) :
+  Result ((core.result.Result Unit error.Error) ×
+    (progressive_list.ProgressiveList T U))
+  := do
+  if n = 0#usize
+  then ok (core.result.Result.Ok (), self)
+  else
+    let i ←
+      progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst
+        self
+    if n > i
+    then
+      ok (core.result.Result.Err (error.Error.OutOfBoundsIterFrom n i), self)
+    else
+      let r ←
+        progressive_list.ProgressiveList.iter_from ValueInst
+          update_mapUpdateMapInst self n
+      let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+      match cf with
+      | core.ops.control_flow.ControlFlow.Continue pli =>
+        let r1 ← progressive_tree.ProgressiveTreeBuilder.new ValueInst
+        let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+        match cf1 with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          let (r2, val1) ←
+            progressive_list.ProgressiveListIter.extend_builder ValueInst
+              update_mapUpdateMapInst pli val
+          let cf2 ← core.result.Result.Insts.CoreOpsTry.branch r2
+          match cf2 with
+          | core.ops.control_flow.ControlFlow.Continue _ =>
+            let r3 ←
+              progressive_tree.ProgressiveTreeBuilder.finish ValueInst val1
+            let cf3 ← core.result.Result.Insts.CoreOpsTry.branch r3
+            match cf3 with
+            | core.ops.control_flow.ControlFlow.Continue val2 =>
+              let (tree, length) := val2
+              let a ← triomphe.arc.Arc.new tree
+              let t ← update_mapUpdateMapInst.coredefaultDefaultInst.default
+              ok (core.result.Result.Ok (),
+                { tree := a, length := length, updates := t })
+            | core.ops.control_flow.ControlFlow.Break residual =>
+              let r4 ←
+                core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                  Unit (core.convert.FromSame error.Error) residual
+              ok (r4, self)
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            let r3 ←
+              core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+                Unit (core.convert.FromSame error.Error) residual
+            ok (r3, self)
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          let r2 ←
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              Unit (core.convert.FromSame error.Error) residual
+          ok (r2, self)
+      | core.ops.control_flow.ControlFlow.Break residual =>
+        let r1 ←
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            Unit (core.convert.FromSame error.Error) residual
+        ok (r1, self)
+
 /-- [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}::default]:
-    Source: 'src/progressive_list.rs', lines 259:4-261:5
+    Source: 'src/progressive_list.rs', lines 267:4-269:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6079,7 +6205,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default
   progressive_list.ProgressiveList.empty ValueInst update_mapUpdateMapInst
 
 /-- Trait implementation: [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}]
-    Source: 'src/progressive_list.rs', lines 258:0-262:1 -/
+    Source: 'src/progressive_list.rs', lines 266:0-270:1 -/
 @[reducible]
 def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
   Type} (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U
@@ -6089,7 +6215,7 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
 }
 
 /-- [milhouse::progressive_list::{impl ssz::decode::try_from_iter::TryFromIter<T, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
-    Source: 'src/progressive_list.rs', lines 350:4-355:5
+    Source: 'src/progressive_list.rs', lines 358:4-363:5
     Visibility: public -/
 def
   progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter

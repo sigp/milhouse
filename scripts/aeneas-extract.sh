@@ -30,6 +30,9 @@
 #   by Aeneas; explicit roots alone were insufficient (UPSTREAM_BUGS.md issue 12).
 # - Progressive traversal steps use inline helpers to keep borrows out of loop
 #   contexts; to_vec uses an explicit loop (UPSTREAM_BUGS.md issue 13).
+# - Progressive pop_front uses a concrete iterator-to-builder helper to avoid
+#   cloned adapters, early loop returns, and unsupported trait dictionary fields
+#   (UPSTREAM_BUGS.md issue 15).
 # - Cow metadata helpers are included. Deref and mutation of Cow handles still
 #   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
 
@@ -83,6 +86,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_list::_::iter' \
     --start-from 'milhouse::progressive_list::_::iter_from' \
     --start-from 'milhouse::progressive_list::_::to_vec' \
+    --start-from 'milhouse::progressive_list::_::pop_front' \
     --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::next' \
     --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::size_hint' \
     --start-from '{impl core::iter::ExactSizeIterator for milhouse::progressive_list::ProgressiveListIter}::len' \

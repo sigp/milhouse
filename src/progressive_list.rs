@@ -1,6 +1,6 @@
 use crate::{
     Arc, Cow, Error, UpdateMap, Value,
-    progressive_tree::{ProgressiveTree, ProgressiveTreeIter},
+    progressive_tree::{ProgressiveTree, ProgressiveTreeBuilder, ProgressiveTreeIter},
     update_map::MaxMap,
     utils::{Length, updated_length},
 };
@@ -218,7 +218,15 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
         // Removing from the front re-indexes every element, so nothing can be shared with the
         // old tree; rebuild from the remaining elements. The iterator includes pending updates,
         // so there is no need to apply them first.
-        *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
+        let iter = self.iter_from(n)?;
+        let mut builder = ProgressiveTreeBuilder::new()?;
+        iter.extend_builder(&mut builder)?;
+        let (tree, length) = builder.finish()?;
+        *self = Self {
+            tree: Arc::new(tree),
+            length: Length(length),
+            updates: U::default(),
+        };
 
         Ok(())
     }
@@ -420,6 +428,17 @@ pub struct ProgressiveListIter<'a, T: Value, U: UpdateMap<T>> {
     updates: &'a U,
     index: usize,
     length: usize,
+}
+
+impl<T: Value, U: UpdateMap<T>> ProgressiveListIter<'_, T, U> {
+    // Keep the fallible loop separate from finalization, and call concrete
+    // next directly to avoid unsupported generic adapter/trait extraction.
+    fn extend_builder(mut self, builder: &mut ProgressiveTreeBuilder<T>) -> Result<(), Error> {
+        while let Some(value) = self.next() {
+            builder.push(value.clone())?;
+        }
+        Ok(())
+    }
 }
 
 impl<'a, T: Value, U: UpdateMap<T>> Iterator for ProgressiveListIter<'a, T, U> {

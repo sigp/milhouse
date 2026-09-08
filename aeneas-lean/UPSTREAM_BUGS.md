@@ -350,6 +350,36 @@ rewriting the opaque maximum constant. The strings, branches, and error behavior
 are unchanged; only the proof argument is supplied explicitly. Axiom audits of
 the iterator results check that no native-evaluation dependency remains.
 
+## 15. Progressive `pop_front`: cloning adapters, early loop returns, and iterator fields
+
+**Stage:** Charon transformations, Aeneas prepasses, and Lean elaboration.
+**Status:** avoided with a concrete streaming iterator-to-builder helper in
+milhouse; Aeneas is unchanged.
+
+Selecting `ProgressiveList::pop_front` reproduces issue 1 on its
+`self.iter_from(n)?.cloned()` adapter, followed by a signature-translation
+failure in `SymbolicToPureTypes.translate_fun_sigs`.
+
+Replacing the adapter with a cloning loop in `pop_front` exposes another
+limitation: Aeneas reports `Early returns inside of loops are not supported yet`
+for the fallible builder push when the function also finalizes and replaces the
+list after the loop. Moving the fallible loop into its own helper allows the
+prepass to translate the error exit.
+
+A generic `Iterator<Item = &T>` helper then causes Aeneas to emit the full
+`ProgressiveListIter` iterator dictionary. That dictionary has `size_hint` and
+`rev` fields, which are absent from `Aeneas.Std`'s `Iterator` structure. The
+already-extracted standalone methods remain usable.
+
+The final helper is `ProgressiveListIter::extend_builder`: it consumes the
+concrete cursor, calls `next` directly, clones each value, and pushes it into the
+same `ProgressiveTreeBuilder` used by construction. `pop_front` finalizes only
+after successful consumption and replaces the original list only after all
+fallible stages succeed. This preserves streaming allocation, element and clone
+order, and error restoration, without an intermediate vector or an opaque model
+of a milhouse method. Fresh extraction and the full Lean build succeed, and all
+315 release tests pass.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
