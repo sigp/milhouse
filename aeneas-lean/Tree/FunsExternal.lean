@@ -247,6 +247,15 @@ def core.option.Option.ok_or
     | some x => ok (.Ok x)
     | none => ok (.Err e)
 
+/-- [core::option::{core::option::Option<T>}::or]: -/
+@[rust_fun "core::option::{core::option::Option<@T>}::or"]
+def core.option.Option.or
+  {T : Type} : Option T → Option T → Result (Option T) :=
+  fun o fallback =>
+    match o with
+    | some x => ok (some x)
+    | none => ok fallback
+
 /-- [core::option::{core::option::Option<(T, U)>}::unzip]: -/
 @[rust_fun "core::option::{core::option::Option<(@T, @U)>}::unzip"]
 def core.option.OptionPair.unzip
