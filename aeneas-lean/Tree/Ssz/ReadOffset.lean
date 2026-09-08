@@ -53,4 +53,24 @@ theorem read_offset_to_le (bytes : Slice Std.U8) (offset : Std.U32)
   simpa only [u32_from_to_le] using
     read_offset_array bytes (core.num.U32.to_le_bytes offset) rest hbytes
 
+/-- The canonical offsets used by the list encoding specification are read
+back as usize without truncation when the emitted offset fits SSZ's 32 bits. -/
+theorem read_offset_offsetBytes (bytes : Slice Std.U8) (offset : Std.Usize)
+    (rest : List Std.U8) (hfit : offset.val ≤ Std.U32.max)
+    (hbytes : bytes.val = ssz.encode.offsetBytes offset.val ++ rest) :
+    read_offset bytes = ok (core.result.Result.Ok offset) := by
+  have hword : (core.num.U32.to_le_bytes (UScalar.cast .U32 offset)).val =
+      ssz.encode.offsetBytes offset.val := by
+    have h := ssz.encode.encode_length_spec offset hfit
+    simpa only [ssz.encode.encode_length, hfit, ↓reduceIte, ok.injEq] using h
+  have hcast : UScalar.cast .Usize (UScalar.cast .U32 offset) = offset := by
+    apply UScalar.eq_of_val_eq
+    have h32 : offset.val < 2 ^ 32 := by
+      rw [Std.U32.max_eq] at hfit
+      omega
+    rw [Std.U32.cast_Usize_val_eq]
+    exact UScalar.cast_val_mod_pow_of_inBounds_eq .U32 offset h32
+  simpa only [hcast] using read_offset_to_le bytes (UScalar.cast .U32 offset) rest
+    (by simpa only [hword] using hbytes)
+
 end ssz.decode
