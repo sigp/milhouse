@@ -15,3 +15,4 @@ import Tree.ProgressiveList.Contents
 import Tree.ProgressiveList.ApplyUpdates
 import Tree.ProgressiveList.Mutable
 import Tree.PackedLeaf.Contents
+import Tree.PackedLeaf.BulkUpdate
