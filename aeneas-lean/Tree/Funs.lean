@@ -4794,6 +4794,20 @@ def packed_leaf.PackedLeaf.Insts.CoreCloneClone.clone
   let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
   ok { hash := rl, values := v }
 
+/-- [milhouse::progressive_list::{impl core::clone::Clone for milhouse::progressive_list::ProgressiveList<T, U>}::clone]:
+    Source: 'src/progressive_list.rs', lines 15:16-15:21
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.CoreCloneClone.clone
+  {T : Type} {U : Type} (corecloneCloneInst : core.clone.Clone T) (ValueInst :
+  Value T) (corecloneCloneInst1 : core.clone.Clone U) (update_mapUpdateMapInst
+  : update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result (progressive_list.ProgressiveList T U)
+  := do
+  let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone self.tree
+  let l ← utils.Length.Insts.CoreCloneClone.clone self.length
+  let t ← corecloneCloneInst1.clone self.updates
+  ok { tree := a, length := l, updates := t }
+
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::empty]:
     Source: 'src/progressive_tree.rs', lines 51:4-53:5
     Visibility: public -/
@@ -6193,6 +6207,196 @@ def progressive_list.ProgressiveList.pop_front
           core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
             Unit (core.convert.FromSame error.Error) residual
         ok (r1, self)
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::rebase_on_recursive]:
+    Source: 'src/progressive_tree.rs', lines 244:4-316:5 -/
+def progressive_tree.ProgressiveTree.rebase_on_recursive
+  {T : Type} (ValueInst : Value T)
+  (orig : triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
+  (base : triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
+  (orig_length : Std.Usize) (base_length : Std.Usize) (prog_depth : Std.U32) :
+  Result (core.result.Result (triomphe.arc.Arc
+    (progressive_tree.ProgressiveTree T)) error.Error)
+  := do
+  let b ← triomphe.arc.Arc.ptr_eq orig base
+  if b
+  then
+    let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone base
+    ok (core.result.Result.Ok a)
+  else
+    let pt ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref orig
+    let pt1 ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref base
+    match pt with
+    | progressive_tree.ProgressiveTree.ProgressiveZero =>
+      let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone orig
+      ok (core.result.Result.Ok a)
+    | progressive_tree.ProgressiveTree.ProgressiveNode orig_hash orig_left
+      orig_right =>
+      match pt1 with
+      | progressive_tree.ProgressiveTree.ProgressiveZero =>
+        let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone orig
+        ok (core.result.Result.Ok a)
+      | progressive_tree.ProgressiveTree.ProgressiveNode _ base_left base_right
+        =>
+        let subtree_start ←
+          progressive_tree.ProgressiveTree.total_capacity_at_depth ValueInst
+            prog_depth
+        let i ← prog_depth + 1#u32
+        let subtree_capacity ←
+          progressive_tree.ProgressiveTree.capacity_at_depth ValueInst i
+        let binary_depth ←
+          progressive_tree.ProgressiveTree.prog_depth_to_binary_depth ValueInst
+            i
+        let o ← utils.opt_packing_depth ValueInst.tree_hashTreeHashInst
+        let packing_depth ← lift (core.option.Option.unwrap_or o 0#usize)
+        let i1 ←
+          lift (core.num.Usize.saturating_sub orig_length subtree_start)
+        let orig_left_len ←
+          core.cmp.Ord.min.trait_default core.cmp.OrdUsize i1 subtree_capacity
+        let i2 ←
+          lift (core.num.Usize.saturating_sub base_length subtree_start)
+        let base_left_len ←
+          core.cmp.Ord.min.trait_default core.cmp.OrdUsize i2 subtree_capacity
+        let i3 ← binary_depth + packing_depth
+        let r ←
+          tree.Tree.rebase_on ValueInst orig_left base_left (some
+            (orig_left_len, base_left_len)) i3
+        let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          let new_left ←
+            match val with
+            | tree.RebaseAction.NotEqualNoop =>
+              triomphe.arc.Arc.Insts.CoreCloneClone.clone orig_left
+            | tree.RebaseAction.NotEqualReplace replacement => ok replacement
+            | tree.RebaseAction.EqualNoop =>
+              triomphe.arc.Arc.Insts.CoreCloneClone.clone orig_left
+            | tree.RebaseAction.EqualReplace replacement =>
+              triomphe.arc.Arc.Insts.CoreCloneClone.clone replacement
+          let r1 ←
+            progressive_tree.ProgressiveTree.rebase_on_recursive ValueInst
+              orig_right base_right orig_length base_length i
+          let cf1 ← core.result.Result.Insts.CoreOpsTry.branch r1
+          match cf1 with
+          | core.ops.control_flow.ControlFlow.Continue val1 =>
+            let b1 ← triomphe.arc.Arc.ptr_eq new_left orig_left
+            if b1
+            then
+              let b2 ← triomphe.arc.Arc.ptr_eq val1 orig_right
+              if b2
+              then
+                let a ← triomphe.arc.Arc.Insts.CoreCloneClone.clone orig
+                ok (core.result.Result.Ok a)
+              else
+                let rlrg ←
+                  lock_api.rwlock.RwLock.read
+                    parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                    orig_hash
+                let fb ←
+                  lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
+                    parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                    rlrg
+                let rl ←
+                  lock_api.rwlock.RwLock.new
+                    parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                    fb
+                let a ←
+                  triomphe.arc.Arc.new
+                    (progressive_tree.ProgressiveTree.ProgressiveNode rl
+                    new_left val1)
+                ok (core.result.Result.Ok a)
+            else
+              let rlrg ←
+                lock_api.rwlock.RwLock.read
+                  parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                  orig_hash
+              let fb ←
+                lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref
+                  parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                  rlrg
+              let rl ←
+                lock_api.rwlock.RwLock.new
+                  parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+                  fb
+              let a ←
+                triomphe.arc.Arc.new
+                  (progressive_tree.ProgressiveTree.ProgressiveNode rl new_left
+                  val1)
+              ok (core.result.Result.Ok a)
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+              (triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
+              (core.convert.FromSame error.Error) residual
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+            (triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
+            (core.convert.FromSame error.Error) residual
+partial_fixpoint
+
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::rebase_on]:
+    Source: 'src/progressive_tree.rs', lines 235:4-242:5
+    Visibility: public -/
+def progressive_tree.ProgressiveTree.rebase_on
+  {T : Type} (ValueInst : Value T)
+  (orig : triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
+  (base : triomphe.arc.Arc (progressive_tree.ProgressiveTree T))
+  (orig_length : Std.Usize) (base_length : Std.Usize) :
+  Result (core.result.Result (triomphe.arc.Arc
+    (progressive_tree.ProgressiveTree T)) error.Error)
+  := do
+  progressive_tree.ProgressiveTree.rebase_on_recursive ValueInst orig base
+    orig_length base_length 0#u32
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::rebase_on]:
+    Source: 'src/progressive_list.rs', lines 246:4-255:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.rebase_on
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (base : progressive_list.ProgressiveList T U) :
+  Result ((core.result.Result Unit error.Error) ×
+    (progressive_list.ProgressiveList T U))
+  := do
+  let i ← utils.Length.as_usize self.length
+  let i1 ← utils.Length.as_usize base.length
+  let r ←
+    progressive_tree.ProgressiveTree.rebase_on ValueInst self.tree base.tree i
+      i1
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue val =>
+    ok (core.result.Result.Ok (), { self with tree := val })
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    let r1 ←
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        Unit (core.convert.FromSame error.Error) residual
+    ok (r1, self)
+
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::rebase]:
+    Source: 'src/progressive_list.rs', lines 236:4-240:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.rebase
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (base : progressive_list.ProgressiveList T U) :
+  Result (core.result.Result (progressive_list.ProgressiveList T U)
+    error.Error)
+  := do
+  let rebased ←
+    progressive_list.ProgressiveList.Insts.CoreCloneClone.clone
+      ValueInst.corecloneCloneInst ValueInst
+      update_mapUpdateMapInst.corecloneCloneInst update_mapUpdateMapInst self
+  let (r, rebased1) ←
+    progressive_list.ProgressiveList.rebase_on ValueInst
+      update_mapUpdateMapInst rebased base
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ =>
+    ok (core.result.Result.Ok rebased1)
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+      (progressive_list.ProgressiveList T U) (core.convert.FromSame
+      error.Error) residual
 
 /-- [milhouse::progressive_list::{impl core::default::Default for milhouse::progressive_list::ProgressiveList<T, U>}::default]:
     Source: 'src/progressive_list.rs', lines 267:4-269:5

@@ -87,6 +87,8 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_list::_::iter_from' \
     --start-from 'milhouse::progressive_list::_::to_vec' \
     --start-from 'milhouse::progressive_list::_::pop_front' \
+    --start-from 'milhouse::progressive_list::_::rebase' \
+    --start-from 'milhouse::progressive_list::_::rebase_on' \
     --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::next' \
     --start-from '{impl core::iter::Iterator for milhouse::progressive_list::ProgressiveListIter}::size_hint' \
     --start-from '{impl core::iter::ExactSizeIterator for milhouse::progressive_list::ProgressiveListIter}::len' \
