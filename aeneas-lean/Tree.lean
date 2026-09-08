@@ -9,6 +9,7 @@ import Tree.Roundtrip
 import Tree.Rebase
 import Tree.ProgressiveTree
 import Tree.ProgressiveList.Construction
+import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
