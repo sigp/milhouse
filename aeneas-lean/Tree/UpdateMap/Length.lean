@@ -81,4 +81,43 @@ theorem updated_length_succeeds {T U : Type}
       simp [hnext]
     exact ⟨_, hlen, updated_length_max_spec mapInst previous updates index _ hmax hlen⟩
 
+/-- Recording an inserted key below the current logical end preserves merged
+    length. The metadata law describes maximum-index insertion, independently
+    of how the new map was produced (push, mutable access, or CoW write-back). -/
+theorem updated_length_insert_below {T U : Type}
+    (mapInst : update_map.UpdateMap U T) (previous : Length) (updates updated : U)
+    (index length : Std.Usize)
+    (hlen : updated_length mapInst previous updates = ok length)
+    (hindex : index.val < length.val)
+    (hmax : ∀ oldMax, mapInst.max_index updates = ok oldMax →
+      mapInst.max_index updated = ok (some (oldMax.elim index
+        (core.cmp.impls.OrdUsize.max index)))) :
+    updated_length mapInst previous updated = ok length := by
+  cases hold : mapInst.max_index updates with
+  | fail e => simp [updated_length, hold] at hlen
+  | div => simp [updated_length, hold] at hlen
+  | ok oldMax =>
+    have hnew := hmax oldMax hold
+    cases oldMax with
+    | none =>
+      simp only [Option.elim_none] at hnew
+      have hlength : length = previous := by
+        simpa [updated_length, hold, core.option.Option.map_or] using hlen.symm
+      obtain ⟨newLength, hnewLength, hval⟩ :=
+        updated_length_succeeds mapInst previous updated index hnew (by scalar_tac)
+      have heq : newLength = length := by
+        rw [hlength] at hindex ⊢
+        scalar_tac
+      rwa [heq] at hnewLength
+    | some oldIndex =>
+      simp only [Option.elim_some] at hnew
+      have hlength := updated_length_max_spec mapInst previous updates oldIndex length hold hlen
+      have hnewMax : (core.cmp.impls.OrdUsize.max index oldIndex).val =
+          max index.val oldIndex.val := by simp
+      obtain ⟨newLength, hnewLength, hval⟩ :=
+        updated_length_succeeds mapInst previous updated
+          (core.cmp.impls.OrdUsize.max index oldIndex) hnew (by scalar_tac)
+      have heq : newLength = length := by scalar_tac
+      rwa [heq] at hnewLength
+
 end milhouse.utils
