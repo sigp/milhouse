@@ -26,7 +26,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; `Spine.lean` preserves the backing-spine invariant for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release proved under generic map lookup/release laws, without a clone law; every write-back preserves the backing-spine invariant. Rust `Deref` and materializing mutation bridges remain pending Aeneas translation limitations; handle-data observation is not a proof of those methods |
 | `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence; `ApplyUpdates/Contents.lean`: `apply_updates_represents` preserves the sequence at every index and the backing-spine invariant, using the complete recursive progressive proof. Extension completeness is derived from the old representation. Premises are the input spine invariant and the relevant packing, clone, range, maximum-bound, and default-map laws |
-| `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Public methods and progressive traversal bodies are extracted. The binary cursor invariant is established by construction and preserved by the unpacked-leaf branch; packed-leaf and node-descent preservation, the progressive cursor invariant, and complete sequence enumeration remain pending |
+| `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | Public methods and progressive traversal bodies are extracted. `Tree/Iter/Contents.lean` proves constructed binary iterators enumerate the exact requested dense-tree suffix through exhaustion, with cursor validity and termination derived internally. The progressive-spine cursor, pending-update merge, public bounds behavior, and `IntoIterator` bridge remain pending |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | Actual method bodies are extracted; specifications remain pending |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | Pending |
 | `to_vec` | Return the merged sequence in order | Pending iteration proof and element-clone law |
@@ -67,7 +67,18 @@ lower-level hypothesis and count the wrapper as proved.
   valid cursor ending at an unpacked leaf, extracted `next` returns the root
   sequence's indexed value, increments once, and preserves the entire cursor
   invariant. Pop-and-restore and all count arithmetic are derived internally.
-  Packed-leaf and recursive node-descent preservation remain to be proved.
+- `Tree/Iter/Packed.lean`, `Node.lean`, `Next.lean`, `Contents.lean`: packed
+  leaves preserve the cursor both inside chunks and at boundaries; chunk
+  divisibility supplies the checked subtraction and cast bounds. Node descent
+  preserves the selected search path, unchanged index, and pending `next`
+  result while reducing the remaining search depth. Every live `next` call
+  terminates, returns the root sequence's indexed value, advances once, and
+  preserves the invariant. Constructed binary iterators therefore enumerate
+  exactly `root.elements.drop index`, including empty and out-of-range suffixes,
+  before returning `none`. Premises are the actual packing laws, input-tree
+  density, and the routing shift bound; the progressive layer-capacity proofs
+  supply that bound when this result is applied to progressive traversal.
+  No iterator-output, successful-call, or termination premise is assumed.
 - `Tree/TrailingZeros.lean`: the exact positive-word trailing-zero valuation,
   shared by builder carry proofs and iterator backtracking.
 - `Tree/Loop.lean`, `Tree/Builder/Contents/Basic.lean`, `Push.lean`,
@@ -186,6 +197,15 @@ commit with signing disabled and a model co-author trailer. Before completion:
 regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
+
+Latest binary-iteration checkpoint: the full Lean build passes (1,792 jobs),
+with the entire binary iterator development included through `Tree.lean`. All
+eight new packed-step, node-descent, live-next, and suffix-enumeration results
+were audited and use only `propext`, `Classical.choice`, and `Quot.sound` (or
+subsets). This checkpoint changes only Lean proofs and their imports; Rust and
+Aeneas are unchanged. The complete binary traversal result is a foundation for
+the outstanding progressive-spine and pending-update iterator proofs, not a
+claim that the public ProgressiveList iteration rows are complete.
 
 Latest iterator-foundation checkpoint (through `0d85178`): the full Lean
 build passes (1,788 jobs), with all new modules included through `Tree.lean`.
