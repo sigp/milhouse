@@ -39,6 +39,7 @@ import Tree.ProgressiveList.Encode.Variable
 import Tree.ProgressiveList.Encode.Owning
 import Tree.ProgressiveList.Decode.Entry
 import Tree.ProgressiveList.Decode.ErrorMessages
+import Tree.ProgressiveList.Decode.Finish
 import Tree.Ssz.Bytes
 import Tree.Ssz.ReadOffset
 import Tree.Ssz.Encoder
