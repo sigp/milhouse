@@ -551,6 +551,15 @@ competing offset and payload errors. The decode metadata defaults are explicit
 but unchanged, avoiding recursive trait dictionaries as in issue 18. No opaque
 milhouse-method model or Aeneas source modification is introduced.
 
+The subsequent decoding foundations add 14 public lemmas: exact decode metadata,
+empty-input behavior/representation, zero-width rejection, short variable-prefix
+errors, four-byte offset reading and byte roundtrip, UTF-8 literal conversion,
+the actual derived Error formatter, and both exact builder-error messages.
+These all audit to standard Lean axioms only, as does the complete extracted
+decoder body; the existing Aeneas Slice/StringIter admissions are not inherited.
+The full build now passes 1,858 jobs. General decoding sequence reconstruction
+and full list roundtrip remain outstanding in the coverage ledger.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
