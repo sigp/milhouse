@@ -2,6 +2,7 @@
 
 mod any_list;
 mod builder;
+mod encoding;
 mod equality;
 mod iterator;
 mod mem;

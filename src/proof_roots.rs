@@ -11,3 +11,29 @@ pub fn progressive_list_eq<T: Value, U: UpdateMap<T> + PartialEq>(
 ) -> bool {
     left == right
 }
+
+pub fn progressive_list_ssz_bytes_len<T: Value, U: UpdateMap<T>>(
+    list: &ProgressiveList<T, U>,
+) -> usize {
+    ssz::Encode::ssz_bytes_len(list)
+}
+
+pub fn progressive_list_ssz_append<T: Value, U: UpdateMap<T>>(
+    list: &ProgressiveList<T, U>,
+    buf: &mut Vec<u8>,
+) {
+    ssz::Encode::ssz_append(list, buf);
+}
+
+pub fn progressive_list_ssz_fixed_len<T: Value, U: UpdateMap<T>>() -> (bool, usize) {
+    (
+        <ProgressiveList<T, U> as ssz::Encode>::is_ssz_fixed_len(),
+        <ProgressiveList<T, U> as ssz::Encode>::ssz_fixed_len(),
+    )
+}
+
+pub fn progressive_list_as_ssz_bytes<T: Value, U: UpdateMap<T>>(
+    list: &ProgressiveList<T, U>,
+) -> Vec<u8> {
+    ssz::Encode::as_ssz_bytes(list)
+}

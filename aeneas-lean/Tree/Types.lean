@@ -87,7 +87,9 @@ structure ssz.decode.Decode (Self : Type) where
 structure ssz.encode.Encode (Self : Type) where
   is_ssz_fixed_len : Result Bool
   ssz_append : Self → alloc.vec.Vec Std.U8 → Result (alloc.vec.Vec Std.U8)
+  ssz_fixed_len : Result Std.Usize
   ssz_bytes_len : Self → Result Std.Usize
+  as_ssz_bytes : Self → Result (alloc.vec.Vec Std.U8)
 
 /-- [tree_hash::TreeHashType]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree_hash-0.12.0/src/lib.rs', lines 102:0-102:21
@@ -506,7 +508,7 @@ structure progressive_tree.ProgressiveTreeIter (T : Type) where
   yielded : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIter]
-    Source: 'src/progressive_list.rs', lines 427:0-432:1
+    Source: 'src/progressive_list.rs', lines 447:0-452:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T
@@ -515,7 +517,7 @@ structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   length : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIterCow]
-    Source: 'src/progressive_list.rs', lines 478:0-482:1
+    Source: 'src/progressive_list.rs', lines 498:0-502:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T

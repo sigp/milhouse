@@ -320,11 +320,21 @@ impl<T: Value, U: UpdateMap<T>> Encode for ProgressiveList<T, U> {
         false
     }
 
+    // The trait default has this value. Spell it out so extraction does not
+    // need a self-referential dictionary for the default method.
+    fn ssz_fixed_len() -> usize {
+        BYTES_PER_LENGTH_OFFSET
+    }
+
     fn ssz_bytes_len(&self) -> usize {
         if <T as Encode>::is_ssz_fixed_len() {
             <T as Encode>::ssz_fixed_len() * self.len()
         } else {
-            let mut len = self.iter().map(|item| item.ssz_bytes_len()).sum();
+            let mut iter = self.iter();
+            let mut len = 0;
+            while let Some(item) = iter.next() {
+                len += item.ssz_bytes_len();
+            }
             len += BYTES_PER_LENGTH_OFFSET * self.len();
             len
         }
@@ -334,18 +344,28 @@ impl<T: Value, U: UpdateMap<T>> Encode for ProgressiveList<T, U> {
         if <T as Encode>::is_ssz_fixed_len() {
             buf.reserve(<T as Encode>::ssz_fixed_len() * self.len());
 
-            for item in self {
+            let mut iter = self.iter();
+            while let Some(item) = iter.next() {
                 item.ssz_append(buf);
             }
         } else {
             let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
 
-            for item in self {
+            let mut iter = self.iter();
+            while let Some(item) = iter.next() {
                 encoder.append(item);
             }
 
             encoder.finalize();
         }
+    }
+
+    // Equivalent to the trait default, with the concrete append call visible
+    // to extraction instead of a self-referential trait dictionary.
+    fn as_ssz_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.ssz_append(&mut buf);
+        buf
     }
 }
 

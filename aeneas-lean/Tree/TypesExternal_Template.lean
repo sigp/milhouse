@@ -102,6 +102,13 @@ axiom smallvec.SmallVec (A : Type) (Clause0_Item : Type) : Type
 @[rust_type "ssz::decode::DecodeError"]
 axiom ssz.decode.DecodeError : Type
 
+/-- [ssz::encode::SszEncoder]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 87:0-87:25
+    Name pattern: [ssz::encode::SszEncoder]
+    Visibility: public -/
+@[rust_type "ssz::encode::SszEncoder" (mutRegions := #[0])]
+axiom ssz.encode.SszEncoder : Type
+
 /-- [triomphe::arc::Arc]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/triomphe-0.1.14/src/arc.rs', lines 69:0-69:25
     Name pattern: [triomphe::arc::Arc]

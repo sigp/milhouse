@@ -6227,7 +6227,7 @@ def progressive_list.ProgressiveList.iter_cow_from
     ok (core.result.Result.Ok plic, back)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::size_hint]:
-    Source: 'src/progressive_list.rs', lines 463:4-466:5
+    Source: 'src/progressive_list.rs', lines 483:4-486:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
@@ -6239,7 +6239,7 @@ def
   ok (remaining, some remaining)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::exact_size::ExactSizeIterator<&'_ T> for milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 472:4-474:5
+    Source: 'src/progressive_list.rs', lines 492:4-494:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
@@ -6356,7 +6356,7 @@ def
   ok (value, self1)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::next]:
-    Source: 'src/progressive_list.rs', lines 448:4-461:5
+    Source: 'src/progressive_list.rs', lines 468:4-481:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6441,7 +6441,7 @@ def progressive_list.ProgressiveList.to_vec
     update_mapUpdateMapInst iter values
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 438:8-442:5 -/
+    Source: 'src/progressive_list.rs', lines 458:8-462:5 -/
 @[rust_loop_body]
 def progressive_list.ProgressiveListIter.extend_builder_loop.body
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6471,7 +6471,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop.body
       ok (done (r1, builder1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop 0:
-    Source: 'src/progressive_list.rs', lines 438:8-442:5 -/
+    Source: 'src/progressive_list.rs', lines 458:8-462:5 -/
 @[rust_loop]
 def progressive_list.ProgressiveListIter.extend_builder_loop
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6487,7 +6487,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop
     (self, builder)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]:
-    Source: 'src/progressive_list.rs', lines 437:4-442:5 -/
+    Source: 'src/progressive_list.rs', lines 457:4-462:5 -/
 @[reducible]
 def progressive_list.ProgressiveListIter.extend_builder
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6776,8 +6776,233 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
     ValueInst update_mapUpdateMapInst
 }
 
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::is_ssz_fixed_len]:
+    Source: 'src/progressive_list.rs', lines 319:4-321:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.is_ssz_fixed_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result Bool
+  := do
+  ok false
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_fixed_len]:
+    Source: 'src/progressive_list.rs', lines 325:4-327:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_fixed_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result Std.Usize
+  := do
+  ssz.BYTES_PER_LENGTH_OFFSET
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]: loop body 0:
+    Source: 'src/progressive_list.rs', lines 335:12-337:13
+    Visibility: public -/
+@[rust_loop_body]
+def
+  progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
+  (len : Std.Usize) :
+  Result (ControlFlow ((progressive_list.ProgressiveListIter T U) × Std.Usize)
+    Std.Usize)
+  := do
+  let (o, iter1) ←
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+      ValueInst update_mapUpdateMapInst iter
+  match o with
+  | none => ok (done len)
+  | some item =>
+    let i ← ValueInst.sszencodeEncodeInst.ssz_bytes_len item
+    let len1 ← len + i
+    ok (cont (iter1, len1))
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]: loop 0:
+    Source: 'src/progressive_list.rs', lines 335:12-337:13
+    Visibility: public -/
+@[rust_loop]
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
+  (len : Std.Usize) :
+  Result Std.Usize
+  := do
+  loop
+    (fun (iter1, len1) =>
+      progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop.body
+      ValueInst update_mapUpdateMapInst iter1 len1)
+    (iter, len)
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]:
+    Source: 'src/progressive_list.rs', lines 329:4-341:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result Std.Usize
+  := do
+  let b ← ValueInst.sszencodeEncodeInst.is_ssz_fixed_len
+  if b
+  then
+    let i ← ValueInst.sszencodeEncodeInst.ssz_fixed_len
+    let i1 ←
+      progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst
+        self
+    i * i1
+  else
+    let iter ←
+      progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst
+        self
+    let len ←
+      progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
+        ValueInst update_mapUpdateMapInst iter 0#usize
+    let i ←
+      progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst
+        self
+    let i1 ← ssz.BYTES_PER_LENGTH_OFFSET
+    let i2 ← i1 * i
+    len + i2
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop body 0:
+    Source: 'src/progressive_list.rs', lines 348:12-350:13
+    Visibility: public -/
+@[rust_loop_body]
+def
+  progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (buf : alloc.vec.Vec Std.U8)
+  (iter : progressive_list.ProgressiveListIter T U) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U8) ×
+    (progressive_list.ProgressiveListIter T U)) (alloc.vec.Vec Std.U8))
+  := do
+  let (o, iter1) ←
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+      ValueInst update_mapUpdateMapInst iter
+  match o with
+  | none => ok (done buf)
+  | some item =>
+    let buf1 ← ValueInst.sszencodeEncodeInst.ssz_append item buf
+    ok (cont (buf1, iter1))
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop 0:
+    Source: 'src/progressive_list.rs', lines 348:12-350:13
+    Visibility: public -/
+@[rust_loop]
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (buf : alloc.vec.Vec Std.U8)
+  (iter : progressive_list.ProgressiveListIter T U) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  loop
+    (fun (buf1, iter1) =>
+      progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0.body
+      ValueInst update_mapUpdateMapInst buf1 iter1)
+    (buf, iter)
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop body 1:
+    Source: 'src/progressive_list.rs', lines 355:12-357:13
+    Visibility: public -/
+@[rust_loop_body]
+def
+  progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1.body
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T)
+  (back : ssz.encode.SszEncoder → ssz.encode.SszEncoder)
+  (encoder : ssz.encode.SszEncoder)
+  (iter : progressive_list.ProgressiveListIter T U) :
+  Result (ControlFlow ((ssz.encode.SszEncoder → ssz.encode.SszEncoder) ×
+    ssz.encode.SszEncoder × (progressive_list.ProgressiveListIter T U))
+    (ssz.encode.SszEncoder × (ssz.encode.SszEncoder →
+    ssz.encode.SszEncoder)))
+  := do
+  let (o, iter1) ←
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+      ValueInst update_mapUpdateMapInst iter
+  match o with
+  | none => ok (done (encoder, back))
+  | some item =>
+    let (encoder1, append_back) ←
+      ssz.encode.SszEncoder.append ValueInst.sszencodeEncodeInst encoder item
+    ok (cont (fun se => let se1 := append_back se
+                        back se1, encoder1, iter1))
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop 1:
+    Source: 'src/progressive_list.rs', lines 355:12-357:13
+    Visibility: public -/
+@[rust_loop]
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T)
+  (back : ssz.encode.SszEncoder → ssz.encode.SszEncoder)
+  (encoder : ssz.encode.SszEncoder)
+  (iter : progressive_list.ProgressiveListIter T U) :
+  Result (ssz.encode.SszEncoder × (ssz.encode.SszEncoder →
+    ssz.encode.SszEncoder))
+  := do
+  loop
+    (fun (back1, encoder1, iter1) =>
+      progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1.body
+      ValueInst update_mapUpdateMapInst back1 encoder1 iter1)
+    (back, encoder, iter)
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]:
+    Source: 'src/progressive_list.rs', lines 343:4-361:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U)
+  (buf : alloc.vec.Vec Std.U8) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  let b ← ValueInst.sszencodeEncodeInst.is_ssz_fixed_len
+  if b
+  then
+    let i ← ValueInst.sszencodeEncodeInst.ssz_fixed_len
+    let i1 ←
+      progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst
+        self
+    let i2 ← i * i1
+    let buf1 ← alloc.vec.Vec.reserve Global buf i2
+    let iter ←
+      progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst
+        self
+    progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0
+      ValueInst update_mapUpdateMapInst buf1 iter
+  else
+    let i ←
+      progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst
+        self
+    let i1 ← ssz.BYTES_PER_LENGTH_OFFSET
+    let i2 ← i * i1
+    let (encoder, container_back) ← ssz.encode.SszEncoder.container buf i2
+    let iter ←
+      progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst
+        self
+    let (encoder1, back) ←
+      progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1
+        ValueInst update_mapUpdateMapInst (fun se => se) encoder iter
+    let (v, finalize_back, finalize_back1) ←
+      ssz.encode.SszEncoder.finalize encoder1
+    let encoder2 := finalize_back v
+    let encoder3 := finalize_back1 encoder2
+    let se := back encoder3
+    ok (container_back se)
+
+/-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::as_ssz_bytes]:
+    Source: 'src/progressive_list.rs', lines 365:4-369:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append ValueInst
+    update_mapUpdateMapInst self (alloc.vec.Vec.new Std.U8)
+
 /-- [milhouse::progressive_list::{impl ssz::decode::try_from_iter::TryFromIter<T, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
-    Source: 'src/progressive_list.rs', lines 359:4-364:5
+    Source: 'src/progressive_list.rs', lines 379:4-384:5
     Visibility: public -/
 def
   progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter
@@ -6826,6 +7051,56 @@ def proof_roots.progressive_list_eq
   progressive_list.ProgressiveList.Insts.CoreCmpPartialEqProgressiveList.eq
     ValueInst update_mapUpdateMapInst ValueInst update_mapUpdateMapInst
     corecmpPartialEqInst left right
+
+/-- [milhouse::proof_roots::progressive_list_ssz_bytes_len]:
+    Source: 'src/proof_roots.rs', lines 15:0-19:1
+    Visibility: public -/
+def proof_roots.progressive_list_ssz_bytes_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (list : progressive_list.ProgressiveList T U) :
+  Result Std.Usize
+  := do
+  progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len
+    ValueInst update_mapUpdateMapInst list
+
+/-- [milhouse::proof_roots::progressive_list_ssz_append]:
+    Source: 'src/proof_roots.rs', lines 21:0-26:1
+    Visibility: public -/
+def proof_roots.progressive_list_ssz_append
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (list : progressive_list.ProgressiveList T U)
+  (buf : alloc.vec.Vec Std.U8) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append ValueInst
+    update_mapUpdateMapInst list buf
+
+/-- [milhouse::proof_roots::progressive_list_ssz_fixed_len]:
+    Source: 'src/proof_roots.rs', lines 28:0-33:1
+    Visibility: public -/
+def proof_roots.progressive_list_ssz_fixed_len
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result (Bool × Std.Usize)
+  := do
+  let b ←
+    progressive_list.ProgressiveList.Insts.SszEncodeEncode.is_ssz_fixed_len
+      ValueInst update_mapUpdateMapInst
+  let i ←
+    progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_fixed_len
+      ValueInst update_mapUpdateMapInst
+  ok (b, i)
+
+/-- [milhouse::proof_roots::progressive_list_as_ssz_bytes]:
+    Source: 'src/proof_roots.rs', lines 35:0-39:1
+    Visibility: public -/
+def proof_roots.progressive_list_as_ssz_bytes
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (list : progressive_list.ProgressiveList T U) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes ValueInst
+    update_mapUpdateMapInst list
 
 /-- Trait implementation: [milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<T>> for milhouse::tree::Tree<T>}]
     Source: 'src/tree.rs', lines 10:16-10:21 -/

@@ -90,6 +90,14 @@ def smallvec.SmallVec (A : Type) (Clause0_Item : Type) : Type :=
 @[reducible, rust_type "ssz::decode::DecodeError"]
 def ssz.decode.DecodeError : Type := Unit
 
+/-- The pinned SSZ encoder's complete state. The borrowed output buffer is
+    carried as a value; external-function continuations restore its owner. -/
+@[rust_type "ssz::encode::SszEncoder"]
+structure ssz.encode.SszEncoder where
+  offset : Std.Usize
+  buf : alloc.vec.Vec Std.U8
+  variable_bytes : alloc.vec.Vec Std.U8
+
 /-- [triomphe::arc::Arc]
     Modelled as the pointed-to value: after functionalization, sharing is
     invisible and `Arc`'s safe API behaves exactly like a value of `T`

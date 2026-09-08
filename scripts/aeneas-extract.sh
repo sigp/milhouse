@@ -31,6 +31,9 @@
 #   by Aeneas; explicit roots alone were insufficient (UPSTREAM_BUGS.md issue 12).
 #   to_vec also makes the borrowed IntoIterator body reachable.
 #   Additional trait callers live in proof_roots, compiled only for extraction.
+# - Progressive SSZ encoding uses explicit streaming loops and spells out
+#   equivalent trait defaults to avoid adapter and recursive-dictionary errors.
+#   Its external encoder state and operations are modeled in Tree/Ssz/Models.lean.
 # - Progressive traversal steps use inline helpers to keep borrows out of loop
 #   contexts; to_vec uses an explicit loop (UPSTREAM_BUGS.md issue 13).
 # - Progressive pop_front uses a concrete iterator-to-builder helper to avoid

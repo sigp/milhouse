@@ -371,6 +371,15 @@ axiom
   alloc.vec.into_iter.IntoIter T → Result ((Option T) ×
     (alloc.vec.into_iter.IntoIter T))
 
+/-- [alloc::vec::{alloc::vec::Vec<T>}::reserve]:
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 1470:4-1470:48
+    Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::reserve]
+    Visibility: public -/
+@[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::reserve"]
+axiom alloc.vec.Vec.reserve
+  {T : Type} (A : Type) :
+  alloc.vec.Vec T → Std.Usize → Result (alloc.vec.Vec T)
+
 /-- [alloc::vec::{alloc::vec::Vec<T>}::pop]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2850:4-2850:38
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::pop]
@@ -640,6 +649,61 @@ axiom smallvec.SmallVec.pop
 @[rust_fun "smallvec::{smallvec::Array<[@T; @N], @T>}::size"]
 axiom Array.Insts.SmallvecArray.size
   (T : Type) (N : Std.Usize) : Result Std.Usize
+
+/-- [ssz::encode::Encode::ssz_fixed_len]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 26:4-26:31
+    Name pattern: [ssz::encode::Encode::ssz_fixed_len]
+    Visibility: public -/
+@[trait_default, rust_fun "ssz::encode::Encode::ssz_fixed_len"]
+axiom ssz.encode.Encode.ssz_fixed_len.default
+  {Self : Type} (EncodeInst : ssz.encode.Encode Self) : Result Std.Usize
+
+/-- [ssz::encode::Encode::as_ssz_bytes]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 39:4-39:37
+    Name pattern: [ssz::encode::Encode::as_ssz_bytes]
+    Visibility: public -/
+@[trait_default, rust_fun "ssz::encode::Encode::as_ssz_bytes"]
+axiom ssz.encode.Encode.as_ssz_bytes.default
+  {Self : Type} (EncodeInst : ssz.encode.Encode Self) :
+  Self → Result (alloc.vec.Vec Std.U8)
+
+/-- [ssz::encode::{ssz::encode::SszEncoder<'a>}::container]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 95:4-95:74
+    Name pattern: [ssz::encode::{ssz::encode::SszEncoder<'a>}::container]
+    Visibility: public -/
+@[rust_fun "ssz::encode::{ssz::encode::SszEncoder<'a>}::container"]
+axiom ssz.encode.SszEncoder.container
+  :
+  alloc.vec.Vec Std.U8 → Std.Usize → Result (ssz.encode.SszEncoder ×
+    (ssz.encode.SszEncoder → alloc.vec.Vec Std.U8))
+
+/-- [ssz::encode::{ssz::encode::SszEncoder<'a>}::append]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 106:4-106:49
+    Name pattern: [ssz::encode::{ssz::encode::SszEncoder<'a>}::append]
+    Visibility: public -/
+@[rust_fun "ssz::encode::{ssz::encode::SszEncoder<'a>}::append"]
+axiom ssz.encode.SszEncoder.append
+  {T : Type} (EncodeInst : ssz.encode.Encode T) :
+  ssz.encode.SszEncoder → T → Result (ssz.encode.SszEncoder ×
+    (ssz.encode.SszEncoder → ssz.encode.SszEncoder))
+
+/-- [ssz::encode::{ssz::encode::SszEncoder<'a>}::finalize]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/encode.rs', lines 129:4-129:46
+    Name pattern: [ssz::encode::{ssz::encode::SszEncoder<'a>}::finalize]
+    Visibility: public -/
+@[rust_fun "ssz::encode::{ssz::encode::SszEncoder<'a>}::finalize"]
+axiom ssz.encode.SszEncoder.finalize
+  :
+  ssz.encode.SszEncoder → Result ((alloc.vec.Vec Std.U8) × (alloc.vec.Vec
+    Std.U8 → ssz.encode.SszEncoder) × (ssz.encode.SszEncoder →
+    ssz.encode.SszEncoder))
+
+/-- [ssz::BYTES_PER_LENGTH_OFFSET]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ethereum_ssz-0.10.0/src/lib.rs', lines 57:0-57:40
+    Name pattern: [ssz::BYTES_PER_LENGTH_OFFSET]
+    Visibility: public -/
+@[rust_const "ssz::BYTES_PER_LENGTH_OFFSET"]
+axiom ssz.BYTES_PER_LENGTH_OFFSET : Result Std.Usize
 
 /-- [triomphe::arc::{triomphe::arc::Arc<T>}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/triomphe-0.1.14/src/arc.rs', lines 80:4-80:31
