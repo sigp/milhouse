@@ -97,4 +97,36 @@ theorem ProgressiveList.push_success {T U : Type}
       simp [hins] at hpush
       exact ⟨previous, updates, rfl, hpush.symm⟩
 
+/-- **Push/lookup correctness at every index.** A successful push overrides
+    the lookup at the old logical length and leaves every other lookup
+    unchanged, including reads from the progressive backing tree.
+
+    The only semantic premise is the update map's insertion/lookup law for
+    the insertion performed and the index queried. It is necessary because
+    the Rust trait itself places no laws on its implementations. No tree
+    invariant, clone law, successful old lookup, or capacity bound is needed. -/
+theorem ProgressiveList.get_after_push_at {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (value : T) (index query : Std.Usize)
+    (hlen : ProgressiveList.len ValueInst mapInst self = ok index)
+    (hinsert_get : ∀ previous updates,
+      mapInst.insert self.updates index value = ok (previous, updates) →
+      mapInst.get updates query =
+        if query = index then ok (some value) else mapInst.get self.updates query)
+    {pushed : ProgressiveList T U}
+    (hpush : ProgressiveList.push ValueInst mapInst self value =
+      ok (core.result.Result.Ok (), pushed)) :
+    ProgressiveList.get ValueInst mapInst pushed query =
+      if query = index then ok (some value)
+      else ProgressiveList.get ValueInst mapInst self query := by
+  obtain ⟨previous, updates, hins, rfl⟩ :=
+    ProgressiveList.push_success ValueInst mapInst self value index hlen hpush
+  have hget := hinsert_get previous updates hins
+  by_cases hquery : query = index
+  · simp only [if_pos hquery] at hget ⊢
+    exact ProgressiveList.get_of_pending_update ValueInst mapInst _ query value hget
+  · simp only [if_neg hquery] at hget ⊢
+    simp only [ProgressiveList.get, hget, ProgressiveList.backing_get,
+      ProgressiveList.backing_len]
+
 end milhouse.progressive_list
