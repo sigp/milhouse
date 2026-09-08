@@ -9,7 +9,7 @@ import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
 import Tree.ProgressiveTree
-import Tree.ProgressiveTree.Iter.Enter
+import Tree.ProgressiveTree.Iter.Next
 import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.BulkUpdate.Contents
