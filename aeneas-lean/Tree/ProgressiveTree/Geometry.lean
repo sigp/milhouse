@@ -90,4 +90,39 @@ theorem progressiveCapacity_succ_fits {T : Type} {ValueInst : Value T}
   rw [progressiveCapacity_succ]
   omega
 
+/-- The actual adjacent machine capacities delimit exactly one aligned binary
+    subtree whenever that subtree's capacity is representable. The depth and
+    packing laws supply the window arithmetic rather than assuming it. -/
+theorem ProgressiveTree.layer_window {T : Type} (ValueInst : Value T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    {depth next : Std.U32} {binary : Std.Usize}
+    (hnext : depth + 1#u32 = ok next)
+    (hbinary : ProgressiveTree.prog_depth_to_binary_depth ValueInst next = ok binary)
+    (hfit : tree.subtreeCapacity factor binary.val < 2 ^ System.Platform.numBits) :
+    ∃ start stop,
+      ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start ∧
+      ProgressiveTree.total_capacity_at_depth ValueInst next = ok stop ∧
+      start.val = progressiveCapacity factor depth.val ∧
+      stop.val = start.val + tree.subtreeCapacity factor binary.val ∧
+      start.val % tree.leafCapacity factor = 0 := by
+  have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
+  have hadd := UScalar.add_equiv depth 1#u32
+  rw [hnext] at hadd
+  simp at hadd
+  have hnextVal : next.val = depth.val + 1 := by omega
+  rw [hbinaryVal] at hfit
+  have hstopFit := progressiveCapacity_succ_fits hlayout depth.val hfit
+  have hstartFit := lt_trans (progressiveCapacity_lt_layer hlayout.leafCapacity_pos depth.val) hfit
+  obtain ⟨start, hstart, hstartVal⟩ :=
+    ProgressiveTree.total_capacity_eq ValueInst hlayout.opt_packing_factor_eq depth
+  obtain ⟨stop, hstop, hstopVal⟩ :=
+    ProgressiveTree.total_capacity_eq ValueInst hlayout.opt_packing_factor_eq next
+  rw [min_eq_right (by scalar_tac)] at hstartVal
+  rw [hnextVal, min_eq_right (by scalar_tac)] at hstopVal
+  refine ⟨start, stop, hstart, hstop, hstartVal, ?_, ?_⟩
+  · rw [hstopVal, hstartVal, hbinaryVal, progressiveCapacity_succ]
+  · rw [hstartVal]
+    exact progressiveCapacity_aligned factor depth.val
+
 end milhouse.progressive_tree
