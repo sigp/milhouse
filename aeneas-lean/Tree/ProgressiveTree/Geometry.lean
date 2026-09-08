@@ -67,6 +67,21 @@ theorem ProgressiveTree.total_capacity_zero {T : Type} (ValueInst : Value T)
     simpa using hval
   simpa only [heq] using hcapacity
 
+/-- A capacity strictly below the machine maximum is the mathematical layer
+    start. In particular, the start of every nonempty machine-index window is
+    unclamped, even before proving that its endpoint is unclamped. -/
+theorem ProgressiveTree.total_capacity_unclamped {T : Type} (ValueInst : Value T)
+    {factor : Option Std.Usize}
+    (hfactor : utils.opt_packing_factor ValueInst.tree_hashTreeHashInst = ok factor)
+    {depth : Std.U32} {capacity : Std.Usize}
+    (hcapacity : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok capacity)
+    (hsmall : capacity.val < Std.Usize.max) :
+    capacity.val = progressiveCapacity factor depth.val := by
+  obtain ⟨actual, hactual, hval⟩ := ProgressiveTree.total_capacity_eq ValueInst hfactor depth
+  rw [hcapacity] at hactual
+  cases hactual
+  omega
+
 /-- A representable power-of-two layer also has representable endpoints.
     Thus the saturating capacity calculation does not truncate this window. -/
 theorem progressiveCapacity_succ_fits {T : Type} {ValueInst : Value T}
