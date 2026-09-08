@@ -11,6 +11,7 @@ import Tree.Iter.Contents
 import Tree.Repeat
 import Tree.Builder
 import Tree.Builder.Contents
+import Tree.Builder.New
 import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
