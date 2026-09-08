@@ -1,16 +1,10 @@
 import Tree.Builder.Contents.Basic
-import Tree.ProgressiveTree.Shape
+import Tree.ProgressiveTree.Density
 
 open Aeneas Aeneas.Std Result
 open milhouse
 
 namespace milhouse.progressive_tree
-
-/-- Materialized values in increasing spine order, with each binary subtree
-    contributing its values in leaf order. -/
-def ProgressiveTree.elements {T : Type} : ProgressiveTree T → _root_.List T
-  | .ProgressiveZero => []
-  | .ProgressiveNode _ left right => left.elements ++ right.elements
 
 /-- The spine obtained by prepending the supplied binary subtrees in order.
     New nodes have the same empty hash cache as the extracted constructor. -/
