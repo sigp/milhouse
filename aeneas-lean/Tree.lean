@@ -3,6 +3,7 @@ import Tree.Invariants
 import Tree.Contents
 import Tree.Equality.Structure
 import Tree.Equality.Comparisons
+import Tree.Equality.Correctness
 import Tree.Iter.Contents
 import Tree.Repeat
 import Tree.Builder
@@ -13,6 +14,7 @@ import Tree.Rebase
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.ProgressiveTree
+import Tree.ProgressiveTree.Equality.Structure
 import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Iter.Construction

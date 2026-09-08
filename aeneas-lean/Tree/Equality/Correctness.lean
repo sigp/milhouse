@@ -1,0 +1,105 @@
+import Tree.Equality.Structure
+import Tree.Equality.Comparisons
+
+open Aeneas Aeneas.Std Result
+open milhouse
+
+namespace milhouse.tree
+
+private theorem arc_eq_of_eq_spec {T : Type} (ValueInst : Value T) (self other : Tree T)
+    (hcompare : ∃ equal, Tree.Insts.CoreCmpPartialEqTree.eq ValueInst ValueInst self other = ok equal ∧
+      (equal = true ↔ self.StructuralEq other)) :
+    ∃ equal, Tree.arc_eq ValueInst self other = ok equal ∧ (equal = true ↔ self.StructuralEq other) := by
+  obtain ⟨same, hpointer, hsame⟩ := triomphe.arc.Arc.ptr_eq_spec self other
+  cases same with
+  | true =>
+    refine ⟨true, ?_, ?_⟩
+    · rw [Tree.arc_eq]
+      simp [hpointer]
+    · simp [hsame rfl, Tree.StructuralEq.refl]
+  | false =>
+    simpa only [Tree.arc_eq, hpointer, bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
+      triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] using hcompare
+
+/-- The actual derived binary-tree comparison terminates and characterizes
+    structural equality with caches ignored. It needs only the semantic law
+    for element `ne`; no density, packing, cloning, or hash law is required. -/
+theorem Tree.partial_eq_spec {T : Type} (ValueInst : Value T)
+    (hne : milhouse_models.NeSpec ValueInst.corecmpPartialEqInst) (self other : Tree T) :
+    ∃ equal, Tree.Insts.CoreCmpPartialEqTree.eq ValueInst ValueInst self other = ok equal ∧
+      (equal = true ↔ self.StructuralEq other) := by
+  induction self generalizing other with
+  | Leaf value =>
+    cases other <;> first
+    | solve
+      | refine ⟨false, ?_, ?_⟩
+        · simp only [Tree.Insts.CoreCmpPartialEqTree.eq]
+        · simp [Tree.StructuralEq]
+    | skip
+    rename_i otherValue
+    obtain ⟨different, hcompare, hsame⟩ := milhouse_models.arc_ne_spec ValueInst.corecmpPartialEqInst hne
+      value.value otherValue.value
+    refine ⟨!different, ?_, ?_⟩
+    · cases different <;> simp [Tree.Insts.CoreCmpPartialEqTree.eq,
+        core.cmp.PartialEq.ne.trait_default, core.cmp.PartialEq.ne.default,
+        leaf.Leaf.Insts.CoreCmpPartialEqLeaf.eq, hcompare]
+    · cases different <;> simpa [Tree.StructuralEq] using hsame
+  | PackedLeaf value =>
+    cases other <;> first
+    | solve
+      | refine ⟨false, ?_, ?_⟩
+        · simp only [Tree.Insts.CoreCmpPartialEqTree.eq]
+        · simp [Tree.StructuralEq]
+    | skip
+    rename_i otherValue
+    obtain ⟨different, hcompare, hsame⟩ := milhouse_models.vec_ne_spec ValueInst.corecmpPartialEqInst hne
+      value.values otherValue.values
+    refine ⟨!different, ?_, ?_⟩
+    · cases different <;> simp [Tree.Insts.CoreCmpPartialEqTree.eq,
+        core.cmp.PartialEq.ne.trait_default, core.cmp.PartialEq.ne.default,
+        packed_leaf.PackedLeaf.Insts.CoreCmpPartialEqPackedLeaf.eq, hcompare]
+    · cases different <;> simpa [Tree.StructuralEq] using hsame
+  | Node hash left right ihLeft ihRight =>
+    cases other <;> first
+    | solve
+      | refine ⟨false, ?_, ?_⟩
+        · simp only [Tree.Insts.CoreCmpPartialEqTree.eq]
+        · simp [Tree.StructuralEq]
+    | skip
+    rename_i otherHash otherLeft otherRight
+    obtain ⟨leftEqual, hleft, hleftSame⟩ := arc_eq_of_eq_spec ValueInst left otherLeft (ihLeft otherLeft)
+    cases leftEqual with
+    | false =>
+      refine ⟨false, ?_, ?_⟩
+      · rw [Tree.Insts.CoreCmpPartialEqTree.eq]
+        simp [hleft]
+      · simp [Tree.StructuralEq, ← hleftSame]
+    | true =>
+      obtain ⟨rightEqual, hright, hrightSame⟩ := arc_eq_of_eq_spec ValueInst right otherRight (ihRight otherRight)
+      refine ⟨rightEqual, ?_, ?_⟩
+      · rw [Tree.Insts.CoreCmpPartialEqTree.eq]
+        cases rightEqual <;> simp [hleft, hright]
+      · simp [Tree.StructuralEq, ← hleftSame, ← hrightSame]
+  | Zero depth =>
+    cases other <;> first
+    | solve
+      | refine ⟨false, ?_, ?_⟩
+        · simp only [Tree.Insts.CoreCmpPartialEqTree.eq]
+        · simp [Tree.StructuralEq]
+    | skip
+    rename_i otherDepth
+    refine ⟨decide (depth = otherDepth), ?_, by simp [Tree.StructuralEq]⟩
+    rw [Tree.Insts.CoreCmpPartialEqTree.eq]
+    by_cases heq : depth = otherDepth
+    · simp [lift, heq]
+    · have hval : depth.val ≠ otherDepth.val := fun h => heq (UScalar.eq_of_val_eq h)
+      simp [lift, heq, hval]
+
+/-- Concrete Arc comparison has the same structural specification, including
+    its pointer shortcut. The recursive comparison is proved above. -/
+theorem Tree.arc_eq_spec {T : Type} (ValueInst : Value T)
+    (hne : milhouse_models.NeSpec ValueInst.corecmpPartialEqInst) (self other : Tree T) :
+    ∃ equal, Tree.arc_eq ValueInst self other = ok equal ∧ (equal = true ↔ self.StructuralEq other) :=
+  arc_eq_of_eq_spec ValueInst self other (Tree.partial_eq_spec ValueInst hne self other)
+
+end milhouse.tree
