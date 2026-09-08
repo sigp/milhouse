@@ -514,6 +514,14 @@ structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   index : Std.Usize
   length : Std.Usize
 
+/-- [milhouse::progressive_list::ProgressiveListIterCow]
+    Source: 'src/progressive_list.rs', lines 477:0-481:1
+    Visibility: public -/
+structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
+  tree_iter : progressive_tree.ProgressiveTreeIter T
+  updates : U
+  index : Std.Usize
+
 /-- [milhouse::tree::IntraRebaseAction]
     Source: 'src/tree.rs', lines 268:0-271:1
     Visibility: public -/

@@ -193,7 +193,7 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        let mut iter = self.iter();
+        let mut iter = self.into_iter();
         let mut values = Vec::with_capacity(iter.len());
         while let Some(value) = iter.next() {
             values.push(value.clone());

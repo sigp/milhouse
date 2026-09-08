@@ -28,6 +28,7 @@
 #   pointer-sharing and hash-cache effects are intentionally erased in Lean.
 # - Constructor and iterator trait methods need concrete callers to be emitted
 #   by Aeneas; explicit roots alone were insufficient (UPSTREAM_BUGS.md issue 12).
+#   to_vec also makes the borrowed IntoIterator body reachable.
 # - Progressive traversal steps use inline helpers to keep borrows out of loop
 #   contexts; to_vec uses an explicit loop (UPSTREAM_BUGS.md issue 13).
 # - Progressive pop_front uses a concrete iterator-to-builder helper to avoid
@@ -35,6 +36,8 @@
 #   (UPSTREAM_BUGS.md issue 15).
 # - Cow metadata helpers are included. Deref and mutation of Cow handles still
 #   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
+# - Progressive CoW constructors are included; next_cow still loses borrowed
+#   symbolic values during translation (UPSTREAM_BUGS.md issue 16).
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -85,6 +88,8 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --start-from 'milhouse::progressive_list::_::has_pending_updates' \
     --start-from 'milhouse::progressive_list::_::iter' \
     --start-from 'milhouse::progressive_list::_::iter_from' \
+    --start-from 'milhouse::progressive_list::_::iter_cow' \
+    --start-from 'milhouse::progressive_list::_::iter_cow_from' \
     --start-from 'milhouse::progressive_list::_::to_vec' \
     --start-from 'milhouse::progressive_list::_::pop_front' \
     --start-from 'milhouse::progressive_list::_::rebase' \

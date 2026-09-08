@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Iter.Construction
+import Tree.ProgressiveList.Iter.Traits
 import Tree.ProgressiveList.Iter.Length
 
 open Aeneas Aeneas.Std Result
@@ -54,7 +54,7 @@ theorem ProgressiveList.to_vec_spec {T U : Type}
     (hclone : ∀ value ∈ contents, ValueInst.corecloneCloneInst.clone value = ok value) :
     ∃ output, ProgressiveList.to_vec ValueInst mapInst self = ok output ∧ output.val = contents := by
   obtain ⟨cursor, hiter, hvalid, _, hyields⟩ :=
-    ProgressiveList.iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
+    ProgressiveList.into_iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
   have hlength := @ProgressiveListIter.Valid.length_eq T U ValueInst mapInst factor self.tree.elements contents cursor hvalid
   obtain ⟨remaining, hremaining, _⟩ := ProgressiveListIter.exact_len_spec ValueInst mapInst cursor contents hlength
   let accumulator := alloc.vec.Vec.with_capacity T remaining
