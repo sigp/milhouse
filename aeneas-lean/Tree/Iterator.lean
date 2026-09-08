@@ -15,6 +15,25 @@ inductive IteratorYields {I T : Type} (next : I → Result (Option T × I)) :
       (htail : IteratorYields next rest values) :
       IteratorYields next state (value :: values)
 
+/-- Enumeration ending in a state whose `next` returns unchanged `none`.
+    This stronger relation supports consumers that keep calling an exhausted
+    iterator while processing a longer sequence from another source. -/
+inductive IteratorDrains {I T : Type} (next : I → Result (Option T × I)) :
+    I → _root_.List T → Prop where
+  | nil {state : I} (hnext : next state = ok (none, state)) :
+      IteratorDrains next state []
+  | cons {state rest : I} {value : T} {values : _root_.List T}
+      (hnext : next state = ok (some value, rest))
+      (htail : IteratorDrains next rest values) :
+      IteratorDrains next state (value :: values)
+
+theorem IteratorDrains.yields {I T : Type} {next : I → Result (Option T × I)}
+    {state : I} {values : _root_.List T} (h : IteratorDrains next state values) :
+    IteratorYields next state values := by
+  induction h with
+  | nil hnext => exact .nil hnext
+  | cons hnext _ ih => exact .cons hnext ih
+
 /-- Successful conversion to an iterator whose next calls yield the input sequence. -/
 def IntoIteratorYields {Input I T : Type}
     (iterInst : core.iter.traits.collect.IntoIterator Input T I)
