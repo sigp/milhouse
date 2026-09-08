@@ -1,6 +1,8 @@
 import Tree.Funs
 import Tree.Invariants
 import Tree.Contents
+import Tree.Equality.Structure
+import Tree.Equality.Comparisons
 import Tree.Iter.Contents
 import Tree.Repeat
 import Tree.Builder
