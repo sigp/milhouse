@@ -49,6 +49,7 @@ import Tree.Rebase.Comparisons
 import Tree.Rebase.Success
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
+import Tree.Rebase.PackedSoundness
 import Tree.Rebase.CacheAction
 import Tree.Rebase.Caches
 import Tree.BulkUpdate.Caches
