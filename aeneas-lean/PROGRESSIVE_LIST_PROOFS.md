@@ -84,6 +84,14 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [core source comparisons](reproducers/core_models/README.md) validate
+  `mem::take`, used for pending-map rebuilding, and `usize::div_ceil`, used in
+  builder finalization, against their actual extracted standard-library bodies.
+  Default results are unconstrained; zero-divisor failure and rounding safety
+  are covered for every machine-word input without an arithmetic premise.
+  `take` is axiom-free and ceiling division uses only standard Lean axioms.
+  The source audit and four native protocol/boundary tests pass, alongside
+  the existing Option suite after sharing their provenance/axiom runner.
 - The [Option source comparison](reproducers/option_models/README.md) checks
   eleven local Option models against independent extraction of their actual
   pinned standard-library bodies. A twelfth theorem verifies `cloned` through
@@ -1056,7 +1064,21 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest Option-model checkpoint (through `72abe24`, with comparisons `3732fe7`):
+Latest core-model checkpoint (through `06f8825`, with comparisons `5541c30`):
+`python3 scripts/aeneas-audit-core-models.py` passes after fresh extraction of
+`mem::take` and `usize::div_ceil`. The former comparison is axiom-free; the
+latter uses only standard Lean axioms and requires no positivity or size
+bound. Rust formatting and all four native protocol/boundary tests pass.
+The existing Option audit also passes after moving both suites to a shared
+runner, retaining its twelve axiom-free checks and its explicit unresolved
+direct `cloned` extraction. Eleven malformed core audit inputs and an injected
+axiom in an Option comparison are rejected. These standalone checks change
+no production Rust, model body, main library proof, or Aeneas source. Earlier
+main-library build/axiom and dependency results remain applicable and were
+not repeated. Borrowed CoW and the remaining assumption/model-fidelity review
+stay open.
+
+Previous Option-model checkpoint (through `72abe24`, with comparisons `3732fe7`):
 `python3 scripts/aeneas-audit-option-models.py` passes after fresh extraction
 of eleven explicitly included standard-library bodies. All eleven direct
 comparisons and the separate `cloned` composition theorem validate without

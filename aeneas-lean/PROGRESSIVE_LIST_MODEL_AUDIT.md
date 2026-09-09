@@ -106,6 +106,28 @@ abstraction and omitted destructor execution; they are not a compiler or full
 Rust refinement proof. Numeric/container and the other model boundaries still
 need their remaining review. No production model or Aeneas source changed.
 
+## Core source comparisons
+
+Run `python3 scripts/aeneas-audit-core-models.py` from the repository root.
+The [core source comparisons](reproducers/core_models/README.md) prove the local
+`mem::take` and `usize::div_ceil` models equal fresh extraction of their actual
+standard-library bodies. `take` matches for arbitrary Default results without
+axioms. Ceiling division matches for every pair of machine-word inputs,
+including zero divisors, using only standard Lean axioms and no arithmetic
+bound or positivity premise. Its rounding bound is derived internally.
+
+Four native tests cover Default call order, movement without dropping the old
+value, the tested default-panic state, ceiling-division word boundaries, and
+zero divisors. Both this suite and the Option suite pass with the shared
+source/provenance checker and per-theorem axiom policy. Eleven malformed core
+inventory/report inputs and an injected axiom in an Option proof are rejected.
+
+The comparisons retain the Aeneas foundation/reference abstractions and omit
+destructor execution. No production Rust, local model body, or Aeneas source
+changed; the main library and dependency counts are unchanged. These results
+reduce the remaining model review without completing borrowed CoW or the
+other numeric/container boundaries.
+
 ## Tuple inequality correction
 
 Review of the referenced tuple dictionary found a local model defect: its

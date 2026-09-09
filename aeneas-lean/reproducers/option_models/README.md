@@ -21,6 +21,12 @@ axiom reports. Generated output, compilation logs, source hashes, versions,
 and the final report are retained in `.lake/option-model-audit/`. Each run uses
 a fresh directory and removes the previous report before starting.
 
+The command uses the shared runner in `scripts/aeneas_source_model_audit.py`,
+also used by the [core source comparisons](../core_models/README.md). Its
+per-theorem policy still requires all twelve Option checks to be axiom-free.
+Both suites pass after this refactor; an injected `propext` dependency in an
+Option comparison is rejected even though the numeric suite permits it.
+
 The check pins Charon 0.1.223, Aeneas `b59d5188`, and Rust
 `nightly-2026-06-01` (`14210df0e27ccd7d9e6a05b8085cbd438e4bbc65`). The recorded
 Charon checkout is `cb50ff16b9f1066b8a97dc06da704de2da2fa41c` and Aeneas checkout

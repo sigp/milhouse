@@ -142,6 +142,12 @@ axioms. Direct `cloned` extraction remains unsupported at its higher-ranked
 function item. This reduces a trusted-model review obligation; it does not
 change API coverage or complete the borrowed CoW proofs.
 
+The [core source comparisons](reproducers/core_models/README.md) additionally
+validate `mem::take` and `usize::div_ceil` against their actual extracted
+standard-library bodies, including arbitrary Default results and zero-divisor
+behavior. Their shared audit and all four native protocol/boundary tests pass;
+no production model or public-operation specification changed.
+
 Clone and clone_from sequence contracts, and the rebase contracts that depend
 on them, no longer require cloned maximum-index identity. Under unchanged map
 reads, `Clone/Maximum.lean` proves the new metadata condition necessary and
