@@ -124,6 +124,7 @@ import Tree.ProgressiveList.CopyOnWrite
 import Tree.Cow.Metadata
 import Tree.PackedLeaf.Contents
 import Tree.PackedLeaf.BulkUpdate
+import Tree.PackedLeaf.BulkUpdateSuccess
 import Tree.BulkUpdate
 import Tree.BulkUpdate.Density
 import Tree.BulkUpdate.Contents
