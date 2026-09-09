@@ -16,6 +16,17 @@ from pathlib import Path
 TOOLCHAIN = "nightly-2026-06-01"
 
 
+def source_declaration(crate, suite, name):
+    prefix = [{"Ident": [part, 0]} for part in
+              suite.get("source_prefix", suite.get("source_crate", "core")).split("::")]
+    candidates = [item for item in crate["fun_decls"] if item
+                  and item["item_meta"]["name"][:len(prefix)] == prefix
+                  and item["item_meta"]["name"][-1] == {"Ident": [name, 0]}]
+    if len(candidates) != 1:
+        raise ValueError(f"Expected one dependency body for {name}")
+    return candidates[0]
+
+
 def check_llbc(data, suite):
     if data.get("has_errors") is not False or data.get("charon_version") != "0.1.223":
         raise ValueError("LLBC has errors or an unexpected Charon version")
@@ -26,14 +37,7 @@ def check_llbc(data, suite):
     files = {item["id"]: item for item in crate["files"] if item}
     verified = {}
     for name in suite["source_files"]:
-        candidates = [
-            item for item in crate["fun_decls"] if item
-            and item["item_meta"]["name"][0] == {"Ident": [source_crate, 0]}
-            and item["item_meta"]["name"][-1] == {"Ident": [name, 0]}
-        ]
-        if len(candidates) != 1:
-            raise ValueError(f"Expected one {source_crate} body for {name}")
-        item = candidates[0]
+        item = source_declaration(crate, suite, name)
         meta = item["item_meta"]
         span = meta["span"]["data"]
         source = files[span["file_id"]]
@@ -60,6 +64,17 @@ def check_llbc(data, suite):
             raise ValueError(f"Unexpected global initializer for {name}")
         verified[name] = span
     return verified
+
+
+def check_exclusions(original, selected, suite):
+    """Require source declarations to remain identical when omitting unused items."""
+    check_llbc(original, suite)
+    check_llbc(selected, suite)
+    for name in suite["source_files"]:
+        if (source_declaration(original["translated"], suite, name)
+                != source_declaration(selected["translated"], suite, name)):
+            raise ValueError(f"Source declaration changed after exclusions: {name}")
+    return list(suite["source_files"])
 
 
 def check_axiom_output(output, proofs):
@@ -137,6 +152,10 @@ def main(suite):
                              str(sources / "source.rs"), "-o", str(work / "native")])
         run("native-tests", [str(work / "native")], cwd=work)
     command = [args.charon, "cargo" if cargo else "rustc", "--preset=aeneas"]
+    if suite.get("excludes"):
+        # Compare complete source declarations, not references to separately
+        # serialized hash-consed values whose meaning could change between runs.
+        command += ["--no-dedup-serialized-ast"]
     for include in suite["includes"]:
         command += ["--include", include]
     llbc = work / (suite["crate"] + ".llbc")
@@ -148,8 +167,19 @@ def main(suite):
     else:
         command += ["--", "--edition=2024", "--crate-type", "lib", "--crate-name",
                     suite["crate"], str(sources / "source.rs")]
+    exclusions = suite.get("excludes", [])
+    unchanged = []
+    if exclusions:
+        run("charon-unfiltered", command, cwd=work)
+        original = json.loads(llbc.read_text())
+        shutil.copyfile(llbc, work / "unfiltered.llbc")
+        position = command.index("--")
+        command[position:position] = [part for name in exclusions for part in ("--exclude", name)]
     run("charon", command, cwd=work)
-    provenance = check_llbc(json.loads(llbc.read_text()), suite)
+    selected = json.loads(llbc.read_text())
+    provenance = check_llbc(selected, suite)
+    if exclusions:
+        unchanged = check_exclusions(original, selected, suite)
     run("aeneas", [args.aeneas, "-backend", "lean", "-namespace", suite["namespace"],
                    "-split-files", "-no-progress-bar", "-dest", str(work / suite["namespace"]),
                    str(llbc)], cwd=work)
@@ -176,6 +206,7 @@ def main(suite):
     report.write_text(json.dumps({
         "versions": versions, "inputSha256": hashes, "runDirectory": str(work),
         "dependencySources": dependency_sources,
+        "excludedItems": exclusions, "unchangedSourceDeclarations": unchanged,
         "directSourceComparisons": provenance, "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,
