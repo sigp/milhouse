@@ -134,6 +134,18 @@ check also pass.
   external models and API roots unchanged. Their full axiom/import audit
   passes for 4,993 declarations across 311 modules (2,027 build jobs); the
   separate dependency gate was not rerun for these proof-only changes.
+  Subsequent variable-encoder proofs restrict append laws to preceding
+  temporary payload buffers. `Encode/VariableCalls.lean` folds the actual
+  external encoder calls and borrowed continuations through public reservation
+  and finalization; `LengthCalls.lean` folds actual element size calls and
+  checked additions before the final offset-table arithmetic. Both retain
+  failure/divergence without codec/size laws or byte/offset bounds. They prove
+  clients of the existing external definitions; they do not replace or
+  independently establish the fidelity of those definitions.
+  The full axiom/import audit passes after these changes for 5,012 declarations
+  across 313 modules (2,029 build jobs), with no new axiom or admission. The
+  external definitions and API roots remain unchanged, so the separate model
+  dependency gate was not rerun for this proof-only checkpoint.
 - Collection models preserve values and modeled logical size checks while
   abstracting allocation strategy and allocation failure. Their totality
   results are about the extracted model, not resource-exhaustion guarantees.

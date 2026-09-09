@@ -89,9 +89,9 @@ trait has no additional in-place default. Ordinary Serde does.
 | `TreeHash::tree_hash_root` | Deferred and out of scope for now, including pending-update rejection, length mix-in, parallel calls, and shared-cache writes. Aeneas limitations: issue 21 |
 | `Encode::is_ssz_fixed_len` | `ProgressiveList.ssz_is_fixed_len_eq` |
 | `Encode::ssz_fixed_len` | `ProgressiveList.ssz_fixed_len_eq` |
-| `Encode::ssz_bytes_len` | `ProgressiveList.ssz_bytes_len_fixed_total_spec`, `ProgressiveList.ssz_bytes_len_variable_spec` |
-| `Encode::ssz_append` | `ProgressiveList.ssz_append_fixed_calls` preserves actual fixed-element calls and failures without codec laws; `ProgressiveList.ssz_append_fixed_spec` and `ProgressiveList.ssz_append_variable_spec` give exact bytes |
-| `Encode::as_ssz_bytes` | `ProgressiveList.as_ssz_bytes_fixed_calls` gives actual fixed-element call behavior; `ProgressiveList.as_ssz_bytes_fixed_spec` and `ProgressiveList.as_ssz_bytes_variable_spec` give exact bytes |
+| `Encode::ssz_bytes_len` | `ProgressiveList.ssz_bytes_len_fixed_total_spec` and `ProgressiveList.ssz_bytes_len_variable_spec` give exact sizes; `ProgressiveList.ssz_bytes_len_fixed_eq` and `ProgressiveList.ssz_bytes_len_variable_calls` retain actual calls and checked arithmetic, including failure/divergence |
+| `Encode::ssz_append` | `ProgressiveList.ssz_append_fixed_calls` and `ProgressiveList.ssz_append_variable_calls` preserve actual ordered calls and failures without codec laws or byte/offset bounds; `ProgressiveList.ssz_append_fixed_spec` and `ProgressiveList.ssz_append_variable_spec` give exact bytes |
+| `Encode::as_ssz_bytes` | `ProgressiveList.as_ssz_bytes_fixed_calls` and `ProgressiveList.as_ssz_bytes_variable_calls` give actual call behavior; `ProgressiveList.as_ssz_bytes_fixed_spec` and `ProgressiveList.as_ssz_bytes_variable_spec` give exact bytes |
 | `Decode::is_ssz_fixed_len` | `ProgressiveList.decode_is_fixed_len_eq` |
 | `Decode::ssz_fixed_len` | `ProgressiveList.decode_fixed_len_eq` |
 | `Decode::from_ssz_bytes` | `ProgressiveList.from_ssz_bytes_trace`, `ProgressiveList.from_ssz_bytes_trace_spec`, and `ProgressiveList.from_ssz_bytes_success_iff`: every successful input determines its actual payload trace; success is equivalent to a complete trace, occupied-layer capacity, and a successful default-map call. Constructive payload contracts remain `ProgressiveList.from_ssz_bytes_fixed_payloads_total_spec`, `ProgressiveList.from_ssz_bytes_fixed_final_payload_total_spec`, and `ProgressiveList.from_ssz_bytes_variable_payloads_total_spec`; empty, zero-width, malformed-offset, and prefix-error results are in the coverage record |
@@ -197,6 +197,18 @@ payloads. The owning encoder uses an empty initial prefix. The fixed roundtrip
 uses the same restricted append law but retains width coherence for decoder
 chunk boundaries and derives the encoder payload bound from it. These changes
 pass the full build and axiom/import audit; they do not change external models.
+
+Variable encoder and roundtrip append laws are now also restricted to actual
+sequence positions and the preceding temporary payload. Element calls do not
+receive the destination prefix or offset table. `VariableCalls.lean` proves
+the exact fold of encoder append calls and borrowed continuations and lifts
+it through public reservation and finalization, retaining failures/divergence
+without codec or byte/offset laws. `LengthCalls.lean` proves the exact ordered
+fold of element size calls and checked additions, followed by the public
+offset-table arithmetic, without size laws or byte bounds. Overflow in the
+fold stops later calls. Existing exact-byte and size-sum specifications remain
+available for their successful fitting domains. The full build and axiom/import
+audit pass after these changes, covering 5,012 declarations across 313 modules.
 
 The revised goal is still incomplete. Borrowed-CoW obligations require faithful
 extraction and models; existing counterexamples
