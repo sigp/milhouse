@@ -1,7 +1,5 @@
-import Tree.ProgressiveList.Rebase.Backing
-import Tree.ProgressiveList.Rebase.SelectedContents
+import Tree.ProgressiveList.Rebase.Representation
 import Tree.ProgressiveTree.Rebase.Contents
-import Tree.ProgressiveList.Iter.Overlay
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -51,10 +49,9 @@ theorem ProgressiveList.rebase_on_spec_of_content_inputs {T U : Type}
       result.length = self.length ∧ result.updates = self.updates := by
   have hnew := ProgressiveList.rebase_on_preserves_backing ValueInst mapInst self base hlayout
     hbacking hbase hrebase
-  have helements := ProgressiveList.rebase_on_preserves_backing_contents ValueInst mapInst self base hcontent hrebase
-  obtain ⟨newTree, _, rfl⟩ := ProgressiveList.rebase_on_success_state ValueInst mapInst self base hrebase
-  exact ⟨hrep.with_tree ValueInst mapInst hlayout self contents hbacking hnew helements,
-    hnew, rfl, rfl⟩
+  exact ⟨(ProgressiveList.rebase_on_represents_iff ValueInst mapInst hlayout
+      self base contents hbacking hbase hcontent hrebase).mpr hrep,
+    hnew, ProgressiveList.rebase_on_preserves_metadata ValueInst mapInst self base hrebase⟩
 
 /-- Nonmutating rebasing preserves the represented list and backing validity
     under the selected content laws.
@@ -79,13 +76,11 @@ theorem ProgressiveList.rebase_spec_of_content_inputs {T U : Type}
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (core.result.Result.Ok result)) :
     result.Represents ValueInst mapInst contents ∧ result.BackingValid factor := by
-  obtain ⟨cloned, hcloned, hrebased⟩ := ProgressiveList.rebase_success_state ValueInst mapInst self base hrebase
-  have hclonedRep := ProgressiveList.clone_represents ValueInst mapInst self contents hrep hmapGet hmapMax hcloned
-  have hclonedBacking := ProgressiveList.clone_preserves_backing ValueInst mapInst self hbacking hcloned
-  obtain ⟨updates, hupdates, rfl⟩ := ProgressiveList.clone_success_state ValueInst mapInst self hcloned
-  have hresult := ProgressiveList.rebase_on_spec_of_content_inputs ValueInst mapInst hlayout
-    { self with updates } base contents hclonedRep hclonedBacking hbase hcontent hrebased
-  exact ⟨hresult.1, hresult.2.1⟩
+  have hclone := (ProgressiveList.rebase_preserves_metadata ValueInst mapInst self base hrebase).2
+  exact ⟨(ProgressiveList.rebase_represents_iff ValueInst mapInst hlayout
+      self base contents hrep hbacking hbase hcontent hrebase).mpr
+        ⟨hmapGet result.updates hclone, hmapMax result.updates hclone⟩,
+    ProgressiveList.rebase_preserves_backing ValueInst mapInst self base hlayout hbacking hbase hrebase⟩
 
 /-- In-place rebasing preserves every represented value and full backing
     validity. Equality/cache laws concern the materialized inputs only; no
