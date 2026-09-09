@@ -27,6 +27,15 @@ def NeOn {T : Type} (inst : core.cmp.PartialEq T T) (P : T → T → Prop) :
   | [] => True
   | pair :: rest => P pair.1 pair.2 ∧ (inst.ne pair.1 pair.2 = ok false → NeOn inst P rest)
 
+/-- Laws on every supplied pair suffice for the weaker reached-pair scope. -/
+theorem NeOn.of_pairs {T : Type} (inst : core.cmp.PartialEq T T) (P : T → T → Prop)
+    (pairs : _root_.List (T × T)) (hpairs : ∀ pair ∈ pairs, P pair.1 pair.2) :
+    NeOn inst P pairs := by
+  induction pairs with
+  | nil => trivial
+  | cons pair rest ih =>
+    exact ⟨hpairs pair (by simp), fun _ => ih (fun item hitem => hpairs item (by simp [hitem]))⟩
+
 theorem NeOn.of_all {T : Type} (inst : core.cmp.PartialEq T T) (P : T → T → Prop)
     (hpairs : ∀ left right, P left right) (pairs : _root_.List (T × T)) : NeOn inst P pairs := by
   induction pairs with
