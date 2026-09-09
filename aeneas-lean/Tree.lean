@@ -174,6 +174,7 @@ import Tree.ProgressiveList.Length
 import Tree.ProgressiveList.IsEmpty
 import Tree.ProgressiveList.Push
 import Tree.ProgressiveList.Push.State
+import Tree.ProgressiveList.Push.Lookup
 import Tree.ProgressiveList.Push.Maximum
 import Tree.ProgressiveList.Push.Total
 import Tree.ProgressiveList.Push.Capacity

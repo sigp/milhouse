@@ -1,4 +1,3 @@
-import Tree.ProgressiveList.Observers
 import Tree.UpdateMap.Lookup
 
 open Aeneas Aeneas.Std Result
@@ -37,6 +36,21 @@ private theorem get_eq_lookup_with_fallback {T U : Type}
   congr 1
   funext value
   cases value <;> rfl
+
+/-- At or beyond the backing length, the public read equals the raw map
+answer, including failure and divergence. No tree traversal can supply a value. -/
+theorem ProgressiveList.get_eq_map_get_of_backing_bound {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (query : Std.Usize)
+    (hbound : self.length.val ≤ query.val) :
+    ProgressiveList.get ValueInst mapInst self query = mapInst.get self.updates query := by
+  have hfallback : ProgressiveList.backing_get ValueInst mapInst self query = ok none := by
+    have hnot : ¬ query.val < self.length.val := by omega
+    simp [ProgressiveList.backing_get, ProgressiveList.backing_len, utils.Length.as_usize, hnot]
+  rw [get_eq_lookup_with_fallback, hfallback]
+  cases mapInst.get self.updates query with
+  | ok value => cases value <;> rfl
+  | fail error | div => rfl
 
 /-- Replacing the pending map preserves this complete public read exactly
 when its raw lookup outcomes agree at the actual backing fallback. -/
