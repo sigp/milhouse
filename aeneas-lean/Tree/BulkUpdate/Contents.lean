@@ -1,5 +1,6 @@
 import Tree.BulkUpdate.Node
 import Tree.BulkUpdate.CloneScope
+import Tree.BulkUpdate.RangeScope
 import Tree.UpdateMap.Range
 
 open Aeneas Aeneas.Std Result
@@ -83,7 +84,6 @@ private theorem bulk_shape_contents_aux {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hrange : update_map.RangeExcludesValues mapInst updates)
     (hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize × Std.Usize)
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)) :
     ∀ (n : Nat) (depth : Std.Usize) (treeDepth : Nat) (before after : Tree T)
@@ -94,6 +94,8 @@ private theorem bulk_shape_contents_aux {T U : Type}
       offset.val % leafCapacity factor = 0 →
       before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
         mapInst updates factor treeDepth (prefix1.val + offset.val) →
+      BulkRangeOn (update_map.RangeExcludesValuesAt mapInst updates)
+        mapInst updates factor treeDepth (prefix1.val + offset.val) →
       Tree.with_updated_leaves ValueInst mapInst before updates prefix1 offset depth hashes =
         ok (core.result.Result.Ok after) →
       subtreeCapacity factor treeDepth < 2 ^ System.Platform.numBits ∧ after.Shape factor treeDepth ∧
@@ -101,7 +103,7 @@ private theorem bulk_shape_contents_aux {T U : Type}
   intro n
   induction n using Nat.strong_induction_on with
   | h n ih =>
-    intro depth treeDepth before after prefix1 offset hmeasure hdepth hshape halign hoffset hclone hupdate
+    intro depth treeDepth before after prefix1 offset hmeasure hdepth hshape halign hoffset hclone hrange hupdate
     cases hshape with
     | leaf value =>
       obtain ⟨_, index, result, hindex, hget, rfl⟩ :=
@@ -169,14 +171,18 @@ private theorem bulk_shape_contents_aux {T U : Type}
           (mapInst.has_any_in_range updates lo hi = ok true →
             old.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
               mapInst updates factor child (start.val + offset.val)) →
+          update_map.RangeExcludesValuesAt mapInst updates lo hi →
+          (mapInst.has_any_in_range updates lo hi = ok true →
+            BulkRangeOn (update_map.RangeExcludesValuesAt mapInst updates)
+              mapInst updates factor child (start.val + offset.val)) →
           Tree.BulkChildStep ValueInst mapInst updates old new start offset nd lo hi hashes →
           new.Shape factor child ∧
             Tree.BulkContents mapInst updates factor old new child start.val offset.val := by
-        intro old new start lo hi hshape halign hlo hhi hclones hstep
+        intro old new start lo hi hshape halign hlo hhi hclones hlocal hdescend hstep
         rcases hstep with ⟨hempty, rfl⟩ | ⟨hselected, hupdate⟩
         · refine ⟨hshape, ?_⟩
           intro query pending hget hqueryLo hqueryHi
-          have hnone := hrange lo hi query pending hempty hget (by omega) (by omega)
+          have hnone := hlocal query pending hempty hget (by omega) (by omega)
           subst pending
           rfl
         · have hsmall : 2 * nd.val + zeroBit old < n := by
@@ -184,13 +190,19 @@ private theorem bulk_shape_contents_aux {T U : Type}
             simp only [zeroBit] at hmeasure
             omega
           exact (ih (2 * nd.val + zeroBit old) hsmall nd child old new start offset
-            (Nat.le_refl _) hndDepth hshape halign hoffset (hclones hselected) hupdate).2
+            (Nat.le_refl _) hndDepth hshape halign hoffset (hclones hselected) (hdescend hselected) hupdate).2
       obtain ⟨hnewLeft, hleftContents⟩ := childCorrect left newLeft prefix1 lo middle
         hleft halignLeft hlo (by omega)
-        (fun hselected => hclone.1 lo middle hlo (by omega) hselected) leftStep
+        (fun hselected => hclone.1 lo middle hlo (by omega) hselected)
+        (hrange.left_query (hi := middle) hlo (by omega))
+        (fun hselected => hrange.left (hi := middle) hlo (by omega) hselected) leftStep
       obtain ⟨hnewRight, hrightContents⟩ := childCorrect right newRight rightPrefix middle stop
         hright halignRight hmiddle (by omega) (fun hselected => by
           have h := hclone.2 middle stop (by omega) (by omega) hselected
+          simpa only [hrightPrefix', Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h)
+        (hrange.right_query (lo := middle) (hi := stop) (by omega) (by omega))
+        (fun hselected => by
+          have h := hrange.right (lo := middle) (hi := stop) (by omega) (by omega) hselected
           simpa only [hrightPrefix', Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h) rightStep
       have hcapBound : subtreeCapacity factor (child + 1) < 2 ^ System.Platform.numBits := by
         have hstopBound : stop.val < 2 ^ System.Platform.numBits := by simpa using stop.hBounds
@@ -292,7 +304,7 @@ private theorem bulk_shape_contents_aux {T U : Type}
           exact (Tree.BulkCloneScope.zero_expand _ _ mapInst updates factor depth nd nd.val _ hash).mp hclone
         obtain ⟨hcapBound, hshape, hcontents⟩ := ih _ hsmall depth depth.val
           (Tree.Node hash (.Zero nd) (.Zero nd)) after prefix1 offset (Nat.le_refl _) rfl
-          hexpanded halign hoffset hcloneExpanded hupdate
+          hexpanded halign hoffset hcloneExpanded hrange hupdate
         refine ⟨hcapBound, hshape, ?_⟩
         intro query pending hquery hlo hhi
         have hzslot : (Tree.Node hash (.Zero nd) (.Zero nd) : Tree T).slot factor depth.val
@@ -315,7 +327,8 @@ theorem Tree.with_updated_leaves_capacity_shape_contents {T U : Type}
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
     (hclone : before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       mapInst updates factor depth.val (prefix1.val + offset.val))
-    (hrange : update_map.RangeExcludesValues mapInst updates)
+    (hrange : BulkRangeOn (update_map.RangeExcludesValuesAt mapInst updates)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
     (hshape : before.Shape factor depth.val)
     (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
     (hoffset : offset.val % leafCapacity factor = 0)
@@ -324,9 +337,9 @@ theorem Tree.with_updated_leaves_capacity_shape_contents {T U : Type}
     subtreeCapacity factor depth.val < 2 ^ System.Platform.numBits ∧
       after.Shape factor depth.val ∧
       Tree.BulkContents mapInst updates factor before after depth.val prefix1.val offset.val := by
-  exact bulk_shape_contents_aux ValueInst mapInst updates hlayout hrange hashes
+  exact bulk_shape_contents_aux ValueInst mapInst updates hlayout hashes
     (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset
-    (Nat.le_refl _) rfl hshape halign hoffset hclone hupdate
+    (Nat.le_refl _) rfl hshape halign hoffset hclone hrange hupdate
 
 /-- Successful binary-tree bulk updates preserve geometric shape and apply
     pending values exactly throughout their assigned window. This includes
@@ -342,7 +355,8 @@ theorem Tree.with_updated_leaves_shape_contents {T U : Type}
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
     (hclone : before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       mapInst updates factor depth.val (prefix1.val + offset.val))
-    (hrange : update_map.RangeExcludesValues mapInst updates)
+    (hrange : BulkRangeOn (update_map.RangeExcludesValuesAt mapInst updates)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
     (hshape : before.Shape factor depth.val)
     (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
     (hoffset : offset.val % leafCapacity factor = 0)
@@ -365,7 +379,8 @@ theorem Tree.get_after_with_updated_leaves {T U : Type}
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
     (hclone : before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       mapInst updates factor depth.val (prefix1.val + offset.val))
-    (hrange : update_map.RangeExcludesValues mapInst updates)
+    (hrange : BulkRangeOn (update_map.RangeExcludesValuesAt mapInst updates)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
     (hshape : before.Shape factor depth.val)
     (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
     (hoffset : offset.val % leafCapacity factor = 0)
@@ -379,9 +394,9 @@ theorem Tree.get_after_with_updated_leaves {T U : Type}
       let previous ← Tree.get_recursive ValueInst before index depth packingDepth
       ok (pending.or previous)) := by
   obtain ⟨hcapacity, hafter, hcontents⟩ :=
-    bulk_shape_contents_aux ValueInst mapInst updates hlayout hrange hashes
+    bulk_shape_contents_aux ValueInst mapInst updates hlayout hashes
       (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset
-      (Nat.le_refl _) rfl hshape halign hoffset hclone hupdate
+      (Nat.le_refl _) rfl hshape halign hoffset hclone hrange hupdate
   have hbits : depth.val + packingDepth.val ≤ System.Platform.numBits := by
     rw [hlayout.subtreeCapacity_eq_two_pow] at hcapacity
     by_contra hnot

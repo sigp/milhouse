@@ -28,8 +28,7 @@ private theorem bulk_update_success_aux {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hget : ∀ query, ∃ found, mapInst.get updates query = ok found)
-    (hrange : update_map.RangeReflectsValues mapInst updates) :
+    (hget : ∀ query, ∃ found, mapInst.get updates query = ok found) :
     ∀ (n : Nat) (depth : Std.Usize) (treeDepth : Nat) (before : Tree T)
       (prefix1 offset : Std.Usize) (oldLength newLength : Nat),
       2 * depth.val + zeroBit before ≤ n → depth.val = treeDepth →
@@ -46,13 +45,15 @@ private theorem bulk_update_success_aux {T U : Type}
         mapInst updates factor treeDepth (prefix1.val + offset.val) →
       BulkRangeOn (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
         mapInst updates factor treeDepth (prefix1.val + offset.val) →
+      BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+        mapInst updates factor treeDepth (prefix1.val + offset.val) →
       ∃ after, Tree.with_updated_leaves ValueInst mapInst before updates
         prefix1 offset depth none = ok (core.result.Result.Ok after) := by
   intro n
   induction n using Nat.strong_induction_on with
   | h n ih =>
     intro depth treeDepth before prefix1 offset oldLength newLength hmeasure hdepth
-      hready halign hoffset hend hwindow hcapacity hhas hclone hqueries
+      hready halign hoffset hend hwindow hcapacity hhas hclone hqueries hrange
     obtain ⟨start, hstart, hstartVal⟩ := WP.spec_imp_exists
       (UScalar.add_spec (x := prefix1) (y := offset)
         (by rw [UScalar.max_USize_eq]; omega))
@@ -118,9 +119,9 @@ private theorem bulk_update_success_aux {T U : Type}
       have hsome : bl = true ∨ br = true := by
         obtain ⟨index, hi, hhas⟩ := hhas
         by_cases hleft : prefix1.val + offset.val + index < middle.val
-        · exact Or.inl ((hrange lo middle bl hbl).mpr
+        · exact Or.inl (((hrange.left_query hloVal hmiddleVal) bl hbl).mpr
             ⟨prefix1.val + offset.val + index, by omega, hleft, hhas⟩)
-        · exact Or.inr ((hrange middle stop br hbr).mpr
+        · exact Or.inr (((hrange.right_query (hi := stop) hmiddleVal (by omega)) br hbr).mpr
             ⟨prefix1.val + offset.val + index, by omega, by omega, hhas⟩)
       have childSuccess : ∀ (old : Tree T) (start lo hi : Std.Usize) (oldLen newLen : Nat),
           DenseTree factor old child oldLen →
@@ -137,17 +138,21 @@ private theorem bulk_update_success_aux {T U : Type}
           (mapInst.has_any_in_range updates lo hi = ok true →
             BulkRangeOn (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
               mapInst updates factor child (start.val + offset.val)) →
+          update_map.RangeReflectsValuesAt mapInst updates lo hi →
+          (mapInst.has_any_in_range updates lo hi = ok true →
+            BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+              mapInst updates factor child (start.val + offset.val)) →
           mapInst.has_any_in_range updates lo hi = ok true →
           ∃ new, Tree.with_updated_leaves ValueInst mapInst old updates start offset nd none =
             ok (core.result.Result.Ok new) := by
-        intro old start lo hi oldLen newLen hdense halign hend hlo hhi hwindow hcap hclones hscoped hanswer
-        obtain ⟨query, hqueryLo, hqueryHi, hhas⟩ := (hrange lo hi true hanswer).mp rfl
+        intro old start lo hi oldLen newLen hdense halign hend hlo hhi hwindow hcap hclones hscoped hlocal hdescend hanswer
+        obtain ⟨query, hqueryLo, hqueryHi, hhas⟩ := (hlocal true hanswer).mp rfl
         have hsmall : 2 * nd.val + zeroBit old < n := by
           have := zeroBit_le_one old
           simp only [zeroBit] at hmeasure
           omega
         apply ih _ hsmall nd child old start offset oldLen newLen (Nat.le_refl _)
-          hndDepth (.ofDense hdense) halign hoffset hend hwindow hcap ?_ (hclones hanswer) (hscoped hanswer)
+          hndDepth (.ofDense hdense) halign hoffset hend hwindow hcap ?_ (hclones hanswer) (hscoped hanswer) (hdescend hanswer)
         refine ⟨query - (start.val + offset.val), by omega, ?_⟩
         have heq : start.val + offset.val + (query - (start.val + offset.val)) = query := by omega
         rwa [heq]
@@ -159,6 +164,8 @@ private theorem bulk_update_success_aux {T U : Type}
           hleft halignLeft (by omega) hloVal hmiddleVal leftWindow (Nat.min_le_right _ _)
           (fun hselected => hclone.1 lo middle hloVal hmiddleVal hselected)
           (fun hselected => hqueries.left hloVal hmiddleVal hselected)
+          (hrange.left_query hloVal hmiddleVal)
+          (fun hselected => hrange.left hloVal hmiddleVal hselected)
         simpa only [htrue] using hbl
       have rightSuccess : br = true → ∃ new,
           Tree.with_updated_leaves ValueInst mapInst right updates (prefix1 ||| stride) offset nd none =
@@ -171,6 +178,10 @@ private theorem bulk_update_success_aux {T U : Type}
             simpa only [hrightPrefix, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h)
           (fun hselected => by
             have h := hqueries.right (hi := stop) hmiddleVal (by omega) hselected
+            simpa only [hrightPrefix, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h)
+          (hrange.right_query (hi := stop) hmiddleVal (by omega))
+          (fun hselected => by
+            have h := hrange.right (hi := stop) hmiddleVal (by omega) hselected
             simpa only [hrightPrefix, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h)
           (by simpa only [htrue] using hbr)
         have heq : (prefix1 ||| stride).val + offset.val =
@@ -272,7 +283,7 @@ private theorem bulk_update_success_aux {T U : Type}
           rw [hndVal] at hclone ⊢
           exact (Tree.BulkCloneOn.zero_expand _ mapInst updates factor depth nd nd.val _ _).mp hclone
         obtain ⟨after, hafter⟩ := ih _ hsmall depth depth.val _ prefix1 offset 0 newLength
-          (Nat.le_refl _) rfl hready halign hoffset hend hwindow hcapacity hhas hcloneExpanded hqueries
+          (Nat.le_refl _) rfl hready halign hoffset hend hwindow hcapacity hhas hcloneExpanded hqueries hrange
         refine ⟨after, ?_⟩
         rw [Tree.with_updated_leaves]
         simp only [opt_hash_none, default_hash, bind_tc_ok, hz, ↓reduceIte, hnd,
@@ -290,12 +301,13 @@ theorem Tree.with_updated_leaves_success {T U : Type}
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
     (hget : ∀ query, ∃ found, mapInst.get updates query = ok found)
-    (hrange : update_map.RangeReflectsValues mapInst updates)
     (before : Tree T) (prefix1 offset depth : Std.Usize) (oldLength newLength : Nat)
     (hclone : before.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
       mapInst updates factor depth.val (prefix1.val + offset.val))
     (hqueries : BulkRangeOn
       (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
+    (hrange : BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
       mapInst updates factor depth.val (prefix1.val + offset.val))
     (hdense : DenseTree factor before depth.val oldLength)
     (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
@@ -308,9 +320,9 @@ theorem Tree.with_updated_leaves_success {T U : Type}
       update_map.HasValueAt mapInst updates (prefix1.val + offset.val + index)) :
     ∃ after, Tree.with_updated_leaves ValueInst mapInst before updates
       prefix1 offset depth none = ok (core.result.Result.Ok after) := by
-  exact bulk_update_success_aux ValueInst mapInst updates hlayout hget hrange
+  exact bulk_update_success_aux ValueInst mapInst updates hlayout hget
     _ depth depth.val before prefix1 offset oldLength newLength (Nat.le_refl _) rfl
-    (.ofDense hdense) halign hoffset hend hwindow hcapacity hhas hclone hqueries
+    (.ofDense hdense) halign hoffset hend hwindow hcapacity hhas hclone hqueries hrange
 
 /-- Total bulk reconstruction preserves density at exactly the new window
 length. The nonempty update witness supplies positivity, so callers need not
@@ -320,12 +332,13 @@ theorem Tree.with_updated_leaves_total_dense {T U : Type}
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
     (hget : ∀ query, ∃ found, mapInst.get updates query = ok found)
-    (hrange : update_map.RangeReflectsValues mapInst updates)
     (before : Tree T) (prefix1 offset depth : Std.Usize) (oldLength newLength : Nat)
     (hclone : before.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
       mapInst updates factor depth.val (prefix1.val + offset.val))
     (hqueries : BulkRangeOn
       (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
+    (hrange : BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
       mapInst updates factor depth.val (prefix1.val + offset.val))
     (hdense : DenseTree factor before depth.val oldLength)
     (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
@@ -340,8 +353,8 @@ theorem Tree.with_updated_leaves_total_dense {T U : Type}
       prefix1 offset depth none = ok (core.result.Result.Ok after) ∧
       DenseTree factor after depth.val newLength := by
   obtain ⟨after, hafter⟩ := Tree.with_updated_leaves_success ValueInst mapInst updates
-    hlayout hget hrange before prefix1 offset depth oldLength newLength
-    hclone hqueries hdense halign hoffset hend hwindow hcapacity hhas
+    hlayout hget before prefix1 offset depth oldLength newLength
+    hclone hqueries hrange hdense halign hoffset hend hwindow hcapacity hhas
   exact ⟨after, hafter, (Tree.with_updated_leaves_capacity_dense ValueInst mapInst updates
     hlayout hrange hdense halign hoffset hwindow (hwindow.length_pos_of_update hhas)
     hcapacity hafter).2⟩
@@ -353,12 +366,13 @@ theorem Tree.with_updated_leaves_total_spec {T U : Type}
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
     (hget : ∀ query, ∃ found, mapInst.get updates query = ok found)
-    (hrange : update_map.RangeReflectsValues mapInst updates)
     (before : Tree T) (prefix1 offset depth : Std.Usize) (oldLength newLength : Nat)
     (hclone : before.BulkCloneLaws ValueInst.corecloneCloneInst
       mapInst updates factor depth.val (prefix1.val + offset.val))
     (hqueries : BulkRangeOn
       (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
+    (hrange : BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
       mapInst updates factor depth.val (prefix1.val + offset.val))
     (hdense : DenseTree factor before depth.val oldLength)
     (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
@@ -374,8 +388,8 @@ theorem Tree.with_updated_leaves_total_spec {T U : Type}
       DenseTree factor after depth.val newLength ∧
       Tree.BulkContents mapInst updates factor before after depth.val prefix1.val offset.val := by
   obtain ⟨after, hafter, hdenseAfter⟩ := Tree.with_updated_leaves_total_dense ValueInst mapInst updates
-    hlayout hget hrange before prefix1 offset depth oldLength newLength
-    hclone.terminates hqueries
+    hlayout hget before prefix1 offset depth oldLength newLength
+    hclone.terminates hqueries hrange
     hdense halign hoffset hend hwindow hcapacity hhas
   exact ⟨after, hafter, hdenseAfter,
     (Tree.with_updated_leaves_capacity_shape_contents ValueInst mapInst updates
