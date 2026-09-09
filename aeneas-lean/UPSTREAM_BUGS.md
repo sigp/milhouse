@@ -668,6 +668,58 @@ cache reads or aliases. A stateful/ghost-state account of shared caches and
 parallel calls is needed before claiming root or cache correctness. Removing
 parallelism alone does not address this issue and would change performance.
 
+## 22. Context deserialization: incomplete opaque visitor interface and recursive seed protocol
+
+**Stage:** external protocol extraction, Aeneas loop translation, and Lean
+trait elaboration.
+**Status:** the actual public list body is reachable, but its complete
+sequence/seed protocol is not yet extractable. No probe root, partial generated
+file, modified dependency, or opaque milhouse-method model is retained.
+
+A concrete extraction-only caller of
+`<ProgressiveList<T, U> as ContextDeserialize<'de, C>>::context_deserialize`
+with `T: Value + ContextDeserialize<'de, C>`, `C: Clone`, `U: UpdateMap<T>`, and
+`D: serde::Deserializer<'de>` reaches the real `src/context_deserialize.rs`
+method. Enable `arbitrary,context_deserialize` in the normal Charon command
+and add `--opaque 'context_deserialize'` for the pinned external library.
+The generated list body calls the external contextual Vec generator, then
+actual `ProgressiveList::try_from`, mapping constructor errors through
+`serde::de::Error::custom` with the formatted error message.
+
+This first extraction completes, and its generated types elaborate after the
+existing Arbitrary qualification fix. However, `serde.de.Visitor` contains
+only `expecting`: it has no `visit_seq` or element-producing operations. Thus
+that interface cannot implement the actual contextual vector visitor. The
+successful extraction is not evidence of a faithful sequence model or public
+correctness, and returning an assumed vector would leave that obligation open.
+
+Adding `--include 'context_deserialize::impls::core'` exposes the pinned 0.2.0
+Vec visitor and seed bodies. The complete interface is mutually recursive:
+
+```
+DeserializeSeed.deserialize -> Deserializer.deserialize_seq
+  -> Visitor.visit_seq -> SeqAccess.next_element_seed -> DeserializeSeed
+```
+
+Aeneas warns that these four recursive trait declarations will not type-check
+(`Translate.ml:1203`). Direct Lean elaboration of the generated types, using
+the existing external types and Arbitrary qualification fix, confirms unknown
+`serde.de.Deserializer`, `Visitor`, `SeqAccess`, and `DeserializeSeed`
+identifiers at the forward references. This reproduces the deserialization
+side of the interface limitation in issue 20. Independently, translating the
+external visitor's `while let` condition fails with `There should be no bottoms
+in the value` (`context_deserialize-0.2.0/src/impls/core.rs:55`,
+`interp/InterpExpressions.ml:55`).
+
+A faithful workaround must preserve the caller's actual
+`Deserializer.deserialize_seq` dispatch, the initial sequence size hint,
+context cloning before **every** `next_element_seed` call (including the
+terminal call), the exact cloned context passed into each seed, and the first
+sequence/element error. Clone identity is not generally implied by the trait.
+Fixing the loop alone leaves the recursive interface unresolved. The existing
+constructor totality and representation proofs can be composed once this
+external protocol is supported.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
