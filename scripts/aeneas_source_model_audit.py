@@ -17,10 +17,10 @@ from pathlib import Path
 TOOLCHAIN = "nightly-2026-06-01"
 
 
-def source_declaration(crate, suite, name):
+def source_declaration(crate, suite, name, kind="fun_decls"):
     prefix = [{"Ident": [part, 0]} for part in
               suite.get("source_prefix", suite.get("source_crate", "core")).split("::")]
-    candidates = [item for item in crate["fun_decls"] if item
+    candidates = [item for item in crate[kind] if item
                   and item["item_meta"]["name"][:len(prefix)] == prefix
                   and item["item_meta"]["name"][-1] == {"Ident": [name, 0]}]
     if len(candidates) != 1:
@@ -106,6 +106,60 @@ def check_source_renames(original, renamed, suite):
     return records
 
 
+def check_source_metadata(original, adjusted, suite):
+    """Restore declared root/type metadata, then validate all remaining LLBC."""
+    check_llbc(original, suite)
+    restored = copy.deepcopy(adjusted)
+    retained = []
+    names = suite.get("retain_sources", [])
+    if len(set(names)) != len(names):
+        raise ValueError("Duplicate retained source body")
+    for name in names:
+        if name not in suite["source_files"] or name in suite.get("initializers", []):
+            raise ValueError("Invalid retained source body")
+        source = source_declaration(original["translated"], suite, name)
+        candidates = [f for f in restored["translated"]["fun_decls"] if f
+                      and f["def_id"] == source["def_id"]]
+        if (source["item_meta"]["is_local"] is not False or len(candidates) != 1
+                or candidates[0]["item_meta"]["is_local"] is not True):
+            raise ValueError(f"Missing or incorrect source retention: {name}")
+        candidates[0]["item_meta"]["is_local"] = False
+        retained.append({"method": name, "defId": source["def_id"]})
+    types = []
+    files = {f["id"]: f for f in original["translated"]["files"] if f}
+    for name, replacement in suite.get("rename_source_types", {}).items():
+        if (name not in suite.get("type_source_files", {})
+                or not re.fullmatch(r"[A-Za-z_]\w*", replacement)):
+            raise ValueError("Invalid source type rename")
+        source = source_declaration(original["translated"], suite, name, "type_decls")
+        meta = source["item_meta"]
+        span = meta["span"]["data"]
+        file = files[span["file_id"]]
+        if (meta["is_local"] is not False or meta["opacity"] != "Transparent"
+                or file["crate_name"] != suite.get("source_crate", "core")
+                or file["name"] != {"Local": suite["type_source_files"][name]}
+                or not isinstance(source["kind"], dict)):
+            raise ValueError(f"Missing source type provenance: {name}")
+        expected_name = copy.deepcopy(meta["name"])
+        expected_name[-1] = {"Ident": [replacement, 0]}
+        if any(t and t["item_meta"]["name"] == expected_name
+               for t in original["translated"]["type_decls"]):
+            raise ValueError(f"Source type rename collides: {name}")
+        candidates = [t for t in restored["translated"]["type_decls"] if t
+                      and t["def_id"] == source["def_id"]]
+        if (len(candidates) != 1 or candidates[0]["item_meta"]["name"] != expected_name
+                or sum(bool(t and t["item_meta"]["name"] == expected_name)
+                       for t in adjusted["translated"]["type_decls"]) != 1):
+            raise ValueError(f"Missing or incorrect source type rename: {name}")
+        candidates[0]["item_meta"]["name"] = copy.deepcopy(meta["name"])
+        types.append({"type": name, "extractedType": replacement,
+                      "defId": source["def_id"], "source": span})
+    # This restores any separately declared function renames and compares the
+    # entire result, including code, types, IDs, dictionaries, and source spans.
+    renames = check_source_renames(original, restored, suite)
+    return renames, retained, types
+
+
 def check_axiom_output(output, proofs):
     records = re.findall(
         r"'([^']+)' (?:does not depend on any axioms|depends on axioms: \[([^\]]*)\])",
@@ -171,7 +225,7 @@ def main(suite):
             path = Path(package["manifest_path"]).parent / relative
             dependency_sources.append({"package": cargo["name"], "version": cargo["version"],
                 "file": relative, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
-    run("build", ["lake", "build", "Tree.FunsExternal"])
+    run("build", ["lake", "build", *suite.get("model_modules", ["Tree.FunsExternal"])])
     run("rustfmt", ["rustfmt", "+" + TOOLCHAIN, "--edition", "2024", "--check", str(sources / "source.rs")])
     if cargo:
         run("native-tests", ["cargo", "+" + TOOLCHAIN, "test", "--offline", "--locked",
@@ -191,6 +245,8 @@ def main(suite):
     command += ["--dest-file", str(llbc)]
     for name in suite.get("roots", suite["source_files"]):
         command += ["--start-from", suite["crate"] + "::" + name]
+    for name in suite.get("dependency_roots", []):
+        command += ["--start-from", name]
     if cargo:
         command += ["--", "--offline", "--locked", "--manifest-path", str(sources / "Cargo.toml")]
     else:
@@ -210,14 +266,23 @@ def main(suite):
     if exclusions:
         unchanged = check_exclusions(original, selected, suite)
     renames = []
-    if suite.get("rename_sources"):
+    retained = []
+    type_renames = []
+    if any(suite.get(key) for key in ("rename_sources", "retain_sources", "rename_source_types")):
         renamed = copy.deepcopy(selected)
-        for name, replacement in suite["rename_sources"].items():
+        for name, replacement in suite.get("rename_sources", {}).items():
             source_declaration(renamed["translated"], suite, name)["item_meta"]["name"][-1] = {
                 "Ident": [replacement, 0]}
-        shutil.copyfile(llbc, work / "original-names.llbc")
+        for name in suite.get("retain_sources", []):
+            source_declaration(renamed["translated"], suite, name)["item_meta"]["is_local"] = True
+        for name, replacement in suite.get("rename_source_types", {}).items():
+            source_declaration(renamed["translated"], suite, name, "type_decls")["item_meta"]["name"][-1] = {
+                "Ident": [replacement, 0]}
+        original_name = "original-metadata.llbc" if (suite.get("retain_sources")
+            or suite.get("rename_source_types")) else "original-names.llbc"
+        shutil.copyfile(llbc, work / original_name)
         llbc.write_text(json.dumps(renamed) + "\n")
-        renames = check_source_renames(selected, json.loads(llbc.read_text()), suite)
+        renames, retained, type_renames = check_source_metadata(selected, json.loads(llbc.read_text()), suite)
     run("aeneas", [args.aeneas, "-backend", "lean", "-namespace", suite["namespace"],
                    "-split-files", "-no-progress-bar", "-dest", str(work / suite["namespace"]),
                    str(llbc)], cwd=work)
@@ -237,7 +302,8 @@ def main(suite):
                      cwd=work, env=env)
         if module == "CheckModels":
             checked_axioms = check_axiom_output(output, suite["proofs"])
-    inputs = [sources / "source.rs", sources / "CheckModels.lean", lean_project / "Tree/FunsExternal.lean"]
+    inputs = [sources / "source.rs", sources / "CheckModels.lean"]
+    inputs += [lean_project / path for path in suite.get("model_files", ["Tree/FunsExternal.lean"])]
     if cargo:
         inputs += [sources / "Cargo.toml", sources / "Cargo.lock"]
     hashes = {str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
@@ -246,6 +312,7 @@ def main(suite):
         "dependencySources": dependency_sources,
         "excludedItems": exclusions, "unchangedSourceDeclarations": unchanged,
         "sourceNameChanges": renames,
+        "retainedSourceBodies": retained, "sourceTypeNameChanges": type_renames,
         "directSourceComparisons": provenance, "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,

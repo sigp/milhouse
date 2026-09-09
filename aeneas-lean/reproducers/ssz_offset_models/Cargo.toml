@@ -1,0 +1,10 @@
+[package]
+name = "ssz_source"
+version = "0.0.0"
+edition = "2024"
+publish = false
+[lib]
+path = "source.rs"
+[dependencies]
+ethereum_ssz = "=0.10.0"
+[workspace]
