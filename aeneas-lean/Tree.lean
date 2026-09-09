@@ -167,6 +167,7 @@ import Tree.ProgressiveTree.Rebase.Contents
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
 import Tree.UpdateMap.Length
+import Tree.UpdateMap.Length.Equivalence
 import Tree.ProgressiveList.Length
 import Tree.ProgressiveList.IsEmpty
 import Tree.ProgressiveList.Push
