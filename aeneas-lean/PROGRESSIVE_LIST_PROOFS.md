@@ -84,6 +84,15 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [Option source comparison](reproducers/option_models/README.md) checks
+  eleven local Option models against independent extraction of their actual
+  pinned standard-library bodies. A twelfth theorem verifies `cloned` through
+  the source's map-and-clone composition; direct extraction of its function
+  item remains unsupported (UPSTREAM_BUGS issue 23). All checks are axiom-free
+  and permit arbitrary callback results. Their separate audit verifies source
+  provenance, complete generated bodies, and native clone protocol behavior.
+  These standalone checks retain Aeneas's reference/drop abstraction and are
+  not included in the main `Tree` theorem count.
 - `Tree/PackingDepth.lean` derives the actual packing-depth query from the
   optional factor query and, for packed elements, the required power-of-two
   law. `Tree/Nat/NextPowerOfTwo.lean` proves that rounding preserves an exact
@@ -1047,7 +1056,20 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest clone-maximum checkpoint (through `6b3cba2`, with criterion `e835ed8`):
+Latest Option-model checkpoint (through `72abe24`, with comparisons `3732fe7`):
+`python3 scripts/aeneas-audit-option-models.py` passes after fresh extraction
+of eleven explicitly included standard-library bodies. All eleven direct
+comparisons and the separate `cloned` composition theorem validate without
+axioms. The focused external-model build, Rust formatting, and both native
+clone-protocol tests pass; seven malformed inventory/report inputs are
+rejected. Direct `cloned` extraction remains unresolved and is recorded
+separately, with no partial generated files imported. No production Rust,
+external model, library proof, or Aeneas source changed. The main library
+build/audit and dependency inventory from earlier checkpoints remain
+applicable and were not repeated for these standalone checks. Borrowed CoW
+and the remaining assumption/model-fidelity review stay open.
+
+Previous clone-maximum checkpoint (through `6b3cba2`, with criterion `e835ed8`):
 the clone, clone_from, and dependent rebase focused builds pass. The full
 library build passes (2,030 jobs), and the axiom/import audit covers 5,015
 theorem declarations across all 314 modules. Of these, 4,953 use only standard

@@ -924,6 +924,30 @@ Fixing the loop alone leaves the recursive interface unresolved. The existing
 constructor totality and representation proofs can be composed once this
 external protocol is supported.
 
+## 23. Aeneas: Option::cloned function item has unsupported bound regions
+
+**Stage:** region hierarchy construction.
+**Status:** direct standard-library extraction remains unresolved; eleven
+other reached Option methods extract and their local models compare exactly.
+
+Explicitly including `core::option` in Charon exposes the pinned
+`Option<&T>::cloned` body, which calls `self.map(T::clone)` at
+`/rustc/library/core/src/option.rs:2165`. Charon 0.1.223 succeeds, but Aeneas
+`b59d5188c082` rejects the function item's locally bound regions at
+`llbc/RegionsHierarchy.ml:180` (`Unimplemented` in the `TFnDef` case).
+`Interp.ml:609` reports the enclosing body failure. Aeneas exits 1 and emits
+a partial body, which is not imported into the proof library or model checks.
+
+The [Option source comparison](reproducers/option_models/README.md) preserves
+the caller and reproduction commands. Eleven other standard-library bodies
+extract completely and validate against local definitions without axioms.
+A separate axiom-free theorem checks `cloned` via the extracted `map` body and
+the actual generic clone callback, following the pinned one-line source.
+Two native tests cover skipped cloning, a nonidentity clone result, exact call
+count, and panic propagation. This is a composition check, not a successful
+direct `cloned` extraction. The local model remains unchanged, and no Aeneas
+source change or missing-method axiom is introduced.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

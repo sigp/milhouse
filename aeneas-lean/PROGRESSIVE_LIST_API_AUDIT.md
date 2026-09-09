@@ -135,6 +135,13 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The separate [Option source comparison](reproducers/option_models/README.md)
+now validates eleven local models against freshly extracted pinned
+standard-library bodies and one additional `cloned` composition, all without
+axioms. Direct `cloned` extraction remains unsupported at its higher-ranked
+function item. This reduces a trusted-model review obligation; it does not
+change API coverage or complete the borrowed CoW proofs.
+
 Clone and clone_from sequence contracts, and the rebase contracts that depend
 on them, no longer require cloned maximum-index identity. Under unchanged map
 reads, `Clone/Maximum.lean` proves the new metadata condition necessary and

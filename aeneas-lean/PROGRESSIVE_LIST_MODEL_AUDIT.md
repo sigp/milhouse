@@ -81,6 +81,31 @@ general Debug implementations are excluded. The specialized formatter's
 string-buffer and default-option contract must not be extended to general
 formatter options, user sinks, or lock observation without further work.
 
+## Option source comparisons
+
+Run `python3 scripts/aeneas-audit-option-models.py` from the repository root.
+The [source comparison](reproducers/option_models/README.md) explicitly includes
+the pinned standard-library Option bodies in Charon and extracts them into an
+independent namespace. Eleven local models equal their entire generated bodies
+for all inputs and callback dictionaries, including callback failure/divergence
+and skipped branches. All eleven comparisons validate without axioms.
+
+`Option<&T>::cloned` fails direct extraction on the locally bound regions of
+the `T::clone` function item (UPSTREAM_BUGS issue 23). A twelfth axiom-free
+theorem checks its source-level `map(T::clone)` composition using the fully
+extracted `map` body and actual clone callback. Two native tests cover clone
+count, nonidentity results, skipped calls, and panic propagation. The report
+keeps direct extraction and composition evidence separate.
+
+The check validates transparent standard-library LLBC provenance and fresh
+generated output and rejects incomplete bodies and missing axiom reports.
+Seven malformed inventory/report cases are rejected. Its generated modules
+are outside `Tree` and have a separate compilation/axiom gate, so the main
+library theorem count is unchanged. The comparisons retain Aeneas's reference
+abstraction and omitted destructor execution; they are not a compiler or full
+Rust refinement proof. Numeric/container and the other model boundaries still
+need their remaining review. No production model or Aeneas source changed.
+
 ## Tuple inequality correction
 
 Review of the referenced tuple dictionary found a local model defect: its
