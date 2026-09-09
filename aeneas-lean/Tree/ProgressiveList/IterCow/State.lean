@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.Backing
+import Tree.ProgressiveList.IterCow.Bounds
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -82,16 +83,8 @@ theorem ProgressiveList.iter_cow_from_error_preserves_self {T U : Type}
     {back : core.result.Result (ProgressiveListIterCow T U) error.Error → ProgressiveList T U}
     (hiter : ProgressiveList.iter_cow_from ValueInst mapInst self index = ok (core.result.Result.Err err, back)) :
     ∀ replacement, back replacement = self := by
-  unfold ProgressiveList.iter_cow_from at hiter
-  rw [bind_eq_ok_iff] at hiter
-  obtain ⟨length, hlength, hiter⟩ := hiter
-  split at hiter
-  · simp only [ok.injEq, Prod.mk.injEq, core.result.Result.Err.injEq] at hiter
-    obtain ⟨rfl, rfl⟩ := hiter
-    exact fun _ => rfl
-  · rw [bind_eq_ok_iff] at hiter
-    obtain ⟨⟨created, createdBack⟩, hcreated, hiter⟩ := hiter
-    simp at hiter
+  rw [((ProgressiveList.iter_cow_from_error_iff ValueInst mapInst self index).mp hiter).2]
+  exact fun _ => rfl
 
 /-- Releasing the freshly constructed cursor unchanged restores the entire
     list. No map release law is needed because construction never borrows a

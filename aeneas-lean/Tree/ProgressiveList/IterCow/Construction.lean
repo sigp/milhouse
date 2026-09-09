@@ -102,18 +102,4 @@ theorem ProgressiveList.iter_cow_from_spec {T U : Type}
   | Err err => simp [back, hupdates]
   | Ok replacement => cases replacement; rfl
 
-/-- Oversized CoW starts return the exact bounds error and preserve the entire
-    list for every continuation input. No backing or packing invariant is needed. -/
-theorem ProgressiveList.iter_cow_from_out_of_bounds {T U : Type}
-    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
-    (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize)
-    (hrep : self.Represents ValueInst mapInst contents) (hindex : contents.length < index.val) :
-    ∃ length : Std.Usize, length.val = contents.length ∧
-      ProgressiveList.iter_cow_from ValueInst mapInst self index =
-        ok (core.result.Result.Err (error.Error.OutOfBoundsIterFrom index length), fun _ => self) := by
-  obtain ⟨length, hlen, hlength⟩ := hrep.1
-  refine ⟨length, hlength, ?_⟩
-  have houtside : index > length := by scalar_tac
-  simp only [ProgressiveList.iter_cow_from, hlen, bind_tc_ok, if_pos houtside]
-
 end milhouse.progressive_list
