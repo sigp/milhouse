@@ -127,4 +127,6 @@ import Tree.PackedLeaf.BulkUpdate
 import Tree.PackedLeaf.BulkUpdateSuccess
 import Tree.BulkUpdate
 import Tree.BulkUpdate.Density
+import Tree.BulkUpdate.Arithmetic
+import Tree.BulkUpdate.Success
 import Tree.BulkUpdate.Contents
