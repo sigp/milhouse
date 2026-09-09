@@ -1,3 +1,4 @@
+import Tree.ProgressiveTree.BulkUpdate.ActivationNecessary
 import Tree.BulkUpdate.Success
 import Tree.ProgressiveTree.BulkUpdate.Density
 import Tree.ProgressiveTree.BulkUpdate.CloneScope
@@ -337,5 +338,76 @@ theorem ProgressiveTree.with_updated_leaves_success {T U : Type}
   exact ProgressiveTree.with_updated_leaves_success_of_enabled ValueInst mapInst updates
     hlayout hget maximum hmax oldLength newLength hmaximum hdomain hfits before hclone hqueries
     (ProgressiveTree.BulkLayerEnabled.of_ranges hlayout hrange) hrange.binary_layers hdense
+
+/-- Under the remaining execution laws and dense input/domain invariants,
+selected layer start conditions are necessary and sufficient for success.
+No start condition or successful update is assumed upfront. -/
+theorem ProgressiveTree.with_updated_leaves_recursive_success_iff_enabled {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    (hget : ∀ query, ∃ found, mapInst.get updates query = ok found)
+    (maximum : Option Std.Usize) (oldLength newLength : Nat)
+    (hmaximum : ∀ last, maximum = some last → last.val < newLength)
+    (hdomain : DenseUpdateDomain oldLength newLength (update_map.HasValueAt mapInst updates))
+    (hfits : ProgressiveTree.LengthFits factor newLength)
+    (depth : Std.U32) (before : ProgressiveTree T)
+    (hclone : before.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+      ValueInst mapInst updates factor maximum depth)
+    (hqueries : before.BulkRangeOn
+      (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
+      ValueInst mapInst updates factor maximum depth)
+    (hrange : before.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      ValueInst mapInst updates factor maximum depth)
+    (hcapacity : subtreeCapacity factor (2 * depth.val) ≤ Std.Usize.max)
+    (hdense : before.Dense factor depth.val (oldLength - progressiveCapacity factor depth.val)) :
+    (∃ after, ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
+      ok (core.result.Result.Ok after)) ↔
+      before.BulkLayerEnabled ValueInst mapInst updates factor maximum depth := by
+  constructor
+  · rintro ⟨after, hupdate⟩
+    exact ProgressiveTree.with_updated_leaves_recursive_layer_enabled ValueInst mapInst updates hlayout
+      hdense.shape (fun layer start binary hvisit => (hrange layer start binary hvisit).selectsValues) hupdate
+  · intro henabled
+    exact ProgressiveTree.with_updated_leaves_recursive_success_of_enabled ValueInst mapInst updates
+      hlayout hget maximum oldLength newLength hmaximum hdomain hfits depth before
+      hclone hqueries henabled hrange hcapacity hdense
+
+/-- Under the remaining execution laws and dense input/domain invariants,
+selected layer start conditions are necessary and sufficient for success.
+No start condition or successful update is assumed upfront. -/
+theorem ProgressiveTree.with_updated_leaves_success_iff_enabled {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    (hget : ∀ query, ∃ found, mapInst.get updates query = ok found)
+    (maximum : Option Std.Usize) (hmax : mapInst.max_index updates = ok maximum)
+    (oldLength newLength : Nat)
+    (hmaximum : ∀ last, maximum = some last → last.val < newLength)
+    (hdomain : DenseUpdateDomain oldLength newLength (update_map.HasValueAt mapInst updates))
+    (hfits : ProgressiveTree.LengthFits factor newLength)
+    (before : ProgressiveTree T)
+    (hclone : before.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+      ValueInst mapInst updates factor maximum 0#u32)
+    (hqueries : before.BulkRangeOn
+      (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
+      ValueInst mapInst updates factor maximum 0#u32)
+    (hrange : before.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      ValueInst mapInst updates factor maximum 0#u32)
+    (hdense : before.Dense factor 0 oldLength) :
+    (∃ after, ProgressiveTree.with_updated_leaves ValueInst mapInst before updates =
+      ok (core.result.Result.Ok after)) ↔
+      before.BulkLayerEnabled ValueInst mapInst updates factor maximum 0#u32 := by
+  constructor
+  · rintro ⟨after, hupdate⟩
+    apply ProgressiveTree.with_updated_leaves_layer_enabled ValueInst mapInst updates hlayout hdense.shape
+      (fun actual hactual => ?_) hupdate maximum hmax
+    rw [hmax] at hactual
+    cases hactual
+    exact fun layer start binary hvisit => (hrange layer start binary hvisit).selectsValues
+  · intro henabled
+    exact ProgressiveTree.with_updated_leaves_success_of_enabled ValueInst mapInst updates
+      hlayout hget maximum hmax oldLength newLength hmaximum hdomain hfits before
+      hclone hqueries henabled hrange hdense
 
 end milhouse.progressive_tree
