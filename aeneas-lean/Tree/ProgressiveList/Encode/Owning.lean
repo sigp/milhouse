@@ -10,7 +10,8 @@ namespace milhouse.progressive_list
 
 /-- Owning fixed-element encoding returns exactly the merged payload from an
     empty buffer. Declared reservation and actual payload bounds are separate;
-    no width-coherence law is required by the encoder. -/
+    no width-coherence law is required by the encoder. Append laws concern only
+    a sequence position's preceding payload buffer. -/
 theorem ProgressiveList.as_ssz_bytes_fixed_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (hfixed : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok true)
@@ -21,7 +22,8 @@ theorem ProgressiveList.as_ssz_bytes_fixed_spec {T U : Type}
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val) (hfits : self.tree.Fits factor 0)
     (encode : T → _root_.List Std.U8)
-    (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
+    (happend : ∀ before value after, contents = before ++ value :: after →
+      ∀ buffer : alloc.vec.Vec Std.U8, buffer.val = before.flatMap encode →
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)

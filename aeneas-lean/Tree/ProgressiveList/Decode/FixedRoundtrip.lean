@@ -12,7 +12,8 @@ The reconstructed list has valid backing and no pending updates. Byte size
 and occupied-layer bounds describe the two operations' representable domains;
 all intermediate arithmetic and traversal conditions are derived internally.
 Decoder metadata, positive width, and reconstruction capacity are needed only
-for nonempty contents; encoder/traversal premises describe their actual calls. -/
+for nonempty contents; encoder/traversal premises describe their actual calls.
+Append laws are restricted to the preceding payload buffer at each position. -/
 theorem ProgressiveList.ssz_roundtrip_fixed {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -27,7 +28,8 @@ theorem ProgressiveList.ssz_roundtrip_fixed {T U : Type}
     (hdecodeWidth : contents ≠ [] → ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
     (encode : T → _root_.List Std.U8)
     (hwidths : ∀ value ∈ contents, (encode value).length = width.val)
-    (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
+    (happend : ∀ before value after, contents = before ++ value :: after →
+      ∀ buffer : alloc.vec.Vec Std.U8, buffer.val = before.flatMap encode →
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)

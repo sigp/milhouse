@@ -7,14 +7,16 @@ namespace milhouse.progressive_list
 
 /-- Direct encoding appends exactly the element encodings in iterator order,
     preserving the existing output prefix. The aggregate byte bound supplies
-    every per-element append bound. -/
+    every per-element append bound. Codec laws apply only at actual sequence
+    positions and buffers containing the initial prefix and preceding payload. -/
 theorem ProgressiveList.ssz_append_fixed_loop_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (cursor : ProgressiveListIter T U) (values : _root_.List T)
     (encode : T → _root_.List Std.U8) (buf : alloc.vec.Vec Std.U8)
     (hyields : IteratorYields
       (ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst mapInst) cursor values)
-    (happend : ∀ value ∈ values, ∀ buffer : alloc.vec.Vec Std.U8,
+    (happend : ∀ before value after, values = before ++ value :: after →
+      ∀ buffer : alloc.vec.Vec Std.U8, buffer.val = buf.val ++ before.flatMap encode →
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)
@@ -30,13 +32,16 @@ theorem ProgressiveList.ssz_append_fixed_loop_spec {T U : Type}
     have hroom : buf.val.length + (encode value).length ≤ Std.Usize.max := by
       simp only [_root_.List.flatMap_cons, _root_.List.length_append] at hbound
       omega
-    obtain ⟨appended, hitem, happended⟩ := happend value (by simp) buf hroom
+    obtain ⟨appended, hitem, happended⟩ := happend [] value values rfl buf (by simp) hroom
     have htailBound : appended.val.length + (values.flatMap encode).length ≤ Std.Usize.max := by
       rw [happended]
       simp only [_root_.List.flatMap_cons, _root_.List.length_append] at hbound ⊢
       omega
-    obtain ⟨output, hloop, houtput⟩ := ih appended
-      (fun item hmem => happend item (by simp [hmem])) htailBound
+    obtain ⟨output, hloop, houtput⟩ := ih appended (by
+      intro before item after hsplit buffer hbuffer hroom
+      apply happend (value :: before) item after (by simp [hsplit]) buffer ?_ hroom
+      simpa only [happended, _root_.List.flatMap_cons, _root_.List.append_assoc] using hbuffer)
+      htailBound
     refine ⟨output, ?_, ?_⟩
     · rw [ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0, loop]
       simp! only [ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0.body,
@@ -60,7 +65,8 @@ theorem fixed_payload_length {T : Type} (encode : T → _root_.List Std.U8)
 /-- The fixed-element branch appends the exact represented sequence's payload.
     Its declared width controls reservation, while element append calls control
     the actual bytes. Separate aggregate bounds suffice; payload widths need
-    not agree with the declared width. -/
+    not agree with the declared width. Append laws constrain only the buffers
+    reached from this initial prefix and preceding payloads. -/
 theorem ProgressiveList.ssz_append_fixed_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (hfixed : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok true)
@@ -71,7 +77,8 @@ theorem ProgressiveList.ssz_append_fixed_spec {T U : Type}
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val) (hfits : self.tree.Fits factor 0)
     (encode : T → _root_.List Std.U8) (buf : alloc.vec.Vec Std.U8)
-    (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
+    (happend : ∀ before value after, contents = before ++ value :: after →
+      ∀ buffer : alloc.vec.Vec Std.U8, buffer.val = buf.val ++ before.flatMap encode →
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)
