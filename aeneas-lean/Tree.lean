@@ -63,6 +63,7 @@ import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Construction.Total
 import Tree.ProgressiveList.Construction.Caches
+import Tree.ProgressiveList.Construction.CacheTotal
 import Tree.ProgressiveList.Construction.Capacity
 import Tree.ProgressiveList.Iter.Construction
 import Tree.ProgressiveList.IterCow.Construction
