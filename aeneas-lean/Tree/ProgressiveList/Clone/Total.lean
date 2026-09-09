@@ -23,16 +23,19 @@ theorem ProgressiveList.clone_success_iff {T U : Type}
 
 /-- The actual public clone terminates, preserves the complete represented
 sequence and backing validity, and returns precisely the cloned pending map.
-Only that map call must terminate and preserve its reads and maximum; the map
-may change internal state. No element clone, packing, or map-identity law is
-required, and no successful list-clone call is assumed. -/
+Only that map call must terminate and preserve its reads and logical extent;
+its maximum may change below the backing length. No element clone, packing,
+or map/maximum identity law is required, and no successful list-clone or
+new list-length call is assumed. -/
 theorem ProgressiveList.clone_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} (self : ProgressiveList T U) (contents : _root_.List T)
     (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
     (hmap : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates ∧
       (∀ query, mapInst.get updates query = mapInst.get self.updates query) ∧
-      mapInst.max_index updates = mapInst.max_index self.updates) :
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim self.length.val
+          (fun index => max (index.val + 1) self.length.val) = contents.length) :
     ∃ result, ProgressiveList.Insts.CoreCloneClone.clone ValueInst.corecloneCloneInst ValueInst
       mapInst.corecloneCloneInst mapInst self = ok result ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧

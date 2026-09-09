@@ -58,7 +58,7 @@ theorem ProgressiveList.rebase_on_spec {T U : Type}
     hnew, rfl, rfl⟩
 
 /-- Nonmutating rebasing preserves the represented list and backing validity.
-    Cloning the pending map needs only preservation of reads and maximum;
+    Cloning the pending map needs only preservation of reads and logical extent;
     element cloning and exact identity of the cloned map are unnecessary. -/
 theorem ProgressiveList.rebase_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
@@ -73,7 +73,9 @@ theorem ProgressiveList.rebase_spec {T U : Type}
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       ∀ query, mapInst.get updates query = mapInst.get self.updates query)
     (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
-      mapInst.max_index updates = mapInst.max_index self.updates)
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim self.length.val
+          (fun index => max (index.val + 1) self.length.val) = contents.length)
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (core.result.Result.Ok result)) :
     result.Represents ValueInst mapInst contents ∧ result.BackingValid factor := by

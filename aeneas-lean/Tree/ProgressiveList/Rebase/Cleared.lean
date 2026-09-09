@@ -51,7 +51,9 @@ theorem ProgressiveList.rebase_total_from_cleared_spec {T U : Type}
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       ∀ query, mapInst.get updates query = mapInst.get self.updates query)
     (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
-      mapInst.max_index updates = mapInst.max_index self.updates)
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim self.length.val
+          (fun index => max (index.val + 1) self.length.val) = contents.length)
     (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧

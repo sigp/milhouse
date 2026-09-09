@@ -37,7 +37,8 @@ theorem ProgressiveList.clone_from_success_iff {T U : Type}
     ProgressiveList.clone_success_iff ValueInst mapInst source
 
 /-- A successful `clone_from` represents the source contents under only the
-source map clone's read/maximum laws. The old destination may be arbitrary. -/
+source map clone's read/extent laws. The old destination may be arbitrary,
+and the copied map's maximum need not equal the source map's maximum. -/
 theorem ProgressiveList.clone_from_represents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (destination source : ProgressiveList T U) (contents : _root_.List T)
@@ -45,7 +46,9 @@ theorem ProgressiveList.clone_from_represents {T U : Type}
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone source.updates = ok updates →
       ∀ query, mapInst.get updates query = mapInst.get source.updates query)
     (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone source.updates = ok updates →
-      mapInst.max_index updates = mapInst.max_index source.updates)
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim source.length.val
+          (fun index => max (index.val + 1) source.length.val) = contents.length)
     {result : ProgressiveList T U}
     (hclone : (ProgressiveList.Insts.CoreCloneClone ValueInst.corecloneCloneInst ValueInst
       mapInst.corecloneCloneInst mapInst).clone_from destination source = ok result) :
@@ -95,15 +98,18 @@ theorem ProgressiveList.has_pending_updates_after_clone_from {T U : Type}
 
 /-- Total source-sequence replacement, preserving source backing validity and
 exact backing fields and returning the actual source pending-map clone. Only
-that clone's termination and read/maximum preservation are assumed; there are
-no laws on the destination, element cloning, packing, or map `clone_from`. -/
+that clone's termination, read agreement, and logical extent are assumed;
+maximum identity is unnecessary. There are no laws on the destination,
+element cloning, packing, or map `clone_from`. -/
 theorem ProgressiveList.clone_from_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} (destination source : ProgressiveList T U) (contents : _root_.List T)
     (hrep : source.Represents ValueInst mapInst contents) (hbacking : source.BackingValid factor)
     (hmap : ∃ updates, mapInst.corecloneCloneInst.clone source.updates = ok updates ∧
       (∀ query, mapInst.get updates query = mapInst.get source.updates query) ∧
-      mapInst.max_index updates = mapInst.max_index source.updates) :
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim source.length.val
+          (fun index => max (index.val + 1) source.length.val) = contents.length) :
     ∃ result, (ProgressiveList.Insts.CoreCloneClone ValueInst.corecloneCloneInst ValueInst
       mapInst.corecloneCloneInst mapInst).clone_from destination source = ok result ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧

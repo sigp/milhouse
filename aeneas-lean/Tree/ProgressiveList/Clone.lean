@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Backing
+import Tree.ProgressiveList.Clone.Maximum
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -44,8 +44,8 @@ theorem ProgressiveList.clone_preserves_backing {T U : Type}
   exact hbacking
 
 /-- Cloning preserves the represented sequence when cloning the pending map
-    preserves its reads and maximum. No element-clone law or exact identity
-    of the cloned map is needed. -/
+    preserves its reads and logical extent. Its maximum may change below the
+    backing length. No element-clone law or exact map/maximum identity is needed. -/
 theorem ProgressiveList.clone_represents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -53,18 +53,17 @@ theorem ProgressiveList.clone_represents {T U : Type}
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       ∀ query, mapInst.get updates query = mapInst.get self.updates query)
     (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
-      mapInst.max_index updates = mapInst.max_index self.updates)
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim self.length.val
+          (fun index => max (index.val + 1) self.length.val) = contents.length)
     {result : ProgressiveList T U}
     (hclone : ProgressiveList.Insts.CoreCloneClone.clone ValueInst.corecloneCloneInst ValueInst
       mapInst.corecloneCloneInst mapInst self = ok result) :
     result.Represents ValueInst mapInst contents := by
   obtain ⟨updates, hupdates, rfl⟩ := ProgressiveList.clone_success_state ValueInst mapInst self hclone
-  obtain ⟨⟨length, hlength, hcontents⟩, hreads⟩ := hrep
-  refine ⟨⟨length, ?_, hcontents⟩, ?_⟩
-  · simpa only [ProgressiveList.len, utils.updated_length, hmapMax updates hupdates] using hlength
-  · intro query
-    simpa only [ProgressiveList.get, hmapGet updates hupdates query,
-      ProgressiveList.backing_get, ProgressiveList.backing_len] using hreads query
+  obtain ⟨largest, hmax, hextent⟩ := hmapMax updates hupdates
+  exact ProgressiveList.Represents.with_updates_of_max_index ValueInst mapInst
+    self contents hrep updates largest hmax (hmapGet updates hupdates) hextent
 
 /-- The pending-update observer is preserved under the corresponding map
     clone law, independently of sequence or backing invariants. -/
