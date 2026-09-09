@@ -45,13 +45,17 @@ theorem Tree.bulkContents_of_leaf_value {T U : Type}
   rfl
 
 /-- Lift packed-leaf bulk-update contents through the global offset used by
-    binary-tree updates. Both starts are aligned to the packing factor. -/
+    binary-tree updates. Both starts are aligned to the packing factor. Clone
+    identity is scoped to this leaf's stored values and pending window. -/
 theorem Tree.bulkContents_of_packed_update {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
     {updates : U} {before after : packed_leaf.PackedLeaf T}
     {factor prefix1 offset start : Std.Usize}
     {hash : alloy_primitives.bits.fixed.FixedBytes 32#usize}
+    (hcloneStored : ∀ value ∈ before.values.val, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclonePending : ∀ (query : Std.Usize) value, start.val ≤ query.val →
+      query.val < start.val + factor.val → mapInst.get updates query = ok (some value) →
+      ValueInst.corecloneCloneInst.clone value = ok value)
     (hfactor : ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor = ok factor)
     (halign : prefix1.val % factor.val = 0) (hoffset : offset.val % factor.val = 0)
     (hstart : prefix1 + offset = ok start)
@@ -66,7 +70,8 @@ theorem Tree.bulkContents_of_packed_update {T U : Type}
   have hmod : (query.val - offset.val) % factor.val = query.val - start.val := by
     rw [mod_eq_sub_of_aligned halign (by omega) (by omega)]
     omega
-  have hread := packed_leaf.PackedLeaf.get_after_update hclone hfactor hstartAlign
+  have hread := packed_leaf.PackedLeaf.get_after_update_of_clone_on_window
+    hcloneStored hclonePending hfactor hstartAlign
     (by omega) (by omega) hquery hupdate
   simpa only [Tree.slot, leafCapacity, hmod] using hread
 
@@ -120,7 +125,8 @@ private theorem bulk_shape_contents_aux {T U : Type}
         simp [core.result.Result.Insts.CoreOpsTry.branch, triomphe.arc.Arc.new] at hupdate
         subst after
         exact ⟨by simpa [subtreeCapacity, leafCapacity] using factor.hBounds, .packed factor result,
-          Tree.bulkContents_of_packed_update ValueInst mapInst hclone
+          Tree.bulkContents_of_packed_update ValueInst mapInst
+            (fun value _ => hclone value) (fun _ value _ _ _ => hclone value)
             hlayout.tree_hash_packing_factor_eq
             (by simpa [subtreeCapacity, leafCapacity] using halign) hoffset hstart hresult⟩
     | @node factor left right child oldHash hleft hright =>
@@ -238,7 +244,8 @@ private theorem bulk_shape_contents_aux {T U : Type}
             subst after
             refine ⟨by simpa [subtreeCapacity, leafCapacity] using factor.hBounds,
               .packed factor result, ?_⟩
-            have hcontents := Tree.bulkContents_of_packed_update ValueInst mapInst hclone hfactor
+            have hcontents := Tree.bulkContents_of_packed_update ValueInst mapInst
+              (fun value _ => hclone value) (fun _ value _ _ _ => hclone value) hfactor
               (by simpa [subtreeCapacity, leafCapacity] using halign) hoffset hstart hresult
             simpa [Tree.BulkContents, Tree.slot, alloc.vec.Vec.with_capacity, alloc.vec.Vec.new] using hcontents
       · rw [if_neg hz, bind_eq_ok_iff] at hupdate
