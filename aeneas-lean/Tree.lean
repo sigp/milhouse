@@ -60,6 +60,7 @@ import Tree.Rebase.Caches
 import Tree.BulkUpdate.Caches
 import Tree.ProgressiveTree
 import Tree.ProgressiveTree.Rebase.Success
+import Tree.ProgressiveTree.Rebase.SuccessReflection
 import Tree.ProgressiveTree.Rebase.Caches
 import Tree.ProgressiveTree.Rebase.CacheInputs
 import Tree.ProgressiveTree.Rebase.OriginalCaches
