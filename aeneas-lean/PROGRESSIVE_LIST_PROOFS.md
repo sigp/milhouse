@@ -80,9 +80,21 @@ lower-level hypothesis and count the wrapper as proved.
   for the pending value at the checked `prefix + offset` key.
   `Tree/BulkUpdate/Contents.lean` uses the scoped packed-leaf theorem in its
   offset bridge, restricting clone identity to that leaf's stored values and
-  pending update window. The recursive binary/progressive and public list
-  specifications still use global clone laws; propagating scoped assumptions
-  through those recursions remains an open part of the full goal.
+  pending update window.
+- `Tree/BulkUpdate/CloneScope.lean`: `BulkCloneOn` restricts a value law to
+  stored packed values and pending leaf-window values in children selected by
+  positive range queries. Skipped subtrees require no clone law, and zero
+  expansion contributes no stored values. The predicate contains input data
+  and external map observations only, with no bulk-update result or assumed
+  recursive success. Specialization, implication, and zero-expansion lemmas
+  support identity and termination laws on the same selected inputs.
+  `Contents.lean` and `Success.lean` now use this predicate throughout both
+  binary inductions and all six public contents, lookup, success, density,
+  and total correctness specifications. `ProgressiveTree/BulkUpdate/Layer.lean`
+  carries it through all four progressive-layer bridge lemmas. The progressive
+  spine and public list specifications still use global clone laws; propagating
+  scoped assumptions through those remaining callers is an open part of the
+  full goal.
 - `Tree/BulkUpdate/Arithmetic.lean` and `Success.lean` derive every binary
   split operation from the aligned endpoint bound and prove total recursive
   reconstruction, density, and merged contents. Zero expansion and unchanged
@@ -554,7 +566,27 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest clone-scope foundation checkpoint (through `f3112b4`): the full Lean
+Latest recursive clone-scope checkpoint (through `2c55621`): the full Lean
+build passes (1,943 jobs), including every earlier proof. Four clone-scope
+foundations, three binary contents/lookup lemmas, three binary success/totality
+lemmas, and four progressive-layer lemmas were audited; all 14 depend only
+on `propext`, `Classical.choice`, and `Quot.sound`. The root `Tree` target
+includes the new scope module. The full build log is
+`/tmp/milhouse-bulk-recursive-clone-final-build.log`; audit logs are
+`/tmp/milhouse-bulk-clone-scope-audit.log`,
+`/tmp/milhouse-bulk-contents-scoped-audit.log`,
+`/tmp/milhouse-bulk-success-scoped-audit.log`, and
+`/tmp/milhouse-progressive-layer-scoped-audit.log`. No Rust, generated
+extraction, external-model, or Aeneas source changed.
+
+The binary recursions and progressive layer bridges no longer require
+cloning laws for arbitrary element values or skipped subtrees. The remaining
+progressive-spine and public `apply_updates` clone assumptions must still be
+narrowed. This checkpoint does not discharge borrowed CoW extraction,
+semantic hashing/cache validity, serialization/deserialization, Debug, or any
+other pending public-operation obligation in the coverage table.
+
+Previous clone-scope foundation checkpoint (through `f3112b4`): the full Lean
 build passes (1,942 jobs), including all earlier mutable-access and public
 apply-updates proofs. The new actual-clone leaf theorem, the two strengthened
 unpacked-leaf theorems, and the strengthened packed offset bridge were audited
@@ -585,10 +617,10 @@ The precise loan-lookup and backward-projection diagnostics are recorded in
 UPSTREAM_BUGS issues 9 and 16. No failing rewrite or partial generated body is
 retained in the production proof boundary. These methods, semantic hashing
 and cache validity, serialization/deserialization, Debug, and every other
-pending coverage row remain in the full goal. Binary/progressive bulk-update
-and public apply-updates proofs still expose global clone laws; those also
-remain to be narrowed to the values and calls actually required, building on
-the existing scoped packed-leaf proofs.
+pending coverage row remain in the full goal. At that checkpoint, binary and
+progressive bulk-update and public apply-updates proofs still exposed global
+clone laws. The later recursive clone-scope checkpoint above narrows the binary
+recursions and progressive-layer bridges; spine and list callers remain open.
 
 Previous consuming-CoW checkpoint (through `f71c774`): complete extraction and
 the full Lean build pass (1,941 jobs), including every earlier proof. All nine
