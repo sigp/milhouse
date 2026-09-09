@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Rebase.Ready
+import Tree.ProgressiveList.Rebase.SelectedTotal
 import Tree.ProgressiveList.Rebase.Contents
 
 open Aeneas Aeneas.Std Result
@@ -62,10 +62,17 @@ theorem ProgressiveList.rebase_on_total_spec {T U : Type}
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ result.updates = self.updates := by
-  obtain ⟨result, hrebase, _⟩ := ProgressiveList.rebase_on_success ValueInst mapInst hlayout self base
-    hbacking.1.shape hbase.shape hbacking.2 hcompare
-  exact ⟨result, hrebase, ProgressiveList.rebase_on_spec ValueInst mapInst hlayout
-    self base contents hrep hbacking hbase hequality hhashes hrebase⟩
+  have hcontent := progressive_tree.ProgressiveTree.rebaseContentInputs_of_dense ValueInst hlayout
+    (origLength := self.length.val) (baseLength := base.length.val) (depth := 0)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbacking.1)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbase)
+    hbacking.2 hequality hhashes
+  have hready : self.tree.RebaseReady ValueInst base.tree self.length.val base.length.val 0 :=
+    Or.inr ⟨factor, packingDepth, progressive_tree.RebasePackingQueries.of_layout hlayout,
+      progressive_tree.ProgressiveTree.rebaseRequirements_of_invariants ValueInst hlayout
+        hbacking.1.shape hbase.shape hbacking.2 hcompare⟩
+  exact ProgressiveList.rebase_on_total_spec_of_inputs ValueInst mapInst hlayout
+    self base contents hrep hbacking hbase hcontent hready
 
 /-- Total nonmutating rebasing preserves the represented sequence and backing
 validity. Only the pending-map clone needs to succeed and preserve reads after
@@ -92,10 +99,18 @@ theorem ProgressiveList.rebase_total_spec {T U : Type}
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates := by
-  obtain ⟨result, hrebase, hlength, hupdates⟩ := ProgressiveList.rebase_success ValueInst mapInst
-    hlayout self base hbacking.1.shape hbase.shape hbacking.2 hcompare hclone
-  obtain ⟨hresult, hvalid⟩ := ProgressiveList.rebase_spec ValueInst mapInst hlayout
-    self base contents hrep hbacking hbase hequality hhashes hmapGet hmapMax hrebase
-  exact ⟨result, hrebase, hresult, hvalid, hlength, hupdates⟩
+  have hcontent := progressive_tree.ProgressiveTree.rebaseContentInputs_of_dense ValueInst hlayout
+    (origLength := self.length.val) (baseLength := base.length.val) (depth := 0)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbacking.1)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbase)
+    hbacking.2 hequality hhashes
+  have hready : self.tree.RebaseReady ValueInst base.tree self.length.val base.length.val 0 :=
+    Or.inr ⟨factor, packingDepth, progressive_tree.RebasePackingQueries.of_layout hlayout,
+      progressive_tree.ProgressiveTree.rebaseRequirements_of_invariants ValueInst hlayout
+        hbacking.1.shape hbase.shape hbacking.2 hcompare⟩
+  obtain ⟨updates, hcloned⟩ := hclone
+  exact ProgressiveList.rebase_total_spec_of_inputs ValueInst mapInst hlayout
+    self base contents hrep hbacking hbase hcontent hready
+    ⟨updates, hcloned, hmapGet updates hcloned, hmapMax updates hcloned⟩
 
 end milhouse.progressive_list

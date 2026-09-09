@@ -168,6 +168,7 @@ import Tree.ProgressiveList.Rebase.SelectedContents
 import Tree.ProgressiveList.Rebase.Lookup
 import Tree.ProgressiveList.Rebase.Representation
 import Tree.ProgressiveList.Rebase.Contents
+import Tree.ProgressiveList.Rebase.SelectedTotal
 import Tree.ProgressiveList.Rebase.Total
 import Tree.ProgressiveList.Rebase.Conditions
 import Tree.ProgressiveList.Rebase.SelectedConditions
