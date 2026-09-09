@@ -717,7 +717,10 @@ work and is not claimed proved by this probe.
 **Stage:** Aeneas translation and the external lock model.
 **Status:** the actual ProgressiveList classification and two packing-rejection
 methods are extracted and proved separately. Root computation, pending-update
-rejection through the public root, and cache-invariant proofs remain pending.
+rejection through the public root, and preservation by shared hash-cache writes
+remain pending. Cache initialization and preservation through extracted
+constructors, pending mutations, application, front removal, and rebasing are
+proved separately; those operations do not perform shared cache writes.
 No production hashing method, Aeneas source, or lock model has been changed.
 
 A fresh root probe adds this extraction-only caller and removes the binary
@@ -755,6 +758,20 @@ heap. Returning the old value and discarding writes would not model future
 cache reads or aliases. A stateful/ghost-state account of shared caches and
 parallel calls is needed before claiming root or cache correctness. Removing
 parallelism alone does not address this issue and would change performance.
+
+The standalone [shared-cache reproducer](reproducers/shared_cache/README.md)
+now isolates this boundary without Rayon or `LazyLock`. Its native
+read/write/read test passes. Aeneas `b59d5188` with Charon `cb50ff16` (LLBC
+version 0.1.223) translates the body but drops the written argument and reuses
+the pre-write read guard. Charon retains the value assignment; the generated
+Lean result is independent of the new value for every implementation of the
+pure external signatures. `-eval-drops` produces identical function output.
+Thus supplying a different pure local lock model cannot recover the native
+behavior. No available state-passing CLI option was found; trait calls are
+classified as stateless and the duplicate-call pass documents its assumption
+against stateful calls. The fixture retains only native source, dependency
+pins, and reproduction instructions, not axiomatized probe output in the proof
+library. Aeneas has not been changed.
 
 ## 22. Context deserialization: incomplete opaque visitor interface and recursive seed protocol
 
