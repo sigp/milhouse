@@ -15,8 +15,10 @@ Scope revision (2026-09-09): Debug and Serde implementations, including
 Serde-based context deserialization, are out of scope for the
 [ProgressiveList proof goal](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope).
 The corresponding findings in issues 5, 20, and 22 are retained as historical
-diagnostics, not outstanding goal obligations. SSZ codec and error-formatting
-proofs remain in scope.
+diagnostics, not outstanding goal obligations. TreeHash implementations and
+their shared-cache writes (issue 21) are also deferred for now. SSZ codec and
+error-formatting proofs, and cache assumptions needed by included operations
+such as rebasing, remain in scope.
 
 ## 1. Charon: `Iterator::cloned`/`copied` break `--remove-associated-types`
 
@@ -771,10 +773,12 @@ after success. This default remains unproved alongside ordinary deserialization.
 ## 21. Progressive hashing: parallel recursive groups, LazyLock, and shared cache writes
 
 **Stage:** Aeneas translation and the external lock model.
-**Status:** the actual ProgressiveList classification and two packing-rejection
+**Status:** TreeHash is deferred and out of scope for now, as requested on
+2026-09-09. The actual ProgressiveList classification and two packing-rejection
 methods are extracted and proved separately. Root computation, pending-update
 rejection through the public root, and preservation by shared hash-cache writes
-remain pending. Cache initialization and preservation through extracted
+remain unproved, but are not current goal obligations. Cache initialization
+and preservation through extracted
 constructors, pending mutations, application, front removal, and rebasing are
 proved separately; those operations do not perform shared cache writes.
 No production hashing method, Aeneas source, or lock model has been changed.

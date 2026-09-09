@@ -10,7 +10,10 @@ Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
 deserialization, and Serde-based context deserialization with its visitor/seed
 protocols. Excluded rows are retained for source accounting and do not count
-as unfinished goal obligations. SSZ encoding/decoding remains in scope. See
+as unfinished goal obligations. The subsequent scope revision also defers
+TreeHash implementations for now, including root hashing and shared-cache
+writes. Existing metadata and packing-rejection proofs are retained. SSZ
+encoding/decoding and cache assumptions needed by rebasing remain in scope. See
 the [revised goal](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope).
 
 The source search covered `src/progressive_list.rs`, other production uses of
@@ -65,10 +68,10 @@ trait has no additional in-place default. Ordinary Serde does.
 | `PartialEq::eq` | `ProgressiveList.partial_eq_spec`, `ProgressiveList.partial_eq_represents` |
 | `PartialEq::ne` | `ProgressiveList.partial_ne_spec`; actual trait default |
 | `Debug::fmt` | Out of scope. Historical extraction/model findings: UPSTREAM_BUGS issue 5 |
-| `TreeHash::tree_hash_type` | `ProgressiveList.tree_hash_type_eq` |
-| `TreeHash::tree_hash_packed_encoding` | `ProgressiveList.tree_hash_packed_encoding_panics` |
-| `TreeHash::tree_hash_packing_factor` | `ProgressiveList.tree_hash_packing_factor_panics` |
-| `TreeHash::tree_hash_root` | Pending pending-update assertion, root computation, length mix-in, parallel calls, and shared cache writes; issue 21 |
+| `TreeHash::tree_hash_type` | TreeHash deferred for now; retained proof: `ProgressiveList.tree_hash_type_eq` |
+| `TreeHash::tree_hash_packed_encoding` | TreeHash deferred for now; retained proof: `ProgressiveList.tree_hash_packed_encoding_panics` |
+| `TreeHash::tree_hash_packing_factor` | TreeHash deferred for now; retained proof: `ProgressiveList.tree_hash_packing_factor_panics` |
+| `TreeHash::tree_hash_root` | Deferred and out of scope for now, including pending-update rejection, length mix-in, parallel calls, and shared-cache writes. Aeneas limitations: issue 21 |
 | `Encode::is_ssz_fixed_len` | `ProgressiveList.ssz_is_fixed_len_eq` |
 | `Encode::ssz_fixed_len` | `ProgressiveList.ssz_fixed_len_eq` |
 | `Encode::ssz_bytes_len` | `ProgressiveList.ssz_bytes_len_fixed_total_spec`, `ProgressiveList.ssz_bytes_len_variable_spec` |
@@ -123,10 +126,11 @@ values. Per-occurrence payload contracts now cover distinct accepted encodings
 of equal values in both formats and an accepted short final fixed chunk.
 Empty input in the new contracts requires no element metadata or packing law.
 
-The revised goal is still incomplete. Hashing/shared-state and borrowed-CoW
-obligations require faithful extraction and models; existing counterexamples
+The revised goal is still incomplete. Borrowed-CoW obligations require faithful
+extraction and models; existing counterexamples
 and failed probes are recorded in
 [UPSTREAM_BUGS.md](UPSTREAM_BUGS.md). The remaining theorem-hypothesis and model
 fidelity audits are separate from this source inventory. No new extraction
 result or general API completion is claimed here. Debug and Serde/context
-implementations are excluded from the goal, not claimed proved.
+implementations are excluded from the goal, and TreeHash is deferred for now.
+Excluded or deferred implementations are not claimed proved by that decision.
