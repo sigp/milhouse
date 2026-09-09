@@ -59,6 +59,7 @@ import Tree.ProgressiveList.Decode.Contents
 import Tree.ProgressiveList.Decode.Success
 import Tree.ProgressiveList.Decode.Backing
 import Tree.ProgressiveList.Decode.Fixed
+import Tree.ProgressiveList.Decode.FixedTotal
 import Tree.ProgressiveList.Decode.Variable
 import Tree.Ssz.Bytes
 import Tree.Ssz.ReadOffset
