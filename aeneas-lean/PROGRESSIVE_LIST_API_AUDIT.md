@@ -61,8 +61,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `iter_cow_from` | `ProgressiveList.iter_cow_from_spec`, `ProgressiveList.iter_cow_from_error_iff`; stepping pending |
 | `to_vec` | `ProgressiveList.to_vec_total_spec`, `ProgressiveList.to_vec_mapM` |
 | `pop_front` | `ProgressiveList.pop_front_nonzero_clones_total_spec`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
-| `rebase` | `ProgressiveList.rebase_total_spec` |
-| `rebase_on` | `ProgressiveList.rebase_on_total_spec` |
+| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_cache_iff` |
+| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_cache_iff` |
 
 ## List trait methods
 
@@ -134,6 +134,18 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`Rebase/CacheEquivalence.lean` proves the exact cache criterion for both public
+rebase variants: a successful result has valid caches if and only if the
+retained-original and imported-base cache laws hold together. Binary and
+progressive reflection recover those laws from actual output validity,
+including final pointer reuse. The equivalences retain the existing semantic
+content laws and geometry, but assume no cache validity, represented sequence,
+or pending-map clone/read/maximum law. At `ad4e3f4` (foundations `0dc26d2`,
+`01b05f5`), focused and full builds pass (2,048 jobs), and the axiom/import audit
+covers 5,280 declarations across 332 modules. The seven new operation lemmas
+reuse the existing pointer contract, for 71 dependent declarations total;
+no new axioms or admissions were introduced.
 
 Original cache validity now follows two separate scopes: `RebaseOrigCachesOn`
 for retained caches and `RebaseHashCachesOn` for reached hash-shortcut checks.

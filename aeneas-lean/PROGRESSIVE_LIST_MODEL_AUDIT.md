@@ -376,6 +376,20 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Both public rebase cache criteria are now equivalences: under the existing
+  semantic content laws and geometry, successful output validity holds
+  exactly when retained-original and imported-base validity hold together.
+  Binary and progressive reflection recover both laws from the actual output;
+  the public proofs recover the actual clone/rebase calls without pending-map
+  clone/read/maximum or representation laws. At `ad4e3f4` (foundations
+  `0dc26d2`, `01b05f5`), the full build passes (2,048 jobs), and the axiom/import
+  audit covers 5,280 declarations across 332 modules. All seven new operation
+  lemmas reuse the existing pointer contract, bringing its dependent
+  declaration count to 71. No new axiom or admission was introduced. This
+  verifies the selected cache-validity premises under the stated content and
+  geometry assumptions; remaining assumption and fidelity work stays open.
+  Rust/extraction/models/Aeneas are unchanged, so neither source suites nor
+  the 42-root/151-declaration dependency gate were repeated.
 - `RebaseOrigCachesOn` scopes original validity to retained caches, while
   `RebaseHashCachesOn` separately covers reached nonzero hash-shortcut checks.
   Binary/progressive preservation uses the first; the collision bridges use
