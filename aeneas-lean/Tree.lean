@@ -77,6 +77,7 @@ import Tree.ProgressiveList.ToVec
 import Tree.ProgressiveList.Backing
 import Tree.ProgressiveList.Clone
 import Tree.ProgressiveList.Clone.Total
+import Tree.ProgressiveList.Clone.From
 import Tree.ProgressiveList.Caches
 import Tree.ProgressiveList.Equality.Structure
 import Tree.ProgressiveList.Equality.Correctness
