@@ -4,6 +4,33 @@ open Aeneas Aeneas.Std Result
 
 namespace milhouse_models
 
+/-- Ordered element cloning succeeds exactly when the clone of every input
+value terminates. This imposes no identity or coherence law on clone results. -/
+theorem list_clone_success_iff {T : Type} (cloneInst : core.clone.Clone T)
+    (values : _root_.List T) :
+    (∃ copied, _root_.List.mapM cloneInst.clone values = ok copied) ↔
+      ∀ value ∈ values, ∃ copied, cloneInst.clone value = ok copied := by
+  induction values with
+  | nil => simp [_root_.List.mapM_nil, Pure.pure]
+  | cons value values ih =>
+    simp only [_root_.List.forall_mem_cons, ← ih]
+    cases hhead : cloneInst.clone value <;>
+      cases htail : _root_.List.mapM cloneInst.clone values <;>
+      simp [_root_.List.mapM_cons, hhead, htail, Pure.pure]
+
+/-- Identity is needed only for the actual input values to make their
+ordered cloning return the original list. -/
+theorem list_clone_identity {T : Type} (cloneInst : core.clone.Clone T)
+    (values : _root_.List T)
+    (hclone : ∀ value ∈ values, cloneInst.clone value = ok value) :
+    _root_.List.mapM cloneInst.clone values = ok values := by
+  induction values with
+  | nil => rfl
+  | cons value values ih =>
+    have hhead := hclone value (by simp)
+    have htail := ih (fun item hitem => hclone item (by simp [hitem]))
+    simp only [_root_.List.mapM_cons, hhead, htail, bind_tc_ok, Pure.pure]
+
 /-- A successful vector clone stores the actual element-clone results in
 order. No identity or termination law is assumed; success supplies the trace. -/
 theorem vec_clone_mapM {T : Type} (cloneInst : core.clone.Clone T)
