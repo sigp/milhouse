@@ -33,7 +33,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `pop_front` | Drop the specified prefix, reindex remaining values; reject oversized drops unchanged | `PopFront/Total.lean`: every in-bounds removal succeeds, represents exactly `contents.drop n`, and preserves `BackingValid`. Nonzero removal clears pending updates and requires successful identity cloning only for retained values, occupied capacity only for the retained suffix, and empty-default-map laws. These clone/capacity/map premises are conditional on nonzero removal; zero remains an unconditional no-op. `PopFront/BuilderTotal.lean` establishes actual streaming reconstruction success and the complete builder invariant. `PopFront/State.lean` proves oversized removals return the exact bounds error unchanged and every returned Rust error restores the original list. `Contents.lean` retains successful-execution content and backing proofs. No intermediate vector, assumed iterator output, successful-subcall premise, or opaque milhouse-method model. `PopFront/Caches.lean` proves nonzero success rebuilds entirely cleared caches without an old-cache invariant; every returned state preserves any zero-accepting cache predicate, including errors and zero removal. |
 | `rebase`, `rebase_on` | Preserve values, length, and pending updates while changing sharing only | `Rebase/Total.lean`: both operations terminate successfully and preserve the represented merged sequence and `BackingValid`, under input representation/backing validity, an accurately sized dense base, packing layout, soundness of true element `eq` and false element `ne` only at corresponding potentially compared leaves, terminating comparisons only on paths selected by the pointer/hash/length guards and through the first true packed element `ne`, and equal-length nonzero cache-shortcut soundness. Binary/progressive success is established from shape and original capacity invariants, with all arithmetic and recursive calls derived. In-place rebase preserves exact pending-map state and requires no map or element-clone law; nonmutating rebase requires only the actual pending-map clone to terminate and preserve reads/maximum, and returns exactly that cloned map. `Rebase/Backing.lean` proves backing preservation without equality, hash, or clone laws. `Rebase/State.lean` proves in-place error restoration and unchanged metadata/observers; nonmutating observer preservation needs only the corresponding clone maximum/emptiness laws. `Rebase/Caches.lean` adds successful-execution and total specifications preserving arbitrary cache predicates indexed by the stored values and binary/progressive depth. The actual recursion preserves original progressive caches and may import binary caches from the base; base progressive-cache validity is unnecessary. Backing-cache results require no pending-map clone semantics. `Rebase/Validity.lean` derives the operational cache-shortcut law from reference-valid input caches and collision soundness on finite corresponding binary input pairs, omitting original zero-cache nodes and all progressive caches. It provides successful-execution and total public specifications and validity on every returned in-place state. `Rebase/Cleared.lean` proves both total rebase variants from cleared original caches without any collision assumption. `Tree/Rebase/Soundness.lean` and `ProgressiveTree/Rebase/Soundness.lean` restrict equality laws to the actual pair of backing trees, omit element laws on pointer shortcuts and unequal-length packed vectors, and are used by every public rebase contents/cache specification. Pointer sharing now prunes all descendant comparison, equality, and collision obligations; eligible nonzero equal-hash/equal-length shortcuts also prune descendant comparison, equality, and collision laws. `Rebase/Pointer.lean` proves in-place rebasing onto shared backing returns the complete original list and nonmutating rebasing performs exactly the pending-map clone, without structural, packing, or semantic comparison assumptions. `Tree/Rebase/ComparisonInputs.lean` tracks supplied optional lengths and exact child splits; the binary/progressive success inductions and every public total contract use those metadata-specific scopes. `ElementComparisons.lean` proves both sufficiency and reflection for the external short-circuit loop, leaving pairs after the first true `ne` unconstrained. Actual semantic reference hashing and shared cache writes remain pending |
 | `Clone` | Preserve logical contents and backing validity | `Clone.lean`: the actual derived clone shares the backing tree and copies its recorded length; successful cloning preserves `BackingValid` without clone laws. Sequence representation is preserved when pending-map cloning preserves reads and maximum; the pending observer is preserved under its corresponding map law. No element-clone law or exact identity of the cloned map is assumed. `ProgressiveList/Caches.lean` preserves every backing-cache predicate without element or pending-map clone laws. |
-| `PartialEq` | Characterize equality under element/map laws | `Equality/Correctness.lean`: actual extracted `eq` and `ne` terminate and characterize backing-tree structure, recorded length, and the explicit pending-map relation, under the element `ne` law and a law for the actual map pair only when preceding comparisons succeed. Hash caches are ignored. Positive equality transfers the represented sequence and `BackingValid` under only soundness of false element `ne` and pending-map read/max agreement; it assumes no comparison termination, completeness, reflexivity, packing layout, literal map identity, or representation/backing validity of the other list. Direct structural representation transfer needs no backing-validity premise. Binary/progressive recursive equality, pointer shortcuts, and structural invariant transport are proved underneath. This is structural equality, so identical merged contents alone do not imply a true comparison |
+| `PartialEq` | Characterize equality under input-scoped element/map laws | `Equality/Correctness.lean`: actual extracted `eq` and `ne` terminate and characterize backing-tree structure, recorded length, and the explicit pending-map relation. Element `ne` laws cover only selected input pairs, respecting pointer shortcuts, packed-vector length rejection, and field/element short circuiting; the map law applies only to the actual pair when preceding comparisons succeed. Hash caches are ignored. Positive equality transfers the represented sequence and `BackingValid` under only input-scoped false-`ne` soundness and pending-map read/max agreement; it assumes no comparison termination, completeness, reflexivity, packing layout, literal map identity, or representation/backing validity of the other list. Direct structural representation transfer needs no backing-validity premise. `Equality/Pointer.lean` gives the exact shared-backing computation without element or map laws, including map failure/divergence. This is structural equality, so identical merged contents alone do not imply a true comparison |
 | `Debug` | Formatting through the derived formatter | Pending. The concrete list formatter probe reproduces recursive Debug dictionary forward references. Full correctness also needs formatter options/sinks and observable lock state: the current error-only formatter and value-only lock models cannot represent general derived Debug output, including `RwLock` data versus `<locked>` (UPSTREAM_BUGS issue 5). No probe-only generated formatter or no-op output proof is retained |
 | `TreeHash` methods | Progressive merkleization with length mix-in; reject pending updates and unsupported packed operations | `TreeHash/Metadata.lean` proves actual List classification and unconditional panic for both unsupported packing methods, without packing, map, or representation assumptions. Actual root computation and its pending-update rejection remain pending. A fresh full-root probe confirms recursive parallel-closure groups and the function pointer in `ZERO_HASHES` fail translation; a standalone shared read/write/read reproducer also shows the written value is dropped and the pre-write guard reused, which no implementation of the generated pure lock interfaces can repair (UPSTREAM_BUGS issue 21) |
 | `Encode` methods | SSZ encoding/encoded length of the merged sequence | `Encode/Length.lean`: exact fixed-width multiplication and variable payload-size sum plus four-byte offsets, with intermediate arithmetic bounds derived from the final byte bound. Fixed-size calculation needs no backing or traversal assumptions. `Encode/Fixed.lean`, `VariableLoop.lean`, and `Variable.lean`: actual `ssz_append` preserves the destination prefix and writes the exact represented merged payload, with the complete offset table for variable elements. `Encode/Owning.lean` proves both exact `as_ssz_bytes` formats. `Encode/Metadata.lean` proves variable-list classification, four-byte fixed-section width, and the concrete owning wrapper. Premises are representation, relevant traversal invariants/layout only for methods that iterate, element codec laws on the consumed values, final output-size bounds, and 32-bit bounds only on offsets actually emitted. No clone law or assumed iterator output is needed. `Tree/Ssz` models and proves the pinned external encoder state, offset writes, payload accumulation, and finalization |
@@ -433,17 +433,26 @@ lower-level hypothesis and count the wrapper as proved.
   `milhouse_models.vec_eq` negates the existing vector `ne` model to match Rust
   without an unstated element `eq`/`ne` coherence law. These corrections and
   extraction workarounds are recorded in UPSTREAM_BUGS issues 5, 12, and 17.
-- `Tree/Equality/{Structure,Correctness,Soundness,Lookup}.lean` and
-  `Tree/ProgressiveTree/Equality/{Structure,Correctness,Soundness,Lookup}.lean`:
+- `Tree/Equality/Inputs.lean`: `NeSpecAt` supplies termination and correctness
+  for one actual element pair; `NeSoundAt` supplies only soundness of a false
+  result. `NeOn` carries either law through the packed comparison prefix,
+  demanding the suffix only after the preceding actual `ne` returns false.
+  Uniform laws establish these scopes, and pointwise implication weakens them.
+- `Tree/Equality/{Structure,Scope,Correctness,Soundness,Lookup}.lean` and
+  `Tree/ProgressiveTree/Equality/{Structure,Scope,Correctness,Soundness,Lookup}.lean`:
   structure ignores hash caches but retains variants, zero depths, and values.
   Structural equality preserves materialized contents, density, and progressive
   capacity bounds. Actual recursive comparisons terminate and characterize
-  this relation under the element `ne` law; positive-result soundness needs
-  only the false-`ne` implication, without totality or completeness. No packing,
+  this relation under input-scoped `NeSpecAt`; positive-result soundness needs
+  only input-scoped `NeSoundAt`, without totality or completeness. Element laws
+  stop at pointer sharing, mismatched variants, unequal packed lengths, and
+  the first differing field or packed element. Plain and Arc comparison scopes
+  distinguish the actual outer pointer check. `ElementSoundness.lean` proves
+  the Arc/vector positive-result bridges using those scopes. No packing,
   density, cloning, or hash-content law is required by comparison correctness.
   Structural equality also preserves the complete extracted lookup computation,
   including errors and divergence, without layout, density, or bounds laws.
-- `Tree/ProgressiveList/Equality/{Structure,Correctness}.lean`: list equality
+- `Tree/ProgressiveList/Equality/{Structure,Correctness,Pointer}.lean`: list equality
   combines the proved progressive comparison, exact recorded length, and an
   explicit map relation that permits different internal cache states. The
   unconditional positive-result characterization derives the three actual
@@ -453,7 +462,11 @@ lower-level hypothesis and count the wrapper as proved.
   backing and merged lookup congruence remove the layout premise from this
   result, and pure representation transfer needs no backing invariant. The
   total `partial_eq_spec` and `partial_ne_spec` require the map law only for
-  the actual pair when tree structure and recorded length agree.
+  the actual pair when tree structure and recorded length agree. All operational
+  contracts inherit the backing tree's input scope instead of a global element
+  law. With shared backing, the actual comparison rejects unequal recorded
+  lengths or returns the negation of pending-map `ne`, preserving its failure
+  and divergence without element, map, or representation laws.
 - `Tree/Contents.lean`: a dense binary tree's materialized sequence has its
   recorded length, and extracted indexed lookup returns exactly that sequence's
   element. The pure slot theorem requires no packing laws or machine bounds;
@@ -736,7 +749,32 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest reached-comparison checkpoint (through `429cd99`): the full Lean
+Latest equality input-scope checkpoint (through `f5ad99a`): the full Lean
+build passes (1,992 jobs), with all 276 project modules reachable from `Tree`,
+excluding external templates. The 31-result equality audit covers all new
+scope, element-soundness, and pointer lemmas, the affected public operational
+contracts, and the unconditional list comparison characterization. Seventeen
+use only standard Lean axioms or none; 14 also use the existing
+`triomphe.arc.Arc.ptr_eq_spec`. No admissions, new axioms, Rust changes,
+extraction changes, external model changes, or Aeneas changes were introduced.
+
+Binary-tree, progressive-tree, and public list equality now require element
+laws only for selected input branches. Total correctness uses `NeSpecAt`;
+positive-result soundness and representation transfer use only `NeSoundAt`.
+Pointer shortcuts, packed length rejection, left-to-right field comparison,
+and packed element short circuiting prune the scopes. Uniform laws remain
+sufficient through conversion helpers, but are no longer public operation
+premises. Shared-backing list equality additionally has an exact computation
+equation preserving pending-map failure/divergence without any element law.
+
+A fresh fetch confirms that `origin/main` remains `d67aabd`, already included
+through merge commit `473f5c8`; there are no unresolved conflicts. The full
+build above validates the existing proofs together with this equality work.
+The full ProgressiveList goal remains active: actual root hashing/shared cache
+effects, borrowed CoW methods and stepping, general Debug, Serde/context
+protocols, and the remaining API/assumption audit are still outstanding.
+
+Previous reached-comparison checkpoint (through `429cd99`): the full Lean
 build passes (1,987 jobs), with all 271 project modules reachable from `Tree`,
 excluding external templates. All five new public lemmas and the affected
 rebase interfaces were included in a 57-result axiom audit. Twenty-eight use
