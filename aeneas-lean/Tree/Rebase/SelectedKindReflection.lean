@@ -12,7 +12,8 @@ private theorem bind_eq_ok_iff {A B : Type} {x : Result A}
   cases x <;> simp [Bind.bind, Std.bind]
 
 /-- The supplied-metadata classifier gives the exact category of every
-successful binary rebase. No layout, geometry, accurate-length, semantic
+successful binary rebase. Its actual pointer result is recovered without
+invoking the pointer contract. No layout, geometry, accurate-length, semantic
 comparison/hash, comparison-termination, or assumed child-success law is used. -/
 theorem Tree.rebase_on_kindFor_spec {T : Type} (ValueInst : Value T)
     {orig base : Tree T} {lengths : Option (utils.Length × utils.Length)}
@@ -22,8 +23,8 @@ theorem Tree.rebase_on_kindFor_spec {T : Type} (ValueInst : Value T)
   induction orig generalizing base lengths fullDepth action with
   | Leaf origLeaf | PackedLeaf origLeaf | Zero origDepth =>
     unfold Tree.rebase_on at hrebase
-    obtain ⟨same, hpointer, _⟩ := triomphe.arc.Arc.ptr_eq_spec _ base
-    rw [hpointer] at hrebase
+    rw [bind_eq_ok_iff] at hrebase
+    obtain ⟨same, hpointer, hrebase⟩ := hrebase
     cases same with
     | true =>
       simp at hrebase
@@ -45,9 +46,8 @@ theorem Tree.rebase_on_kindFor_spec {T : Type} (ValueInst : Value T)
              simp_all [Tree.rebaseKindFor, RebaseAction.kind])
   | Node origHash origLeft origRight ihleft ihright =>
     unfold Tree.rebase_on at hrebase
-    obtain ⟨same, hpointer, _⟩ := triomphe.arc.Arc.ptr_eq_spec
-      (.Node origHash origLeft origRight) base
-    rw [hpointer] at hrebase
+    rw [bind_eq_ok_iff] at hrebase
+    obtain ⟨same, hpointer, hrebase⟩ := hrebase
     cases same with
     | true =>
       simp at hrebase
