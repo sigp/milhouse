@@ -1,4 +1,5 @@
 import Tree.Rebase
+import Tree.Arc.Equality
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -10,13 +11,16 @@ private theorem bind_eq_ok_iff {A B : Type} {x : Result A}
     (x >>= f) = ok y ↔ ∃ a, x = ok a ∧ f a = ok y := by
   cases x <;> simp [Bind.bind, Std.bind]
 
-/-- A successful progressive rebase either keeps the original tree or rebuilds
-    one node from the actual binary action and recursive suffix result. The
-    node case records all metadata calculations used by those calls. -/
+/-- A successful progressive rebase either stops on missing/shared input, or
+    completes the actual binary and suffix calls. The node case retains those
+    calls even when their pointer checks allow reuse of the original node. -/
 inductive ProgressiveTree.RebaseStep {T : Type} (ValueInst : Value T)
     (origLength baseLength : Std.Usize) (depth : Std.U32) (packingDepth : Std.Usize) :
     ProgressiveTree T → ProgressiveTree T → ProgressiveTree T → Prop where
-  | same (orig base : ProgressiveTree T) : RebaseStep ValueInst origLength baseLength depth packingDepth orig base orig
+  | same (orig base : ProgressiveTree T)
+      (hstop : orig = .ProgressiveZero ∨ base = .ProgressiveZero ∨
+        triomphe.arc.Arc.ptr_eq orig base = ok true) :
+      RebaseStep ValueInst origLength baseLength depth packingDepth orig base orig
   | node
       {origHash baseHash : alloy_primitives.bits.fixed.FixedBytes 32#usize}
       {origLeft baseLeft : tree.Tree T} {origRight baseRight newRight : ProgressiveTree T}
@@ -58,8 +62,9 @@ theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T
   | true =>
     simp [triomphe.arc.Arc.Insts.CoreCloneClone.clone] at hrebase
     subst after
-    rw [← hpointerTrue rfl]
-    exact .same orig orig
+    have heq := hpointerTrue rfl
+    subst base
+    exact .same orig orig (Or.inr (Or.inr hpointer))
   | false =>
     simp only [bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
       triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] at hrebase
@@ -67,13 +72,13 @@ theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T
     | ProgressiveZero =>
       simp [triomphe.arc.Arc.Insts.CoreCloneClone.clone] at hrebase
       subst after
-      exact .same _ _
+      exact .same _ _ (Or.inl rfl)
     | ProgressiveNode origHash origLeft origRight =>
       cases base with
       | ProgressiveZero =>
         simp [triomphe.arc.Arc.Insts.CoreCloneClone.clone] at hrebase
         subst after
-        exact .same _ _
+        exact .same _ _ (Or.inr (Or.inl rfl))
       | ProgressiveNode baseHash baseLeft baseRight =>
         rw [bind_eq_ok_iff] at hrebase
         obtain ⟨start, hstart, hrebase⟩ := hrebase
@@ -142,6 +147,8 @@ theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T
               | true =>
                 simp [triomphe.arc.Arc.Insts.CoreCloneClone.clone] at hrebase
                 subst after
-                exact .same _ _
+                have hleftEq := triomphe.arc.Arc.eq_of_ptr_eq hleftSame
+                have hrightEq := triomphe.arc.Arc.eq_of_ptr_eq hrightSame
+                simpa only [hleftEq, hrightEq] using hnode
 
 end milhouse.progressive_tree

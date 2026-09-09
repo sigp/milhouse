@@ -4,6 +4,14 @@ open Aeneas Aeneas.Std Result
 
 namespace triomphe.arc.Arc
 
+/-- A positive pointer-identity result identifies the retained pointees using
+the existing pointer model contract, without any element comparison law. -/
+theorem eq_of_ptr_eq {T : Type} {left right : T}
+    (hpointer : ptr_eq left right = ok true) : left = right := by
+  obtain ⟨same, hcall, htrue⟩ := ptr_eq_spec left right
+  apply htrue
+  simpa only [hpointer, ok.injEq] using hcall.symm
+
 /-- Identical pointers compare equal without invoking the pointee comparison,
     including when that comparison is nonreflexive or cannot return normally. -/
 theorem eq_of_ptr_eq_true {T : Type} (eqInst : core.cmp.PartialEq T T)
