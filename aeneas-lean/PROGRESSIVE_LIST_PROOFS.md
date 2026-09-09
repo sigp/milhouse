@@ -998,6 +998,18 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
+Latest borrowed-read diagnostic checkpoint (through `56924d0`): a standalone
+[reference-layout reproducer](reproducers/cow_regions/README.md) tests lifetime
+separation without map dependencies. Eight enum readers, including separate
+lifetimes, helper calls, and direct-copy patterns, still fail at Aeneas's
+shared-loan lookup. Four plain/nested/struct controls translate successfully;
+their separately generated Lean bodies compile and four value lemmas validate
+without axioms. Native Rust checks and formatting pass. This rules out the
+tested approaches but does not prove a borrowed CoW method or establish that
+every refactor is impossible. No production Rust, extraction, imported proof,
+model, or Aeneas source changed, and no partial generated file was imported.
+The last complete library build and audits remain the tuple checkpoint below.
+
 Latest tuple-model checkpoint (through `c47faba`): the external tuple `ne`
 model now preserves the pinned Rust element-method dispatch and short-circuit
 order. Six branch/result lemmas fail against the old model and pass with the

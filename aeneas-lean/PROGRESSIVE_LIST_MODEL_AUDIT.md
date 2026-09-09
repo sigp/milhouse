@@ -131,6 +131,14 @@ check also pass.
   are incomplete. This gate is one part of that audit and does not complete
   the full goal.
 
+The subsequent [borrowed-read reproducer](reproducers/cow_regions/README.md)
+(`56924d0`) isolates the failed enum reference projection without map models.
+Lifetime separation, a working nested-reference helper, and direct-copy
+patterns do not resolve the eight tested readers. Four plain/nested/struct
+controls extract and have axiom-free exact-value proofs. This narrows the
+extraction boundary; no model of a milhouse borrowed method or partial
+translation is substituted for the missing production body.
+
 Initial inventory validation (`07ef38d`): the full library build passes
 (2,023 jobs), and the valid environment
 inventory was accepted. Eight deliberately invalid inventories were rejected:

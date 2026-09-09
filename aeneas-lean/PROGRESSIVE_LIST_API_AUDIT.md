@@ -15,6 +15,8 @@ available included extraction roots without counting unavailable borrowed
 methods or excluded/deferred implementations.
 The subsequent tuple-model correction and branch proofs are through `c47faba`;
 both full-library audit gates pass after that correction.
+The borrowed-read diagnostic checkpoint `56924d0` adds a standalone reproducer
+and verified controls, with no additional public-operation proof coverage.
 
 Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
@@ -178,7 +180,12 @@ callers were updated. The canonical representation proofs reuse
 The revised goal is still incomplete. Borrowed-CoW obligations require faithful
 extraction and models; existing counterexamples
 and failed probes are recorded in
-[UPSTREAM_BUGS.md](UPSTREAM_BUGS.md). The remaining theorem-hypothesis and model
+[UPSTREAM_BUGS.md](UPSTREAM_BUGS.md). The dependency-free
+[reference-layout probe](reproducers/cow_regions/README.md) rules out the tested
+lifetime separation, helper, and direct-copy approaches: eight enum readers
+fail while four plain/nested/struct controls extract and validate without
+axioms. This diagnostic adds no borrowed-method correctness claim.
+The remaining theorem-hypothesis and model
 fidelity audits are separate from this source inventory. No new extraction
 result or general API completion is claimed here. Debug and Serde/context
 implementations are excluded from the goal, and TreeHash is deferred for now.
