@@ -71,7 +71,7 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction]
           | true =>
-            have hvalues := vec_eq_contents_on ValueInst.corecmpPartialEqInst (hequality hpointer) heq
+            have hvalues := vec_eq_contents ValueInst.corecmpPartialEqInst (hequality hpointer) heq
             simp at hrebase
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction, Tree.elements, hvalues]

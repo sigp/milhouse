@@ -22,55 +22,10 @@ end triomphe.arc.Arc
 
 namespace milhouse.tree
 
-private theorem anyM_zip_ne_false_eq_on {T : Type} (inst : core.cmp.PartialEq T T)
-    (orig base : _root_.List T) (hlength : orig.length = base.length)
-    (hsound : ∀ pair ∈ orig.zip base, inst.ne pair.1 pair.2 = ok false → pair.1 = pair.2)
-    (heq : _root_.List.anyM (fun pair => inst.ne pair.1 pair.2) (orig.zip base) = ok false) :
-    orig = base := by
-  induction orig generalizing base with
-  | nil => cases base <;> simp_all
-  | cons x xs ih =>
-    cases base with
-    | nil => simp at hlength
-    | cons y ys =>
-      simp only [_root_.List.length_cons, Nat.add_right_cancel_iff] at hlength
-      simp only [_root_.List.zip_cons_cons, _root_.List.anyM_cons] at heq
-      cases hxy : inst.ne x y with
-      | fail e => simp [hxy] at heq
-      | div => simp [hxy] at heq
-      | ok different =>
-        cases different with
-        | true => simp [hxy, pure] at heq
-        | false =>
-          simp only [hxy, bind_tc_ok] at heq
-          exact congrArg₂ _root_.List.cons (hsound (x, y) (by simp) hxy)
-            (ih ys hlength (fun pair hpair => hsound pair (by simp [hpair])) heq)
-
-/-- Positive vector comparison requires false-`ne` soundness only for paired
-positions of these equal-length inputs. It needs no element `eq`, termination,
-or law about unrelated values. Length agreement is derived from the call. -/
-theorem vec_eq_contents_on {T : Type} (inst : core.cmp.PartialEq T T)
-    {orig base : alloc.vec.Vec T}
-    (hsound : orig.val.length = base.val.length →
-      ∀ pair ∈ orig.val.zip base.val, inst.ne pair.1 pair.2 = ok false → pair.1 = pair.2)
-    (heq : milhouse_models.vec_eq inst orig base = ok true) : orig.val = base.val := by
-  unfold milhouse_models.vec_eq at heq
-  cases hne : alloc.vec.partial_eq.PartialEqVec.ne inst orig base with
-  | fail e => simp [hne] at heq
-  | div => simp [hne] at heq
-  | ok different =>
-    cases different with
-    | true => simp [hne] at heq
-    | false =>
-      unfold alloc.vec.partial_eq.PartialEqVec.ne at hne
-      split at hne
-      · exact anyM_zip_ne_false_eq_on inst orig.val base.val (by assumption)
-          (hsound (by assumption)) hne
-      · simp at hne
-
 /-- Element soundness on corresponding leaves of these rebase inputs.
-Pointer-equal trees or values and unequal-length packed vectors need no
-element law. Pointer and hash shortcuts omit every descendant obligation.
+Pointer-equal trees or values, unequal-length packed vectors, and packed
+pairs after the first true `ne` need no element law. Pointer and hash shortcuts
+omit every descendant obligation.
 The cache guard uses materialized lengths; the operational proof derives
 agreement with the supplied Rust metadata from input density. -/
 def Tree.RebaseEqualitySound {T : Type} (inst : core.cmp.PartialEq T T) : Tree T → Tree T → Prop
@@ -81,8 +36,8 @@ def Tree.RebaseEqualitySound {T : Type} (inst : core.cmp.PartialEq T T) : Tree T
   | .PackedLeaf left, .PackedLeaf right =>
       triomphe.arc.Arc.ptr_eq (.PackedLeaf left : Tree T) (.PackedLeaf right : Tree T) = ok false →
       left.values.val.length = right.values.val.length →
-      ∀ pair ∈ left.values.val.zip right.values.val,
-        inst.ne pair.1 pair.2 = ok false → pair.1 = pair.2
+      milhouse_models.NeOn inst (milhouse_models.NeSoundAt inst)
+        (left.values.val.zip right.values.val)
   | .Node hash left right, .Node baseHash baseLeft baseRight =>
       triomphe.arc.Arc.ptr_eq (.Node hash left right : Tree T) (.Node baseHash baseLeft baseRight) = ok false →
       (¬ RebaseHashShortcut hash baseHash (left.elements ++ right.elements).length
@@ -102,7 +57,7 @@ theorem Tree.rebaseEqualitySound_of_sound {T : Type} (inst : core.cmp.PartialEq 
     exact fun _ _ => heq _ _
   | PackedLeaf leaf =>
     cases base <;> simp only [Tree.RebaseEqualitySound]
-    exact fun _ _ pair _ => hne pair.1 pair.2
+    exact fun _ _ => milhouse_models.NeOn.of_all inst (milhouse_models.NeSoundAt inst) hne _
   | Zero depth => cases base <;> trivial
   | Node hash left right ihleft ihright =>
     cases base <;> simp only [Tree.RebaseEqualitySound]

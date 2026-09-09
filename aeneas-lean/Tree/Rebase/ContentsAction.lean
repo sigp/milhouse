@@ -1,5 +1,6 @@
 import Tree.Rebase.Steps
 import Tree.Rebase.HashShortcut
+import Tree.Equality.ElementSoundness
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -49,37 +50,14 @@ theorem combineRebaseActions_contents_correct {T : Type}
     simp_all [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction,
       combineRebaseActions, Tree.elements]
 
-private theorem anyM_zip_ne_false_eq {T : Type} (eqInst : core.cmp.PartialEq T T)
-    (hsound : ∀ x y, eqInst.ne x y = ok false → x = y)
-    (orig base : _root_.List T) (hlength : orig.length = base.length)
-    (heq : _root_.List.anyM (fun (x, y) => eqInst.ne x y)
-      (_root_.List.zip orig base) = ok false) : orig = base := by
-  induction orig generalizing base with
-  | nil =>
-    cases base <;> simp_all
-  | cons x xs ih =>
-    cases base with
-    | nil => simp at hlength
-    | cons y ys =>
-      simp only [_root_.List.length_cons, Nat.add_right_cancel_iff] at hlength
-      simp only [_root_.List.zip_cons_cons, _root_.List.anyM_cons] at heq
-      cases hxy : eqInst.ne x y with
-      | fail e => simp [hxy] at heq
-      | div => simp [hxy] at heq
-      | ok equal =>
-        cases equal with
-        | true => simp [hxy, pure] at heq
-        | false =>
-          simp only [hxy, bind_tc_ok, ↓reduceIte] at heq
-          exact congrArg₂ _root_.List.cons (hsound x y hxy) (ih ys hlength heq)
-
 /-- A successful positive Rust vector comparison implies exact contents
-    equality when a false element `ne` identifies equal values. Rust's generic
-    slice loop uses `ne`; no element `eq`, reflexivity, or termination law is
-    required by this successful-execution result. -/
+    equality using false-`ne` soundness only on the reached input pairs.
+    Unequal lengths and pairs after the first true `ne` need no law. No element
+    `eq`, reflexivity, or comparison termination premise is required. -/
 theorem vec_eq_contents {T : Type} (eqInst : core.cmp.PartialEq T T)
-    (hsound : ∀ x y, eqInst.ne x y = ok false → x = y)
     {orig base : alloc.vec.Vec T}
+    (hsound : orig.val.length = base.val.length →
+      milhouse_models.NeOn eqInst (milhouse_models.NeSoundAt eqInst) (orig.val.zip base.val))
     (heq : milhouse_models.vec_eq eqInst orig base = ok true) :
     orig.val = base.val := by
   unfold milhouse_models.vec_eq at heq
@@ -89,10 +67,6 @@ theorem vec_eq_contents {T : Type} (eqInst : core.cmp.PartialEq T T)
   | ok different =>
     cases different with
     | true => simp [hne] at heq
-    | false =>
-      unfold alloc.vec.partial_eq.PartialEqVec.ne at hne
-      split at hne
-      · exact anyM_zip_ne_false_eq eqInst hsound orig.val base.val (by assumption) hne
-      · simp at hne
+    | false => exact milhouse_models.vec_ne_false_imp_eq_on eqInst hsound hne
 
 end milhouse.tree
