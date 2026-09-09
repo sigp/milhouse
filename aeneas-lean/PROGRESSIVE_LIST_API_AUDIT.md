@@ -50,7 +50,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `get` | `ProgressiveList.get_of_pending_update`, `ProgressiveList.get_of_backing`, `ProgressiveList.represents_of_dense_backing`; constructors and mutations establish/preserve indexed representation |
 | `get_mut` | `ProgressiveList.get_mut_total_spec` |
 | `get_cow` | `ProgressiveList.get_cow_represents_read`, `ProgressiveList.get_cow_into_mut_spec`; borrowed handle methods remain pending below |
-| `push` | `ProgressiveList.push_total_spec`, `ProgressiveList.len_after_push_iff_max_index`, `ProgressiveList.push_represents_append_iff_max_index` |
+| `push` | `ProgressiveList.push_total_spec`, `ProgressiveList.push_represents_append_iff`, `ProgressiveList.len_after_push_iff_max_index`, `ProgressiveList.push_represents_append_iff_max_index` |
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
@@ -160,20 +160,26 @@ pass, alongside the core and Option suites after extending the shared runner
 for locked dependencies and constant-initializer provenance. Public API
 coverage and the scope exclusions are unchanged.
 
-Append's maximum-metadata premise is now proved necessary as well as
-sufficient. `len_after_push_iff_max_index` characterizes exact length growth
-by the returned map maximum, with no lookup or structural law and no separate
-capacity bound. `Push/Maximum.lean` extends this to represented sequence append
-under the reached insertion's lookup law. The existing length and total append
-proofs use these equivalences. `UpdateMap/Length.lean` supplies the general
-successful-length criterion and proves that an extent strictly beyond the
-backing sequence fixes the maximum uniquely. The append contracts retain their
-exact maximum premise; this audit does not establish minimality of other
-generic map laws or fidelity of concrete implementations.
-At checkpoint `693bd6d` (general criteria `d7af67d`), the focused builds and full
-build pass (2,032 jobs), and the axiom/import audit validates 5,081 declarations
-across 316 modules. All new and revised append results use only standard Lean
-axioms; no new axioms, admissions, Rust changes, or model changes were added.
+Append now uses exact observable lookup conditions. `AppendReadAgrees` in
+`Push/Lookup.lean` requires the appended key to return the new pending value;
+other keys need only agree after the original backing fallback, without raw
+map-read equality. Its public-read equivalence preserves errors/divergence
+and needs a backing bound only when querying the appended key. The new
+boundary lemma proves public reads equal raw map answers beyond the backing
+length. The old insertion/lookup law implies the new agreement contract.
+
+`push_represents_append_iff` proves the lookup conditions and exact maximum
+jointly necessary and sufficient for a successful push to represent the
+appended sequence. No map-read law or separate capacity bound is assumed in
+this equivalence. Existing indexed read-back, sequence, and total append
+contracts use the weaker law, as does the metadata equivalence. The total proof
+uses the joint criterion. `len_after_push_iff_max_index` retains the necessary exact maximum
+condition. This audit concerns sequence contracts, not concrete map fidelity.
+At checkpoint `2e4927d` (lookup foundations `79bd2a6`), the focused and full
+builds pass (2,035 jobs), and the axiom/import audit validates 5,108 declarations
+across 319 modules. All new and revised append results use only standard Lean
+axioms; no new axioms or admissions were added. Rust and external models are
+unchanged.
 
 Mutable-access and consuming CoW contracts now use maximum-result agreement
 at the original backing length instead of exact insertion maxima.

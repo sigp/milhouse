@@ -212,21 +212,23 @@ check also pass.
   source changed; the 42-root/151-local-declaration dependency gate was not
   repeated for these proof-only changes. Concrete map-model fidelity remains
   a separate obligation.
-- Append's returned maximum must equal the appended index for the result to
-  have the correct new length. `UpdateMap/Length.lean` derives this from the
-  raw maximum query and the unchanged backing length; `Push.lean` proves the
-  public length equivalence, and `Push/Maximum.lean` proves the represented
-  append equivalence under the reached insertion's lookup law. The existing
-  length and total append proofs reuse these criteria. This establishes the
-  necessity of this particular metadata premise without assuming successful
-  maximum queries or a separate append-capacity bound. Other map laws and
-  concrete implementation fidelity remain separate audit obligations.
-  At checkpoint `693bd6d` (general criteria `d7af67d`), focused builds and the
-  full build pass (2,032 jobs), and the axiom/import audit validates 5,081
-  declarations across 316 modules. All new and revised append results use
-  only standard Lean axioms. No Rust, extraction, or external model changed;
-  the 42-root/151-local-declaration dependency gate was not repeated for these
-  proof-only changes.
+- Append now requires the new pending value at the appended index and lookup
+  agreement after the original backing fallback elsewhere. `AppendReadAgrees`
+  describes these raw outcomes; its public-read equivalence handles failures
+  and divergence and needs a backing bound only for the appended-key query.
+  The boundary lemma proves raw-map/public-read equality outside backing, and
+  an adapter derives the new contract from the old exact insertion law.
+  `push_represents_append_iff` proves lookup agreement and exact maximum are
+  jointly necessary and sufficient for the complete sequence postcondition
+  after successful execution. The total append proof now uses this criterion;
+  its theorem conclusions are unchanged. These proof-contract results do not
+  verify concrete map fidelity or replace source models.
+  At checkpoint `2e4927d` (lookup foundations `79bd2a6`), the focused and full
+  builds pass (2,035 jobs), and the axiom/import audit validates 5,108
+  declarations across 319 modules. All new and revised append results use
+  only standard Lean axioms. No Rust, extraction, external model, or Aeneas
+  source changed; the 42-root/151-local-declaration dependency gate was not
+  repeated for these proof-only changes.
 - Mutable and consuming CoW write-back now require only maximum-result
   agreement at the original backing length. Their new generic map laws do
   not prescribe an exact insertion maximum or assume a public length result;
