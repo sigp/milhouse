@@ -195,6 +195,21 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Mutable and consuming CoW write-back now require only maximum-result
+  agreement at the original backing length. Their new generic map laws do
+  not prescribe an exact insertion maximum or assume a public length result;
+  the raw-query relation describes precisely the relevant extent and
+  failure/divergence/overflow behavior. The public length equivalences prove
+  necessity and sufficiency, and the old insertion laws imply the new ones
+  for writes below an existing successful logical length. Exact replacement
+  and all-other-key read preservation remain separate map obligations.
+  These are proof-contract changes; no extraction or external model changed.
+  At checkpoint `70a420e` (generic laws `242e0f1`), focused builds and the full
+  build pass (2,031 jobs), and the axiom/import audit validates 5,073
+  declarations across 315 modules. All new and revised write-back results
+  use only standard Lean axioms. The model dependency inventory remains
+  42 roots/151 local declarations; that gate was not repeated for these
+  proof-only changes.
 - The separate nonmutating rebase observer law now also drops exact maximum
   identity. `UpdateMap/Length/Equivalence.lean` proves a necessary-and-sufficient
   relation on the raw maximum-query results, including mathematical extent,
@@ -202,10 +217,11 @@ check also pass.
   length replacement and rebase observer equivalences use this relation
   without representation, reads, cache/element laws, or successful maximum
   queries. The pending-update observer needs precisely equality of the actual
-  emptiness-query results. The full build passes (2,031 jobs), and the
-  axiom/import audit validates 5,070 declarations across 315 modules; all new
-  lemmas use only standard Lean axioms. External models and roots are unchanged,
-  so the model dependency gate was not repeated for this proof-only change.
+  emptiness-query results. At checkpoint `dab2f4e`, the full build passed
+  (2,031 jobs), and the axiom/import audit validated 5,070 declarations across
+  315 modules; all new lemmas use only standard Lean axioms. External models
+  and roots are unchanged, so the model dependency gate was not repeated for
+  this proof-only change.
 - The packing-depth result is derived rather than assumed separately.
   `Tree/PackingDepth.lean` proves the actual depth computation from the optional
   factor query and its routing power law. `PackingLayout` drops the redundant

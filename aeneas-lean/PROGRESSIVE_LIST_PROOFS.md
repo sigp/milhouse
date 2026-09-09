@@ -62,8 +62,8 @@ points and records the trusted boundaries that still need fidelity review.
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
 | `get` | Merged sequence indexing, with pending values taking precedence; out-of-bounds returns none | `Tree/ProgressiveList.lean`: precedence and backing correspondence; `Construction/Representation.lean` connects dense bounded backing trees to sequence representation, including out-of-bounds reads. Representation is now established by successful `new`/`try_from_iter`, as well as empty/default, and preserved by the proved mutations under their respective map laws |
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push/Total.lean`: complete actual append execution is proved from represented contents and laws for only the insertion at the nonfull logical end. Success represents the exact appended sequence; full-list rejection preserves the entire input, and both branches preserve the exact backing fields. No push/length success, clone, packing, or structural invariant is assumed. `Push/Capacity.lean` characterizes success and full rejection from optional maximum metadata without indexed reads or representation; `Push/State.lean` proves every returned Rust error is exactly full-list rejection unchanged. Earlier `Push.lean` and `Contents.lean` retain read-back, all-index preservation, exact length growth, and successful-execution append results; `Spine.lean` and `Backing.lean` preserve both backing-spine and dense/representable traversal invariants on success without extra map laws or capacity assumptions. `ProgressiveList/Caches.lean` preserves every backing-cache predicate on all returned states, including full-list rejection, without additional laws. |
-| `get_mut` | Return the pending value or actual clone of the backing value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact pending-or-clone equation, including failures; read agreement with `get` needs clone identity only for the actual backing fallback. `Mutable/Total.lean`: `get_mut_total_spec` proves successful access at every machine index, exact initial-value behavior, single-element replacement with unchanged logical length and backing fields, and out-of-bounds no-op. Clone termination, write, and maximum-index laws are scoped to present elements; the missing-handle law is scoped to out-of-bounds access. No global clone law, clone identity, or structural backing premise is needed by the total replacement specification. `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back. `ProgressiveList/Caches.lean` preserves every backing-cache predicate through every returned mutable continuation without map or clone laws. |
-| `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release under generic map lookup/release laws, without cloning. `CopyOnWrite/Consuming.lean` proves actual `get_cow` followed by `Cow::into_mut` succeeds at every represented in-bounds index and every write replaces exactly that sequence element, preserving logical length and backing state. Premises are representation and the generic map's read, entry-location, occupied-handle, lookup-frame, and maximum laws; only a value absent from pending updates needs a terminating clone, and clone identity is unnecessary. `Cow/Consuming.lean` proves the actual consuming body, exact stored value/maximum write-back, and unchanged missing-entry rejection. Every list write-back also preserves backing-spine and dense/representable traversal invariants. Rust `Deref` and borrowed `make_mut` remain pending extraction limitations; neither handle-data observation nor consuming mutation substitutes for those methods. `ProgressiveList/Caches.lean` preserves every backing-cache predicate through arbitrary returned CoW handles, including consuming-mutation write-backs, without additional laws. |
+| `get_mut` | Return the pending value or actual clone of the backing value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact pending-or-clone equation, including failures; read agreement with `get` needs clone identity only for the actual backing fallback. `Mutable/Total.lean`: `get_mut_total_spec` proves successful access at every machine index, exact initial-value behavior, single-element replacement with unchanged logical length and backing fields, and out-of-bounds no-op. Clone termination, write, and maximum-result agreement laws are scoped to present elements; the missing-handle law is scoped to out-of-bounds access. The maximum law requires only the same logical extent at the original backing length. The write-back length equivalence characterizes exact result preservation, including failures and divergence, without bounds or representation premises; the successful-length corollary drops its separate index bound. No global clone law, clone identity, or structural backing premise is needed by the total replacement specification. `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back. `ProgressiveList/Caches.lean` preserves every backing-cache predicate through every returned mutable continuation without map or clone laws. |
+| `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release under generic map lookup/release laws, without cloning. `CopyOnWrite/Consuming.lean` proves actual `get_cow` followed by `Cow::into_mut` succeeds at every represented in-bounds index and every write replaces exactly that sequence element, preserving logical length and backing state. Premises are representation and the generic map's read, entry-location, occupied-handle, lookup-frame, and maximum-result agreement laws; exact insertion maxima are unnecessary. The write-back length equivalence characterizes full result preservation without a write-footprint, bounds, or representation premise. Only a value absent from pending updates needs a terminating clone, and clone identity is unnecessary. `Cow/Consuming.lean` proves the actual consuming body, exact stored value/maximum write-back, and unchanged missing-entry rejection. Every list write-back also preserves backing-spine and dense/representable traversal invariants. Rust `Deref` and borrowed `make_mut` remain pending extraction limitations; neither handle-data observation nor consuming mutation substitutes for those methods. `ProgressiveList/Caches.lean` preserves every backing-cache predicate through arbitrary returned CoW handles, including consuming-mutation write-backs, without additional laws. |
 | `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Clone laws are scoped through the progressive and binary traversals to selected inputs for the actual maximum; no global element-clone law remains. Copied storage needs terminating clones, while identity is required only for retained stored slots and selected pending values; discarded stored copies need no identity law. Range-query termination and answer correctness are required only at reached progressive layers and selected binary queries for the actual maximum. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence. Their successful-execution contracts also require rebuilding and default-map laws only on the actual nonempty branch; the state characterization records that branch answer. `ApplyUpdates/Caches.lean` proves cache-invariant preservation on every returned state, including Rust errors, without representation, shape, packing, map, clone, or termination laws. `CacheTotal.lean` adds validity relative to a mathematical reference hash to the complete total specification, requiring only the input cache invariant in addition to the existing total-operation premises |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Accepted-constructor premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. `Iter/Bounds.lean` derives rejection from only actual optional maximum metadata and the oversized-index comparison, replacing its former representation premise; it also characterizes every returned bounds error. Binary and progressive traversal and the pending overlay are proved underneath. `Iter/Traits.lean` proves the same complete enumeration through the actual borrowed `IntoIterator` method, made reachable by `to_vec` |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | `Iter/Next.lean`: live calls return the represented indexed value and preserve the constructed cursor; exhausted calls return unchanged `none`, including past-end indices. Pending replacements and extensions are covered. `Iter/Length.lean`: both size-hint bounds and exact length equal the represented suffix length; these observers require only agreement of the recorded and sequence lengths |
@@ -1002,8 +1002,13 @@ points and records the trusted boundaries that still need fidelity review.
   clone that can actually be called. `get_mut_spec` composes that execution
   with exact sequence replacement and backing-field preservation;
   `get_mut_total_spec` covers every index, including missing-index restoration.
-  Write/max laws apply only in bounds, and the missing-handle law only out of
-  bounds. The older read-agreement lemmas now scope clone identity to the
+  Write/max-result agreement laws apply only in bounds, and the missing-handle
+  law only out of bounds. Maximum metadata need only preserve logical extent
+  at the original backing length, not record the exact insertion maximum.
+  `len_after_get_mut_eq_iff_max_index` characterizes full length-result
+  preservation from raw query outcomes without bounds or representation
+  premises; `len_after_get_mut` drops its separate bounds premise.
+  The older read-agreement lemmas now scope clone identity to the
   actual fallback instead of every value of the element type.
 - `Tree/Cow/EntryModels.lean`, `EntrySuccess.lean`: external BTree/Vec vacant
   entries retain keyed exclusive-slot write-back state instead of `Unit`.
@@ -1022,13 +1027,20 @@ points and records the trusted boundaries that still need fidelity review.
   limitations while preserving the public API and operation order.
 - `Tree/UpdateMap/CowWriteBack.lean`,
   `Tree/ProgressiveList/CopyOnWrite/Consuming.lean`: generic entry-location,
-  occupied-handle, lookup-frame, and maximum laws compose with actual `get_cow`
-  and `into_mut` to prove complete in-bounds sequence replacement. Theorem
-  `get_cow_into_mut_spec` derives the handle and every consuming subcall,
+  occupied-handle, lookup-frame, and maximum-result agreement laws compose
+  with actual `get_cow` and `into_mut` to prove complete in-bounds sequence
+  replacement. Theorem `get_cow_into_mut_spec` derives the handle and every consuming subcall,
   preserves logical length and exact backing fields, and requires no packing
   or backing invariant beyond indexed list representation. Only absence from
-  the pending map requires cloning the one queried value. `Deref`, borrowed
-  `make_mut`, and CoW iterator stepping remain separate open obligations.
+  the pending map requires cloning the one queried value. The new length
+  equivalence gives the necessary-and-sufficient metadata criterion for every
+  returned handle, without a write-footprint, bounds, representation, or
+  successful-query premise. Its successful-length corollary needs no separate
+  index bound. `UpdateMap/Mutable.lean` and `UpdateMap/CowWriteBack.lean` retain
+  the old exact insertion laws and prove they imply the new contracts below
+  an existing successful logical end.
+  `Deref`, borrowed `make_mut`, and CoW iterator stepping remain separate open
+  obligations.
 - `Tree/PackedLeaf/Contents.lean`, `Tree/PackedLeaf/BulkUpdate.lean`: exact
   packed insertion contents and bulk-update window contents, including initial
   cloning and the complete scan. Pending values override their own slots;
@@ -1089,7 +1101,25 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest rebase-observer checkpoint (`dab2f4e`, with criterion `dd3f4c6`): the
+Latest write-back metadata checkpoint (`70a420e`, with generic laws
+`242e0f1`): focused builds and the full library build pass (2,031 jobs).
+The axiom/import audit covers 5,073 declarations across all 315 modules:
+5,011 use only standard Lean axioms or none, and 62 additionally use the
+existing Arc pointer contract. All three new generic implications and all
+nine new or revised public write-back results use only standard Lean axioms.
+The `size_of` axiom remains unused; no new axiom or admission was introduced.
+Mutable and consuming CoW sequence contracts require maximum-result agreement
+at the original backing length instead of exact insertion metadata. Both
+public length equivalences prove that relation necessary and sufficient for
+complete result preservation, and both successful-length corollaries drop
+their separate index bounds. The retained exact insertion laws imply the new
+contracts for writes below an existing successful logical end. No Rust,
+extraction, external model, or Aeneas source changed. The model dependency
+inventory remains 42 roots/151 local declarations; that separate gate was not
+repeated for these proof-only changes. Borrowed CoW and the remaining
+assumption/model-fidelity review stay open.
+
+Previous rebase-observer checkpoint (`dab2f4e`, with criterion `dd3f4c6`): the
 focused build and full library build pass (2,031 jobs). The axiom/import audit
 covers 5,070 declarations across all 315 modules: 5,008 use only standard Lean
 axioms or none, and 62 additionally use the existing Arc pointer contract.

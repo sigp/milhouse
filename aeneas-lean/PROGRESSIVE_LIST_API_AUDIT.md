@@ -160,7 +160,23 @@ pass, alongside the core and Option suites after extending the shared runner
 for locked dependencies and constant-initializer provenance. Public API
 coverage and the scope exclusions are unchanged.
 
-The rebase observer contract now drops maximum-index identity as well.
+Mutable-access and consuming CoW contracts now use maximum-result agreement
+at the original backing length instead of exact insertion maxima.
+`GetMutWithMaxIndexAgrees` and `GetCowWithValueMaxIndexAgrees` constrain the raw
+map queries; separate write laws still require the exact replacement and
+unchanged reads at every other key. Both public write-back length equivalences
+prove this metadata criterion necessary and sufficient, including failure,
+divergence, and checked overflow, without representation or bounds premises.
+The existing length-preservation lemmas drop their separate index bounds, and
+the total sequence specifications use the new contracts. The old insertion
+laws imply them for writes below an existing successful logical length.
+At checkpoint `70a420e` (generic laws `242e0f1`), focused builds and the full
+build pass (2,031 jobs). The axiom/import audit validates 5,073 declarations
+across 315 modules; all new and revised write-back results use only standard
+Lean axioms. No new axioms, admissions, Rust changes, or model changes were added.
+Borrowed CoW methods and iterator stepping remain separate open obligations.
+
+The rebase observer contract drops maximum-index identity as well.
 `UpdateMap/Length/Equivalence.lean` proves an exact criterion on raw maximum
 query results: successful maxima may differ if they give the same mathematical
 extent, and failure/divergence/overflow outcomes are retained. For example,
@@ -168,9 +184,9 @@ with backing length 10, `None`, `Some 0`, and `Some 9` all give length 10.
 `rebase_observers_eq_iff` proves that this condition and equality of the actual
 emptiness queries are necessary and sufficient for the two observer results
 to agree. The revised preservation theorem assumes no map validity, indexed
-read law, representation, or successful observer/query call. The focused and
-full builds pass, and the axiom/import audit covers 5,070 declarations across
-315 modules without new axioms or admissions.
+read law, representation, or successful observer/query call. At checkpoint
+`dab2f4e`, the focused and full builds passed, and the axiom/import audit
+covered 5,070 declarations across 315 modules without new axioms or admissions.
 
 Clone and clone_from sequence contracts, and the rebase contracts that depend
 on them, no longer require cloned maximum-index identity. Under unchanged map
