@@ -21,6 +21,7 @@ import Tree.Builder.Contents
 import Tree.Builder.Caches.Basic
 import Tree.Builder.Caches.Push
 import Tree.Builder.Caches.Finish
+import Tree.ProgressiveTree.Builder.Caches
 import Tree.Builder.Contents.Length
 import Tree.Builder.New
 import Tree.Builder.Carry
