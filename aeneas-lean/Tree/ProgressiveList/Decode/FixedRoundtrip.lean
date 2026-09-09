@@ -48,7 +48,8 @@ theorem ProgressiveList.ssz_roundtrip_fixed {T U : Type}
         ProgressiveList.get ValueInst mapInst self index := by
   obtain ⟨bytes, hencode, hencoded⟩ := ProgressiveList.as_ssz_bytes_fixed_spec ValueInst mapInst
     hencodeFixed width hencodeWidth hlayout self contents hrep hbacking.1 hbacking.2
-    encode hwidths happend hbytes
+    encode happend hbytes
+    (by rw [fixed_payload_length encode contents width.val hwidths]; exact hbytes)
   obtain ⟨restored, hdecode, hrestored, hbackingRestored, hpending⟩ :=
     ProgressiveList.from_ssz_bytes_fixed_total_spec ValueInst mapInst bytes.deref contents encode width
       hpositive hdecodeFixed hdecodeWidth hencoded hwidths hdecodeElement (fun _ => hlayout) hfits

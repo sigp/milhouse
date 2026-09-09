@@ -44,7 +44,9 @@ theorem ProgressiveList.ssz_append_fixed_loop_spec {T U : Type}
       exact hloop
     · simpa [happended, _root_.List.append_assoc] using houtput
 
-private theorem fixed_payload_length {T : Type} (encode : T → _root_.List Std.U8)
+/-- Fixed-width payload laws supply the aggregate payload length when a
+decoder or codec contract needs width coherence. Encoding alone does not. -/
+theorem fixed_payload_length {T : Type} (encode : T → _root_.List Std.U8)
     (values : _root_.List T) (width : Nat)
     (hwidth : ∀ value ∈ values, (encode value).length = width) :
     (values.flatMap encode).length = width * values.length := by
@@ -55,9 +57,10 @@ private theorem fixed_payload_length {T : Type} (encode : T → _root_.List Std.
     rw [hwidth value (by simp), ih (fun item hmem => hwidth item (by simp [hmem]))]
     simp [Nat.mul_add, Nat.add_comm]
 
-/-- Fixed-element SSZ appends the exact represented merged sequence's bytes.
-    The ordinary element codec law gives each encoding its declared width;
-    one final output-size bound covers reservation and all appends. -/
+/-- The fixed-element branch appends the exact represented sequence's payload.
+    Its declared width controls reservation, while element append calls control
+    the actual bytes. Separate aggregate bounds suffice; payload widths need
+    not agree with the declared width. -/
 theorem ProgressiveList.ssz_append_fixed_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (hfixed : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok true)
@@ -68,12 +71,12 @@ theorem ProgressiveList.ssz_append_fixed_spec {T U : Type}
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val) (hfits : self.tree.Fits factor 0)
     (encode : T → _root_.List Std.U8) (buf : alloc.vec.Vec Std.U8)
-    (hwidths : ∀ value ∈ contents, (encode value).length = width.val)
     (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)
-    (hbound : buf.val.length + width.val * contents.length ≤ Std.Usize.max) :
+    (hreserveBound : buf.val.length + width.val * contents.length ≤ Std.Usize.max)
+    (hpayloadBound : buf.val.length + (contents.flatMap encode).length ≤ Std.Usize.max) :
     ∃ output, ProgressiveList.Insts.SszEncodeEncode.ssz_append ValueInst mapInst self buf = ok output ∧
       output.val = buf.val ++ contents.flatMap encode := by
   obtain ⟨cursor, hiter, _, _, hyields⟩ :=
@@ -89,10 +92,10 @@ theorem ProgressiveList.ssz_append_fixed_spec {T U : Type}
       exfalso
       apply hbad
       rw [hbytes, hcountValue]
-      exact hbound
+      exact hreserveBound
   obtain ⟨output, hloop, houtput⟩ := ProgressiveList.ssz_append_fixed_loop_spec
     ValueInst mapInst cursor contents encode buf hyields happend
-    (by rw [fixed_payload_length encode contents width.val hwidths]; exact hbound)
+    hpayloadBound
   exact ⟨output, by simp [ProgressiveList.Insts.SszEncodeEncode.ssz_append,
     hfixed, hwidth, hcount, hmul, hreserve, hiter, hloop], houtput⟩
 

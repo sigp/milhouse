@@ -8,8 +8,9 @@ open _root_.ssz.encode
 
 namespace milhouse.progressive_list
 
-/-- Owning SSZ serialization returns exactly the fixed-element merged payload,
-    using the proved append method and an initially empty output vector. -/
+/-- Owning fixed-element encoding returns exactly the merged payload from an
+    empty buffer. Declared reservation and actual payload bounds are separate;
+    no width-coherence law is required by the encoder. -/
 theorem ProgressiveList.as_ssz_bytes_fixed_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (hfixed : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok true)
@@ -20,18 +21,18 @@ theorem ProgressiveList.as_ssz_bytes_fixed_spec {T U : Type}
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val) (hfits : self.tree.Fits factor 0)
     (encode : T → _root_.List Std.U8)
-    (hwidths : ∀ value ∈ contents, (encode value).length = width.val)
     (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)
-    (hbound : width.val * contents.length ≤ Std.Usize.max) :
+    (hreserveBound : width.val * contents.length ≤ Std.Usize.max)
+    (hpayloadBound : (contents.flatMap encode).length ≤ Std.Usize.max) :
     ∃ output, ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes ValueInst mapInst self = ok output ∧
       output.val = contents.flatMap encode := by
   simpa only [ProgressiveList.as_ssz_bytes_eq_append, alloc.vec.Vec.new,
     _root_.List.nil_append] using ProgressiveList.ssz_append_fixed_spec ValueInst mapInst
       hfixed width hwidth hlayout self contents hrep hdense hfits encode (alloc.vec.Vec.new Std.U8)
-      hwidths happend (by simpa using hbound)
+      happend (by simpa using hreserveBound) (by simpa using hpayloadBound)
 
 /-- Owning variable-element serialization returns the exact SSZ offset table
     followed by all represented payloads, including pending values. -/
