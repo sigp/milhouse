@@ -42,6 +42,7 @@ import Tree.Rebase.Success
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.Rebase.CacheAction
+import Tree.Rebase.Caches
 import Tree.ProgressiveTree
 import Tree.ProgressiveTree.Rebase.Success
 import Tree.ProgressiveTree.Equality.Structure
