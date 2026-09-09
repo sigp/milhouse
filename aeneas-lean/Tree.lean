@@ -86,6 +86,7 @@ import Tree.ProgressiveList.Caches
 import Tree.ProgressiveList.Equality.Structure
 import Tree.ProgressiveList.Equality.Correctness
 import Tree.ProgressiveList.Encode.Length
+import Tree.ProgressiveList.Encode.LengthCalls
 import Tree.ProgressiveList.Encode.Fixed
 import Tree.ProgressiveList.Encode.FixedCalls
 import Tree.ProgressiveList.Encode.Metadata
