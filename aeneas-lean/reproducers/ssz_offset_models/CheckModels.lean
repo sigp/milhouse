@@ -102,3 +102,22 @@ theorem read_offset_composition_agrees (bytes : Slice U8) :
 #print axioms width_agrees
 #print axioms decode_offset_agrees
 #print axioms read_offset_composition_agrees
+
+private def sourceEncoderToModel (encoder : SszSource.ssz.encode.SszEncoder) : ssz.encode.SszEncoder :=
+  ⟨encoder.offset, encoder.buf, encoder.variable_bytes⟩
+
+private def modelEncoderToSource (encoder : ssz.encode.SszEncoder) : SszSource.ssz.encode.SszEncoder :=
+  ⟨encoder.offset, encoder.buf, encoder.variable_bytes⟩
+
+/-- Compare the actual constructor and its buffer-release continuation,
+retaining the explicitly imported local Vec reserve foundation. -/
+theorem container_agrees (buf : alloc.vec.Vec U8) (fixed : Usize) :
+    (do let (encoder, release) ← SszSource.ssz.encode.SszEncoder.container buf fixed
+        ok (sourceEncoderToModel encoder,
+          fun replacement => release (modelEncoderToSource replacement))) =
+      ssz.encode.SszEncoder.container buf fixed := by
+  cases h : alloc.vec.Vec.reserve Global buf fixed <;>
+    simp [SszSource.ssz.encode.SszEncoder.container, ssz.encode.SszEncoder.container,
+      sourceEncoderToModel, modelEncoderToSource, h]
+
+#print axioms container_agrees

@@ -250,6 +250,46 @@ def check_axiom_output(output, proofs):
     return verified
 
 
+def check_foundation_bindings(data, suite, template):
+    """Allow listed dependency primitives supplied by existing concrete models.
+
+    The template is inspected but never compiled. The replacement module may
+    contain imports only; all generated source definitions stay untouched.
+    """
+    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n((?:[^\n]+\n?)*)", template)
+    bindings = suite.get("foundation_bindings", [])
+    expected = {binding["lean_name"]: " ".join(binding["signature"].split()) for binding in bindings}
+    if (len(expected) != len(bindings) or len(records) != len(expected)
+            or len(re.findall(r"(?m)^axiom\b", template)) != len(records)
+            or {name: " ".join(signature.split()) for name, signature in records} != expected
+            or re.search(r"\b(sorry|admit|opaque)\b", template)
+            or re.search(r"(?m)^(def|theorem|abbrev|instance)\b", template)):
+        raise ValueError("Unexpected foundation template declarations or signatures")
+    crate = data["translated"]
+    files = {file["id"]: file for file in crate["files"] if file}
+    verified = []
+    for binding in bindings:
+        module = binding["module"]
+        if (not re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", module)
+                or module not in suite.get("model_modules", [])
+                or module.replace(".", "/") + ".lean" not in suite.get("model_files", [])):
+            raise ValueError("Foundation import must be an explicit built and hashed model module")
+        source = source_declaration(crate, {"source_prefix": binding["source_prefix"]}, binding["method"])
+        meta = source["item_meta"]
+        span = meta["span"]["data"]
+        file = files[span["file_id"]]
+        if (meta["is_local"] is not False or meta["opacity"] != "Foreign"
+                or source["body"] != "Opaque" or source["is_global_initializer"] is not None
+                or file["crate_name"] != binding["source_crate"]
+                or file["name"] != {"Local": binding["source_file"]}):
+            raise ValueError(f"Unexpected foundation source provenance: {binding['method']}")
+        verified.append({"method": binding["method"], "sourceCrate": binding["source_crate"],
+                         "sourceFile": binding["source_file"], "source": span, "defId": source["def_id"],
+                         "leanName": binding["lean_name"], "module": module,
+                         "signature": expected[binding["lean_name"]]})
+    return verified
+
+
 def main(suite):
     repo = Path(__file__).resolve().parent.parent
     lean_project = repo / "aeneas-lean"
@@ -370,9 +410,23 @@ def main(suite):
                    "-split-files", "-no-progress-bar", "-dest", str(work / suite["namespace"]),
                    str(llbc)], cwd=work)
     generated = list((work / suite["namespace"]).glob("*.lean"))
-    if {path.name for path in generated} != {"Types.lean", "Funs.lean"}:
+    expected_generated = {"Types.lean", "Funs.lean"}
+    if suite.get("foundation_bindings"):
+        expected_generated.add("FunsExternal_Template.lean")
+    if {path.name for path in generated} != expected_generated:
         raise ValueError("Unexpected generated files or external model templates")
+    foundations = []
+    if suite.get("foundation_bindings"):
+        template_path = work / suite["namespace"] / "FunsExternal_Template.lean"
+        foundations = check_foundation_bindings(selected, suite, template_path.read_text())
+        # Import existing concrete definitions; no axiom or replacement source
+        # body from the generated template is compiled or copied into this file.
+        imports = list(dict.fromkeys(binding["module"] for binding in foundations))
+        (work / suite["namespace"] / "FunsExternal.lean").write_text(
+            "".join("import " + module + "\n" for module in imports))
     for path in generated:
+        if foundations and path.name == "FunsExternal_Template.lean":
+            continue
         if re.search(r"\b(sorry|admit|axiom|opaque)\b", path.read_text()):
             raise ValueError(f"Incomplete or opaque generated body: {path}")
     env = os.environ.copy()
@@ -380,7 +434,11 @@ def main(suite):
     lean = run("lean-executable", ["lake", "env", "which", "lean"])
     env["LEAN_PATH"] = str(work) + os.pathsep + base_path
     shutil.copyfile(sources / "CheckModels.lean", work / "CheckModels.lean")
-    for module in (suite["namespace"] + "/Types", suite["namespace"] + "/Funs", "CheckModels"):
+    modules = [suite["namespace"] + "/Types"]
+    if foundations:
+        modules.append(suite["namespace"] + "/FunsExternal")
+    modules += [suite["namespace"] + "/Funs", "CheckModels"]
+    for module in modules:
         output = run(module.replace("/", "-"), [lean, "-o", module + ".olean", module + ".lean"],
                      cwd=work, env=env)
         if module == "CheckModels":
@@ -398,6 +456,7 @@ def main(suite):
         "sourceNameChanges": renames,
         "retainedSourceBodies": retained, "sourceTypeNameChanges": type_renames,
         "sourceTraitMethodNameChanges": method_renames,
+        "retainedLocalFoundations": foundations,
         "directSourceComparisons": provenance, "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,
