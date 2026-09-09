@@ -119,6 +119,7 @@ import Tree.ProgressiveTree.Builder.SpineSuccess
 import Tree.ProgressiveTree.Builder.FinishSuccess
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveTree.BulkUpdate.CloneScope
+import Tree.ProgressiveTree.BulkUpdate.RangeScope
 import Tree.ProgressiveTree.BulkUpdate.Density
 import Tree.ProgressiveTree.BulkUpdate.Success
 import Tree.ProgressiveTree.Rebase.Density
@@ -148,6 +149,7 @@ import Tree.Vec.Clone
 import Tree.PackedLeaf.BulkUpdateSuccess
 import Tree.BulkUpdate
 import Tree.BulkUpdate.CloneScope
+import Tree.BulkUpdate.RangeScope
 import Tree.BulkUpdate.Density
 import Tree.BulkUpdate.Arithmetic
 import Tree.BulkUpdate.Success
