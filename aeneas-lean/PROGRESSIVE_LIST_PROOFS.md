@@ -637,7 +637,23 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest apply-updates cache checkpoint (through `7848beb`): the full Lean
+Constructor cache foundation checkpoint: `Tree/HashCache/Cleared.lean`
+defines cleared caches independently of tree shape and depth, and proves
+that they satisfy every cache predicate accepting the zero sentinel.
+`Tree/Builder/Caches/Basic.lean` tracks cleared caches across forest pushes
+and pops and proves clearing for fresh leaves, packed singletons, nodes,
+and successful `Builder.new` calls. No element-hashing, packing-layout,
+or arithmetic laws are required. Preservation through builder push/finish
+and public constructors remains outstanding.
+
+The full Lean build passes (1,962 jobs), with all 246 project proof modules
+reachable from `Tree`. All eight new lemmas depend only on `propext`,
+`Classical.choice`, and `Quot.sound`, with no `sorryAx` dependencies.
+Fetching `origin/main` confirms `d67aabd` is already included through merge
+commit `473f5c8`; there are no remaining merge conflicts. This checkpoint
+changes only Lean proofs, imports, and this validation record.
+
+Previous apply-updates cache checkpoint (through `7848beb`): the full Lean
 build passes (1,960 jobs), including all earlier proofs and five new modules.
 All seven new lemmas were audited and depend only on `propext`,
 `Classical.choice`, and `Quot.sound`; there are no new axioms or `sorryAx`
