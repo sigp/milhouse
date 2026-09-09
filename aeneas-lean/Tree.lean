@@ -177,3 +177,4 @@ import Tree.BulkUpdate.Density
 import Tree.BulkUpdate.Arithmetic
 import Tree.BulkUpdate.Success
 import Tree.BulkUpdate.Contents
+import Tree.ProgressiveTree.Rebase.Soundness
