@@ -78,8 +78,8 @@ trait has no additional in-place default. Ordinary Serde does.
 | `TryFrom<Vec<T>>::try_from` | `ProgressiveList.try_from_vec_total_spec`, `ProgressiveList.try_from_vec_success_iff` |
 | `TryFromIter::try_from_iter` | `ProgressiveList.ssz_try_from_iter_total_spec`, `ProgressiveList.ssz_try_from_iter_success_iff` |
 | `IntoIterator::into_iter` for `&ProgressiveList` | `ProgressiveList.into_iter_spec` |
-| `Clone::clone` | `ProgressiveList.clone_total_spec`, `ProgressiveList.clone_success_iff` |
-| `Clone::clone_from` | `ProgressiveList.clone_from_total_spec`; actual inherited method, made reachable by a concrete caller |
+| `Clone::clone` | `ProgressiveList.clone_total_spec`, `ProgressiveList.clone_success_iff`, `ProgressiveList.clone_success_represents_iff` |
+| `Clone::clone_from` | `ProgressiveList.clone_from_total_spec`, `ProgressiveList.clone_from_success_represents_iff`; actual inherited method, made reachable by a concrete caller |
 | `PartialEq::eq` | `ProgressiveList.partial_eq_spec`, `ProgressiveList.partial_eq_represents` |
 | `PartialEq::ne` | `ProgressiveList.partial_ne_spec`; actual trait default |
 | `Debug::fmt` | Out of scope. Historical extraction/model findings: UPSTREAM_BUGS issue 5 |
@@ -203,16 +203,27 @@ read law, representation, or successful observer/query call. At checkpoint
 `dab2f4e`, the focused and full builds passed, and the axiom/import audit
 covered 5,070 declarations across 315 modules without new axioms or admissions.
 
-Clone and clone_from sequence contracts, and the rebase contracts that depend
-on them, no longer require cloned maximum-index identity. Under unchanged map
-reads, `Clone/Maximum.lean` proves the new metadata condition necessary and
-sufficient: the returned maximum must give the same mathematical logical
-length, using the backing length for `None` and `max (index + 1) backing_length`
-for `Some index`. Source representation supplies successor safety. The
-contracts assume no successful new list-length call. Reads remain constrained
-at every machine index because public `get` queries the map before checking
-backing bounds. The generalized contracts pass the full build and axiom/import
-audit (5,015 declarations across 314 modules).
+Clone, clone_from, and dependent rebase sequence/cache contracts now require
+lookup agreement after the actual backing fallback, together with matching
+logical extent. Raw map reads and maximum indices may differ.
+`UpdateMap/Lookup.lean` characterizes raw lookup-result agreement, including
+failure and divergence; `ProgressiveList/Lookup.lean` proves it equivalent to
+unchanged public `get` results. For example, an absent entry and `Some value`
+agree exactly when the backing fallback returns `Some value`. The relation
+still covers every machine index because pending entries take precedence over
+backing bounds. An adapter proves exact map-read equality implies this weaker law.
+
+`Clone/Maximum.lean` proves lookup agreement and matching maximum extent are
+jointly necessary and sufficient for preserving the represented sequence.
+`clone_success_represents_iff` and `clone_from_success_represents_iff` add actual
+pending-map clone termination to characterize successful sequence-preserving
+clones. The total clone proof and all dependent rebase contracts use the weaker
+law; source representation supplies successor safety. Pending-update observers
+retain their separate emptiness laws. At checkpoint `b93748b` (lookup criteria
+`38c8b6d`), the focused and full builds pass (2,034 jobs), and the axiom/import
+audit validates 5,099 declarations across 318 modules. New lookup and clone
+criteria use only standard Lean axioms; no new axiom or admission was added.
+These proof changes do not establish concrete map-model fidelity.
 
 The shared `PackingLayout` assumption now requires only the actual factor
 query and the routing power-of-two law. Its packing-depth result is derived

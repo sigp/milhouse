@@ -195,6 +195,23 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Clone and dependent rebase read laws now require agreement after the actual
+  backing fallback, without exact raw map-read equality. `LookupResultsAgree`
+  compares raw `Result (Option T)` outcomes, preserving failure and divergence
+  and permitting an absent entry to match a value supplied by the fallback.
+  The public lookup equivalences prove this criterion exact at every machine
+  index, without backing invariants or assumed lookup success. Combined with
+  maximum extent, it is necessary and sufficient for represented sequence
+  preservation; the new clone/clone_from success equivalences also include
+  actual pending-map clone termination. All dependent rebase sequence/cache
+  contracts use the weaker law, while pending-update observers retain their
+  own emptiness laws. At checkpoint `b93748b` (lookup criteria `38c8b6d`), the
+  focused and full builds pass (2,034 jobs), and the axiom/import audit validates
+  5,099 declarations across 318 modules. New lookup and clone criteria use
+  only standard Lean axioms. No Rust, extraction, external model, or Aeneas
+  source changed; the 42-root/151-local-declaration dependency gate was not
+  repeated for these proof-only changes. Concrete map-model fidelity remains
+  a separate obligation.
 - Append's returned maximum must equal the appended index for the result to
   have the correct new length. `UpdateMap/Length.lean` derives this from the
   raw maximum query and the unchanged backing length; `Push.lean` proves the
@@ -252,14 +269,14 @@ check also pass.
 - Generic update-map, element clone/equality, codec, and generator calls use
   the operation-specific laws recorded in the proof coverage document. The
   dependency inventory does not verify concrete implementations of those laws.
-  `Clone/Maximum.lean` now characterizes the exact maximum-metadata condition
-  for preserving a represented sequence under unchanged map reads. Clone,
-  clone_from, and dependent rebase contracts require matching logical extent,
-  rather than exact maximum identity, and derive successor safety internally.
-  This narrows a generic map law without assuming successful list-length
-  evaluation or changing any external model. The full build and axiom/import
-  audit pass for 5,015 declarations across 314 modules (2,030 jobs); the
-  separate dependency gate was not rerun for these proof-only changes.
+  The earlier maximum-metadata audit established its exact criterion under
+  unchanged raw map reads. It generalized clone, clone_from, and dependent
+  rebase contracts to matching logical extent and derived successor safety
+  internally, without assuming successful list-length evaluation or changing
+  an external model. At that checkpoint the full build and axiom/import audit
+  passed for 5,015 declarations across 314 modules (2,030 jobs); the separate
+  dependency gate was not rerun for those proof-only changes. The subsequent
+  lookup-agreement audit above also removes raw map-read identity.
   Fixed-encoder call equations in `Encode/FixedCalls.lean` now preserve the
   actual buffer fold, reservation checks, failure, and divergence without
   codec laws. Exact fixed-byte contracts separately bound reservation and
