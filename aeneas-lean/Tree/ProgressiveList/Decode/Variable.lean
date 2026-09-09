@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Decode.Backing
+import Tree.ProgressiveList.Decode.PublicTrace
 import Tree.ProgressiveList.Decode.Contents
 import Tree.Ssz.VariableCursor
 
@@ -9,11 +9,12 @@ namespace milhouse.progressive_list
 
 /-- Successful variable-format decoding reconstructs the encoded sequence,
 including zero-byte element payloads and the empty list. Cursor validity and
-arithmetic bounds follow from the canonical bytes and their slice bound. -/
+arithmetic bounds follow from the canonical bytes and their slice bound.
+Element metadata is needed only for nonempty input. -/
 theorem ProgressiveList.from_ssz_bytes_variable_contents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) (values : _root_.List T) (encode : T → _root_.List Std.U8)
-    (hvariable : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
+    (hvariable : values ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
     (hbytes : bytes.val = _root_.ssz.encode.variableEncoding encode values)
     (hfit : _root_.ssz.encode.OffsetsFit encode (4 * values.length) values)
     (hdecodeElement : ∀ value ∈ values, ∀ part : Slice Std.U8,
@@ -37,6 +38,8 @@ theorem ProgressiveList.from_ssz_bytes_variable_contents {T U : Type}
     obtain ⟨htree, hlength, hdefault⟩ := ProgressiveList.empty_success_state ValueInst mapInst hempty
     exact ⟨by simp [htree, progressive_tree.ProgressiveTree.elements], by simp [hlength], hdefault⟩
   | cons value values =>
+    have hne : value :: values ≠ [] := by simp
+    specialize hvariable hne
     have hnonempty : bytes.val ≠ [] := by
       intro hempty
       have hlen := congrArg _root_.List.length hbytes
@@ -54,18 +57,19 @@ theorem ProgressiveList.from_ssz_bytes_variable_contents {T U : Type}
 
 /-- Sequence-level partial correctness of the public variable-element SSZ
 decoder: exact indexed reads, traversal-valid backing, and no pending updates.
-The element laws apply only to represented values and their exact payloads. -/
+The element laws apply only to represented values and their exact payloads.
+Element metadata and packing layout are conditional on nonempty input. -/
 theorem ProgressiveList.from_ssz_bytes_variable_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) (values : _root_.List T) (encode : T → _root_.List Std.U8)
-    (hvariable : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
+    (hvariable : values ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
     (hbytes : bytes.val = _root_.ssz.encode.variableEncoding encode values)
     (hfit : _root_.ssz.encode.OffsetsFit encode (4 * values.length) values)
     (hdecodeElement : ∀ value ∈ values, ∀ part : Slice Std.U8,
       part.val = encode value → ValueInst.sszdecodeDecodeInst.from_ssz_bytes part =
         ok (core.result.Result.Ok value))
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hlayout : values ≠ [] → tree.PackingLayout ValueInst factor packingDepth)
     (hdefault : ∀ updates, mapInst.coredefaultDefaultInst.default = ok updates →
       (∀ index, mapInst.get updates index = ok none) ∧
         mapInst.max_index updates = ok none ∧ mapInst.is_empty updates = ok true)
@@ -74,13 +78,15 @@ theorem ProgressiveList.from_ssz_bytes_variable_spec {T U : Type}
       ok (core.result.Result.Ok self)) :
     self.Represents ValueInst mapInst values ∧ self.BackingValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
-  obtain ⟨helements, _, hmap⟩ := ProgressiveList.from_ssz_bytes_variable_contents
+  obtain ⟨helements, _, _⟩ := ProgressiveList.from_ssz_bytes_variable_contents
     ValueInst mapInst bytes values encode hvariable hbytes hfit hdecodeElement hdecode
-  obtain ⟨hbacking, _⟩ := ProgressiveList.from_ssz_bytes_backing ValueInst mapInst bytes hlayout hdecode
-  obtain ⟨hget, hmax, hempty⟩ := hdefault self.updates hmap
-  refine ⟨?_, hbacking, ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty⟩
-  rw [← helements]
-  exact ProgressiveList.represents_of_dense_backing ValueInst mapInst hlayout self
-    hbacking.1 hbacking.2 hget hmax
+  have hlayoutBytes : bytes.val ≠ [] → tree.PackingLayout ValueInst factor packingDepth := by
+    intro hnonempty
+    apply hlayout
+    intro hvalues
+    apply hnonempty
+    simpa [hvalues, _root_.ssz.encode.variableEncoding, _root_.ssz.encode.offsets] using hbytes
+  simpa only [helements] using ProgressiveList.from_ssz_bytes_represents
+    ValueInst mapInst bytes hlayoutBytes hdefault hdecode
 
 end milhouse.progressive_list

@@ -10,7 +10,8 @@ namespace milhouse.progressive_list
 /-- Actual variable-element SSZ encoding followed by public decoding preserves
 the complete merged sequence and every indexed read, with valid rebuilt backing
 and no pending updates. Empty payloads are supported. The offset table supplies
-all builder capacity bounds; only emitted offsets need to fit SSZ's 32 bits. -/
+all builder capacity bounds; only emitted offsets need to fit SSZ's 32 bits.
+Decoder metadata is needed only for nonempty contents. -/
 theorem ProgressiveList.ssz_roundtrip_variable {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -18,7 +19,7 @@ theorem ProgressiveList.ssz_roundtrip_variable {T U : Type}
     {packingDepth : Std.Usize} (hlayout : PackingLayout ValueInst factor packingDepth)
     (hbacking : self.BackingValid factor)
     (hencodeVariable : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok false)
-    (hdecodeVariable : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
+    (hdecodeVariable : contents ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
     (encode : T → _root_.List Std.U8)
     (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
@@ -44,7 +45,7 @@ theorem ProgressiveList.ssz_roundtrip_variable {T U : Type}
     hencodeVariable hlayout self contents hrep hbacking.1 hbacking.2 encode happend hbytes hoffsets
   obtain ⟨restored, hdecode, hrestored, hbackingRestored, hpending⟩ :=
     ProgressiveList.from_ssz_bytes_variable_total_spec ValueInst mapInst bytes.deref contents encode
-      hdecodeVariable hencoded hoffsets hdecodeElement hlayout updates hdefault hget hmax hempty
+      hdecodeVariable hencoded hoffsets hdecodeElement (fun _ => hlayout) updates hdefault hget hmax hempty
   refine ⟨bytes, restored, hencode, hdecode, hrestored, hbackingRestored, hpending, ?_⟩
   intro index
   rw [hrestored.2 index, hrep.2 index]

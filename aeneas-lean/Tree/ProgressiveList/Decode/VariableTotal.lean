@@ -8,18 +8,19 @@ namespace milhouse.progressive_list
 
 /-- Canonical variable-element bytes decode successfully, including empty
 lists and zero-byte payloads. Only offsets actually emitted need a 32-bit
-bound; the input offset table supplies every builder rollover check. -/
+bound; the input offset table supplies every builder rollover check. Empty
+input requires no element metadata or packing layout. -/
 theorem ProgressiveList.from_ssz_bytes_variable_total {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) (values : _root_.List T) (encode : T → _root_.List Std.U8)
-    (hvariable : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
+    (hvariable : values ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
     (hbytes : bytes.val = _root_.ssz.encode.variableEncoding encode values)
     (hoffsets : _root_.ssz.encode.OffsetsFit encode (4 * values.length) values)
     (hdecodeElement : ∀ value ∈ values, ∀ part : Slice Std.U8,
       part.val = encode value → ValueInst.sszdecodeDecodeInst.from_ssz_bytes part =
         ok (core.result.Result.Ok value))
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hlayout : values ≠ [] → tree.PackingLayout ValueInst factor packingDepth)
     (updates : U) (hdefault : mapInst.coredefaultDefaultInst.default = ok updates) :
     ∃ self, ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
       ok (core.result.Result.Ok self) := by
@@ -33,6 +34,9 @@ theorem ProgressiveList.from_ssz_bytes_variable_total {T U : Type}
       ProgressiveList.empty_eq ValueInst mapInst updates hdefault]
     rfl
   | cons value values =>
+    have hne : value :: values ≠ [] := by simp
+    specialize hvariable hne
+    specialize hlayout hne
     have hnonempty : bytes.val ≠ [] := by
       intro hempty
       have hlength := congrArg _root_.List.length hbytes
@@ -56,18 +60,19 @@ theorem ProgressiveList.from_ssz_bytes_variable_total {T U : Type}
 
 /-- Total variable-format decoding reconstructs the exact indexed sequence
 with valid backing and no pending updates. Payload decoder laws apply only to
-the supplied values, and no builder, cursor, or termination premise is exposed. -/
+the supplied values, and no builder, cursor, or termination premise is exposed.
+Element metadata and packing layout are required only for nonempty input. -/
 theorem ProgressiveList.from_ssz_bytes_variable_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) (values : _root_.List T) (encode : T → _root_.List Std.U8)
-    (hvariable : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
+    (hvariable : values ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
     (hbytes : bytes.val = _root_.ssz.encode.variableEncoding encode values)
     (hoffsets : _root_.ssz.encode.OffsetsFit encode (4 * values.length) values)
     (hdecodeElement : ∀ value ∈ values, ∀ part : Slice Std.U8,
       part.val = encode value → ValueInst.sszdecodeDecodeInst.from_ssz_bytes part =
         ok (core.result.Result.Ok value))
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hlayout : values ≠ [] → tree.PackingLayout ValueInst factor packingDepth)
     (updates : U) (hdefault : mapInst.coredefaultDefaultInst.default = ok updates)
     (hget : ∀ index, mapInst.get updates index = ok none)
     (hmax : mapInst.max_index updates = ok none) (hempty : mapInst.is_empty updates = ok true) :
