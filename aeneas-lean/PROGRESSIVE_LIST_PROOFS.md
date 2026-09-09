@@ -57,7 +57,7 @@ points and records the trusted boundaries that still need fidelity review.
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
 | `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Observers.lean` and `Contents.lean`: exact state, observer results, and representation of the empty sequence proved under the relevant empty-map laws; `Spine.lean` establishes the backing-spine invariant on successful construction without additional map laws. `Construction/Caches.lean` also proves all caches cleared after every successful empty/default construction, without map laws. |
-| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | `Construction/Trace.lean` derives the actual finite input sequence, exact length, and actual default map from successful construction without iterator, packing, or map-law assumptions; its indexed specification adds packing and empty-default-map laws. `Construction/Conditions.lean` proves success of all four entry points is equivalent to finite input (derived for vectors), occupied-layer capacity, and default-map success, without presupposing iterator termination or default construction. `Construction/Total.lean`: all four actual public constructors/conversions now have total specifications, preserving every indexed value and logical length, establishing `BackingValid` and `SpineValid`, and leaving no pending updates. `ProgressiveTree/Builder/ExtendSuccess.lean` and `ProgressiveTree/ConstructionTotal.lean` prove iterator consumption, every insertion/rollover, and finalization succeed from packing layout and representability of occupied final layers. `Construction/Capacity.lean` proves this final `LengthFits` condition is necessary and sufficient for constructor success, given a finite input iterator and successful default map. Indexed representation adds only the relevant empty-map laws; vector input needs no iterator premise. No constructor, builder, or intermediate-loop success is assumed. Earlier `Representation.lean` and `Traits.lean` retain their successful-execution specifications. `Construction/Caches.lean` proves every successful constructor initializes cleared caches without element, packing, map, or iterator laws. `CacheTotal.lean` adds validity relative to any mathematical reference hash to all four total specifications without additional premises. |
+| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | `Construction/Overlay.lean` characterizes successful-result representation by the actual default map's overlay and logical extent. `OverlayConditions.lean` proves exact success-and-representation criteria for all four entry points: finite consumed input, occupied-layer `LengthFits`, and an actual default outcome with those overlay/extent laws. Iterator traces are recovered from execution; vector input supplies its own finite iterator. `Total.lean` derives execution, represented contents, `BackingValid`, and `SpineValid` from these laws; a separate emptiness law supplies the pending observer. Empty-map representation and total specifications remain adapters. `Trace.lean` recovers actual consumed/stored values, length, and default outcome without iterator, packing, or map-law premises; `Conditions.lean` retains the execution-only criteria. No builder or intermediate-call success is assumed. `Caches.lean` proves successful constructors initialize cleared caches without element, packing, map, or iterator laws, and `CacheTotal.lean` retains all four total cache contracts. Packing layout and remaining geometry/model-fidelity review remain explicit. |
 | `len` | Length of the merged backing/pending view | `ProgressiveList/Length.lean` and `UpdateMap/Length.lean`: exact empty/nonempty-map arithmetic, backing lower bound, and successful evaluation below overflow proved. `len_total_spec` and `len_success_iff` derive the complete public result directly from the actual optional map maximum and characterize success by representability of a present maximum's successor, without indexed-read or representation laws; sequence agreement is established by constructor/mutation representation lemmas |
 | `is_empty` | Equivalent to merged length zero | `IsEmpty.lean`: exact total answer from optional maximum metadata, necessary-and-sufficient successor-bound success, and a premise-free true-result characterization by zero backing length and an actual absent maximum. No indexed-read, representation, packing, backing, or successful length-subcall premise. The map's separate emptiness method is not used. `Observers.lean` retains the logical-length comparison lemma |
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
@@ -85,6 +85,23 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- `ProgressiveList/Construction/Overlay.lean` specializes the same-length
+  representation equivalence to all four sequence constructors. The actual
+  default map must overlay the consumed values to themselves and preserve
+  their logical extent; redundant matching entries and maxima below the
+  input length are permitted. `OverlayConditions.lean` combines these laws
+  with actual finite consumption and occupied-layer `LengthFits` for exact
+  success-and-representation criteria. Iterator traces are recovered from
+  execution and proved equal to the actual stored sequence; vector callers
+  need no iterator premise. These criteria need no pending-emptiness law.
+  The four generalized contracts in `Total.lean` derive execution, represented
+  contents, valid backing, and valid spine internally, using a separate
+  emptiness law only for the pending observer. Existing representation and
+  total specifications use the empty-map special case as an adapter.
+  All twelve new lemmas use only standard Lean axioms. The success criteria
+  are `a756c07`, total contracts `a32454f`, and representation foundation
+  `75701ea`. Packing layout, geometry, and external-model fidelity retain
+  their separate audit obligations.
 - `ProgressiveList/Overlay.lean` characterizes representation when the
   target length equals the recorded backing length: the actual pending map
   must overlay the backing to the target and its maximum must preserve logical
@@ -1386,7 +1403,26 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest front-removal overlay checkpoint (`45f8783`, foundations `7801d06`
+Latest constructor overlay checkpoint (`a756c07`, total contracts `a32454f`,
+foundation `75701ea`): focused and full library builds pass (2,080 jobs).
+The axiom/import audit covers 5,527 declarations across all 364 modules:
+5,408 use only standard Lean axioms or none, and 119 additionally use the
+existing Arc pointer contract. All twelve new lemmas use only standard Lean
+axioms; external axiom use is unchanged. No new axiom or admission was
+introduced, and `size_of` remains unused. All four sequence constructors now
+have exact default-map representation and success-and-representation
+criteria, with actual iterator consumption inferred from successful calls.
+Their generalized total contracts derive execution and representation/backing/
+spine results; pending emptiness is a separate observer law. Existing
+empty-map contracts and all dependent decoder, cache, and other proofs build.
+Packing layout and geometry retain their stated roles; remaining premise
+minimality, borrowed CoW extraction, and model fidelity are incomplete.
+No Rust, extraction, external model, or Aeneas source changed; the seven source
+suites and 42-root/151-declaration dependency gate were not repeated for this
+proof-only work. Debug and Serde remain excluded; TreeHash is deferred outside
+the current goal.
+
+Previous front-removal overlay checkpoint (`45f8783`, foundations `7801d06`
 and `9dd67d2`): focused and full library builds pass (2,078 jobs). The
 axiom/import audit covers 5,515 declarations across all 362 modules: 5,396 use
 only standard Lean axioms or none, and 119 additionally use the existing Arc

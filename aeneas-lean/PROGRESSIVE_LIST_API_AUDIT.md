@@ -45,8 +45,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | Rust method | Primary proof entry point |
 | --- | --- |
 | `empty` | `ProgressiveList.empty_represents`, `ProgressiveList.empty_spec` |
-| `new` | `ProgressiveList.new_total_spec`, `ProgressiveList.new_success_iff` |
-| `try_from_iter` | `ProgressiveList.try_from_iter_total_spec`, `ProgressiveList.try_from_iter_trace`, `ProgressiveList.try_from_iter_trace_spec`, `ProgressiveList.try_from_iter_success_iff` |
+| `new` | `ProgressiveList.new_total_spec_of_overlay`, `ProgressiveList.new_success_represents_iff`, `ProgressiveList.new_represents_iff`, `ProgressiveList.new_success_iff` |
+| `try_from_iter` | `ProgressiveList.try_from_iter_total_spec_of_overlay`, `ProgressiveList.try_from_iter_success_represents_iff`, `ProgressiveList.try_from_iter_represents_iff`, `ProgressiveList.try_from_iter_trace`, `ProgressiveList.try_from_iter_success_iff` |
 | `get` | `ProgressiveList.get_of_pending_update`, `ProgressiveList.get_of_backing`, `ProgressiveList.represents_of_dense_backing`; constructors and mutations establish/preserve indexed representation |
 | `get_mut` | `ProgressiveList.get_mut_total_spec`, `ProgressiveList.get_mut_represents_set_iff` |
 | `get_cow` | `ProgressiveList.get_cow_represents_read`, `ProgressiveList.get_cow_into_mut_spec`, `ProgressiveList.cow_writeback_represents_set_iff`; borrowed handle methods remain pending below |
@@ -75,8 +75,8 @@ trait has no additional in-place default. Ordinary Serde does.
 | Trait method | Primary proof entry point, remaining obligation, or scope exclusion |
 | --- | --- |
 | `Default::default` | `ProgressiveList.default_eq_empty`, `ProgressiveList.default_represents` |
-| `TryFrom<Vec<T>>::try_from` | `ProgressiveList.try_from_vec_total_spec`, `ProgressiveList.try_from_vec_success_iff` |
-| `TryFromIter::try_from_iter` | `ProgressiveList.ssz_try_from_iter_total_spec`, `ProgressiveList.ssz_try_from_iter_success_iff` |
+| `TryFrom<Vec<T>>::try_from` | `ProgressiveList.try_from_vec_total_spec_of_overlay`, `ProgressiveList.try_from_vec_success_represents_iff`, `ProgressiveList.try_from_vec_represents_iff`, `ProgressiveList.try_from_vec_success_iff` |
+| `TryFromIter::try_from_iter` | `ProgressiveList.ssz_try_from_iter_total_spec_of_overlay`, `ProgressiveList.ssz_try_from_iter_success_represents_iff`, `ProgressiveList.ssz_try_from_iter_represents_iff`, `ProgressiveList.ssz_try_from_iter_success_iff` |
 | `IntoIterator::into_iter` for `&ProgressiveList` | `ProgressiveList.into_iter_spec` |
 | `Clone::clone` | `ProgressiveList.clone_total_spec`, `ProgressiveList.clone_success_iff`, `ProgressiveList.clone_success_represents_iff` |
 | `Clone::clone_from` | `ProgressiveList.clone_from_total_spec`, `ProgressiveList.clone_from_success_represents_iff`; actual inherited method, made reachable by a concrete caller |
@@ -134,6 +134,28 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`Construction/Overlay.lean` characterizes representation for all four sequence
+constructors using the actual default map's overlay and logical extent.
+`OverlayConditions.lean` proves exact success and representation criteria
+from finite consumption, occupied-layer `LengthFits`, and an actual default
+outcome with these laws. Successful iterator calls supply their actual consumed
+trace, proved equal to the stored sequence; vectors supply their own iterator.
+Neither criterion needs pending emptiness. The generalized `Total.lean`
+contracts derive execution, representation, backing validity, and spine
+validity, with a separate emptiness law only for the pending observer.
+Existing empty-map representation and total contracts are adapters. The
+criteria are `a756c07` (total contracts `a32454f`, foundation `75701ea`). These
+results audit default-map laws under the stated packing layout and geometry;
+remaining premise minimality and model fidelity are not complete.
+
+Focused and full builds pass (2,080 jobs). The axiom/import audit covers
+5,527 declarations across 364 modules: 5,408 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All twelve new lemmas use
+only standard Lean axioms; external axiom use is unchanged. No new axiom or
+admission was introduced, and `size_of` remains unused. Borrowed CoW and the
+remaining assumption/model-fidelity audit are unfinished. Debug and Serde
+remain excluded; TreeHash is deferred outside the current goal.
 
 `PopFront/OverlayTotal.lean` proves the exact public success-and-representation
 criterion: nonzero removal needs the bound and retained capacity, actual

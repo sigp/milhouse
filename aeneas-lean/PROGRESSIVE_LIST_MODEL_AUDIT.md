@@ -376,6 +376,26 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- All four sequence constructors now have exact success and representation
+  criteria using the actual default map's overlay and
+  logical extent. Redundant matching entries and maxima below the input
+  length are allowed; empty-map laws are sufficient adapters. Iterator success
+  supplies the actual consumed sequence and proves its equality to stored
+  values, while vector callers need no iterator premise. Generalized total
+  contracts derive execution, representation, valid backing, and valid spine;
+  pending emptiness is separate and used only for its observer. The criteria
+  are `a756c07`, total contracts `a32454f`, and foundation `75701ea`. Packing
+  layout and geometry remain explicit; these results do not establish full
+  premise minimality or external-model fidelity. Borrowed CoW and remaining
+  assumption/model-fidelity review are incomplete. The full build passes
+  (2,080 jobs), and the axiom/import audit covers 5,527 declarations across
+  364 modules: 5,408 use only standard Lean axioms or none, and 119 use the
+  existing pointer contract. All twelve new lemmas use only standard Lean
+  axioms; external axiom use is unchanged. No new axiom or admission was
+  introduced, and `size_of` remains unused. No Rust, extraction, external
+  model, or Aeneas source changed. The seven source suites and 42-root/
+  151-declaration dependency gate were not repeated for this proof-only work.
+  Debug and Serde remain excluded; TreeHash remains deferred.
 - Front-removal representation now uses the exact default-map overlay and
   logical extent over the actual ordered clones. Clone identity, absent map
   entries, and an absent maximum are not separately required. The public
