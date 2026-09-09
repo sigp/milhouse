@@ -23,6 +23,7 @@ import Tree.Builder.Finish.LevelMerge
 import Tree.Builder.Finish.Step
 import Tree.Builder.Finish.Loop
 import Tree.Builder.Finish.Finalize
+import Tree.Builder.Finish.Success
 import Tree.PackedLeaf.Push
 import Tree.Lemmas
 import Tree.Roundtrip
