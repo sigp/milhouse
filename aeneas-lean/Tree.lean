@@ -139,6 +139,7 @@ import Tree.ProgressiveList.CopyOnWrite
 import Tree.Cow.Metadata
 import Tree.Cow.EntrySuccess
 import Tree.Cow.Consuming
+import Tree.ProgressiveList.CopyOnWrite.Consuming
 import Tree.PackedLeaf.Contents
 import Tree.PackedLeaf.BulkUpdate
 import Tree.PackedLeaf.BulkUpdateSuccess
