@@ -49,7 +49,9 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
     (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hrange : update_map.RangeExcludesValues mapInst self.updates)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeExcludesValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hdefaultGet : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →

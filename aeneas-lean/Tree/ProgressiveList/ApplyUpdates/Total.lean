@@ -23,7 +23,9 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
       self.tree.BulkRangeOn
         (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hrange : update_map.RangeReflectsValues mapInst self.updates)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val)
     (hfits : ProgressiveTree.LengthFits factor contents.length)
@@ -48,10 +50,11 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
   obtain ⟨tree, htree⟩ := ProgressiveTree.with_updated_leaves_success ValueInst mapInst self.updates
     hlayout
     (fun query => ProgressiveList.pending_get_of_get_success ValueInst mapInst self (hrep.2 query))
-    hrange maximum hmax self.length.val contents.length hmaximum hrep.dense_update_domain
+    maximum hmax self.length.val contents.length hmaximum hrep.dense_update_domain
     hfits self.tree
     (hclone maximum hmax)
     (hqueries maximum hmax)
+    (hrange maximum hmax)
     hdense
   refine ⟨{ tree, length, updates := defaults }, ?_, hcontentsLength, rfl⟩
   simp! only [ProgressiveList.apply_updates, hempty, Bool.false_eq_true, ↓reduceIte,
@@ -74,7 +77,9 @@ theorem ProgressiveList.apply_updates_nonempty_total_spec {T U : Type}
       self.tree.BulkRangeOn
         (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hrange : update_map.RangeReflectsValues mapInst self.updates)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hrep : self.Represents ValueInst mapInst contents)
@@ -123,7 +128,9 @@ theorem ProgressiveList.apply_updates_total_spec {T U : Type}
           (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
           ValueInst mapInst self.updates factor maximum 0#u32)
     (hrange : mapInst.is_empty self.updates = ok false →
-      update_map.RangeReflectsValues mapInst self.updates)
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+          ValueInst mapInst self.updates factor maximum 0#u32)
     (hmaximum : mapInst.is_empty self.updates = ok false →
       ∀ maximum, mapInst.max_index self.updates = ok maximum →
         update_map.MaximumBoundsValues mapInst self.updates maximum)

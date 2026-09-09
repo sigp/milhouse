@@ -40,7 +40,9 @@ theorem ProgressiveList.apply_updates_preserves_backing {T U : Type}
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hrange : update_map.RangeReflectsValues mapInst self.updates)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hrep : self.Represents ValueInst mapInst contents)
@@ -62,7 +64,7 @@ theorem ProgressiveList.apply_updates_preserves_backing {T U : Type}
         (update_map.HasValueAt mapInst self.updates) := by
       simpa only [hcontentsLength] using hrep.dense_update_domain
     exact progressive_tree.ProgressiveTree.with_updated_leaves_dense ValueInst mapInst self.updates
-      hlayout hrange hmaximum hdomain hbacking.1 hbacking.2 hupdate
+      hlayout hmaximum hdomain hrange hbacking.1 hbacking.2 hupdate
 
 /-- Successful application preserves the complete represented sequence and
     backing validity and clears pending updates. The resulting invariants
@@ -75,7 +77,9 @@ theorem ProgressiveList.apply_updates_spec {T U : Type}
     (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hrange : update_map.RangeReflectsValues mapInst self.updates)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hdefault : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
@@ -92,7 +96,7 @@ theorem ProgressiveList.apply_updates_spec {T U : Type}
   have hends : self.tree.EndsAfter factor 0 self.length.val := by
     simpa [progressive_tree.progressiveCapacity] using hbacking.1.endsAfter
   have hnewRep := ProgressiveList.apply_updates_represents ValueInst mapInst self contents
-    hlayout hclone hrange.excludesValues hmaximum
+    hlayout hclone (fun maximum hmax => (hrange maximum hmax).excludesValues) hmaximum
     (fun defaults h => (hdefault defaults h).1)
     (fun defaults h => (hdefault defaults h).2.1) hrep hshape hends happly
   exact ⟨hnewRep.1,

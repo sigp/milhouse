@@ -33,7 +33,9 @@ theorem ProgressiveList.length_fits_after_nonempty_apply_updates {T U : Type}
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hrange : update_map.RangeReflectsValues mapInst self.updates)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hrep : self.Represents ValueInst mapInst contents)
@@ -65,7 +67,9 @@ theorem ProgressiveList.apply_updates_nonempty_success_iff_length_fits {T U : Ty
       self.tree.BulkRangeOn
         (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hrange : update_map.RangeReflectsValues mapInst self.updates)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hrep : self.Represents ValueInst mapInst contents)
