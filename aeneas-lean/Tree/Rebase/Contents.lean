@@ -71,7 +71,8 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction]
           | true =>
-            have hvalues := vec_eq_contents ValueInst.corecmpPartialEqInst (hequality hpointer) heq
+            have hvalues := (Tree.rebaseEqualitySound_packed_iff ValueInst.corecmpPartialEqInst
+              origLeaf baseLeaf).mp hequality hpointer heq
             simp at hrebase
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction, Tree.elements, hvalues]
@@ -166,9 +167,9 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
 
 /-- Successful rebasing preserves the original materialized sequence, and
     equality actions also certify agreement with the base. Length and depth
-    metadata describe the dense inputs. Positive element `eq` and false element
-    `ne` identify equal values, covering unpacked and packed comparisons
-    respectively; corresponding caches agree at equal materialized lengths. -/
+    metadata describe the dense inputs. Positive element `eq` identifies equal
+    unpacked values; packed elements need agreement only when every paired
+    `ne` returns false. Corresponding caches agree at equal materialized lengths. -/
 theorem Tree.rebase_on_contents_correct {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
