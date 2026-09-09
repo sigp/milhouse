@@ -26,7 +26,7 @@ theorem ProgressiveList.apply_updates_preserves_caches {T U : Type}
   | Ok u =>
     cases u
     rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-      ⟨_, rfl⟩ | ⟨defaults, length, newTree, _, _, htree, rfl⟩
+      ⟨_, rfl⟩ | ⟨defaults, length, newTree, _, _, _, htree, rfl⟩
     · exact hcache
     · exact progressive_tree.ProgressiveTree.with_updated_leaves_preserves_caches
         ValueInst mapInst self.updates P hzero hcache htree

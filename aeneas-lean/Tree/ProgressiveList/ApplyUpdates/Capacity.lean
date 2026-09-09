@@ -17,7 +17,7 @@ theorem ProgressiveList.backing_length_after_nonempty_apply_updates {T U : Type}
     (happly : ProgressiveList.apply_updates ValueInst mapInst self =
       ok (core.result.Result.Ok (), result)) : result.length.val = contents.length := by
   rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨htrue, _⟩ | ⟨defaults, length, newTree, _, hlength, _, rfl⟩
+    ⟨htrue, _⟩ | ⟨defaults, length, newTree, _, _, hlength, _, rfl⟩
   · rw [hempty] at htrue
     cases htrue
   · obtain ⟨observed, hobserved, hcontents⟩ := hrep.1

@@ -66,7 +66,7 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
     result.Represents ValueInst mapInst contents ∧ result.tree.Shape factor 0 ∧
       result.tree.EndsAfter factor 0 result.length.val := by
   rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨_, rfl⟩ | ⟨defaults, length, newTree, hdefault, hlength, hupdate, rfl⟩
+    ⟨_, rfl⟩ | ⟨defaults, length, newTree, _, hdefault, hlength, hupdate, rfl⟩
   · exact ⟨hrep, hshape, hends⟩
   · have hlenBefore : ProgressiveList.len ValueInst mapInst self = ok length := by
       rw [ProgressiveList.len_eq_updated_length]

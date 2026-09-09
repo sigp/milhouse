@@ -54,8 +54,9 @@ theorem ProgressiveList.apply_updates_error_preserves_self {T U : Type}
       simp only [ok.injEq, Prod.mk.injEq, core.result.Result.Err.injEq] at happly
       exact happly.2.symm
 
-/-- Successful application either took the empty-map no-op path, or installed
-    the updated tree and computed length with a fresh default update map. This
+/-- Successful application either took the empty-map no-op path, or the
+    nonempty path installed the updated tree and computed length with a fresh
+    default update map. Both alternatives retain the actual branch answer. This
     is a state characterization, not a claim that bulk updates preserve values. -/
 theorem ProgressiveList.apply_updates_success_state {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
@@ -64,6 +65,7 @@ theorem ProgressiveList.apply_updates_success_state {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     (mapInst.is_empty self.updates = ok true ∧ result = self) ∨
     ∃ defaults length tree,
+      mapInst.is_empty self.updates = ok false ∧
       mapInst.coredefaultDefaultInst.default = ok defaults ∧
       utils.updated_length mapInst self.length self.updates = ok length ∧
       progressive_tree.ProgressiveTree.with_updated_leaves ValueInst mapInst
@@ -94,30 +96,33 @@ theorem ProgressiveList.apply_updates_success_state {T U : Type}
     cases updated with
     | Ok tree =>
       simp [triomphe.arc.Arc.new] at happly
-      exact Or.inr ⟨defaults, length, tree, hdefault, hlength, hupdated, happly.symm⟩
+      exact Or.inr ⟨defaults, length, tree, hempty, hdefault, hlength, hupdated, happly.symm⟩
     | Err e => simp at happly
 
-/-- A successful application leaves an empty map, provided default construction
-    produces an empty map. No laws about tree updates are needed. -/
+/-- A successful application leaves an empty map. Default construction must
+    produce an empty map only on the nonempty branch that uses it; no laws
+    about tree updates are needed. -/
 theorem ProgressiveList.updates_empty_after_apply_updates {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) {result : ProgressiveList T U}
-    (hdefault : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+    (hdefault : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
       mapInst.is_empty defaults = ok true)
     (happly : ProgressiveList.apply_updates ValueInst mapInst self =
       ok (core.result.Result.Ok (), result)) :
     mapInst.is_empty result.updates = ok true := by
   rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨hempty, rfl⟩ | ⟨defaults, length, tree, hd, _, _, rfl⟩
+    ⟨hempty, rfl⟩ | ⟨defaults, length, tree, hempty, hd, _, _, rfl⟩
   · exact hempty
-  · exact hdefault defaults hd
+  · exact hdefault hempty defaults hd
 
 /-- The public pending-update observer reports false after successful
     application of updates. -/
 theorem ProgressiveList.no_pending_updates_after_apply_updates {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) {result : ProgressiveList T U}
-    (hdefault : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+    (hdefault : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
       mapInst.is_empty defaults = ok true)
     (happly : ProgressiveList.apply_updates ValueInst mapInst self =
       ok (core.result.Result.Ok (), result)) :
@@ -130,7 +135,8 @@ theorem ProgressiveList.no_pending_updates_after_apply_updates {T U : Type}
 theorem ProgressiveList.apply_updates_idempotent {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) {result : ProgressiveList T U}
-    (hdefault : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+    (hdefault : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
       mapInst.is_empty defaults = ok true)
     (happly : ProgressiveList.apply_updates ValueInst mapInst self =
       ok (core.result.Result.Ok (), result)) :
@@ -139,22 +145,23 @@ theorem ProgressiveList.apply_updates_idempotent {T U : Type}
   exact ProgressiveList.apply_updates_empty ValueInst mapInst result
     (ProgressiveList.updates_empty_after_apply_updates ValueInst mapInst self hdefault happly)
 
-/-- Successful application preserves the logical length. The default map needs
-    only to report no maximum index; no precondition on the old length, old map
-    metadata, or tree contents is needed. -/
+/-- Successful application preserves the logical length. On the nonempty
+    branch, the default map needs only to report no maximum index; no
+    precondition on the old length or tree contents is needed. -/
 theorem ProgressiveList.len_after_apply_updates {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) {result : ProgressiveList T U}
-    (hdefault : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+    (hdefault : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
       mapInst.max_index defaults = ok none)
     (happly : ProgressiveList.apply_updates ValueInst mapInst self =
       ok (core.result.Result.Ok (), result)) :
     ProgressiveList.len ValueInst mapInst result =
       ProgressiveList.len ValueInst mapInst self := by
   rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨_, rfl⟩ | ⟨defaults, length, tree, hd, hlength, _, rfl⟩
+    ⟨_, rfl⟩ | ⟨defaults, length, tree, hempty, hd, hlength, _, rfl⟩
   · rfl
-  · rw [ProgressiveList.len_of_no_max_index ValueInst mapInst _ (hdefault defaults hd),
+  · rw [ProgressiveList.len_of_no_max_index ValueInst mapInst _ (hdefault hempty defaults hd),
       ProgressiveList.len_eq_updated_length, hlength]
 
 end milhouse.progressive_list

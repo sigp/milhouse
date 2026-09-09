@@ -52,7 +52,7 @@ theorem ProgressiveList.apply_updates_preserves_backing {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     result.BackingValid factor := by
   rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨_, rfl⟩ | ⟨defaults, length, newTree, _, hlength, hupdate, rfl⟩
+    ⟨_, rfl⟩ | ⟨defaults, length, newTree, _, _, hlength, hupdate, rfl⟩
   · exact hbacking
   · have hlenBefore : ProgressiveList.len ValueInst mapInst self = ok length := by
       rw [ProgressiveList.len_eq_updated_length]
@@ -103,6 +103,6 @@ theorem ProgressiveList.apply_updates_spec {T U : Type}
     ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
       hlayout hrange hmaximum hrep hbacking happly,
     ProgressiveList.no_pending_updates_after_apply_updates ValueInst mapInst self
-      (fun defaults h => (hdefault defaults h).2.2) happly⟩
+      (fun _ defaults h => (hdefault defaults h).2.2) happly⟩
 
 end milhouse.progressive_list
