@@ -5,7 +5,7 @@ open milhouse milhouse.tree
 
 namespace milhouse.progressive_tree
 
-private theorem saturating_sub_val (length start : Std.Usize) :
+theorem usize_saturating_sub_val (length start : Std.Usize) :
     (core.num.Usize.saturating_sub length start).val = length.val - start.val := by
   change (length.val - start.val) % 2 ^ UScalarTy.Usize.numBits = length.val - start.val
   apply Nat.mod_eq_of_lt
@@ -41,6 +41,6 @@ theorem ProgressiveTree.rebase_layer_length {T : Type} (ValueInst : Value T)
     (core.cmp.Ord.min.trait_default_Usize.spec (core.num.Usize.saturating_sub length start) capacity)
   rw [hmin] at hactualMin
   cases hactualMin
-  rw [hminVal, core.cmp.impls.OrdUsize.min_val, saturating_sub_val, hstartVal, hcapacityVal]
+  rw [hminVal, core.cmp.impls.OrdUsize.min_val, usize_saturating_sub_val, hstartVal, hcapacityVal]
 
 end milhouse.progressive_tree
