@@ -18,8 +18,9 @@ TOOLCHAIN = "nightly-2026-06-01"
 
 
 def source_declaration(crate, suite, name, kind="fun_decls"):
+    prefix_key = "type_source_prefix" if kind == "type_decls" else "source_prefix"
     prefix = [{"Ident": [part, 0]} for part in
-              suite.get("source_prefix", suite.get("source_crate", "core")).split("::")]
+              suite.get(prefix_key, suite.get("source_crate", "core")).split("::")]
     candidates = [item for item in crate[kind] if item
                   and item["item_meta"]["name"][:len(prefix)] == prefix
                   and item["item_meta"]["name"][-1] == {"Ident": [name, 0]}]
