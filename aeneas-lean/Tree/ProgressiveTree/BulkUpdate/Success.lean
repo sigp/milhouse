@@ -100,10 +100,11 @@ private theorem bulk_update_success_aux {T U : Type}
           ok (core.result.Result.Ok after) := by
       intro left hdenseLeft htrue
       have hwindow := hdomain.window start.val (subtreeCapacity factor binary.val)
-      apply tree.Tree.with_updated_leaves_success ValueInst mapInst updates hlayout hclone hget hqueries
+      apply tree.Tree.with_updated_leaves_success ValueInst mapInst updates hlayout hget hqueries
         hrange left 0#usize start binary
         (min (oldLength - start.val) (subtreeCapacity factor binary.val))
         (min (newLength - start.val) (subtreeCapacity factor binary.val))
+        (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone left binary.val _)
         (by simpa only [hstartVal, hbinaryVal] using hdenseLeft)
         (by simp) hoffset (by have := stop.hBounds; scalar_tac)
         (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hwindow)
