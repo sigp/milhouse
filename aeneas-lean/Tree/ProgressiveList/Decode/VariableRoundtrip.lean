@@ -11,7 +11,8 @@ namespace milhouse.progressive_list
 the complete merged sequence and every indexed read, with valid rebuilt backing
 and no pending updates. Empty payloads are supported. The offset table supplies
 all builder capacity bounds; only emitted offsets need to fit SSZ's 32 bits.
-Decoder metadata is needed only for nonempty contents. -/
+Decoder metadata is needed only for nonempty contents. Append laws concern
+only the preceding temporary payload at each actual sequence position. -/
 theorem ProgressiveList.ssz_roundtrip_variable {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -21,7 +22,8 @@ theorem ProgressiveList.ssz_roundtrip_variable {T U : Type}
     (hencodeVariable : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok false)
     (hdecodeVariable : contents ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false)
     (encode : T → _root_.List Std.U8)
-    (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
+    (happend : ∀ before value after, contents = before ++ value :: after →
+      ∀ buffer : alloc.vec.Vec Std.U8, buffer.val = before.flatMap encode →
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)

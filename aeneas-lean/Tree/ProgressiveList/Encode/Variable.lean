@@ -9,7 +9,9 @@ namespace milhouse.progressive_list
 /-- Variable-element SSZ writes one offset per represented element followed
     by the exact payload sequence, including pending replacements/extensions.
     The destination prefix is preserved. Only actual offsets need to fit
-    32 bits; the final output bound supplies all allocation/arithmetic bounds. -/
+    32 bits; the final output bound supplies all allocation/arithmetic bounds.
+    Element laws apply only to the accumulated temporary payload, independent
+    of the destination prefix and offset table. -/
 theorem ProgressiveList.ssz_append_variable_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (hvariable : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok false)
@@ -19,7 +21,8 @@ theorem ProgressiveList.ssz_append_variable_spec {T U : Type}
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val) (hfits : self.tree.Fits factor 0)
     (encode : T → _root_.List Std.U8) (buf : alloc.vec.Vec Std.U8)
-    (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
+    (happend : ∀ before value after, contents = before ++ value :: after →
+      ∀ buffer : alloc.vec.Vec Std.U8, buffer.val = before.flatMap encode →
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)

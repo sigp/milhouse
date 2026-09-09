@@ -37,7 +37,8 @@ theorem ProgressiveList.as_ssz_bytes_fixed_spec {T U : Type}
       happend (by simpa using hreserveBound) (by simpa using hpayloadBound)
 
 /-- Owning variable-element serialization returns the exact SSZ offset table
-    followed by all represented payloads, including pending values. -/
+    followed by all represented payloads, including pending values. Append
+    laws concern only each position's preceding temporary payload. -/
 theorem ProgressiveList.as_ssz_bytes_variable_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (hvariable : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok false)
@@ -47,7 +48,8 @@ theorem ProgressiveList.as_ssz_bytes_variable_spec {T U : Type}
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val) (hfits : self.tree.Fits factor 0)
     (encode : T → _root_.List Std.U8)
-    (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
+    (happend : ∀ before value after, contents = before ++ value :: after →
+      ∀ buffer : alloc.vec.Vec Std.U8, buffer.val = before.flatMap encode →
       buffer.val.length + (encode value).length ≤ Std.Usize.max →
       ∃ output, ValueInst.sszencodeEncodeInst.ssz_append value buffer = ok output ∧
         output.val = buffer.val ++ encode value)
