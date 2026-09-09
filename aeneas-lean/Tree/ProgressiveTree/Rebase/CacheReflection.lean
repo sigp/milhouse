@@ -23,52 +23,11 @@ theorem ProgressiveTree.rebase_on_recursive_cache_inputs {T : Type} (ValueInst :
     (hcache : after.CachesOn P depth.val) :
     orig.RebaseOrigCachesOn ValueInst.corecmpPartialEqInst P base depth.val ∧
       orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base depth.val := by
-  induction orig generalizing base after depth with
-  | ProgressiveZero =>
-    cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
-    | same _ _ hstop =>
-      exact ⟨ProgressiveTree.rebaseOrigCachesOn_of_caches ValueInst.corecmpPartialEqInst P _ _ _ hcache,
-        ProgressiveTree.rebaseBaseCachesOn_of_stop ValueInst.corecmpPartialEqInst P _ _ _ hstop⟩
-  | ProgressiveNode origHash origLeft origRight ih =>
-    cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
-    | same _ _ hstop =>
-      exact ⟨ProgressiveTree.rebaseOrigCachesOn_of_caches ValueInst.corecmpPartialEqInst P _ _ _ hcache,
-        ProgressiveTree.rebaseBaseCachesOn_of_stop ValueInst.corecmpPartialEqInst P _ _ _ hstop⟩
-    | @node _ baseHash _ baseLeft _ baseRight newRight start capacity binary fullDepth origLeftLength baseLeftLength next
-        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright hpointer =>
-      obtain ⟨hleftFit, hrightFit⟩ := hfit
-      have horigLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
-        hstart hnext hcapacity hbinary horigLength
-      have hbaseLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
-        hstart hnext hcapacity hbinary hbaseLength
-      have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
-      have hfullDepthVal := usize_add_val hfullDepth
-      have horigLeft : DenseTree factor origLeft (2 * depth.val) origLeftLength.val := by
-        simpa only [horigLengthVal] using horig.split_layer.1
-      have hbaseLeft : DenseTree factor baseLeft (2 * depth.val) baseLeftLength.val := by
-        simpa only [hbaseLengthVal] using hbase.split_layer.1
-      have hleftInputs := Tree.rebase_on_cache_inputs ValueInst hlayout P
-        (by omega) horigLeft hbaseLeft (hequality hpointer).1 (hhashes hpointer).1 hleft hcache.2.1
-      have hleftContents := Tree.rebase_on_contents_correct ValueInst hlayout
-        (by omega) horigLeft hbaseLeft (hequality hpointer).1 (hhashes hpointer).1 hleft
-      have hadd := UScalar.add_equiv depth 1#u32
-      rw [hnext] at hadd
-      simp at hadd
-      have hnextVal : next.val = depth.val + 1 := by omega
-      have horigRight : origRight.Dense factor next.val (origLength.val - progressiveCapacity factor next.val) := by
-        simpa only [hnextVal] using horig.right_remainder
-      have hbaseRight : baseRight.Dense factor next.val (baseLength.val - progressiveCapacity factor next.val) := by
-        simpa only [hnextVal] using hbase.right_remainder
-      have hnewFit : origRight.Fits factor next.val := by simpa only [hnextVal] using hrightFit
-      have hrightInputs := ih horigRight hbaseRight hnewFit (hequality hpointer).2 (hhashes hpointer).2
-        hright (by simpa only [hnextVal] using hcache.2.2)
-      have hrightContents := ProgressiveTree.rebase_on_recursive_preserves_contents ValueInst hlayout
-        horigRight hbaseRight hnewFit (hequality hpointer).2 (hhashes hpointer).2 hright
-      refine ⟨⟨fun _ => ⟨?_, hleftInputs.1, ?_⟩, fun hnot => (hnot hpointer).elim⟩,
-        fun _ => ⟨hleftInputs.2, ?_⟩⟩
-      · simpa only [hleftContents.1, hrightContents] using hcache.1
-      · simpa only [hnextVal] using hrightInputs.1
-      · simpa only [hnextVal] using hrightInputs.2
+  have hcontent := ProgressiveTree.rebaseContentInputs_of_dense ValueInst hlayout
+    (origLength := origLength.val) (baseLength := baseLength.val) horig hbase hfit hequality hhashes
+  apply (ProgressiveTree.rebaseCacheInputs_iff_of_dense ValueInst hlayout P
+    (origLength := origLength.val) (baseLength := baseLength.val) horig hbase hfit).mp
+  exact (ProgressiveTree.rebase_on_recursive_cache_iff_of_inputs ValueInst P hcontent hrebase).mp hcache
 
 /-- Cache validity of a successful public progressive rebase entails the
 retained-original and imported-base laws at the starting layer. -/

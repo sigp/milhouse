@@ -1,4 +1,4 @@
-import Tree.ProgressiveTree.Rebase.CacheInputs
+import Tree.ProgressiveTree.Rebase.SelectedCaches
 import Tree.ProgressiveTree.Rebase.Contents
 import Tree.Rebase.Caches
 import Tree.ProgressiveTree.Rebase.OriginalCaches
@@ -30,46 +30,12 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
     (hrebase : ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
       ok (core.result.Result.Ok after)) :
     after.elements = orig.elements ∧ after.CachesOn P depth.val := by
-  induction orig generalizing base after depth with
-  | ProgressiveZero =>
-    cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
-    | same _ _ hstop => exact ⟨rfl, horigCache.orig_of_stop hstop⟩
-  | ProgressiveNode origHash origLeft origRight ih =>
-    cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
-    | same _ _ hstop => exact ⟨rfl, horigCache.orig_of_stop hstop⟩
-    | @node _ baseHash _ baseLeft _ baseRight newRight start capacity binary fullDepth origLeftLength baseLeftLength next
-        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright hpointer =>
-      have horigSelected := horigCache.1 hpointer
-      obtain ⟨hleftFit, hrightFit⟩ := hfit
-      have horigLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
-        hstart hnext hcapacity hbinary horigLength
-      have hbaseLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
-        hstart hnext hcapacity hbinary hbaseLength
-      have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
-      have hfullDepthVal := usize_add_val hfullDepth
-      have horigLeft : DenseTree factor origLeft (2 * depth.val) origLeftLength.val := by
-        simpa only [horigLengthVal] using horig.split_layer.1
-      have hbaseLeft : DenseTree factor baseLeft (2 * depth.val) baseLeftLength.val := by
-        simpa only [hbaseLengthVal] using hbase.split_layer.1
-      have hnewLeft := tree.Tree.rebase_on_cache_spec ValueInst hlayout P
-        (by omega) horigLeft hbaseLeft (hequality hpointer).1 (hhashes hpointer).1
-        horigSelected.2.1 (hbaseCache hpointer).1 hleft
-      have hadd := UScalar.add_equiv depth 1#u32
-      rw [hnext] at hadd
-      simp at hadd
-      have hnextVal : next.val = depth.val + 1 := by omega
-      have horigRight : origRight.Dense factor next.val (origLength.val - progressiveCapacity factor next.val) := by
-        simpa only [hnextVal] using horig.right_remainder
-      have hbaseRight : baseRight.Dense factor next.val (baseLength.val - progressiveCapacity factor next.val) := by
-        simpa only [hnextVal] using hbase.right_remainder
-      have hnewRight := ih horigRight hbaseRight
-        (by simpa only [hnextVal] using hrightFit) (hequality hpointer).2 (hhashes hpointer).2
-        (by simpa only [hnextVal] using horigSelected.2.2)
-        (by simpa only [hnextVal] using (hbaseCache hpointer).2) hright
-      refine ⟨?_, ?_, hnewLeft.2, ?_⟩
-      · simp only [ProgressiveTree.elements, hnewLeft.1.1, hnewRight.1]
-      · simpa only [hnewLeft.1.1, hnewRight.1] using horigSelected.1
-      · simpa only [hnextVal] using hnewRight.2
+  have hcontent := ProgressiveTree.rebaseContentInputs_of_dense ValueInst hlayout
+    (origLength := origLength.val) (baseLength := baseLength.val) horig hbase hfit hequality hhashes
+  refine ⟨ProgressiveTree.rebase_on_recursive_preserves_contents_of_inputs ValueInst hcontent hrebase, ?_⟩
+  apply (ProgressiveTree.rebase_on_recursive_cache_iff_of_inputs ValueInst P hcontent hrebase).mpr
+  exact (ProgressiveTree.rebaseCacheInputs_iff_of_dense ValueInst hlayout P
+    (origLength := origLength.val) (baseLength := baseLength.val) horig hbase hfit).mpr ⟨horigCache, hbaseCache⟩
 
 /-- Public progressive rebasing preserves the materialized sequence and
 establishes cache validity from the retained-original and imported-base laws.

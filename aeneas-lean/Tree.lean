@@ -74,11 +74,14 @@ import Tree.ProgressiveTree.Rebase.Ready
 import Tree.ProgressiveTree.Rebase.ContentInputs
 import Tree.ProgressiveTree.Rebase.SelectedContents
 import Tree.ProgressiveTree.Rebase.Caches
+import Tree.ProgressiveTree.Rebase.SelectedCacheInputs
+import Tree.ProgressiveTree.Rebase.SelectedCaches
 import Tree.ProgressiveTree.Rebase.CacheInputs
 import Tree.ProgressiveTree.Rebase.OriginalCaches
 import Tree.ProgressiveTree.Rebase.HashInputs
 import Tree.ProgressiveTree.BulkUpdate.Caches
 import Tree.ProgressiveList.Rebase.Caches
+import Tree.ProgressiveList.Rebase.SelectedCaches
 import Tree.ProgressiveList.Rebase.CacheEquivalence
 import Tree.HashCache.Collisions
 import Tree.ProgressiveTree.Rebase.Validity
