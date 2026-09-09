@@ -4,3 +4,74 @@ pub fn take<T: Default>(place: &mut T) -> T {
 pub fn div_ceil(value: usize, divisor: usize) -> usize {
     value.div_ceil(divisor)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{div_ceil, take};
+    use std::cell::{Cell, RefCell};
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum Event {
+        Default,
+        Drop(u64),
+    }
+
+    thread_local! {
+        static EVENTS: RefCell<Vec<Event>> = const { RefCell::new(Vec::new()) };
+        static PANIC_DEFAULT: Cell<bool> = const { Cell::new(false) };
+    }
+
+    struct Value(u64);
+
+    impl Default for Value {
+        fn default() -> Self {
+            EVENTS.with_borrow_mut(|events| events.push(Event::Default));
+            assert!(!PANIC_DEFAULT.get(), "default failed");
+            Value(0)
+        }
+    }
+
+    impl Drop for Value {
+        fn drop(&mut self) {
+            EVENTS.with_borrow_mut(|events| events.push(Event::Drop(self.0)));
+        }
+    }
+
+    #[test]
+    fn take_defaults_once_without_dropping_the_old_value() {
+        let mut place = Value(7);
+        let old = take(&mut place);
+        assert_eq!(old.0, 7);
+        assert_eq!(place.0, 0);
+        EVENTS.with_borrow(|events| assert_eq!(*events, vec![Event::Default]));
+        drop(old);
+        EVENTS.with_borrow(|events| assert_eq!(*events, vec![Event::Default, Event::Drop(7)]));
+    }
+
+    #[test]
+    fn take_keeps_the_old_value_when_default_panics() {
+        let mut place = Value(7);
+        PANIC_DEFAULT.set(true);
+        assert!(catch_unwind(AssertUnwindSafe(|| take(&mut place))).is_err());
+        assert_eq!(place.0, 7);
+        EVENTS.with_borrow(|events| assert_eq!(*events, vec![Event::Default]));
+    }
+
+    #[test]
+    fn ceiling_division_rounds_without_intermediate_word_overflow() {
+        for value in [0, 1, 2, usize::MAX / 2, usize::MAX - 1, usize::MAX] {
+            for divisor in [1, 2, 3, usize::MAX] {
+                let expected = (value as u128 + divisor as u128 - 1) / divisor as u128;
+                assert_eq!(div_ceil(value, divisor) as u128, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn ceiling_division_rejects_zero_divisors() {
+        for value in [0, 1, usize::MAX] {
+            assert!(catch_unwind(|| div_ceil(value, 0)).is_err());
+        }
+    }
+}
