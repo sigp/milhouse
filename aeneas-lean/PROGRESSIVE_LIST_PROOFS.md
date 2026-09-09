@@ -84,6 +84,15 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- `Tree/Tuple/Comparison.lean` proves the actual external tuple inequality
+  protocol: first-true short-circuiting, exact second-call delegation after a
+  false first result, first-call failure/divergence, and both Boolean success
+  characterizations. The model now calls element `ne`, as the pinned Rust
+  source does, without an extra coherence law relating `eq` to `ne`. Native
+  protocol regressions confirm dispatch and order. The dictionary appears in
+  the conservative `apply_updates` dependency closure through optional hash
+  lookup; the progressive path supplies `None`, which the existing binary
+  update proofs reduce without reaching that lookup.
 - `Tree/ProgressiveTree/Builder/Trace.lean` derives the finite sequence of
   actual iterator calls from every successful extension, through its first
   `none`, and proves exact appended elements and length. No finiteness,
@@ -989,7 +998,22 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest model-dependency checkpoint (through `07ef38d`): the full library build
+Latest tuple-model checkpoint (through `c47faba`): the external tuple `ne`
+model now preserves the pinned Rust element-method dispatch and short-circuit
+order. Six branch/result lemmas fail against the old model and pass with the
+correction. Four native protocol tests and their formatting check pass. The
+full library build passes (2,024 jobs); the axiom/import audit covers 4,965
+theorem declarations across 308 modules. Of these, 4,903 use only standard
+Lean axioms or none, and 62 additionally use the existing Arc pointer contract.
+All seven declarations in `Tree.Tuple.Comparison`, including its generated
+equation theorem, are standard-only. The model dependency gate still passes
+for 42 roots and 151 local model declarations. No new axiom, admission,
+production Rust change, extraction change, or Aeneas source change is introduced.
+The actual progressive update path supplies no optional hash map, so this
+generic model correction does not establish a defect in its public proofs.
+Borrowed CoW and the remaining hypothesis/model-fidelity audit remain open.
+
+Initial model-dependency checkpoint (through `07ef38d`): the full library build
 passes (2,023 jobs). All 42 available included roots pass the dependency audit,
 with 151 referenced local model declarations across seven modules. No closure
 references the older `List::intra_rebase` identity model, hash-map/hasher models,
@@ -998,11 +1022,12 @@ including a root outside the generated module and a local model replacing a
 milhouse implementation. External model comments now state their restricted
 domains; their definition bodies are unchanged. This checkpoint introduces
 audit tooling and documentation only, with no proof, Rust, extraction, or
-Aeneas change. The last complete axiom/import audit remains the 4,958-declaration
-constructor checkpoint below. Model fidelity and minimal hypotheses are not
-established by dependency closure alone, and borrowed CoW remains unproved.
+Aeneas change. At that checkpoint, the last complete axiom/import audit was the
+4,958-declaration constructor checkpoint below. Model fidelity and minimal
+hypotheses are not established by dependency closure alone, and borrowed CoW
+remains unproved.
 
-Latest proof/axiom checkpoint (constructor reflection through `ed766a4`): the builder
+Previous constructor-reflection checkpoint (through `ed766a4`): the builder
 trace, tree/list construction trace, and public success-condition focused
 builds pass. The full library build passes (2,023 jobs), and the complete
 axiom/import audit covers 4,958 theorem declarations across all 307 `Tree`

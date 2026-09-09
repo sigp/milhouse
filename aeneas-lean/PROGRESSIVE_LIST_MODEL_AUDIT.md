@@ -61,11 +61,17 @@ models, or SmallVec models. Their presence in the shared external file does
 not make them dependencies of the included ProgressiveList entry points.
 The hash-map abstraction's comments now state its restricted domain: erasing
 hashing does not preserve arbitrary callback effects or failures. Model bodies
-were not changed by this audit.
+were unchanged in the initial inventory checkpoint `07ef38d`; the subsequent
+tuple correction is described below.
 
 The BTreeMap lookup model occurs conservatively under `apply_updates` through
-`utils.opt_hash`. That helper has an optional cached-hash map; a reference in
-this inventory alone does not prove that the lookup executes. Similarly,
+`utils.opt_hash`. The actual progressive update source and generated body pass
+`None` to binary rebuilding (`src/progressive_tree.rs`,
+`ProgressiveTree.with_updated_leaves_recursive`). Binary recursive calls retain
+that parameter, and the existing `Tree/BulkUpdate/Success.lean` proofs reduce
+`utils.opt_hash none` directly. Thus these calls do not execute BTreeMap lookup
+or its tuple-comparison dictionary. This conclusion uses the supplied argument
+and branch proofs, beyond the unspecialized inventory alone. Similarly,
 Arbitrary size-hint callers carry the full trait dictionary, so their closures
 include generator definitions even though the default size-hint body returns
 its fixed answer. Runtime reasoning still uses the existing branch proofs.
@@ -74,6 +80,33 @@ SSZ error formatting remains relevant to included decoder results even though
 general Debug implementations are excluded. The specialized formatter's
 string-buffer and default-option contract must not be extended to general
 formatter options, user sinks, or lock observation without further work.
+
+## Tuple inequality correction
+
+Review of the referenced tuple dictionary found a local model defect: its
+`ne` negated tuple `eq`, while the pinned Rust implementation calls element
+`ne` with left-to-right short-circuiting. These calls need not have the same
+effects, failure, or divergence behavior. Commit `c47faba` corrects the model
+without imposing callback-coherence laws or changing Rust or Aeneas.
+
+`Tree/Tuple/Comparison.lean` proves the first-true shortcut, exact second-call
+delegation after a false first result, first-call failure/divergence propagation,
+and necessary and sufficient conditions for both Boolean success results.
+The six lemmas failed against the former model and pass after correction.
+Four [native regression tests](reproducers/tuple_comparison/README.md) confirm
+the Rust callback order, both second-call answers, and failure propagation.
+The optional-hash branch evidence above limits the impact of this finding:
+it does not show a defect in ProgressiveList's public update proofs.
+
+Validation after `c47faba`: the full library builds (2,024 jobs), and the
+axiom/import audit covers 4,965 theorem declarations across 308 modules.
+All seven declarations in `Tree.Tuple.Comparison` (six named lemmas and the
+generated equation theorem) use only standard Lean axioms or none. Across the
+library, 4,903 declarations are standard-only and 62 additionally use the
+existing Arc pointer contract. The model dependency gate still passes for all
+42 roots and the same 151 local declarations. No new axiom or admission is
+introduced. The focused Lean build, four native tests, and Rust formatting
+check also pass.
 
 ## Trusted boundaries and remaining work
 
@@ -98,7 +131,8 @@ formatter options, user sinks, or lock observation without further work.
   are incomplete. This gate is one part of that audit and does not complete
   the full goal.
 
-Validation: the full library build passes (2,023 jobs), and the valid environment
+Initial inventory validation (`07ef38d`): the full library build passes
+(2,023 jobs), and the valid environment
 inventory was accepted. Eight deliberately invalid inventories were rejected:
 missing summary/root records, a summary preceding its roots, a duplicated
 dependency, an unknown model module, a root outside the generated module, an

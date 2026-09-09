@@ -13,6 +13,8 @@ The local model dependency audit is through `07ef38d`; its
 [separate report and gate](PROGRESSIVE_LIST_MODEL_AUDIT.md) cover the 42
 available included extraction roots without counting unavailable borrowed
 methods or excluded/deferred implementations.
+The subsequent tuple-model correction and branch proofs are through `c47faba`;
+both full-library audit gates pass after that correction.
 
 Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
@@ -133,8 +135,13 @@ modules under the 42 available roots. None of those definition closures
 references the older `List::intra_rebase` identity model, hash-map/hasher models,
 or SmallVec models. This conservative inventory includes unused trait fields
 and branches; it identifies trusted dependencies without proving runtime
-reachability or source fidelity. External-model comments were narrowed without
-changing their bodies, and the full library still builds.
+reachability or source fidelity. The initial inventory narrowed external-model
+comments without changing bodies. Subsequent review corrected tuple `ne` to
+call element `ne` with Rust's short-circuit order, with six branch/result
+lemmas and four native protocol regressions. Its optional hash-map dependency
+is not reached by progressive updates: the source supplies `None`, and the
+existing binary update proofs reduce that case directly. The full library and
+both audit gates pass with the corrected model.
 
 Constructor reflection now derives the finite actual input sequence from any
 successful call, with exact stored contents, length, and default map. Iterator
