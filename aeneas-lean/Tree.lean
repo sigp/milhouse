@@ -94,6 +94,7 @@ import Tree.ProgressiveList.Decode.ErrorMessages
 import Tree.ProgressiveList.Decode.Finish
 import Tree.ProgressiveList.Decode.State
 import Tree.ProgressiveList.Decode.Contents
+import Tree.ProgressiveList.Decode.Trace
 import Tree.ProgressiveList.Decode.Success
 import Tree.ProgressiveList.Decode.Backing
 import Tree.ProgressiveList.Decode.Caches
