@@ -1,4 +1,5 @@
 import Tree.ProgressiveTree.BulkUpdate.Layer
+import Tree.ProgressiveTree.BulkUpdate.CloneScope
 import Tree.ProgressiveTree.BulkUpdate.Range
 import Tree.ProgressiveTree.BulkUpdate.Steps
 
@@ -55,7 +56,6 @@ private theorem bulk_contents_aux {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
     (hrange : update_map.RangeExcludesValues mapInst updates)
     {maximum : Option Std.Usize} (hmaximum : update_map.MaximumBoundsValues mapInst updates maximum)
     {oldLength : Nat} {newLength : Std.Usize}
@@ -63,6 +63,8 @@ private theorem bulk_contents_aux {T U : Type}
     ∀ (fuel : Nat) (depth : Std.U32) (before after : ProgressiveTree T),
       Std.U32.max - depth.val ≤ fuel →
       before.Shape factor depth.val → before.EndsAfter factor depth.val oldLength →
+      before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst updates factor maximum depth →
       ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
         ok (core.result.Result.Ok after) →
       after.Shape factor depth.val ∧ after.EndsAfter factor depth.val newLength.val ∧
@@ -70,9 +72,11 @@ private theorem bulk_contents_aux {T U : Type}
   intro fuel
   induction fuel using Nat.strong_induction_on with
   | h fuel ih =>
-    intro depth before after hfuel hshape hends hupdate
+    intro depth before after hfuel hshape hends hclone hupdate
     obtain ⟨start, next, stop, binary, hstart, hnext, hstop, hbinary, hstep⟩ :=
       ProgressiveTree.with_updated_leaves_recursive_step ValueInst mapInst hupdate
+    have hgeometry : ProgressiveTree.BulkLayerGeometry ValueInst depth next start stop binary :=
+      ⟨hstart, hnext, hstop, hbinary⟩
     have hadd := UScalar.add_equiv depth 1#u32
     rw [hnext] at hadd
     simp at hadd
@@ -90,11 +94,14 @@ private theorem bulk_contents_aux {T U : Type}
     have hstopLe : stop.val ≤ progressiveCapacity factor next.val := by omega
     have rightCorrect : ∀ (right newRight : ProgressiveTree T),
         right.Shape factor next.val → right.EndsAfter factor next.val oldLength →
+        ((∃ last, maximum = some last ∧ stop.val ≤ last.val) →
+          right.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+            ValueInst mapInst updates factor maximum next) →
         ProgressiveTree.BulkRightStep ValueInst mapInst updates maximum next stop right newRight →
         newRight.Shape factor next.val ∧ newRight.EndsAfter factor next.val newLength.val ∧
           ProgressiveTree.BulkContents ValueInst mapInst updates factor right newRight next newLength := by
-      intro right newRight hrightShape hrightEnds hright
-      rcases hright with ⟨hbefore, rfl⟩ | ⟨_, hrecursive⟩
+      intro right newRight hrightShape hrightEnds hclones hright
+      rcases hright with ⟨hbefore, rfl⟩ | ⟨hselected, hrecursive⟩
       · have hlength := hcomplete.length_le_max_of_maximum_before hmaximum hbefore
         refine ⟨hrightShape, ?_, ?_⟩
         · by_cases hold : newLength.val ≤ oldLength
@@ -104,7 +111,8 @@ private theorem bulk_contents_aux {T U : Type}
           have hnone := update_map.get_none_of_maximum_before mapInst updates hmaximum hbefore
             (by omega) hget
           simp only [hnone]
-      · exact ih _ hless next right newRight (Nat.le_refl _) hrightShape hrightEnds hrecursive
+      · exact ih _ hless next right newRight (Nat.le_refl _) hrightShape hrightEnds
+          (hclones hselected) hrecursive
     have queryAfterStop : ∀ query : Std.Usize, ¬ query < stop → query.val < newLength.val →
         progressiveCapacity factor next.val ≤ query.val := by
       intro query hroute hhi
@@ -126,21 +134,23 @@ private theorem bulk_contents_aux {T U : Type}
         rw [← hbinaryVal]
         exact .zero factor binary
       have hnonempty := (ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas).1
+      have hleftClones := hclone.zero_left hgeometry hhas
       obtain ⟨hleftShape, _, _, _⟩ := ProgressiveTree.updated_layer_contents ValueInst mapInst updates
-        hlayout (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone (.Zero binary) binary.val _)
+        hlayout hleftClones
         hrange hnext hstart hstop hbinary hnonempty hzeroShape hleft
       have hrightEnds : ProgressiveTree.EndsAfter factor (.ProgressiveZero : ProgressiveTree T)
           next.val oldLength := by
         change oldLength ≤ progressiveCapacity factor next.val
         exact le_trans hends (progressiveCapacity_mono factor (by omega))
       obtain ⟨hrightShape, hrightEnds, hrightContents⟩ :=
-        rightCorrect .ProgressiveZero right (.zero factor next.val) hrightEnds hright
+        rightCorrect .ProgressiveZero right (.zero factor next.val) hrightEnds
+          (hclone.zero_right hgeometry hhas) hright
       refine ⟨.node hash hleftShape (by simpa only [hnextVal] using hrightShape),
         by simpa only [ProgressiveTree.EndsAfter, hnextVal] using hrightEnds, ?_⟩
       intro query pending hlo hhi hget
       by_cases hroute : query < stop
       · have hread := ProgressiveTree.get_after_expanded_layer ValueInst mapInst updates
-          hlayout (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone (.Zero binary) binary.val _)
+          hlayout hleftClones
           hrange (hash := hash) (right := right) hnext hstart hstop hbinary
           (by omega) (by scalar_tac) hget hleft
         cases pending <;> simpa only [zero_get] using hread
@@ -153,26 +163,30 @@ private theorem bulk_contents_aux {T U : Type}
         have hrightShape' : right.Shape factor next.val := by simpa only [hnextVal] using hrightShape
         have hrightEnds : right.EndsAfter factor next.val oldLength := by
           simpa only [ProgressiveTree.EndsAfter, hnextVal] using hends
+        have hhasSuccess : ∃ has,
+            ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok has :=
+          hleft.elim (fun h => ⟨false, h.1⟩) (fun h => ⟨true, h.1⟩)
         obtain ⟨hnewRightShape, hnewRightEnds, hrightContents⟩ :=
-          rightCorrect right newRight hrightShape' hrightEnds hright
+          rightCorrect right newRight hrightShape' hrightEnds
+            (hclone.node_right hgeometry hhasSuccess) hright
         have hnewLeftShape : newLeft.Shape factor (2 * depth.val) := by
           rcases hleft with ⟨_, rfl⟩ | ⟨hhas, hleft⟩
           · exact hleftShape
           · have hnonempty := (ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas).1
             exact (ProgressiveTree.updated_layer_contents ValueInst mapInst updates hlayout
-              (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone left binary.val _) hrange
+              (hclone.node_left hgeometry hhas) hrange
               hnext hstart hstop hbinary hnonempty hleftShape hleft).1
         refine ⟨.node newHash hnewLeftShape (by simpa only [hnextVal] using hnewRightShape),
           by simpa only [ProgressiveTree.EndsAfter, hnextVal] using hnewRightEnds, ?_⟩
         intro query pending hlo hhi hget
         by_cases hroute : query < stop
-        · rcases hleft with ⟨hempty, rfl⟩ | ⟨_, hleft⟩
+        · rcases hleft with ⟨hempty, rfl⟩ | ⟨hhas, hleft⟩
           · have hnone := ProgressiveTree.has_updates_in_range_false_excludes ValueInst mapInst
               hrange hempty hget (by omega) (by scalar_tac)
             simp only [hnone]
             exact node_get_same_left ValueInst hnext hstop hroute
           · exact ProgressiveTree.get_after_updated_layer_override ValueInst mapInst updates hlayout
-              (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone left binary.val _) hrange
+              (hclone.node_left hgeometry hhas) hrange
               hnext hstart hstop hbinary hleftShape (by omega) (by scalar_tac) hget hleft
         · rw [node_get_right ValueInst hnext hstop hroute, node_get_right ValueInst hnext hstop hroute]
           exact hrightContents query pending (queryAfterStop query hroute hhi) hhi hget
@@ -185,19 +199,20 @@ theorem ProgressiveTree.with_updated_leaves_recursive_shape_contents {T U : Type
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    {maximum : Option Std.Usize} {before after : ProgressiveTree T} {depth : Std.U32}
+    (hclone : before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+      ValueInst mapInst updates factor maximum depth)
     (hrange : update_map.RangeExcludesValues mapInst updates)
-    {maximum : Option Std.Usize} (hmaximum : update_map.MaximumBoundsValues mapInst updates maximum)
+    (hmaximum : update_map.MaximumBoundsValues mapInst updates maximum)
     {oldLength : Nat} {newLength : Std.Usize}
     (hcomplete : update_map.ExtensionComplete mapInst updates oldLength newLength.val)
-    {before after : ProgressiveTree T} {depth : Std.U32}
     (hshape : before.Shape factor depth.val) (hends : before.EndsAfter factor depth.val oldLength)
     (hupdate : ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
       ok (core.result.Result.Ok after)) :
     after.Shape factor depth.val ∧ after.EndsAfter factor depth.val newLength.val ∧
       ProgressiveTree.BulkContents ValueInst mapInst updates factor before after depth newLength := by
-  exact bulk_contents_aux ValueInst mapInst updates hlayout hclone hrange hmaximum hcomplete
-    (Std.U32.max - depth.val) depth before after (Nat.le_refl _) hshape hends hupdate
+  exact bulk_contents_aux ValueInst mapInst updates hlayout hrange hmaximum hcomplete
+    (Std.U32.max - depth.val) depth before after (Nat.le_refl _) hshape hends hclone hupdate
 
 /-- Public bulk update starts at the root and obtains its maximum from the
     map. The map law is required only for the answer actually returned. -/
@@ -205,13 +220,15 @@ theorem ProgressiveTree.with_updated_leaves_shape_contents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    {before after : ProgressiveTree T}
+    (hclone : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst updates factor maximum 0#u32)
     (hrange : update_map.RangeExcludesValues mapInst updates)
     (hmaximum : ∀ maximum, mapInst.max_index updates = ok maximum →
       update_map.MaximumBoundsValues mapInst updates maximum)
     {oldLength : Nat} {newLength : Std.Usize}
     (hcomplete : update_map.ExtensionComplete mapInst updates oldLength newLength.val)
-    {before after : ProgressiveTree T}
     (hshape : before.Shape factor 0) (hends : before.EndsAfter factor 0 oldLength)
     (hupdate : ProgressiveTree.with_updated_leaves ValueInst mapInst before updates =
       ok (core.result.Result.Ok after)) :
@@ -224,6 +241,6 @@ theorem ProgressiveTree.with_updated_leaves_shape_contents {T U : Type}
   | ok maximum =>
     simp only [hmax, bind_tc_ok] at hupdate
     exact ProgressiveTree.with_updated_leaves_recursive_shape_contents ValueInst mapInst updates
-      hlayout hclone hrange (hmaximum maximum hmax) hcomplete hshape hends hupdate
+      hlayout (hclone maximum hmax) hrange (hmaximum maximum hmax) hcomplete hshape hends hupdate
 
 end milhouse.progressive_tree
