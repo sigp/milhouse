@@ -179,6 +179,7 @@ import Tree.ProgressiveList.Push.Maximum
 import Tree.ProgressiveList.Push.Total
 import Tree.ProgressiveList.Push.Capacity
 import Tree.ProgressiveList.Contents
+import Tree.ProgressiveList.WriteBack
 import Tree.ProgressiveList.ApplyUpdates
 import Tree.ProgressiveList.ApplyUpdates.Contents
 import Tree.ProgressiveList.ApplyUpdates.Backing
