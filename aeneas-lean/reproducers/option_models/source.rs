@@ -38,3 +38,57 @@ pub fn branch<T>(value: Option<T>) -> ControlFlow<Option<Infallible>, T> {
 pub fn from_residual<T>(value: Option<Infallible>) -> Option<T> {
     Option::<T>::from_residual(value)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::cloned;
+    use std::cell::Cell;
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    struct Counted<'a> {
+        value: u64,
+        calls: &'a Cell<usize>,
+        panic_on_clone: bool,
+    }
+
+    impl Clone for Counted<'_> {
+        fn clone(&self) -> Self {
+            self.calls.set(self.calls.get() + 1);
+            assert!(!self.panic_on_clone, "element clone failed");
+            Self {
+                value: self.value + 1,
+                calls: self.calls,
+                panic_on_clone: self.panic_on_clone,
+            }
+        }
+    }
+
+    #[test]
+    fn cloned_uses_the_actual_clone_once() {
+        let calls = Cell::new(0);
+        let original = Counted {
+            value: 7,
+            calls: &calls,
+            panic_on_clone: false,
+        };
+        let result = cloned(Some(&original)).unwrap();
+        assert_eq!(result.value, 8);
+        assert_eq!(original.value, 7);
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn cloned_skips_none_and_propagates_clone_failure() {
+        let calls = Cell::new(0);
+        let original = Counted {
+            value: 7,
+            calls: &calls,
+            panic_on_clone: true,
+        };
+        assert!(cloned::<Counted<'_>>(None).is_none());
+        assert_eq!(calls.get(), 0);
+        assert!(catch_unwind(AssertUnwindSafe(|| cloned(Some(&original)))).is_err());
+        assert_eq!(calls.get(), 1);
+        assert_eq!(original.value, 7);
+    }
+}
