@@ -25,7 +25,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` and `Backing.lean` preserve both backing-spine and dense/representable traversal invariants on success without extra map laws or capacity assumptions |
 | `get_mut` | Return the pending value or actual clone of the backing value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact pending-or-clone equation, including failures; read agreement with `get` needs clone identity only for the actual backing fallback. `Mutable/Total.lean`: `get_mut_total_spec` proves successful access at every machine index, exact initial-value behavior, single-element replacement with unchanged logical length and backing fields, and out-of-bounds no-op. Clone termination, write, and maximum-index laws are scoped to present elements; the missing-handle law is scoped to out-of-bounds access. No global clone law, clone identity, or structural backing premise is needed by the total replacement specification. `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release under generic map lookup/release laws, without cloning. `CopyOnWrite/Consuming.lean` proves actual `get_cow` followed by `Cow::into_mut` succeeds at every represented in-bounds index and every write replaces exactly that sequence element, preserving logical length and backing state. Premises are representation and the generic map's read, entry-location, occupied-handle, lookup-frame, and maximum laws; only a value absent from pending updates needs a terminating clone, and clone identity is unnecessary. `Cow/Consuming.lean` proves the actual consuming body, exact stored value/maximum write-back, and unchanged missing-entry rejection. Every list write-back also preserves backing-spine and dense/representable traversal invariants. Rust `Deref` and borrowed `make_mut` remain pending extraction limitations; neither handle-data observation nor consuming mutation substitutes for those methods |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Clone laws are scoped through the progressive and binary traversals to selected inputs for the actual maximum; no global element-clone law remains. Identity for copied stored values later overwritten remains a finer premise to remove. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. Earlier `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Clone laws are scoped through the progressive and binary traversals to selected inputs for the actual maximum; no global element-clone law remains. Copied storage needs terminating clones, while identity is required only for retained stored slots and selected pending values; discarded stored copies need no identity law. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. Earlier `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. Binary and progressive traversal and the pending overlay are proved underneath. `Iter/Traits.lean` proves the same complete enumeration through the actual borrowed `IntoIterator` method, made reachable by `to_vec` |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | `Iter/Next.lean`: live calls return the represented indexed value and preserve the constructed cursor; exhausted calls return unchanged `none`, including past-end indices. Pending replacements and extensions are covered. `Iter/Length.lean`: both size-hint bounds and exact length equal the represented suffix length; these observers require only agreement of the recorded and sequence lengths |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | `IterCow/Construction.lean`: the extracted constructors establish the exact backing suffix and merged pending overlay, retain the requested start and pending state, accept the logical end, and reject oversized starts with exact bounds errors and complete restoration. Premises are representation, backing validity, and packing layout, with no additional map or cloning laws. `IterCow/State.lean` proves exact unchanged release, error restoration, and backing preservation through arbitrary constructor continuations without representation or map-law premises. `next_cow` extraction/enumeration, handle dereferencing, and borrowed `make_mut` remain pending borrowing limitations (UPSTREAM_BUGS issues 9 and 16). Consuming handles through `into_mut` is proved separately; neither that result nor constructor invariants substitutes for iterator stepping |
@@ -71,27 +71,33 @@ lower-level hypothesis and count the wrapper as proved.
 - `Tree/PackedLeaf/Insert.lean` proves necessary and sufficient position and
   vector bounds for insertion. `PackedLeaf/BulkUpdateSuccess.lean` proves
   actual vector cloning and the dense window scan terminate with the exact
-  target length and merged indexed contents. Clone identity is scoped to
-  copied stored and pending values; success and length need only terminating
-  clones. The original global-clone content interfaces remain specializations.
+  target length and merged indexed contents. All copied storage needs
+  terminating clones; identity is required only for retained stored slots and
+  pending values in the packing window. The original global-clone content
+  interfaces remain specializations. `Tree/Vec/Clone.lean` recovers actual
+  element results from successful vector cloning and proves lookup preservation
+  from identity only at that slot. `PackedLeaf/BulkUpdate.lean` uses these facts
+  to prove a successful update preserves a queried slot without identity for
+  unrelated values or for storage replaced by its pending value.
 - `Tree/BulkUpdate.lean` now derives an unpacked leaf's actual pending lookup
   and stored clone directly from successful execution, without clone laws.
   Its existing value and extracted-lookup lemmas require clone identity only
   for the pending value at the checked `prefix + offset` key.
   `Tree/BulkUpdate/Contents.lean` uses the scoped packed-leaf theorem in its
-  offset bridge, restricting clone identity to that leaf's stored values and
+  offset bridge, restricting clone identity to retained stored slots and the
   pending update window.
-- `Tree/BulkUpdate/CloneScope.lean`: `BulkCloneOn` restricts a value law to
-  stored packed values and pending leaf-window values in children selected by
-  positive range queries. Skipped subtrees require no clone law, and zero
-  expansion contributes no stored values. The predicate contains input data
-  and external map observations only, with no bulk-update result or assumed
-  recursive success. Specialization, implication, and zero-expansion lemmas
-  support identity and termination laws on the same selected inputs.
-  `Contents.lean` and `Success.lean` now use this predicate throughout both
+- `Tree/BulkUpdate/CloneScope.lean`: `BulkCloneScope` separates storage and
+  pending-value laws in children selected by positive range queries. Skipped
+  subtrees require no clone law, and zero expansion contributes no storage.
+  It contains input data and external map observations only, with no assumed
+  bulk-update result or recursive success. `BulkCloneOn` specializes it to
+  termination on every copied value; `BulkRetainedCloneOn` restricts content
+  laws to retained stored slots and selected pending values. `BulkCloneLaws`
+  supplies stored termination and surviving-value identity for total content
+  correctness. Projection, implication, and zero-expansion lemmas support both
   binary inductions and all six public contents, lookup, success, density,
-  and total correctness specifications. `ProgressiveTree/BulkUpdate/Layer.lean`
-  carries it through all four progressive-layer bridge lemmas.
+  and total specifications. All four progressive-layer bridges carry the
+  retained-slot law.
 - `Tree/ProgressiveTree/BulkUpdate/CloneScope.lean` defines selected layers
   from checked geometry, range answers, and the actual maximum-index guard.
   A zero layer with no updates stops traversal; an existing node may skip its
@@ -101,8 +107,10 @@ lower-level hypothesis and count the wrapper as proved.
   through every left/suffix call. All six public list apply-updates contents,
   combined correctness, success, totality, and capacity-equivalence interfaces
   require cloning laws only within that scope for the maximum actually read.
-  Complete public application retains its nonempty-branch guard, and identity
-  implies termination within the same scope.
+  Complete public application retains its nonempty-branch guard. The total
+  clone laws project to the separate termination and retained-value premises;
+  no public content or total specification requires identity of discarded
+  stored copies.
 - `Tree/BulkUpdate/Arithmetic.lean` and `Success.lean` derive every binary
   split operation from the aligned endpoint bound and prove total recursive
   reconstruction, density, and merged contents. Zero expansion and unchanged
@@ -574,7 +582,35 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest public apply-updates clone-scope checkpoint (through `e5f33d3`): the
+Latest retained-value clone checkpoint (through `6f48984`): the full Lean
+build passes (1,945 jobs), with all 228 project modules reachable from `Tree`.
+Two vector-clone lemmas, three queried-slot scan/update lemmas, four packed
+content/total lemmas, eleven binary-scope helpers, four binary specifications,
+fourteen progressive-scope helpers, six progressive content/layer lemmas, and
+six public list specifications were audited. All 50 depend only on `propext`,
+`Classical.choice`, and `Quot.sound` (or subsets). Build and audit logs are
+`/tmp/milhouse-apply-updates-retained-final-build.log`,
+`/tmp/milhouse-vec-clone-audit.log`,
+`/tmp/milhouse-packed-query-clone-audit.log`,
+`/tmp/milhouse-packed-retained-total-audit.log`,
+`/tmp/milhouse-binary-retained-scope-audit.log`,
+`/tmp/milhouse-binary-retained-contents-audit.log`,
+`/tmp/milhouse-progressive-retained-scope-audit.log`,
+`/tmp/milhouse-progressive-retained-contents-audit.log`, and
+`/tmp/milhouse-apply-updates-retained-audit.log`.
+
+The packed, binary, progressive, and public list specifications now require
+identity only for retained stored slots and selected pending values. Rust
+clones packed storage before overwriting it, so discarded copies still need
+termination for total correctness. This distinction is carried through actual
+recursive calls to the public `apply_updates_total_spec`; it is not confined
+to a leaf helper. No Rust, extraction, external-model, or Aeneas source changed.
+The full goal remains open: the broader premise audit (including the domains
+of external range-query laws), borrowed CoW extraction, semantic hashing/cache
+validity, serialization/deserialization, Debug, and every pending coverage row
+still need work.
+
+Previous public apply-updates clone-scope checkpoint (through `e5f33d3`): the
 full Lean build passes (1,944 jobs). Six progressive-scope helpers, two
 progressive contents lemmas, two progressive success lemmas, and six public
 list specifications were audited; all 16 use only `propext`, `Classical.choice`,
@@ -586,15 +622,11 @@ and `Quot.sound`. The new scope module is included by `Tree.lean`. Logs are
 `/tmp/milhouse-apply-updates-scoped-audit.log`. No Rust, extraction, external
 model, or Aeneas source changed.
 
-Global element-clone laws have now been removed from the binary, progressive,
-and public list proof chain. A finer premise audit remains: the packed-leaf
-contents proofs still demand identity for copied stored values that are later
-overwritten. Rust `PackedLeaf::update` clones the complete stored vector before
-the pending-update loop, so these discarded copies need termination but their
-values need not be preserved. Removing that identity requirement, and the
-broader assumption audit, remain part of the full goal. Borrowed CoW extraction,
-semantic hashing/cache validity, serialization/deserialization, Debug, and
-every other pending coverage row also remain open.
+That checkpoint removed global element-clone laws from the binary, progressive,
+and public list proof chain. Identity for copied stored values subsequently
+overwritten remained to be removed; the retained-value checkpoint above now
+completes that refinement. The broader assumption and coverage audits remain
+open.
 
 Previous recursive clone-scope checkpoint (through `2c55621`): the full Lean
 build passes (1,943 jobs), including every earlier proof. Four clone-scope
