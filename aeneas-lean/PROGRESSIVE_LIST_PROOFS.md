@@ -25,7 +25,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` and `Backing.lean` preserve both backing-spine and dense/representable traversal invariants on success without extra map laws or capacity assumptions |
 | `get_mut` | Return the pending value or actual clone of the backing value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact pending-or-clone equation, including failures; read agreement with `get` needs clone identity only for the actual backing fallback. `Mutable/Total.lean`: `get_mut_total_spec` proves successful access at every machine index, exact initial-value behavior, single-element replacement with unchanged logical length and backing fields, and out-of-bounds no-op. Clone termination, write, and maximum-index laws are scoped to present elements; the missing-handle law is scoped to out-of-bounds access. No global clone law, clone identity, or structural backing premise is needed by the total replacement specification. `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release under generic map lookup/release laws, without cloning. `CopyOnWrite/Consuming.lean` proves actual `get_cow` followed by `Cow::into_mut` succeeds at every represented in-bounds index and every write replaces exactly that sequence element, preserving logical length and backing state. Premises are representation and the generic map's read, entry-location, occupied-handle, lookup-frame, and maximum laws; only a value absent from pending updates needs a terminating clone, and clone identity is unnecessary. `Cow/Consuming.lean` proves the actual consuming body, exact stored value/maximum write-back, and unchanged missing-entry rejection. Every list write-back also preserves backing-spine and dense/representable traversal invariants. Rust `Deref` and borrowed `make_mut` remain pending extraction limitations; neither handle-data observation nor consuming mutation substitutes for those methods |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Clone laws are scoped through the progressive and binary traversals to selected inputs for the actual maximum; no global element-clone law remains. Copied storage needs terminating clones, while identity is required only for retained stored slots and selected pending values; discarded stored copies need no identity law. Range-query termination and answer correctness are required only at reached progressive layers and selected binary queries for the actual maximum. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. Earlier `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Clone laws are scoped through the progressive and binary traversals to selected inputs for the actual maximum; no global element-clone law remains. Copied storage needs terminating clones, while identity is required only for retained stored slots and selected pending values; discarded stored copies need no identity law. Range-query termination and answer correctness are required only at reached progressive layers and selected binary queries for the actual maximum. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. Earlier `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence. `ApplyUpdates/Caches.lean` proves cache-invariant preservation on every returned state, including Rust errors, without representation, shape, packing, map, clone, or termination laws. `CacheTotal.lean` adds validity relative to a mathematical reference hash to the complete total specification, requiring only the input cache invariant in addition to the existing total-operation premises |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. Binary and progressive traversal and the pending overlay are proved underneath. `Iter/Traits.lean` proves the same complete enumeration through the actual borrowed `IntoIterator` method, made reachable by `to_vec` |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | `Iter/Next.lean`: live calls return the represented indexed value and preserve the constructed cursor; exhausted calls return unchanged `none`, including past-end indices. Pending replacements and extensions are covered. `Iter/Length.lean`: both size-hint bounds and exact length equal the represented suffix length; these observers require only agreement of the recorded and sequence lengths |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | `IterCow/Construction.lean`: the extracted constructors establish the exact backing suffix and merged pending overlay, retain the requested start and pending state, accept the logical end, and reject oversized starts with exact bounds errors and complete restoration. Premises are representation, backing validity, and packing layout, with no additional map or cloning laws. `IterCow/State.lean` proves exact unchanged release, error restoration, and backing preservation through arbitrary constructor continuations without representation or map-law premises. `next_cow` extraction/enumeration, handle dereferencing, and borrowed `make_mut` remain pending borrowing limitations (UPSTREAM_BUGS issues 9 and 16). Consuming handles through `into_mut` is proved separately; neither that result nor constructor invariants substitutes for iterator stepping |
@@ -44,6 +44,20 @@ lower-level hypothesis and count the wrapper as proved.
 
 ## Existing foundations
 
+- `Tree/BulkUpdate/Caches.lean` and
+  `Tree/ProgressiveTree/BulkUpdate/Caches.lean` prove cache-invariant
+  preservation by induction on the actual extracted fixed points. Rebuilt
+  caches are zero; untouched children retain their stored data and depths.
+  The binary proof needs no shape, packing-layout, alignment, clone, map, or
+  termination laws. The progressive proof derives the actual layer-depth
+  correspondence from successful checked arithmetic, without capacity,
+  density, packing, or correctness laws for range/maximum answers.
+  `ProgressiveList/ApplyUpdates/Caches.lean` covers every returned public state,
+  including empty no-ops and restored errors. `Tree/HashCache/Validity.lean`
+  defines a cache as zero or equal to a mathematical reference hash of its
+  logical input; this is a specification predicate, not a replacement model
+  of the unextracted Rust hash computation. `ApplyUpdates/CacheTotal.lean`
+  combines cache validity with the complete public total specification.
 - `Tree/PackedLeaf/PushState.lean` proves exact successful append contents,
   cache invalidation, full-leaf rejection, and complete state restoration for
   every returned push error. The underlying Rust push now invalidates an
@@ -53,8 +67,8 @@ lower-level hypothesis and count the wrapper as proved.
   insertion clears it. The actual bulk-update loop retains its initial hash
   or clears it; a public packed update supplied with zero therefore returns
   zero, independently of old cache contents and clone behavior. These are
-  operational prerequisites for extending cache validity through binary and
-  progressive bulk updates; the full preservation chain remains pending.
+  operational prerequisites used by the binary/progressive/public bulk-update
+  cache-preservation chain described above.
 - `Tree/HashCache.lean` and `Tree/ProgressiveTree/HashCache.lean` describe
   cache predicates by leaf value, packed sequence, binary depth/sequence, or
   progressive depth/suffix. This retains padding and layer context and imposes
@@ -623,7 +637,31 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest packed-cache checkpoint (through `5bdf22f`): fresh production
+Latest apply-updates cache checkpoint (through `7848beb`): the full Lean
+build passes (1,960 jobs), including all earlier proofs and five new modules.
+All seven new lemmas were audited and depend only on `propext`,
+`Classical.choice`, and `Quot.sound`; there are no new axioms or `sorryAx`
+dependencies. The cache-preservation chain does not require the Arc
+pointer-equality axiom.
+
+Cache validity now survives the actual binary and progressive update
+recursion and public `apply_updates`, including Rust-error restoration. The
+successful-execution invariant needs only valid input caches and acceptance
+of the zero sentinel. It introduces no shape, packing, alignment, clone,
+map-semantic, maximum, capacity, or termination premises. Specialization to a
+mathematical reference hash supplies zero validity by definition. The total
+public result adds only the input cache invariant to the existing total
+sequence/backing/pending-update contract, retaining all its branch and query
+scoping.
+
+This checkpoint changes only Lean proofs, specifications, and imports; no
+Rust, generated extraction, external model, or Aeneas source changed. Cache
+initialization through constructors, preservation through remaining mutations,
+semantic root computation, shared cache writes, and the collision-soundness
+bridge to rebasing still need work. Borrowed CoW, Debug, and generic/context
+serialization extraction gaps also remain. The full goal is still active.
+
+Previous packed-cache checkpoint (through `5bdf22f`): fresh production
 extraction, the full Lean build (1,955 jobs), formatting, and all 331 Rust
 release tests with `arbitrary` pass. The regression for hashing a packed leaf
 before pushing reproduced the stale-root bug before the one-line fix.
