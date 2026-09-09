@@ -166,7 +166,7 @@ and rebasing; they do not change the scope exclusions or complete the goal.
 No production/model/Aeneas changes were made, and the main library and
 dependency counts are unchanged.
 
-## Arbitrary control source comparison
+## Arbitrary source comparisons
 
 Run `python3 scripts/aeneas-audit-arbitrary-models.py` from the repository root.
 The [Arbitrary comparison](reproducers/arbitrary_models/README.md) validates
@@ -198,11 +198,32 @@ replacement, owning-default dispatch, and size-hint defaults/overrides. All
 seven source suites pass: 30 direct comparisons and two compositions,
 totaling 32 proofs (16 axiom-free, sixteen standard-only).
 
-Full vector generation and the three Arbitrary defaults remain source
+The subsequent `e396dad` checkpoint adds direct source comparisons for both
+size-hint defaults, for arbitrary dictionaries and depths. The fixed default
+skips every callback. The fallible default calls the actual `size_hint` once,
+preserving success, failure, or divergence without consistency, termination,
+or depth premises. The complete source dictionary adapter retains all four
+callbacks. Both proofs close by reflexivity; the fixed result uses only the
+three standard Lean axioms, and the fallible result uses only `propext`.
+
+The runner excludes the unused owning-input default and compares every field
+of all three source declarations before and after, allowing only a checked
+correspondence of fresh statement IDs. Charon's own statement equality ignores
+these IDs. All nineteen renumberings are recorded; code, signatures, source
+spans, and callable IDs must remain unchanged. A checked name-only adjustment
+to the trait's first field avoids the generated namespace shadowing. Restoring
+its two labels and the error type name must recover the entire original
+selected LLBC. Nine malformed inventories, fifteen invalid trait/metadata
+configurations, nine invalid exclusion/statement cases, and four invalid axiom
+reports are rejected. Eight native tests pass, including hint panic dispatch.
+All seven source suites pass: 32 direct comparisons and two compositions,
+totaling 34 proofs (16 axiom-free, eighteen standard-only).
+
+Full vector generation and the owning Arbitrary default remain source
 boundaries. The owning default fails when ending the borrow of the real
 `Unstructured`; vector extraction additionally fails on mutable iterator
-borrows and collection adapters. Size-hint bodies are emitted in a partial
-module whose generic trait also has namespace shadowing. No failed output
+borrows and collection adapters. The successful size-hint audit resolves the
+unrelated default and naming obstacles as described above. No failed output
 is used in a proof. Exact commands and diagnostics are in the fixture README
 and UPSTREAM_BUGS issue 27. No production Rust, local model, or Aeneas source
 changed; the main proof and 42-root/151-declaration inventories are unchanged.

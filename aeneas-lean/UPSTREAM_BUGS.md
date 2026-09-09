@@ -1075,9 +1075,10 @@ audit suites pass. The other SSZ and model boundaries remain open.
 ## 27. Aeneas: Arbitrary owning-input defaults and vector iterator borrows
 
 **Stage:** symbolic interpretation, iterator adapters, and generated names.
-**Status:** collection control has a verified source comparison, including
-the actual bool/byte generators and one-byte fill/zeroing loop. Full vector
-generation and the three trait defaults remain source boundaries. No Rust
+**Status:** collection control and both size-hint defaults have verified source
+comparisons, including the actual bool/byte generators and one-byte
+fill/zeroing loop. Full vector generation and the owning trait default remain
+source boundaries. No Rust
 bug is established, and no Aeneas source change is made.
 
 The [Arbitrary source fixture](reproducers/arbitrary_models/README.md) pins
@@ -1093,7 +1094,22 @@ generic trait's `arbitrary` field also shadows the `arbitrary` namespace:
 Lean rejects the later `unstructured`, `error`, and `MaxRecursionReached`
 references as fields of a function. This matches the qualification issue
 already handled for the main library by `scripts/aeneas-qualify-arbitrary.py`.
-These partial source outputs are not imported by the audit.
+These partial source outputs are not imported by the audit. The subsequent
+size-hint audit at `e396dad` resolves this naming issue with a checked
+name-only adjustment to the trait field, from `arbitrary` to `generate_source`.
+Restoring its two name labels and the source error type's name must recover
+the entire original selected LLBC. All signatures and callback IDs are retained.
+
+The audit excludes exactly the unused owning-input default, then checks all
+three source declarations against the unfiltered extraction. Only Charon's
+fresh statement IDs may differ: their correspondence is checked and recorded,
+with nineteen renumberings in the two hint bodies. Charon's own statement
+equality ignores these IDs. Code, spans, signatures, function/type IDs, and
+control flow remain unchanged. The complete generic dictionary adapter
+preserves every callback. Both size-hint comparison equalities hold by
+reflexivity for arbitrary callbacks and depths, with only standard Lean axioms
+and no consistency, termination, or depth premise. Eight native tests and
+all seven source suites pass at `e396dad`, totaling 34 comparison proofs.
 
 The full vector probe also lets Charon succeed but produces five Aeneas
 errors (four unique emitter locations):

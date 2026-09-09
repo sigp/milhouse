@@ -84,18 +84,21 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
-- The [Arbitrary source comparison](reproducers/arbitrary_models/README.md)
-  validates collection control against actual `bool::arbitrary`, including
+- The [Arbitrary source comparisons](reproducers/arbitrary_models/README.md)
+  validate collection control against actual `bool::arbitrary`, including
   the actual byte generator and one-byte fill/zeroing loop. It proves the
   Boolean result and exact remaining input for every slice, consuming even
   stopping bytes and returning false at exhaustion, without extra premises.
   The proof uses only standard Lean axioms and retains array/slice/iterator,
-  scalar, copy, and Result foundations. Seven native tests also check vector
-  error/panic state, input replacement, and trait-default dispatch. Full vector
-  generation and the three defaults remain source boundaries; direct owning
-  default and vector extraction fail (UPSTREAM_BUGS 27). At `db45ecc`, all seven
-  source suites pass: 30 direct comparisons and two compositions, totaling
-  32 proofs (16 axiom-free, sixteen standard-only).
+  scalar, copy, and Result foundations. Both size-hint defaults also match their
+  source bodies for arbitrary dictionaries and depths: the fixed default skips
+  callbacks, while the fallible default preserves the actual hint callback's
+  success, failure, or divergence. Eight native tests check vector error/panic
+  state, input replacement, and default dispatch, including hint panics.
+  Full vector generation and the owning default remain source boundaries
+  (UPSTREAM_BUGS 27). At `e396dad`, all seven source suites pass: 32 direct
+  comparisons and two compositions, totaling 34 proofs (16 axiom-free,
+  eighteen standard-only).
 - The [SSZ offset source comparisons](reproducers/ssz_offset_models/README.md)
   validate the actual four-byte constant and private decoder for every input
   length, including the complete copy loop and exact error payloads. A separate
@@ -1299,7 +1302,34 @@ The model dependency inventory remains 42 roots/151 local declarations; that
 separate gate was not repeated for these proof-only changes. Borrowed CoW and
 the remaining assumption/model-fidelity review stay open.
 
-Latest source-model checkpoint (`db45ecc`): the Arbitrary suite compares the
+Latest source-model checkpoint (`e396dad`): both Arbitrary size-hint defaults
+now compare directly with their actual source bodies for arbitrary dictionaries
+and depths. The complete dictionary adapter retains every callback. The fixed
+default ignores them all; the fallible default preserves the actual hint's
+success, failure, and divergence. Both equalities hold by reflexivity without
+callback-consistency, termination, or depth premises. The fixed comparison
+uses only the three standard Lean axioms; the fallible comparison uses only
+`propext`.
+The audit excludes exactly the unused owning-input default and verifies that
+all three compared source declarations remain equal after reconciling Charon's
+fresh statement IDs. The runner checks unique integer-ID correspondence and
+records all nineteen changes; source spans, code, signatures, and callable IDs
+remain unchanged. A name-only change to the generic trait's first field avoids
+namespace shadowing. Restoring the field's two labels and the source error
+type name must recover the entire original selected LLBC.
+Nine malformed source inventories, fifteen invalid trait/metadata/configuration
+cases, nine invalid exclusion/statement cases, and four invalid axiom reports
+are rejected. Eight native tests pass, including exact hint-callback panic
+dispatch. All seven source suites pass: 32 direct comparisons and two
+compositions, for 34 proofs (16 axiom-free, eighteen standard-only).
+No production Rust, local model, main proof, or Aeneas source changed. The
+main gate was not repeated for this standalone audit; its latest pass remains
+5,117 declarations across 320 modules and 2,036 build jobs. The model inventory
+remains 42 roots/151 declarations. Arbitrary's owning default/vector generator,
+borrowed CoW, and the remaining model/assumption review stay open. Debug and
+Serde remain excluded; TreeHash remains deferred.
+
+Earlier source-model checkpoint (`db45ecc`): the Arbitrary suite compares the
 actual Boolean generator with `nextControl` for every input slice. The proof
 follows the actual byte generator, one-byte prefix copy, zeroing loop and
 write-back, and low-bit test. Both the result and remaining input agree,
