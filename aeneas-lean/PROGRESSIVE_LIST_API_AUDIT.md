@@ -17,6 +17,9 @@ The subsequent tuple-model correction and branch proofs are through `c47faba`;
 both full-library audit gates pass after that correction.
 The borrowed-read diagnostic checkpoint `56924d0` adds a standalone reproducer
 and verified controls, with no additional public-operation proof coverage.
+The packing-layout premise audit is through `0932572`: both layout constructors
+drop the redundant packing-depth query argument, derived by `69d2ec6` from
+the factor query and power law. All dependent operation proofs build.
 
 Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
@@ -131,6 +134,13 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The shared `PackingLayout` assumption now requires only the actual factor
+query and the routing power-of-two law. Its packing-depth result is derived
+from those facts, with the word bound supplied by the represented factor and
+no use of the `size_of` fallback axiom. Both layout constructors drop the
+separate depth proof argument; their callers are updated. The public operation
+specifications inherit this premise reduction through the shared invariant.
 
 The model dependency inventory finds 151 local declarations across seven model
 modules under the 42 available roots. None of those definition closures

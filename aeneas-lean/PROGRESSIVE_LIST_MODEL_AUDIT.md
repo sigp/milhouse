@@ -110,6 +110,18 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The packing-depth result is derived rather than assumed separately.
+  `Tree/PackingDepth.lean` proves the actual depth computation from the optional
+  factor query and its routing power law. `PackingLayout` drops the redundant
+  depth-query premise in `0932572`, using the numeric foundation `69d2ec6`.
+  A represented power-of-two factor fits in a word, so rounding returns that
+  factor and trailing-zero counting returns its exponent. The `size_of`
+  fallback is skipped and its axiom is unused. This removes a proof premise
+  without changing numeric or option models; their broader source-fidelity
+  review remains distinct from these kernel proofs.
+  After the change, the full library builds (2,026 jobs), the axiom/import
+  audit passes for 4,983 declarations across 310 modules, and the dependency
+  inventory still passes for 42 roots and 151 local model declarations.
 - Generic update-map, element clone/equality, codec, and generator calls use
   the operation-specific laws recorded in the proof coverage document. The
   dependency inventory does not verify concrete implementations of those laws.

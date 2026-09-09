@@ -84,6 +84,17 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- `Tree/PackingDepth.lean` derives the actual packing-depth query from the
+  optional factor query and, for packed elements, the required power-of-two
+  law. `Tree/Nat/NextPowerOfTwo.lean` proves that rounding preserves an exact
+  power of two; the existing trailing-zero valuation proof then computes its
+  logarithm. The represented factor supplies the word bound, so the proof
+  skips the `size_of` fallback without using its axiom or a separate bound.
+  `PackingLayout` now contains only the factor query and power law. Its
+  `opt_packing_depth_eq` accessor derives the depth result. Both constructors
+  drop their former `depth_eq` argument, and all builder/repeat callers are
+  updated. Every public specification using this layout inherits the simpler
+  contract; the routing power-of-two requirement remains.
 - `Tree/Tuple/Comparison.lean` proves the actual external tuple inequality
   protocol: first-true short-circuiting, exact second-call delegation after a
   false first result, first-call failure/divergence, and both Boolean success
@@ -998,7 +1009,22 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest borrowed-read diagnostic checkpoint (through `56924d0`): a standalone
+Latest packing-layout checkpoint (through `0932572`, with numeric foundation
+`69d2ec6`): the invariant, builder, and repeat focused builds pass after removing
+the redundant depth-query premise from both layout constructors. The full
+library build passes (2,026 jobs), and the axiom/import audit covers 4,983
+theorem declarations across all 310 modules. Of these, 4,921 use only standard
+Lean axioms or none; 62 additionally use the existing Arc pointer contract.
+All 25 declarations in the two new proof modules, including private and
+generated lemmas, are standard-only. The `size_of` axiom remains unused.
+The model dependency gate passes for the same 42 roots and 151 local model
+declarations.
+No Rust, extraction, external model, or Aeneas source changed; no new axiom or
+admission was introduced. The factor query and routing power law now derive
+the previously assumed depth result for all dependent operation contracts.
+Borrowed CoW and the remaining assumption/model-fidelity review stay open.
+
+Previous borrowed-read diagnostic checkpoint (through `56924d0`): a standalone
 [reference-layout reproducer](reproducers/cow_regions/README.md) tests lifetime
 separation without map dependencies. Eight enum readers, including separate
 lifetimes, helper calls, and direct-copy patterns, still fail at Aeneas's
@@ -1008,7 +1034,8 @@ without axioms. Native Rust checks and formatting pass. This rules out the
 tested approaches but does not prove a borrowed CoW method or establish that
 every refactor is impossible. No production Rust, extraction, imported proof,
 model, or Aeneas source changed, and no partial generated file was imported.
-The last complete library build and audits remain the tuple checkpoint below.
+At that diagnostic checkpoint, the last complete library build and audits
+were the tuple checkpoint below.
 
 Latest tuple-model checkpoint (through `c47faba`): the external tuple `ne`
 model now preserves the pinned Rust element-method dispatch and short-circuit
