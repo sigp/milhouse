@@ -127,14 +127,45 @@ theorem ProgressiveList.rebase_preserves_metadata {T U : Type}
     { self with updates } base hrebased
   exact ⟨hlength, by simpa only [hmap] using hupdates⟩
 
+/-- For a successful rebase, these conditions on the actual map query results
+are necessary as well as sufficient for preserving length and pending-update
+observers. Maxima may differ below the backing length, and all callback
+failure, divergence, and successor-overflow cases are included. -/
+theorem ProgressiveList.rebase_observers_eq_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self base : ProgressiveList T U) {result : ProgressiveList T U}
+    (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result)) :
+    (ProgressiveList.len ValueInst mapInst result = ProgressiveList.len ValueInst mapInst self ∧
+      ProgressiveList.has_pending_updates ValueInst mapInst result =
+        ProgressiveList.has_pending_updates ValueInst mapInst self) ↔
+      (utils.MaxIndexResultsAgree self.length (mapInst.max_index result.updates)
+          (mapInst.max_index self.updates) ∧
+        mapInst.is_empty result.updates = mapInst.is_empty self.updates) := by
+  obtain ⟨hlength, _⟩ := ProgressiveList.rebase_preserves_metadata ValueInst mapInst self base hrebase
+  have hlen : ProgressiveList.len ValueInst mapInst result =
+      ProgressiveList.len ValueInst mapInst self ↔
+        utils.MaxIndexResultsAgree self.length (mapInst.max_index result.updates)
+          (mapInst.max_index self.updates) := by
+    rw [ProgressiveList.len_eq_updated_length, ProgressiveList.len_eq_updated_length,
+      hlength, utils.updated_length_eq_iff_max_index]
+  have hpending : ProgressiveList.has_pending_updates ValueInst mapInst result =
+      ProgressiveList.has_pending_updates ValueInst mapInst self ↔
+        mapInst.is_empty result.updates = mapInst.is_empty self.updates := by
+    cases hr : mapInst.is_empty result.updates <;>
+      cases hs : mapInst.is_empty self.updates <;>
+      simp [ProgressiveList.has_pending_updates, hr, hs]
+  exact and_congr hlen hpending
+
 /-- Nonmutating rebasing preserves length and pending-update observers when
-the actual map clone preserves maximum and emptiness. No element, cache,
-representation, or read-preservation law is needed for these observers. -/
+the actual map clone preserves maximum-result agreement and emptiness. Exact
+maximum identity is unnecessary. No element, cache, representation, read, or
+successful maximum/length-query premise is needed for these observers. -/
 theorem ProgressiveList.rebase_preserves_observers {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self base : ProgressiveList T U)
     (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
-      mapInst.max_index updates = mapInst.max_index self.updates)
+      utils.MaxIndexResultsAgree self.length (mapInst.max_index updates)
+        (mapInst.max_index self.updates))
     (hmapEmpty : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       mapInst.is_empty updates = mapInst.is_empty self.updates)
     {result : ProgressiveList T U}
@@ -142,8 +173,8 @@ theorem ProgressiveList.rebase_preserves_observers {T U : Type}
     ProgressiveList.len ValueInst mapInst result = ProgressiveList.len ValueInst mapInst self ∧
       ProgressiveList.has_pending_updates ValueInst mapInst result =
         ProgressiveList.has_pending_updates ValueInst mapInst self := by
-  obtain ⟨hlength, hclone⟩ := ProgressiveList.rebase_preserves_metadata ValueInst mapInst self base hrebase
-  simp only [ProgressiveList.len, hlength, utils.updated_length, hmapMax result.updates hclone,
-    ProgressiveList.has_pending_updates, hmapEmpty result.updates hclone, and_self]
+  apply (ProgressiveList.rebase_observers_eq_iff ValueInst mapInst self base hrebase).mpr
+  obtain ⟨_, hclone⟩ := ProgressiveList.rebase_preserves_metadata ValueInst mapInst self base hrebase
+  exact ⟨hmapMax result.updates hclone, hmapEmpty result.updates hclone⟩
 
 end milhouse.progressive_list

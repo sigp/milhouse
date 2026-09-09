@@ -1,5 +1,5 @@
 import Tree.ProgressiveList.Observers
-import Tree.UpdateMap.Length
+import Tree.UpdateMap.Length.Equivalence
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -13,6 +13,19 @@ theorem ProgressiveList.len_eq_updated_length {T U : Type}
       utils.updated_length mapInst self.length self.updates := by
   unfold ProgressiveList.len
   cases utils.updated_length mapInst self.length self.updates <;> rfl
+
+/-- Replacing only the pending map preserves the complete public length
+result exactly when the raw maximum-query outcomes agree at the backing
+length. This covers errors and divergence without assuming map validity. -/
+theorem ProgressiveList.len_with_updates_eq_iff_max_index {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (updates : U) :
+    ProgressiveList.len ValueInst mapInst { self with updates } =
+        ProgressiveList.len ValueInst mapInst self ↔
+      utils.MaxIndexResultsAgree self.length (mapInst.max_index updates)
+        (mapInst.max_index self.updates) := by
+  simpa only [ProgressiveList.len_eq_updated_length] using
+    utils.updated_length_eq_iff_max_index mapInst self.length updates self.updates
 
 /-- The logical length includes all of the backing sequence. -/
 theorem ProgressiveList.len_ge_backing {T U : Type}
