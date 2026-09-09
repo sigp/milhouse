@@ -1,5 +1,6 @@
 import Tree.Funs
 import Tree.Arbitrary.Generation
+import Tree.ProgressiveList.Arbitrary.Behavior
 import Tree.Formatting.Error
 import Tree.Invariants
 import Tree.Contents
