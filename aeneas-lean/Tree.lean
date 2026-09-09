@@ -58,6 +58,7 @@ import Tree.ProgressiveList.Rebase.Caches
 import Tree.HashCache.Collisions
 import Tree.ProgressiveTree.Rebase.Validity
 import Tree.ProgressiveList.Rebase.Validity
+import Tree.ProgressiveList.Rebase.Cleared
 import Tree.ProgressiveList.ApplyUpdates.CacheTotal
 import Tree.ProgressiveTree.Equality.Structure
 import Tree.ProgressiveTree.Equality.Correctness

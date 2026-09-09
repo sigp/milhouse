@@ -1,0 +1,68 @@
+import Tree.ProgressiveList.Rebase.Validity
+
+open Aeneas Aeneas.Std Result
+open milhouse
+
+namespace milhouse.progressive_list
+
+/-- A list with cleared caches can be rebased in place without any collision
+assumption. Construction and the nonzero front-removal proofs establish this
+input invariant; only the base caches that may be imported need validity. -/
+theorem ProgressiveList.rebase_on_total_from_cleared_spec {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
+    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
+    (reference : CacheSubject T → CacheHash)
+    (self base : ProgressiveList T U) (contents : _root_.List T)
+    (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
+    (hbase : base.tree.Dense factor 0 base.length.val)
+    (hclear : self.tree.CachesCleared)
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree)
+    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0) :
+    ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
+      result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
+      result.length = self.length ∧ result.updates = self.updates ∧
+      result.tree.CachesOn (CacheValidFor reference) 0 := by
+  have hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0) := by
+    rw [progressive_tree.ProgressiveTree.rebaseHashInputs_eq_nil_of_cleared self.tree base.tree 0 hclear]
+    exact BinaryHashCollisionSoundOn.nil reference
+  have hselfCache := hclear.cachesOn (CacheValidFor reference) (CacheValidFor.zero reference) 0
+  exact ProgressiveList.rebase_on_total_valid_cache_spec ValueInst mapInst hlayout hsound hneSound
+    reference self base contents hrep hbacking hbase hcollisions hcompare hselfCache hbaseCache
+
+/-- Nonmutating rebasing from cleared caches needs no collision assumption.
+It preserves contents and reference cache validity under the ordinary element
+comparison and pending-map clone laws. -/
+theorem ProgressiveList.rebase_total_from_cleared_spec {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
+    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
+    (reference : CacheSubject T → CacheHash)
+    (self base : ProgressiveList T U) (contents : _root_.List T)
+    (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
+    (hbase : base.tree.Dense factor 0 base.length.val)
+    (hclear : self.tree.CachesCleared)
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree)
+    (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates)
+    (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
+      ∀ query, mapInst.get updates query = mapInst.get self.updates query)
+    (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
+      mapInst.max_index updates = mapInst.max_index self.updates)
+    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0) :
+    ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
+      result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
+      result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates ∧
+      result.tree.CachesOn (CacheValidFor reference) 0 := by
+  have hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0) := by
+    rw [progressive_tree.ProgressiveTree.rebaseHashInputs_eq_nil_of_cleared self.tree base.tree 0 hclear]
+    exact BinaryHashCollisionSoundOn.nil reference
+  have hselfCache := hclear.cachesOn (CacheValidFor reference) (CacheValidFor.zero reference) 0
+  exact ProgressiveList.rebase_total_valid_cache_spec ValueInst mapInst hlayout hsound hneSound
+    reference self base contents hrep hbacking hbase hcollisions hcompare hclone hmapGet hmapMax
+    hselfCache hbaseCache
+
+end milhouse.progressive_list
