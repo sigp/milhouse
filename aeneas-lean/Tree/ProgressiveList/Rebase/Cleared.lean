@@ -31,7 +31,11 @@ theorem ProgressiveList.rebase_on_total_from_cleared_spec {T U : Type}
     exact BinaryHashCollisionSoundOn.nil reference
   have hselfCache := hclear.cachesOn (CacheValidFor reference) (CacheValidFor.zero reference) 0
   exact ProgressiveList.rebase_on_total_valid_cache_spec ValueInst mapInst hlayout
-    reference self base contents hrep hbacking hbase hequality hcollisions hcompare hselfCache hbaseCache
+    reference self base contents hrep hbacking hbase hequality hcollisions hcompare
+    (self.tree.rebaseOrigCachesOn_of_caches ValueInst.corecmpPartialEqInst
+      (CacheValidFor reference) base.tree 0 hselfCache)
+    (self.tree.rebaseHashCachesOn_of_caches (CacheValidFor reference) base.tree 0 hselfCache)
+    hbaseCache
 
 /-- Nonmutating rebasing from cleared caches needs no collision assumption.
 It preserves contents and reference cache validity under the ordinary element
@@ -66,6 +70,9 @@ theorem ProgressiveList.rebase_total_from_cleared_spec {T U : Type}
   have hselfCache := hclear.cachesOn (CacheValidFor reference) (CacheValidFor.zero reference) 0
   exact ProgressiveList.rebase_total_valid_cache_spec ValueInst mapInst hlayout
     reference self base contents hrep hbacking hbase hequality hcollisions hcompare hclone hmapGet hmapMax
-    hselfCache hbaseCache
+    (self.tree.rebaseOrigCachesOn_of_caches ValueInst.corecmpPartialEqInst
+      (CacheValidFor reference) base.tree 0 hselfCache)
+    (self.tree.rebaseHashCachesOn_of_caches (CacheValidFor reference) base.tree 0 hselfCache)
+    hbaseCache
 
 end milhouse.progressive_list

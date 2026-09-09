@@ -1,6 +1,7 @@
 import Tree.HashCache.Collisions
 import Tree.ProgressiveTree.Rebase.Contents
 import Tree.ProgressiveTree.Rebase.CacheInputs
+import Tree.ProgressiveTree.Rebase.HashInputs
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -46,14 +47,14 @@ theorem ProgressiveTree.cachedHashesAgree_of_cleared {T : Type}
       exact ⟨tree.Tree.cachedHashesAgree_of_cleared left baseLeft hclear.2.1,
         ih baseRight hclear.2.2⟩
 
-/-- Valid binary caches and the reference law on the finite corresponding
-input pairs establish all hash-shortcut obligations. Base validity is needed
-only for selected binary caches in reached layers. Neither tree's progressive cache
-validity, shape, or packing layout is required by this bridge. -/
+/-- Original cache validity at reached binary hash shortcuts, selected base
+validity, and the finite reference collision law establish all operational
+hash-shortcut obligations. Neither tree's progressive cache validity, shape,
+or packing layout is required by this bridge. -/
 theorem ProgressiveTree.cachedHashesAgree_of_valid_caches {T : Type}
     (inst : core.cmp.PartialEq T T) (reference : CacheSubject T → CacheHash)
     (orig base : ProgressiveTree T) (depth : Nat)
-    (horig : orig.BinaryCachesOn (CacheValidFor reference) depth)
+    (horig : orig.RebaseHashCachesOn (CacheValidFor reference) base depth)
     (hbase : orig.RebaseBaseCachesOn inst (CacheValidFor reference) base depth)
     (hcollisions : BinaryHashCollisionSoundOn reference (orig.rebaseHashInputs base depth)) :
     orig.CachedHashesAgree base := by
@@ -66,8 +67,8 @@ theorem ProgressiveTree.cachedHashesAgree_of_valid_caches {T : Type}
       intro hpointer
       simp only [ProgressiveTree.rebaseHashInputs, hpointer, ↓reduceIte] at hcollisions
       exact ⟨tree.Tree.cachedHashesAgree_of_valid_caches inst reference left baseLeft (2 * depth)
-          horig.1 (hbase hpointer).1 (hcollisions.mono (fun pair hpair => List.mem_append_left _ hpair)),
-        ih baseRight (depth + 1) horig.2 (hbase hpointer).2
+          (horig hpointer).1 (hbase hpointer).1 (hcollisions.mono (fun pair hpair => List.mem_append_left _ hpair)),
+        ih baseRight (depth + 1) (horig hpointer).2 (hbase hpointer).2
           (hcollisions.mono (fun pair hpair => List.mem_append_right _ hpair))⟩
 
 end milhouse.progressive_tree

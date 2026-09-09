@@ -2,6 +2,7 @@ import Tree.Rebase.CacheAction
 import Tree.Rebase.Contents
 import Tree.Rebase.CacheInputs
 import Tree.Rebase.KindReflection
+import Tree.Rebase.OriginalCaches
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -15,9 +16,10 @@ private theorem bind_eq_ok_iff {A B : Type} {x : Result A}
 
 /-- Successful binary rebasing preserves contents and every cache predicate
 indexed by logical input and depth. The semantic comparison laws establish unchanged
-child contents before an original parent cache is reused. Base validity is
-required only for caches selected by the input-based action categories. No
-hash computation, cache write, or assumed child execution is needed. -/
+child contents before an original parent cache is reused. Original validity
+is required only for retained caches; base validity is required only for
+imported caches. Both scopes follow the input-based action categories.
+No hash computation, cache write, or assumed child execution is needed. -/
 theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
@@ -29,7 +31,7 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     (hbase : DenseTree factor base depth baseLength.val)
     (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
-    (horigCache : orig.CachesOn P depth)
+    (horigCache : orig.RebaseOrigCachesOn ValueInst.corecmpPartialEqInst P base depth)
     (hbaseCache : orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base depth)
     (hrebase : Tree.rebase_on ValueInst orig base (some (origLength, baseLength)) fullDepth =
       ok (core.result.Result.Ok action)) :
@@ -47,7 +49,7 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     | true =>
       simp at hrebase
       subst action
-      exact horigCache
+      exact horigCache.orig_of_noop (Or.inr hkind)
     | false =>
       simp only [bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
         triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] at hrebase
@@ -57,7 +59,7 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
       | Zero zeroDepth =>
         simp at hrebase
         subst action
-        exact horigCache
+        exact horigCache.orig_of_noop (Or.inl hkind)
       | Node baseHash baseLeft baseRight =>
         simp only at hrebase
         have childrenCorrect :
@@ -99,22 +101,29 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
             simpa only [hlengths.2.2.1] using origRightDense
           have hbr : DenseTree factor baseRight child br.val := by
             simpa only [hlengths.2.2.2] using baseRightDense
-          simp only [Tree.CachesOn, Nat.add_sub_cancel] at horigCache
           simp only [Nat.add_sub_cancel] at hbaseChildren
+          have horigKept (hkeep : leftAction.kind.combine rightAction.kind ≠ .equalReplace) :
+              P (.binary (child + 1) (origLeft.elements ++ origRight.elements)) origHash ∧
+                origLeft.RebaseOrigCachesOn ValueInst.corecmpPartialEqInst P baseLeft child ∧
+                  origRight.RebaseOrigCachesOn ValueInst.corecmpPartialEqInst P baseRight child := by
+            have hkept := horigCache.node_kept (fun hreplace => hkeep
+              ((hkind.trans (combineRebaseActions_kind origHash baseHash origLeft origRight
+                baseLeft baseRight leftAction rightAction)).symm.trans hreplace))
+            simpa only [Nat.add_sub_cancel] using hkept
           have hleftContents := Tree.rebase_on_contents_correct ValueInst hlayout
             hnewFull hol hbl (hequality hpointer hdescend).1 ((hhashes hpointer).2 hdescend).1 hleft
           have hrightContents := Tree.rebase_on_contents_correct ValueInst hlayout
             hnewFull hor hbr (hequality hpointer hdescend).2 ((hhashes hpointer).2 hdescend).2 hright
           exact combineRebaseActions_preserves_caches P origHash baseHash origLeft origRight
-            baseLeft baseRight leftAction rightAction child (fun _ => horigCache.1)
+            baseLeft baseRight leftAction rightAction child (fun hkeep => (horigKept hkeep).1)
             (fun hreplace => hbaseCache.base_of_equal_replace
               ((hkind.trans (combineRebaseActions_kind origHash baseHash origLeft origRight
                 baseLeft baseRight leftAction rightAction)).trans hreplace))
             (fun _ => hleftContents.1) (fun _ => hrightContents.1)
-            (fun _ => ihleft hnewFull hol hbl (hequality hpointer hdescend).1
-              ((hhashes hpointer).2 hdescend).1 horigCache.2.1 hbaseChildren.1 hleft)
-            (fun _ => ihright hnewFull hor hbr (hequality hpointer hdescend).2
-              ((hhashes hpointer).2 hdescend).2 horigCache.2.2 hbaseChildren.2 hright)
+            (fun hkeep => ihleft hnewFull hol hbl (hequality hpointer hdescend).1
+              ((hhashes hpointer).2 hdescend).1 (horigKept hkeep).2.1 hbaseChildren.1 hleft)
+            (fun hkeep => ihright hnewFull hor hbr (hequality hpointer hdescend).2
+              ((hhashes hpointer).2 hdescend).2 (horigKept hkeep).2.2 hbaseChildren.2 hright)
         by_cases hpositive : fullDepth > 0#usize
         · rw [if_pos hpositive] at hrebase
           simp [lock_api.rwlock.RwLock.read,
@@ -155,17 +164,18 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     | true =>
       simp at hrebase
       subst action
-      exact horigCache
+      exact horigCache.orig_of_noop (Or.inr hkind)
     | false =>
       simp only [bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
         triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] at hrebase
       cases base <;> simp only at hrebase
       all_goals first
-        | (simp at hrebase <;> subst action <;> exact horigCache)
+        | (simp at hrebase <;> subst action <;>
+            first | trivial | exact horigCache.orig_of_noop (Or.inl hkind))
         | (rw [bind_eq_ok_iff] at hrebase
            obtain ⟨equal, _, hrebase⟩ := hrebase
            cases equal <;> simp at hrebase <;> subst action
-           · exact horigCache
+           · exact horigCache.orig_of_noop (Or.inl hkind)
            · exact hbaseCache.base_of_equal_replace hkind)
 
 end milhouse.tree

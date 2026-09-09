@@ -1,6 +1,7 @@
 import Tree.ProgressiveTree.Rebase.CacheInputs
 import Tree.ProgressiveTree.Rebase.Contents
 import Tree.Rebase.Caches
+import Tree.ProgressiveTree.Rebase.OriginalCaches
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree
@@ -11,7 +12,9 @@ namespace milhouse.progressive_tree
 predicates. Retaining a progressive node's hash is justified by preservation
 of both its binary layer and its complete right suffix. Base validity covers
 only caches selected by binary action categories within the matching layers
-entered after the progressive pointer shortcut. -/
+entered after the progressive pointer shortcut. Original validity covers the
+retained progressive caches and the original binary caches selected by those
+actions. Completed child calls remain available when the parent is reused. -/
 theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
@@ -22,19 +25,21 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
     (hfit : orig.Fits factor depth.val)
     (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
-    (horigCache : orig.CachesOn P depth.val) (hbaseCache : orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base depth.val)
+    (horigCache : orig.RebaseOrigCachesOn ValueInst.corecmpPartialEqInst P base depth.val)
+    (hbaseCache : orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base depth.val)
     (hrebase : ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
       ok (core.result.Result.Ok after)) :
     after.elements = orig.elements ∧ after.CachesOn P depth.val := by
   induction orig generalizing base after depth with
   | ProgressiveZero =>
     cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
-    | same => exact ⟨rfl, horigCache⟩
+    | same _ _ hstop => exact ⟨rfl, horigCache.orig_of_stop hstop⟩
   | ProgressiveNode origHash origLeft origRight ih =>
     cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
-    | same => exact ⟨rfl, horigCache⟩
+    | same _ _ hstop => exact ⟨rfl, horigCache.orig_of_stop hstop⟩
     | @node _ baseHash _ baseLeft _ baseRight newRight start capacity binary fullDepth origLeftLength baseLeftLength next
         action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright hpointer =>
+      have horigSelected := horigCache.1 hpointer
       obtain ⟨hleftFit, hrightFit⟩ := hfit
       have horigLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
         hstart hnext hcapacity hbinary horigLength
@@ -48,7 +53,7 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
         simpa only [hbaseLengthVal] using hbase.split_layer.1
       have hnewLeft := tree.Tree.rebase_on_cache_spec ValueInst hlayout P
         (by omega) horigLeft hbaseLeft (hequality hpointer).1 (hhashes hpointer).1
-        horigCache.2.1 (hbaseCache hpointer).1 hleft
+        horigSelected.2.1 (hbaseCache hpointer).1 hleft
       have hadd := UScalar.add_equiv depth 1#u32
       rw [hnext] at hadd
       simp at hadd
@@ -59,15 +64,16 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
         simpa only [hnextVal] using hbase.right_remainder
       have hnewRight := ih horigRight hbaseRight
         (by simpa only [hnextVal] using hrightFit) (hequality hpointer).2 (hhashes hpointer).2
-        (by simpa only [hnextVal] using horigCache.2.2)
+        (by simpa only [hnextVal] using horigSelected.2.2)
         (by simpa only [hnextVal] using (hbaseCache hpointer).2) hright
       refine ⟨?_, ?_, hnewLeft.2, ?_⟩
       · simp only [ProgressiveTree.elements, hnewLeft.1.1, hnewRight.1]
-      · simpa only [hnewLeft.1.1, hnewRight.1] using horigCache.1
+      · simpa only [hnewLeft.1.1, hnewRight.1] using horigSelected.1
       · simpa only [hnextVal] using hnewRight.2
 
 /-- Public progressive rebasing preserves the materialized sequence and
-every original cache invariant, including retained suffix caches. The base
+establishes cache validity from the retained-original and imported-base laws.
+Original caches discarded by replacement need no retention law. The base
 needs validity only for selected binary caches in reached progressive layers;
 binary no-ops and unused or shared suffixes require no base-cache premise.
 Base progressive caches are never imported, and logical lengths may differ. -/
@@ -80,7 +86,8 @@ theorem ProgressiveTree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     (hfit : orig.Fits factor 0)
     (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
-    (horigCache : orig.CachesOn P 0) (hbaseCache : orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base 0)
+    (horigCache : orig.RebaseOrigCachesOn ValueInst.corecmpPartialEqInst P base 0)
+    (hbaseCache : orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base 0)
     (hrebase : ProgressiveTree.rebase_on ValueInst orig base origLength baseLength =
       ok (core.result.Result.Ok after)) :
     after.elements = orig.elements ∧ after.CachesOn P 0 := by
