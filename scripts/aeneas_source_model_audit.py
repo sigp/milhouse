@@ -18,15 +18,28 @@ TOOLCHAIN = "nightly-2026-06-01"
 
 
 def source_declaration(crate, suite, name, kind="fun_decls"):
-    prefix_key = "type_source_prefix" if kind == "type_decls" else "source_prefix"
-    prefix = [{"Ident": [part, 0]} for part in
-              suite.get(prefix_key, suite.get("source_crate", "core")).split("::")]
+    prefix_key = {"type_decls": "type_source_prefix", "trait_decls": "trait_source_prefix"}.get(
+        kind, "source_prefix")
+    module = suite.get(prefix_key, suite.get("source_crate", "core"))
+    if kind == "fun_decls":
+        module = suite.get("source_prefixes", {}).get(name, module)
+    prefix = [{"Ident": [part, 0]} for part in module.split("::")]
     candidates = [item for item in crate[kind] if item
                   and item["item_meta"]["name"][:len(prefix)] == prefix
                   and item["item_meta"]["name"][-1] == {"Ident": [name, 0]}]
     if len(candidates) != 1:
         raise ValueError(f"Expected one dependency body for {name}")
     return candidates[0]
+
+
+def trait_method_declaration(crate, suite, trait_name, method_name):
+    trait = source_declaration(crate, suite, trait_name, "trait_decls")
+    candidates = [(index, method) for index, method in enumerate(trait["methods"])
+                  if method and method["skip_binder"]["name"] == method_name]
+    if len(candidates) != 1:
+        raise ValueError(f"Expected one source trait method: {trait_name}::{method_name}")
+    index, method = candidates[0]
+    return trait, index, method
 
 
 def check_llbc(data, suite):
@@ -68,15 +81,45 @@ def check_llbc(data, suite):
     return verified
 
 
+def statement_nodes(value):
+    """Find the exact pinned LLBC Statement schema, including nested blocks."""
+    nodes = []
+    if isinstance(value, dict):
+        if set(value) == {"span", "id", "kind", "comments_before"}:
+            nodes.append(value)
+        for child in value.values():
+            nodes.extend(statement_nodes(child))
+    elif isinstance(value, list):
+        for child in value:
+            nodes.extend(statement_nodes(child))
+    return nodes
+
+
 def check_exclusions(original, selected, suite):
-    """Require source declarations to remain identical when omitting unused items."""
+    """Compare complete declarations, optionally reconciling fresh statement IDs."""
     check_llbc(original, suite)
     check_llbc(selected, suite)
+    renumberings = []
     for name in suite["source_files"]:
-        if (source_declaration(original["translated"], suite, name)
-                != source_declaration(selected["translated"], suite, name)):
+        before = source_declaration(original["translated"], suite, name)
+        after = copy.deepcopy(source_declaration(selected["translated"], suite, name))
+        if suite.get("allow_statement_renumbering"):
+            old_nodes, new_nodes = statement_nodes(before["body"]), statement_nodes(after["body"])
+            old_ids, new_ids = [s["id"] for s in old_nodes], [s["id"] for s in new_nodes]
+            if (len(old_ids) != len(new_ids)
+                    or any(type(i) is not int or i < 0 for i in old_ids + new_ids)
+                    or len(set(old_ids)) != len(old_ids) or len(set(new_ids)) != len(new_ids)):
+                raise ValueError(f"Invalid statement-ID correspondence: {name}")
+            changes = []
+            for old, new in zip(old_nodes, new_nodes):
+                if old["id"] != new["id"]:
+                    changes.append({"originalId": old["id"], "selectedId": new["id"]})
+                new["id"] = old["id"]
+            if changes:
+                renumberings.append({"method": name, "statementIds": changes})
+        if before != after:
             raise ValueError(f"Source declaration changed after exclusions: {name}")
-    return list(suite["source_files"])
+    return list(suite["source_files"]), renumberings
 
 
 def check_source_renames(original, renamed, suite):
@@ -108,7 +151,7 @@ def check_source_renames(original, renamed, suite):
 
 
 def check_source_metadata(original, adjusted, suite):
-    """Restore declared root/type metadata, then validate all remaining LLBC."""
+    """Restore declared root/type/trait names, then validate all remaining LLBC."""
     check_llbc(original, suite)
     restored = copy.deepcopy(adjusted)
     retained = []
@@ -155,10 +198,40 @@ def check_source_metadata(original, adjusted, suite):
         candidates[0]["item_meta"]["name"] = copy.deepcopy(meta["name"])
         types.append({"type": name, "extractedType": replacement,
                       "defId": source["def_id"], "source": span})
+    methods = []
+    seen = set()
+    for change in suite.get("rename_trait_methods", []):
+        trait_name, name, replacement = change["trait"], change["method"], change["replacement"]
+        if (trait_name, name) in seen or not re.fullmatch(r"[A-Za-z_]\w*", replacement):
+            raise ValueError("Invalid or duplicate source trait method rename")
+        seen.add((trait_name, name))
+        trait, index, method = trait_method_declaration(original["translated"], suite, trait_name, name)
+        field = method["skip_binder"]
+        for meta in (trait["item_meta"], field["item_meta"]):
+            file = files[meta["span"]["data"]["file_id"]]
+            if (meta["is_local"] is not False or meta["opacity"] != "Transparent"
+                    or file["crate_name"] != suite.get("source_crate", "core")
+                    or file["name"] != {"Local": change["source_file"]}):
+                raise ValueError(f"Missing source trait/method provenance: {trait_name}::{name}")
+        if (method["kind"] != {"TraitMethod": [trait["def_id"], index]}
+                or field["item_meta"]["name"] != trait["item_meta"]["name"] + [{"Ident": [name, 0]}]
+                or any(m and m["skip_binder"]["name"] == replacement for m in trait["methods"])):
+            raise ValueError(f"Invalid or colliding source trait method: {trait_name}::{name}")
+        renamed_trait, renamed_index, renamed_method = trait_method_declaration(
+            restored["translated"], suite, trait_name, replacement)
+        expected_name = trait["item_meta"]["name"] + [{"Ident": [replacement, 0]}]
+        if (renamed_trait["def_id"] != trait["def_id"] or renamed_index != index
+                or renamed_method["skip_binder"]["item_meta"]["name"] != expected_name):
+            raise ValueError(f"Missing or incorrect trait method rename: {trait_name}::{name}")
+        renamed_method["skip_binder"]["name"] = name
+        renamed_method["skip_binder"]["item_meta"]["name"] = copy.deepcopy(field["item_meta"]["name"])
+        methods.append({"trait": trait_name, "method": name, "extractedMethod": replacement,
+                        "traitDefId": trait["def_id"], "methodId": index,
+                        "source": field["item_meta"]["span"]["data"]})
     # This restores any separately declared function renames and compares the
     # entire result, including code, types, IDs, dictionaries, and source spans.
     renames = check_source_renames(original, restored, suite)
-    return renames, retained, types
+    return renames, retained, types, methods
 
 
 def check_axiom_output(output, proofs):
@@ -255,6 +328,7 @@ def main(suite):
                     suite["crate"], str(sources / "source.rs")]
     exclusions = suite.get("excludes", [])
     unchanged = []
+    statement_renumberings = []
     if exclusions:
         run("charon-unfiltered", command, cwd=work)
         original = json.loads(llbc.read_text())
@@ -265,11 +339,13 @@ def main(suite):
     selected = json.loads(llbc.read_text())
     provenance = check_llbc(selected, suite)
     if exclusions:
-        unchanged = check_exclusions(original, selected, suite)
+        unchanged, statement_renumberings = check_exclusions(original, selected, suite)
     renames = []
     retained = []
     type_renames = []
-    if any(suite.get(key) for key in ("rename_sources", "retain_sources", "rename_source_types")):
+    method_renames = []
+    if any(suite.get(key) for key in ("rename_sources", "retain_sources", "rename_source_types",
+                                     "rename_trait_methods")):
         renamed = copy.deepcopy(selected)
         for name, replacement in suite.get("rename_sources", {}).items():
             source_declaration(renamed["translated"], suite, name)["item_meta"]["name"][-1] = {
@@ -279,11 +355,17 @@ def main(suite):
         for name, replacement in suite.get("rename_source_types", {}).items():
             source_declaration(renamed["translated"], suite, name, "type_decls")["item_meta"]["name"][-1] = {
                 "Ident": [replacement, 0]}
+        for change in suite.get("rename_trait_methods", []):
+            _, _, method = trait_method_declaration(renamed["translated"], suite,
+                                                    change["trait"], change["method"])
+            method["skip_binder"]["name"] = change["replacement"]
+            method["skip_binder"]["item_meta"]["name"][-1] = {"Ident": [change["replacement"], 0]}
         original_name = "original-metadata.llbc" if (suite.get("retain_sources")
-            or suite.get("rename_source_types")) else "original-names.llbc"
+            or suite.get("rename_source_types") or suite.get("rename_trait_methods")) else "original-names.llbc"
         shutil.copyfile(llbc, work / original_name)
         llbc.write_text(json.dumps(renamed) + "\n")
-        renames, retained, type_renames = check_source_metadata(selected, json.loads(llbc.read_text()), suite)
+        renames, retained, type_renames, method_renames = check_source_metadata(
+            selected, json.loads(llbc.read_text()), suite)
     run("aeneas", [args.aeneas, "-backend", "lean", "-namespace", suite["namespace"],
                    "-split-files", "-no-progress-bar", "-dest", str(work / suite["namespace"]),
                    str(llbc)], cwd=work)
@@ -312,8 +394,10 @@ def main(suite):
         "versions": versions, "inputSha256": hashes, "runDirectory": str(work),
         "dependencySources": dependency_sources,
         "excludedItems": exclusions, "unchangedSourceDeclarations": unchanged,
+        "sourceStatementRenumberings": statement_renumberings,
         "sourceNameChanges": renames,
         "retainedSourceBodies": retained, "sourceTypeNameChanges": type_renames,
+        "sourceTraitMethodNameChanges": method_renames,
         "directSourceComparisons": provenance, "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,

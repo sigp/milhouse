@@ -187,4 +187,29 @@ mod tests {
             assert_eq!(CALLS.get(), 1);
         }
     }
+
+    struct PanicHint;
+
+    impl<'a> Arbitrary<'a> for PanicHint {
+        fn arbitrary(_: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+            panic!("hint queries must not generate values")
+        }
+
+        fn size_hint(_: usize) -> (usize, Option<usize>) {
+            CALLS.set(CALLS.get() + 1);
+            panic!("size-hint panic sentinel")
+        }
+    }
+
+    #[test]
+    fn try_hint_default_preserves_callback_panic() {
+        CALLS.set(0);
+        assert!(
+            std::panic::catch_unwind(|| {
+                let _ = try_size_hint::<PanicHint>(usize::MAX);
+            })
+            .is_err()
+        );
+        assert_eq!(CALLS.get(), 1);
+    }
 }

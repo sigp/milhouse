@@ -77,4 +77,42 @@ theorem control_agrees (input : Slice U8) :
   | nil => simp [core.result.Result.Insts.CoreOpsTry.branch, lift, resultToModel, milhouse.arbitrary.nextControl, Slice.drop]
   | cons byte rest => simp [core.result.Result.Insts.CoreOpsTry.branch, lift, resultToModel, milhouse.arbitrary.nextControl, Slice.drop, low_bit]
 
+private def errorFromModel : milhouse.arbitrary.error.Error → ArbitrarySource.arbitrary.error.SourceError
+  | .EmptyChoose => .EmptyChoose
+  | .NotEnoughData => .NotEnoughData
+  | .IncorrectFormat => .IncorrectFormat
+
+private def resultFromModel {T : Type} : core.result.Result T milhouse.arbitrary.error.Error →
+    core.result.Result T ArbitrarySource.arbitrary.error.SourceError
+  | .Ok value => .Ok value
+  | .Err error => .Err (errorFromModel error)
+
+/-- The complete callback dictionary, changing only input/error representations.
+No generator, hint, or owning-input callback is replaced by a constant. -/
+private def dictionaryToSource {T : Type} (inst : milhouse.arbitrary.Arbitrary T) :
+    ArbitrarySource.arbitrary.Arbitrary T where
+  generate_source := fun input => do
+    let (value, after) ← inst.arbitrary input.data
+    ok (resultFromModel value, { data := after })
+  arbitrary_take_rest := fun input => do
+    let value ← inst.arbitrary_take_rest input.data
+    ok (resultFromModel value)
+  size_hint := inst.size_hint
+  try_size_hint := inst.try_size_hint
+
+/-- The source default ignores all callbacks and every depth. -/
+theorem size_hint_default_agrees {T : Type} (inst : milhouse.arbitrary.Arbitrary T)
+    (depth : Usize) :
+    ArbitrarySource.arbitrary.Arbitrary.size_hint.default T depth =
+      milhouse.arbitrary.Arbitrary.size_hint.default inst depth := by rfl
+
+/-- The source default calls the actual size-hint callback, preserving arbitrary
+success, failure, and divergence, with no consistency or termination premise. -/
+theorem try_size_hint_default_agrees {T : Type} (inst : milhouse.arbitrary.Arbitrary T)
+    (depth : Usize) :
+    ArbitrarySource.arbitrary.Arbitrary.try_size_hint.default (dictionaryToSource inst) depth =
+      milhouse.arbitrary.Arbitrary.try_size_hint.default inst depth := by rfl
+
 #print axioms control_agrees
+#print axioms size_hint_default_agrees
+#print axioms try_size_hint_default_agrees
