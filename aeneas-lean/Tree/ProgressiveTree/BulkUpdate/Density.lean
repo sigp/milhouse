@@ -2,6 +2,7 @@ import Tree.BulkUpdate.Density
 import Tree.ProgressiveTree.BulkUpdate.Range
 import Tree.ProgressiveTree.BulkUpdate.Steps
 import Tree.ProgressiveTree.BulkUpdate.LayerRangeScope
+import Tree.ProgressiveTree.BulkUpdate.LayerSkippedExtents
 import Tree.ProgressiveTree.Iter.Layer
 
 open Aeneas Aeneas.Std Result
