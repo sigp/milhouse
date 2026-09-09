@@ -107,6 +107,7 @@ import Tree.ProgressiveTree.Builder.SpineSuccess
 import Tree.ProgressiveTree.Builder.FinishSuccess
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveTree.BulkUpdate.Density
+import Tree.ProgressiveTree.BulkUpdate.Success
 import Tree.ProgressiveTree.Rebase.Density
 import Tree.ProgressiveTree.Rebase.Contents
 import Tree.ProgressiveList
