@@ -135,6 +135,16 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The base-cache premise of all eleven public rebase cache/validity contracts is
+now `RebaseBaseCachesOn`: validity is required only in matching progressive
+layers entered after pointer checks. Missing and shared suffixes are omitted;
+adapters recover the new law from the earlier full-base invariants. The
+progressive preservation and finite-collision proofs use the same scope.
+Validity within each selected binary layer is still required. At `1547078`
+(foundation `e512df3`), focused and full builds pass (2,038 jobs), and the
+axiom/import audit covers 5,141 declarations across 322 modules with no new
+axioms or admissions and the same 62 pointer-contract dependencies.
+
 Packed rebase soundness now constrains elements only if every paired `ne`
 call returns false. `Rebase/PackedSoundness.lean` proves that this guarded
 element law, conditional on equal vector lengths, is necessary and sufficient

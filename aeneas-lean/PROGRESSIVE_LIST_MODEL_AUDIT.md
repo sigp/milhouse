@@ -376,6 +376,18 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- `RebaseBaseCachesOn` now limits base validity to binary caches in matching
+  progressive layers entered after pointer checks. It omits missing and
+  shared suffixes and is implied by the previous full-base invariants.
+  Progressive preservation, the finite-collision bridge, and all eleven
+  public rebase cache/validity contracts use the weaker law. Binary-cache
+  validity inside each selected layer still needs assumption review.
+  At `1547078` (foundation `e512df3`), the full build passes (2,038 jobs), and
+  the axiom/import audit covers 5,141 declarations across 322 modules with
+  no new axioms or admissions. The 62 pointer-contract dependencies are
+  unchanged. This proof-only change does not establish additional model
+  fidelity; Rust/extraction/models are unchanged, and neither source suites
+  nor the 42-root/151-declaration dependency gate were repeated.
 - Packed rebase equality now uses `NeSoundIfAllFalse`: element agreement is
   needed only when every paired `ne` returns false. The guarded law is proved
   necessary and sufficient for sound positive vector equality, conditional
