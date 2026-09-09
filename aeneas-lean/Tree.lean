@@ -52,6 +52,7 @@ import Tree.ProgressiveList.Encode.VariableLoop
 import Tree.ProgressiveList.Encode.Variable
 import Tree.ProgressiveList.Encode.Owning
 import Tree.ProgressiveList.Decode.Entry
+import Tree.ProgressiveList.Decode.InitialErrors
 import Tree.ProgressiveList.Decode.ErrorMessages
 import Tree.ProgressiveList.Decode.Finish
 import Tree.ProgressiveList.Decode.State
