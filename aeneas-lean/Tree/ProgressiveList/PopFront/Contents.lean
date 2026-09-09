@@ -1,5 +1,4 @@
-import Tree.ProgressiveList.PopFront.State
-import Tree.ProgressiveList.Backing
+import Tree.ProgressiveList.PopFront.Clones
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -47,32 +46,23 @@ theorem ProgressiveList.pop_front_spec {T U : Type}
     (hpop : ProgressiveList.pop_front ValueInst mapInst self n = ok (core.result.Result.Ok (), result)) :
     result.Represents ValueInst mapInst (contents.drop n.val) ∧ result.BackingValid factor ∧
       (n ≠ 0#usize → ProgressiveList.has_pending_updates ValueInst mapInst result = ok false) := by
-  rcases ProgressiveList.pop_front_success_state ValueInst mapInst self n hpop with
-    ⟨rfl, rfl⟩ | ⟨hnonzero, beforeLength, cursor, initial, built, output, length, updates,
-      hlen, hindex, hiter, hnew, hextend, hfinish, hmap, rfl⟩
-  · exact ⟨by simpa using hrep, hbacking, by simp⟩
-  · have hlayout := hlayout hnonzero
-    obtain ⟨observedLength, hobserved, hcontentsLength⟩ := hrep.1
-    rw [hlen] at hobserved
-    cases hobserved
-    have hbound : n.val ≤ contents.length := by scalar_tac
-    obtain ⟨actualCursor, hactual, _, _, hyields⟩ :=
-      ProgressiveList.iter_from_spec ValueInst mapInst hlayout self contents n hrep hbacking.1 hbacking.2 hbound
-    rw [hiter] at hactual
-    cases hactual
-    have hinitial := ProgressiveTreeBuilder.new_valid ValueInst hlayout hnew
-    have hbuilt := ProgressiveListIter.extend_builder_preserves_valid ValueInst mapInst cursor initial hinitial hextend
-    obtain ⟨helements, _⟩ := ProgressiveListIter.extend_builder_contents ValueInst mapInst cursor initial
-      (contents.drop n.val) hyields (hclone hnonzero) hextend
-    have hempty := (ProgressiveTreeBuilder.new_elements ValueInst hnew).1
-    obtain ⟨houtput, _, hdense, hfits⟩ := ProgressiveTreeBuilder.finish_spec ValueInst built hbuilt hfinish
-    have hcontents : output.elements = contents.drop n.val := by
-      rw [houtput, helements, hempty, _root_.List.nil_append]
-    obtain ⟨hget, hmax, hemptyMap⟩ := hdefault hnonzero updates hmap
-    refine ⟨?_, ⟨hdense, hfits⟩, ?_⟩
-    · rw [← hcontents]
-      exact ProgressiveList.represents_of_dense_backing ValueInst mapInst hlayout _ hdense hfits hget hmax
-    · intro _
-      exact ProgressiveList.has_pending_updates_spec ValueInst mapInst _ true hemptyMap
+  by_cases hzero : n = 0#usize
+  · subst n
+    have heq : self = result := by
+      simpa only [ProgressiveList.pop_front_zero, ok.injEq, Prod.mk.injEq, true_and] using hpop
+    subst result
+    exact ⟨by simpa using hrep, hbacking, by simp⟩
+  · obtain ⟨_, hclones, _, hmap, hvalid⟩ := ProgressiveList.pop_front_nonzero_clones
+      ValueInst mapInst (hlayout hzero) self contents n hrep hbacking hzero hpop
+    have hidentity := milhouse_models.list_clone_identity ValueInst.corecloneCloneInst
+      (contents.drop n.val) (hclone hzero)
+    have helements : result.tree.elements = contents.drop n.val :=
+      Result.ok.inj (hclones.symm.trans hidentity)
+    obtain ⟨hget, hmax, hempty⟩ := hdefault hzero result.updates hmap
+    refine ⟨?_, hvalid, fun _ => ProgressiveList.has_pending_updates_spec
+      ValueInst mapInst result true hempty⟩
+    rw [← helements]
+    exact ProgressiveList.represents_of_dense_backing ValueInst mapInst (hlayout hzero)
+      result hvalid.1 hvalid.2 hget hmax
 
 end milhouse.progressive_list
