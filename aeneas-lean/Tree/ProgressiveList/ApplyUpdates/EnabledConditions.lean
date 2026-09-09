@@ -127,4 +127,115 @@ theorem ProgressiveList.apply_updates_nonempty_success_valid_materializes_repres
         hafter.1 hafter.2 hlength).mpr ?_⟩
     simpa only [hdefaults, helements, hlength] using And.intro hextent hoverlay
 
+/-- Both branches can produce valid, exactly materialized backing under
+weaker start laws. The no-op requires already valid, materialized input;
+rebuilding requires capacity, positive selection, skipped-value agreement,
+and a successful default. Branch termination is not assumed. -/
+theorem ProgressiveList.apply_updates_success_valid_materializes_iff_of_enabled {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hrep : mapInst.is_empty self.updates = ok false → self.Represents ValueInst mapInst contents)
+    (hbacking : mapInst.is_empty self.updates = ok false → self.BackingValid factor)
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkCloneLaws ValueInst mapInst self.updates factor maximum 0#u32)
+    (hqueries : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkRangeOn
+          (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+          ValueInst mapInst self.updates factor maximum 0#u32)
+    (henabled : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkLayerEnabled ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrange : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+          ValueInst mapInst self.updates factor maximum 0#u32) :
+    (∃ result, ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result) ∧
+      result.BackingValid factor ∧ result.tree.elements = contents) ↔
+      (mapInst.is_empty self.updates = ok true ∧ self.BackingValid factor ∧ self.tree.elements = contents) ∨
+        (mapInst.is_empty self.updates = ok false ∧ ProgressiveTree.LengthFits factor contents.length ∧
+          (∀ maximum, mapInst.max_index self.updates = ok maximum →
+            self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+              ValueInst mapInst self.updates maximum 0#u32 ∧
+            self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 ∧
+            self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32) ∧
+          ∃ defaults, mapInst.coredefaultDefaultInst.default = ok defaults) := by
+  constructor
+  · rintro ⟨result, happly, hafter, helements⟩
+    rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
+      ⟨hempty, rfl⟩ | ⟨defaults, length, newTree, hempty, _⟩
+    · exact Or.inl ⟨hempty, hafter, helements⟩
+    · exact Or.inr ⟨hempty,
+        (ProgressiveList.apply_updates_nonempty_success_valid_materializes_iff_of_enabled
+          ValueInst mapInst self contents (hlayout hempty) (hclone hempty) (hqueries hempty)
+          (henabled hempty) (hrange hempty) (hrep hempty) (hbacking hempty) hempty).mp
+          ⟨result, happly, hafter, helements⟩⟩
+  · rintro (⟨hempty, hafter, helements⟩ | ⟨hempty, hconditions⟩)
+    · exact ⟨self, ProgressiveList.apply_updates_empty ValueInst mapInst self hempty,
+        hafter, helements⟩
+    · exact (ProgressiveList.apply_updates_nonempty_success_valid_materializes_iff_of_enabled
+        ValueInst mapInst self contents (hlayout hempty) (hclone hempty) (hqueries hempty)
+        (henabled hempty) (hrange hempty) (hrep hempty) (hbacking hempty) hempty).mpr hconditions
+
+/-- Exact existence criterion for valid materialization and representation
+on both branches. The no-op uses the input representation and valid stored
+contents; rebuilding additionally needs an actual default outcome with the
+exact extent and overlay. Pending emptiness remains independent. -/
+theorem ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_enabled {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : mapInst.is_empty self.updates = ok false → self.BackingValid factor)
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkCloneLaws ValueInst mapInst self.updates factor maximum 0#u32)
+    (hqueries : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkRangeOn
+          (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+          ValueInst mapInst self.updates factor maximum 0#u32)
+    (henabled : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkLayerEnabled ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrange : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+          ValueInst mapInst self.updates factor maximum 0#u32) :
+    (∃ result, ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result) ∧
+      result.BackingValid factor ∧ result.tree.elements = contents ∧ result.Represents ValueInst mapInst contents) ↔
+      (mapInst.is_empty self.updates = ok true ∧ self.BackingValid factor ∧ self.tree.elements = contents) ∨
+        (mapInst.is_empty self.updates = ok false ∧ ProgressiveTree.LengthFits factor contents.length ∧
+          (∀ maximum, mapInst.max_index self.updates = ok maximum →
+            self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+              ValueInst mapInst self.updates maximum 0#u32 ∧
+            self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 ∧
+            self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32) ∧
+          ∃ defaults, mapInst.coredefaultDefaultInst.default = ok defaults ∧
+          (∃ largest, mapInst.max_index defaults = ok largest ∧
+            largest.elim contents.length (fun index => max (index.val + 1) contents.length) = contents.length) ∧
+          ProgressiveListIter.Overlay mapInst defaults contents contents) := by
+  constructor
+  · rintro ⟨result, happly, hafter, helements, hresult⟩
+    rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
+      ⟨hempty, rfl⟩ | ⟨defaults, length, newTree, hempty, _⟩
+    · exact Or.inl ⟨hempty, hafter, helements⟩
+    · exact Or.inr ⟨hempty,
+        (ProgressiveList.apply_updates_nonempty_success_valid_materializes_represents_iff_of_enabled
+          ValueInst mapInst self contents (hlayout hempty) (hclone hempty) (hqueries hempty)
+          (henabled hempty) (hrange hempty) hrep (hbacking hempty) hempty).mp
+          ⟨result, happly, hafter, helements, hresult⟩⟩
+  · rintro (⟨hempty, hafter, helements⟩ | ⟨hempty, hconditions⟩)
+    · exact ⟨self, ProgressiveList.apply_updates_empty ValueInst mapInst self hempty,
+        hafter, helements, hrep⟩
+    · exact (ProgressiveList.apply_updates_nonempty_success_valid_materializes_represents_iff_of_enabled
+        ValueInst mapInst self contents (hlayout hempty) (hclone hempty) (hqueries hempty)
+        (henabled hempty) (hrange hempty) hrep (hbacking hempty) hempty).mpr hconditions
+
 end milhouse.progressive_list
