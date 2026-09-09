@@ -4,6 +4,7 @@ import Tree.PackingDepth
 import Tree.Arbitrary.Generation
 import Tree.Arbitrary.Reflection
 import Tree.ProgressiveList.Arbitrary.Behavior
+import Tree.ProgressiveList.Arbitrary.Overlay
 import Tree.ProgressiveList.Arbitrary.Generated
 import Tree.ProgressiveList.Arbitrary.Total
 import Tree.ProgressiveList.Arbitrary.Traits
