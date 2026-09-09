@@ -165,6 +165,43 @@ theorem ProgressiveList.apply_updates_idempotent {T U : Type}
   exact ProgressiveList.apply_updates_empty ValueInst mapInst result
     (ProgressiveList.updates_empty_after_apply_updates ValueInst mapInst self hdefault happly)
 
+/-- After successful application, equality of the complete logical-length
+results is equivalent to the installed map preserving the new backing extent
+on the actual nonempty branch. No representation, packing, clone, range, or
+successful metadata premise is needed; the empty branch preserves even an
+unsuccessful length result by leaving the original list unchanged. -/
+theorem ProgressiveList.len_after_apply_updates_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
+    ProgressiveList.len ValueInst mapInst result = ProgressiveList.len ValueInst mapInst self ↔
+      (mapInst.is_empty self.updates = ok false →
+        ∃ largest, mapInst.max_index result.updates = ok largest ∧
+          largest.elim result.length.val
+            (fun index => max (index.val + 1) result.length.val) = result.length.val) := by
+  rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
+    ⟨htrue, rfl⟩ | ⟨defaults, length, newTree, hempty, _, hlength, _, rfl⟩
+  · constructor
+    · intro _ hfalse
+      rw [htrue] at hfalse
+      cases hfalse
+    · intro _
+      rfl
+  · have hbefore : ProgressiveList.len ValueInst mapInst self = ok length := by
+      rw [ProgressiveList.len_eq_updated_length]
+      exact hlength
+    constructor
+    · intro hlen _
+      have hafter := hlen.trans hbefore
+      rw [ProgressiveList.len_eq_updated_length] at hafter
+      exact (utils.updated_length_eq_ok_iff mapInst length defaults length).mp hafter
+    · intro hmax
+      have hafter : ProgressiveList.len ValueInst mapInst
+          { tree := newTree, length, updates := defaults } = ok length := by
+        rw [ProgressiveList.len_eq_updated_length]
+        exact (utils.updated_length_eq_ok_iff mapInst length defaults length).mpr (hmax hempty)
+      exact hafter.trans hbefore.symm
+
 /-- Successful application preserves the logical length. On the nonempty
     branch, the default map needs only to report no maximum index; no
     precondition on the old length or tree contents is needed. -/
@@ -178,10 +215,12 @@ theorem ProgressiveList.len_after_apply_updates {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     ProgressiveList.len ValueInst mapInst result =
       ProgressiveList.len ValueInst mapInst self := by
+  apply (ProgressiveList.len_after_apply_updates_iff ValueInst mapInst self happly).mpr
+  intro hempty
   rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨_, rfl⟩ | ⟨defaults, length, tree, hempty, hd, hlength, _, rfl⟩
-  · rfl
-  · rw [ProgressiveList.len_of_no_max_index ValueInst mapInst _ (hdefault hempty defaults hd),
-      ProgressiveList.len_eq_updated_length, hlength]
+    ⟨htrue, _⟩ | ⟨defaults, length, tree, _, hd, _, _, rfl⟩
+  · rw [hempty] at htrue
+    cases htrue
+  · exact ⟨none, hdefault hempty defaults hd, rfl⟩
 
 end milhouse.progressive_list
