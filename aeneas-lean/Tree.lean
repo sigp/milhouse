@@ -55,6 +55,8 @@ import Tree.Rebase.ContentInputs
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.Rebase.PackedSoundness
+import Tree.Rebase.SelectedKind
+import Tree.Rebase.SelectedKindReflection
 import Tree.Rebase.KindReflection
 import Tree.Rebase.CacheInputs
 import Tree.Rebase.CacheReflection
