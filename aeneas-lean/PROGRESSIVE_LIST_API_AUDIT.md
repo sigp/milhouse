@@ -98,8 +98,8 @@ trait has no additional in-place default. Ordinary Serde does.
 | `Serialize::serialize` | Out of scope. Historical Serde protocol findings: issue 20 |
 | `Deserialize::deserialize` | Out of scope. Historical visitor/sequence and error-order findings: issues 20 and 22 |
 | `Deserialize::deserialize_in_place` | Out of scope, including the inherited default. Historical source audit: issue 20 |
-| `Arbitrary::arbitrary` | `ProgressiveList.arbitrary_total_spec`; feature `arbitrary` |
-| `Arbitrary::arbitrary_take_rest` | `ProgressiveList.arbitrary_take_rest_total_spec`; actual default, not Vec's override |
+| `Arbitrary::arbitrary` | `ProgressiveList.arbitrary_total_spec_of_overlay`, `ProgressiveList.arbitrary_success_spec_of_overlay`, `ProgressiveList.arbitrary_represents_iff`, `ProgressiveList.arbitrary_success_represents_iff`, `ProgressiveList.arbitrary_success_iff_inputs`; feature `arbitrary` |
+| `Arbitrary::arbitrary_take_rest` | `ProgressiveList.arbitrary_take_rest_total_spec_of_overlay`, `ProgressiveList.arbitrary_take_rest_represents_iff`, `ProgressiveList.arbitrary_take_rest_success_represents_iff`, `ProgressiveList.arbitrary_take_rest_success_iff_inputs`; actual owning trait default, with its discarded final input recovered from the ordinary generator |
 | `Arbitrary::size_hint` | `ProgressiveList.arbitrary_size_hint` |
 | `Arbitrary::try_size_hint` | `ProgressiveList.arbitrary_try_size_hint` |
 | `ContextDeserialize::context_deserialize` | Out of scope as Serde-based context deserialization, including its visitor/seed protocol; feature `context_deserialize`, issue 22 |
@@ -135,6 +135,28 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+`Arbitrary/Overlay.lean` gives the actual default map's exact representation
+criterion, and `Conditions.lean` combines finite control/element traces,
+occupied-layer `LengthFits`, and default outcomes for exact public success
+and sequence-preservation criteria. Neither trace nor default success is a
+premise. `Traits.lean` proves the corresponding criteria for the actual owning
+default, recovering the final input discarded by its ordinary generator call.
+Element generators may consume, retain, or replace input. Generalized total
+and successful-state contracts derive representation and valid backing/spine
+under exact overlay/extent laws; pending emptiness supplies only its observer.
+Existing empty-map contracts remain adapters. Owning integration is `16befa3`,
+ordinary success and total contracts `f93004f`, and representation foundation
+`b8f058f`. Packing geometry, remaining premise minimality, and external-model
+source fidelity remain separate obligations.
+
+Focused and full builds pass (2,084 jobs). The axiom/import audit covers
+5,547 declarations across 368 modules: 5,428 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All nine new lemmas use only
+standard Lean axioms; external axiom use is unchanged. No new axiom or
+admission was introduced, and `size_of` remains unused. Borrowed CoW and the
+remaining assumption/model-fidelity audit are unfinished. Debug and Serde
+remain excluded; TreeHash is deferred outside the current goal.
+
 `Decode/Overlay.lean` gives exact default-map overlay and extent conditions
 for representation of the actual decoded sequence. `OverlayTotal.lean`
 combines them with actual input-bound payload consumption and occupied-layer
@@ -148,7 +170,8 @@ metadata; `represents_nil_iff` independently proves the empty sequence's exact
 zero-length, absent-maximum, and absent-read conditions without tree or packing
 premises. Public format integration is `decd3f9` (trace criteria `5c49998`,
 representation foundation `5b8202a`). Geometry, codec-premise, and model-fidelity
-review remain separate obligations; Arbitrary's default-map audit remains open.
+review remain separate obligations. The subsequent Arbitrary checkpoint above
+extends the default-map criteria to both generator entry points.
 
 Focused and full builds pass (2,082 jobs). The axiom/import audit covers
 5,538 declarations across 366 modules: 5,419 use only standard Lean axioms or

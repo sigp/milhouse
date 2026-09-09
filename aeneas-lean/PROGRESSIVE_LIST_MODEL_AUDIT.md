@@ -376,6 +376,28 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Both Arbitrary generator entry points now have exact representation and
+  success criteria using the actual default map's overlay/extent, finite
+  control/element traces, and occupied-layer `LengthFits`. The successful
+  trace retains the actual final input; the owning default existentially
+  recovers the state discarded by its ordinary generator call. No trace,
+  successful default construction, element-consumption law, or size hint is
+  assumed by the equivalences. Generalized total and successful-state
+  contracts derive representation and valid backing/spine, using pending
+  emptiness only for its observer. Existing empty-map contracts are adapters.
+  Owning integration is `16befa3`, ordinary success and total contracts
+  `f93004f`, and representation foundation `b8f058f`. These results audit
+  default-map laws under the stated layout and external generator model;
+  they do not complete geometry/premise minimality or source-fidelity review.
+  Borrowed CoW remains open. The full build passes (2,084 jobs), and the
+  axiom/import audit covers 5,547 declarations across 368 modules: 5,428 use
+  only standard Lean axioms or none, and 119 use the existing pointer contract.
+  All nine new lemmas use only standard Lean axioms; external axiom use is
+  unchanged. No new axiom or admission was introduced, and `size_of` remains
+  unused. No Rust, extraction, external model, or Aeneas source changed. The
+  seven source suites and 42-root/151-declaration dependency gate were not
+  repeated for this proof-only work. Debug and Serde remain excluded; TreeHash
+  remains deferred.
 - Public decoding now has exact default-map representation and success
   criteria tied to actual consumed payloads. The trace total contract derives
   execution, represented contents, valid backing, exact stored values/count,
@@ -393,9 +415,10 @@ check also pass.
   external axiom use is unchanged. No new axiom or admission was introduced,
   and `size_of` remains unused. These proofs audit default-map laws under the
   stated packing and decoding premises; they do not finish geometry, codec-
-  premise, or external-model fidelity review. Arbitrary's default-map audit
-  and borrowed CoW remain open. No Rust, extraction, external model, or Aeneas
-  source changed. The seven source suites and 42-root/151-declaration dependency
+  premise, or external-model fidelity review. At that checkpoint, Arbitrary's
+  default-map audit and borrowed CoW remained open. No Rust, extraction,
+  external model, or Aeneas source changed. The seven source suites and
+  42-root/151-declaration dependency
   gate were not repeated for this proof-only work. Debug and Serde remain
   excluded; TreeHash remains deferred.
 - All four sequence constructors now have exact success and representation

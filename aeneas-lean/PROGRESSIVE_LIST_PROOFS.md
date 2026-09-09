@@ -81,10 +81,27 @@ points and records the trusted boundaries that still need fidelity review.
 | `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | `Decode/Overlay.lean` characterizes successful representation by the actual default map's overlay and logical extent. `OverlayTotal.lean` proves exact success and representation criteria from a complete input-bound payload trace, occupied-layer `LengthFits`, and an actual default outcome with those laws; its total contract derives execution, represented contents, valid backing, exact stored sequence/count, and installed map. Pending emptiness is a separate observer law. `Trace.lean` and `PublicTrace.lean` recover the actual per-occurrence payload trace and stored state without supplied parser, canonical-encoding, codec, packing, or map laws; supplied complete traces agree with execution. `Conditions.lean` retains the execution-only criterion. `FixedTotal.lean` and `VariableTotal.lean` provide canonical-byte total contracts with the exact map conditions, and the existing empty-map contracts are adapters. Empty input bypasses element metadata and packing; fixed positivity/capacity remain conditional on nonempty contents. `PayloadFixed.lean` and `PayloadVariable.lean` retain constructive per-occurrence contracts, including distinct encodings of equal values, empty variable payloads, and an accepted short final fixed chunk. `FixedRoundtrip.lean` and `VariableRoundtrip.lean` compose actual owning encoding and public decoding, preserving the merged sequence and every indexed read while clearing pending updates. `Decode/Success.lean` proves streaming construction terminates with the exact decoded prefix and retained error. `ProgressiveTree/LengthFits.lean` and `Builder/PushLength.lean` derive every rollover bound from representability of the final sequence; fixed decoding retains this condition for general element widths, while the variable offset table supplies it internally. `Backing.lean` proves backing validity after any successful public decode without element-codec or parser laws. The cursor modules derive parsing from canonical bytes, including 32-bit bounds only on emitted offsets. `Decode/Entry.lean` covers metadata, empty input, zero fixed width, and short variable prefixes; `Ssz/VariableInit.lean` covers first-offset bounds/alignment/zero errors in the actual check order. `Decode/ErrorMessages.lean` proves exact builder-error text; `Ssz/ReadOffset.lean` proves four-byte reads and canonical offset roundtrips. Streaming bodies extract with the real error enum and local external models (UPSTREAM_BUGS issue 19); differential release tests cover error order and partial-builder finalization. `Decode/InitialErrors.lean` derives public first-offset bounds, alignment, and zero errors from raw offset bytes without packing, map, or element laws. `Decode/FixedErrors.lean` returns the first invalid element error after an arbitrary successful prefix, covering short final chunks and unconstrained bytes after a full-width invalid element. `Decode/VariableErrors.lean` derives second-offset fixed-section/bounds errors and third-offset decreasing errors directly from bytes, with exact element/error order. `Decode/ErrorResult.lean` propagates arbitrary cursor error traces through actual successful prefix finalization; `Ssz/DecodedLength.lean` derives variable prefix capacity from the table even for malformed input. `Ssz/VariablePrefix.lean`, `VariablePrefixErrors.lean`, and `VariableElementErrors.lean` derive every prefix step from raw table and payload bytes. `Decode/VariablePrefixErrors.lean` and `VariableElementErrors.lean` return the exact malformed-offset or element error after any successful prefix, including empty final payloads. `Decode/PayloadErrors.lean` generalizes both formats to per-entry payload bytes: equal values may have distinct accepted encodings, with no canonical-encoding assumption. `Ssz/PayloadTrace.lean` erases proof-level byte annotations to recover the exact original decoder trace. All public prefix-error results establish actual parser and builder behavior internally; later bytes and decoder calls are unconstrained. `Decode/Caches.lean` proves every successful public decoder initializes cleared caches, also covering partial lists finalized after streaming element errors, without parser, packing, map, element, or finiteness laws. |
 | `Serialize`, `Deserialize`, `Deserialize::deserialize_in_place` | Out of scope | Explicitly excluded from the proof goal, including the inherited in-place default and visitor/sequence protocols. Historical extraction and source-audit findings are retained in UPSTREAM_BUGS issues 20 and 22. These implementations are not claimed proved. |
 | Context deserialization feature | Out of scope | Serde-based `ContextDeserialize` and its contextual visitor/seed protocol are explicitly excluded from the proof goal. Historical extraction findings are retained in UPSTREAM_BUGS issue 22. This implementation is not claimed proved. |
-| `Arbitrary` feature | Successful generation establishes a valid backing tree and length | `Arbitrary/Behavior.lean` proves every successful actual generator stores the exact generated backing sequence and length and establishes `BackingValid`, without element-generation or default-map laws. `Generated.lean` derives the actual finite control/element trace from every successful call and proves indexed representation, valid backing/spine, and no pending updates under packing and empty-default-map laws. `Total.lean` proves actual generation and construction succeed along finite element traces; occupied-layer `LengthFits` is necessary and sufficient for success under a terminating default map. First element errors propagate unchanged with their consumed input and need no construction laws; constructor errors map to `IncorrectFormat`. `Traits.lean` proves both size-hint methods at every depth and the actual owning-input default, including its total representation and successful backing guarantees. The feature and all four trait entry points are extracted. `Tree/Arbitrary/Models.lean`, `Generation.lean`, and `Reflection.lean` model and prove pinned external Vec collection, including even stopping-byte consumption, first-error state, and custom input replacement; vector success is equivalent to a finite trace. No opaque milhouse method or assumed intermediate success. `Arbitrary/Caches.lean` proves both ordinary and owning-input generation initialize cleared caches on every successful result, without generator, packing, or map laws. |
+| `Arbitrary` feature | Preserve actual generated values and consumed-input state; establish valid backing and length | `Arbitrary/Overlay.lean` characterizes representation by the actual default map's overlay and logical extent. `Conditions.lean` proves exact success and success-plus-representation criteria using actual finite control/element traces, occupied-layer `LengthFits`, and default-map outcomes, without a supplied trace or successful subcall. `Traits.lean` gives the same criteria for the actual owning-input default, recovering its discarded final input. `Generated.lean` derives the actual trace and complete representation/backing/spine contract under the exact map conditions. `Total.lean` and `Traits.lean` derive successful generation, representation, and valid backing/spine; pending emptiness is separate and supplies only its observer. Existing empty-map contracts are adapters. `Behavior.lean` retains exact stored sequence/length/default state and backing validity; first element errors retain their consumed input, and constructor errors map to `IncorrectFormat`. Both size-hint methods are proved at every depth. All four trait entry points are extracted. `Tree/Arbitrary/Models.lean`, `Generation.lean`, and `Reflection.lean` model and prove external Vec collection, including stopping-byte consumption, first-error state, and custom input replacement; vector success is equivalent to a finite trace. No element-consumption law or intermediate milhouse success is assumed. `Caches.lean` proves both generators initialize cleared caches on every successful result without generator, packing, or map laws. External-model fidelity and remaining geometry/premise review remain separate obligations. |
 
 ## Existing foundations
 
+- `ProgressiveList/Arbitrary/Overlay.lean` characterizes representation of
+  the actual generated sequence by the default map's overlay and logical
+  extent. `Conditions.lean` proves exact execution and sequence-preservation
+  criteria from a finite control/element trace, occupied-layer `LengthFits`,
+  and an actual default outcome; no trace or default success is a premise.
+  The trace retains the actual final input, without restricting element
+  consumption, retention, or replacement of input. `Traits.lean` extends
+  both criteria and representation equivalence to the actual owning default,
+  recovering the final input discarded by its ordinary generator call.
+  `Generated.lean`, `Total.lean`, and `Traits.lean` derive the complete
+  representation/backing/spine contracts using exact map conditions; pending
+  emptiness supplies only its observer. The existing empty-map contracts are
+  adapters. All nine new lemmas use only standard Lean axioms. Owning trait
+  integration is `16befa3`, success criteria and total generation `f93004f`,
+  and representation foundation `b8f058f`. These results audit default-map
+  laws under packing layout and the external generator model; remaining
+  geometry/premise and source-fidelity reviews are separate obligations.
 - `ProgressiveList/Decode/Overlay.lean` characterizes representation of the
   actual decoded sequence by the installed default map's overlay and logical
   extent. `OverlayTotal.lean` combines these laws with an actual input-bound
@@ -102,7 +119,8 @@ points and records the trusted boundaries that still need fidelity review.
   new lemmas use only standard Lean axioms. Public format integration is
   `decd3f9`, trace criteria `5c49998`, and representation foundation `5b8202a`.
   Remaining geometry, codec-premise, and external-model fidelity reviews are
-  separate obligations; Arbitrary's default-map audit remains to be extended.
+  separate obligations. The Arbitrary checkpoint above extends the default-map
+  criteria to both generator entry points.
 - `ProgressiveList/Construction/Overlay.lean` specializes the same-length
   representation equivalence to all four sequence constructors. The actual
   default map must overlay the consumed values to themselves and preserve
@@ -1421,7 +1439,25 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest decoder overlay checkpoint (`decd3f9`, trace criteria `5c49998`,
+Latest Arbitrary overlay checkpoint (`16befa3`, success criteria `f93004f`,
+foundation `b8f058f`): focused and full library builds pass (2,084 jobs).
+The axiom/import audit covers 5,547 declarations across all 368 modules:
+5,428 use only standard Lean axioms or none, and 119 additionally use the
+existing Arc pointer contract. All nine new lemmas use only standard Lean
+axioms; external axiom use is unchanged. No new axiom or admission was
+introduced, and `size_of` remains unused. Both generator entry points now
+have exact success and representation criteria with actual control/element
+traces and the same consumed-input state. The owning default recovers the
+state it discards. Total generation and successful-state contracts use exact
+map overlay/extent laws, with emptiness supplying only the pending observer;
+existing empty-map and cache contracts validate through these results.
+Remaining premise minimality, borrowed CoW extraction, and model fidelity are
+incomplete. No Rust, extraction, external model, or Aeneas source changed;
+the seven source suites and 42-root/151-declaration dependency gate were not
+repeated for this proof-only work. Debug and Serde remain excluded; TreeHash
+is deferred outside the current goal.
+
+Previous decoder overlay checkpoint (`decd3f9`, trace criteria `5c49998`,
 foundation `5b8202a`): focused and full library builds pass (2,082 jobs).
 The axiom/import audit covers 5,538 declarations across all 366 modules:
 5,419 use only standard Lean axioms or none, and 119 additionally use the
