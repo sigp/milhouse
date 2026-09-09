@@ -85,6 +85,31 @@ theorem ExtensionComplete.length_le_max_of_maximum_before {T U : Type}
   have hnone := get_none_of_maximum_before mapInst updates hmaximum hbefore (by omega) hget
   cases hnone
 
+/-- Bounding every pending value is sufficient to bound only the extension
+extent. The latter is all that density needs when a maximum skips a suffix;
+pending entries already inside the old backing need not satisfy that stronger
+semantic bound. A machine-maximal index needs no representable successor. -/
+theorem ExtensionComplete.length_le_maximum_extent {T U : Type}
+    {mapInst : UpdateMap U T} {updates : U} {oldLength : Nat} {newLength : Std.Usize}
+    {maximum : Option Std.Usize}
+    (hcomplete : ExtensionComplete mapInst updates oldLength newLength.val)
+    (hmaximum : MaximumBoundsValues mapInst updates maximum) :
+    newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength) := by
+  cases maximum with
+  | none =>
+    simpa using hcomplete.length_le_max_of_maximum_before hmaximum
+      (start := 0#usize) (by intro last hlast; cases hlast)
+  | some last =>
+    simp only [Option.elim_some]
+    by_cases hroom : last.val < Std.Usize.max
+    · have hbound : last.val + 1 < 2 ^ UScalarTy.Usize.numBits := by scalar_tac
+      let start := Std.Usize.ofNatCore (last.val + 1) hbound
+      have hstart : start.val = last.val + 1 := Usize.ofNatCore_val_eq hbound
+      have hlength := hcomplete.length_le_max_of_maximum_before hmaximum
+        (start := start) (by intro actual hactual; cases hactual; omega)
+      simpa only [hstart, Nat.max_comm] using hlength
+    · scalar_tac
+
 end milhouse.update_map
 
 namespace milhouse.tree

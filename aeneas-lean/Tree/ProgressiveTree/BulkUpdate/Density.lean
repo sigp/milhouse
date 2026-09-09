@@ -57,8 +57,8 @@ private theorem bulk_dense_aux {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    {maximum : Option Std.Usize} (hmaximum : update_map.MaximumBoundsValues mapInst updates maximum)
-    {oldLength : Nat} {newLength : Std.Usize}
+    {maximum : Option Std.Usize} {oldLength : Nat} {newLength : Std.Usize}
+    (hextent : newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength))
     (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates)) :
     ∀ (fuel : Nat) (depth : Std.U32) (before after : ProgressiveTree T),
       Std.U32.max - depth.val ≤ fuel →
@@ -102,7 +102,13 @@ private theorem bulk_dense_aux {T U : Type}
           newRight.Fits factor next.val := by
       intro right newRight hdense hfit hranges hright
       rcases hright with ⟨hbefore, rfl⟩ | ⟨hselected, hrecursive⟩
-      · have hlength := hcomplete.length_le_max_of_maximum_before hmaximum hbefore
+      · have hlength : newLength.val ≤ max oldLength stop.val := by
+          cases maximum with
+          | none => simp only [Option.elim_none] at hextent; omega
+          | some last =>
+            have hlast := hbefore last rfl
+            simp only [Option.elim_some] at hextent
+            omega
         have heq : newLength.val - progressiveCapacity factor next.val =
             oldLength - progressiveCapacity factor next.val := by omega
         exact ⟨heq ▸ hdense, hfit⟩
@@ -194,15 +200,16 @@ private theorem bulk_dense_aux {T U : Type}
           exact ⟨hdense, hfit⟩
       exact finishNode newHash newLeft newRight leftCorrect.1 leftCorrect.2 hnewRight hnewRightFit
 
-/-- Recursive progressive bulk update preserves dense backing lengths and
-    representable layer capacities. Empty suffixes and skipped children are
-    justified by the global dense domain and the actual range/maximum laws. -/
-theorem ProgressiveTree.with_updated_leaves_recursive_dense {T U : Type}
+/-- Recursive progressive bulk update preserves density and capacities from
+the numeric extension bound at the supplied maximum. No semantic law bounding
+all pending values by that maximum is required; range laws and the complete
+dense update domain justify the traversed and skipped layers. -/
+theorem ProgressiveTree.with_updated_leaves_recursive_dense_of_extent {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    {maximum : Option Std.Usize} (hmaximum : update_map.MaximumBoundsValues mapInst updates maximum)
-    {oldLength : Nat} {newLength : Std.Usize}
+    {maximum : Option Std.Usize} {oldLength : Nat} {newLength : Std.Usize}
+    (hextent : newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength))
     (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
     {before after : ProgressiveTree T} {depth : Std.U32}
     (hrange : before.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
@@ -213,18 +220,20 @@ theorem ProgressiveTree.with_updated_leaves_recursive_dense {T U : Type}
       ok (core.result.Result.Ok after)) :
     after.Dense factor depth.val (newLength.val - progressiveCapacity factor depth.val) ∧
       after.Fits factor depth.val := by
-  exact bulk_dense_aux ValueInst mapInst updates hlayout hmaximum hdomain
+  exact bulk_dense_aux ValueInst mapInst updates hlayout hextent hdomain
     (Std.U32.max - depth.val) depth before after (Nat.le_refl _) hdense hfit hrange hupdate
 
-/-- Public progressive bulk update preserves the complete traversal invariant,
-    with the new backing length supplied by the dense update domain. -/
-theorem ProgressiveTree.with_updated_leaves_dense {T U : Type}
+/-- Public progressive bulk update needs only the numeric extension bound
+for its actual maximum answer, independently of the locations of pending values
+within the old backing. Density still uses the complete update domain and the
+range laws at reached queries. -/
+theorem ProgressiveTree.with_updated_leaves_dense_of_extent {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hmaximum : ∀ maximum, mapInst.max_index updates = ok maximum →
-      update_map.MaximumBoundsValues mapInst updates maximum)
     {oldLength : Nat} {newLength : Std.Usize}
+    (hextent : ∀ maximum, mapInst.max_index updates = ok maximum →
+      newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength))
     (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
     {before after : ProgressiveTree T}
     (hrange : ∀ maximum, mapInst.max_index updates = ok maximum →
@@ -242,8 +251,53 @@ theorem ProgressiveTree.with_updated_leaves_dense {T U : Type}
     simp only [hmax, bind_tc_ok] at hupdate
     have hdense' : before.Dense factor (0#u32).val (oldLength - progressiveCapacity factor (0#u32).val) := by
       simpa [progressiveCapacity] using hdense
-    have hresult := ProgressiveTree.with_updated_leaves_recursive_dense ValueInst mapInst updates
-      hlayout (hmaximum maximum hmax) hdomain (hrange maximum hmax) hdense' hfit hupdate
+    have hresult := ProgressiveTree.with_updated_leaves_recursive_dense_of_extent ValueInst mapInst updates
+      hlayout (hextent maximum hmax) hdomain (hrange maximum hmax) hdense' hfit hupdate
     simpa [progressiveCapacity] using hresult
+
+/-- The previous semantic maximum contract supplies the numeric extension
+bound as a sufficient special case. -/
+theorem ProgressiveTree.with_updated_leaves_recursive_dense {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {maximum : Option Std.Usize} (hmaximum : update_map.MaximumBoundsValues mapInst updates maximum)
+    {oldLength : Nat} {newLength : Std.Usize}
+    (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
+    {before after : ProgressiveTree T} {depth : Std.U32}
+    (hrange : before.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      ValueInst mapInst updates factor maximum depth)
+    (hdense : before.Dense factor depth.val (oldLength - progressiveCapacity factor depth.val))
+    (hfit : before.Fits factor depth.val)
+    (hupdate : ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
+      ok (core.result.Result.Ok after)) :
+    after.Dense factor depth.val (newLength.val - progressiveCapacity factor depth.val) ∧
+      after.Fits factor depth.val := by
+  exact ProgressiveTree.with_updated_leaves_recursive_dense_of_extent ValueInst mapInst updates hlayout
+    ((update_map.extensionComplete_of_denseUpdateDomain mapInst updates hdomain).length_le_maximum_extent hmaximum)
+    hdomain hrange hdense hfit hupdate
+
+/-- Semantic maximum correctness implies the weaker numeric condition for
+the actual public maximum query; existing callers retain this adapter. -/
+theorem ProgressiveTree.with_updated_leaves_dense {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    (hmaximum : ∀ maximum, mapInst.max_index updates = ok maximum →
+      update_map.MaximumBoundsValues mapInst updates maximum)
+    {oldLength : Nat} {newLength : Std.Usize}
+    (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
+    {before after : ProgressiveTree T}
+    (hrange : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+        ValueInst mapInst updates factor maximum 0#u32)
+    (hdense : before.Dense factor 0 oldLength) (hfit : before.Fits factor 0)
+    (hupdate : ProgressiveTree.with_updated_leaves ValueInst mapInst before updates =
+      ok (core.result.Result.Ok after)) :
+    after.Dense factor 0 newLength.val ∧ after.Fits factor 0 := by
+  exact ProgressiveTree.with_updated_leaves_dense_of_extent ValueInst mapInst updates hlayout
+    (fun maximum hmax =>
+      (update_map.extensionComplete_of_denseUpdateDomain mapInst updates hdomain).length_le_maximum_extent
+        (hmaximum maximum hmax)) hdomain hrange hdense hfit hupdate
 
 end milhouse.progressive_tree
