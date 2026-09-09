@@ -44,6 +44,17 @@ lower-level hypothesis and count the wrapper as proved.
 
 ## Existing foundations
 
+- `Tree/PackedLeaf/PushState.lean` proves exact successful append contents,
+  cache invalidation, full-leaf rejection, and complete state restoration for
+  every returned push error. The underlying Rust push now invalidates an
+  already populated cache (`63321b0`); see Rust corrections below.
+  `Tree/PackedLeaf/Caches.lean` proves every returned mutable insertion clears
+  the cache, including its bounds-error state, and every successful owning
+  insertion clears it. The actual bulk-update loop retains its initial hash
+  or clears it; a public packed update supplied with zero therefore returns
+  zero, independently of old cache contents and clone behavior. These are
+  operational prerequisites for extending cache validity through binary and
+  progressive bulk updates; the full preservation chain remains pending.
 - `Tree/HashCache.lean` and `Tree/ProgressiveTree/HashCache.lean` describe
   cache predicates by leaf value, packed sequence, binary depth/sequence, or
   progressive depth/suffix. This retains padding and layer context and imposes
@@ -612,7 +623,28 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest cache-preservation checkpoint (through `e34a94c`): the full Lean build
+Latest packed-cache checkpoint (through `5bdf22f`): fresh production
+extraction, the full Lean build (1,955 jobs), formatting, and all 331 Rust
+release tests with `arbitrary` pass. The regression for hashing a packed leaf
+before pushing reproduced the stale-root bug before the one-line fix.
+The two new tests cover repeated hash-then-push calls and full-leaf rejection
+with a populated cache. The generated diff contains only the corresponding
+push body and source location; no external interface or Aeneas change is
+needed.
+
+All eight new cache/state lemmas and the three adjusted packed-push/builder
+lemmas were audited: all eleven use only `propext`, `Classical.choice`, and
+`Quot.sound`. The cache proofs need neither clone identity nor map laws,
+alignment, or termination assumptions. The full build includes all earlier
+proofs and both new modules through the root `Tree` target.
+
+This establishes packed mutation invalidation and fixes an actual stale
+cache, but does not yet establish semantic cache validity through all list
+construction/mutation operations or prove root hash computation. Borrowed CoW,
+Debug, serialization/context protocols, and faithful shared cache writes also
+remain unfinished. The full ProgressiveList goal remains active.
+
+Previous cache-preservation checkpoint (through `e34a94c`): the full Lean build
 passes (1,953 jobs), including all earlier proofs and the six new modules.
 All nine new lemmas were audited. The action-combination and binary-cache
 projection lemmas use only standard Lean axioms; the seven operational
@@ -1198,6 +1230,14 @@ coverage obligations above.
 
 ## Rust corrections
 
+- `63321b0`: public `PackedLeaf::push` previously appended a value while
+  retaining the old cached root. Hashing `[1u64]`, pushing `2`, and hashing
+  again returned the packed bytes for `[1]`. A successful append now clears
+  the cache with `get_mut`, requiring no lock acquisition; a full-leaf error
+  still leaves both values and cache unchanged. Two regression tests and
+  regenerated Lean state/content proofs cover this behavior. This minimal
+  correction is needed for cache-validity proofs without an artificial
+  assumption that callers only push to unhashed leaves.
 - `0352f19`: `ProgressiveListIterCow::next_cow` advances its cursor only when
   yielding a handle. Exhaustion no longer increments indefinitely and eventually
   overflows. A regression test exercises the `usize::MAX` exhausted cursor in
