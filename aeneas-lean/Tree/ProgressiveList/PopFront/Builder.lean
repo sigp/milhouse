@@ -1,6 +1,4 @@
-import Tree.ProgressiveList.Iter.Construction
-import Tree.ProgressiveTree.Builder.Finish
-import Tree.Loop
+import Tree.ProgressiveList.PopFront.BuilderClones
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.builder milhouse.progressive_tree
@@ -22,37 +20,11 @@ theorem ProgressiveListIter.extend_builder_contents {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     result.elements = initial.elements ++ values ∧
       result.length.val = initial.length.val + values.length := by
-  change ProgressiveListIter.extend_builder_loop ValueInst mapInst self initial =
-    ok (core.result.Result.Ok (), result) at hextend
-  induction hyields generalizing initial with
-  | nil hnext =>
-    rw [ProgressiveListIter.extend_builder_loop, loop] at hextend
-    simp! only [ProgressiveListIter.extend_builder_loop.body, hnext, bind_tc_ok] at hextend
-    simp only [ok.injEq, Prod.mk.injEq, true_and] at hextend
-    subst result
-    simp
-  | @cons self rest value values hnext hyields ih =>
-    rw [ProgressiveListIter.extend_builder_loop, loop] at hextend
-    simp! only [ProgressiveListIter.extend_builder_loop.body, hnext,
-      hclone value (by simp), bind_tc_ok] at hextend
-    cases hpush : ProgressiveTreeBuilder.push ValueInst initial value with
-    | fail e => simp [hpush, Bind.bind, Std.bind] at hextend
-    | div => simp [hpush, Bind.bind, Std.bind] at hextend
-    | ok pair =>
-      obtain ⟨status, pushed⟩ := pair
-      cases status with
-      | Err e =>
-        simp! [hpush, core.result.Result.Insts.CoreOpsTry.branch,
-          core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
-          Bind.bind, Std.bind] at hextend
-      | Ok success =>
-        cases success
-        simp! only [hpush, bind_tc_ok, core.result.Result.Insts.CoreOpsTry.branch] at hextend
-        obtain ⟨helements, hlength⟩ := ih pushed (fun item hitem => hclone item (by simp [hitem])) hextend
-        obtain ⟨happended, hincrement, _⟩ := ProgressiveTreeBuilder.push_contents ValueInst initial value hpush
-        constructor
-        · simpa [happended, _root_.List.append_assoc] using helements
-        · simpa [hincrement, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hlength
+  obtain ⟨copied, hcopied, helements, hlength⟩ := ProgressiveListIter.extend_builder_clones
+    ValueInst mapInst self initial values hyields hextend
+  have hidentity := milhouse_models.list_clone_identity ValueInst.corecloneCloneInst values hclone
+  have heq : copied = values := Result.ok.inj (hcopied.symm.trans hidentity)
+  exact ⟨by simpa only [heq] using helements, hlength⟩
 
 /-- Successful reconstruction preserves the builder's complete invariant,
     independently of iterator finiteness, output values, or clone identity. -/
