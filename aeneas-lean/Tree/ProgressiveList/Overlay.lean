@@ -1,9 +1,47 @@
 import Tree.ProgressiveList.Iter.Overlay
+import Tree.ProgressiveList.Lookup
 
 open Aeneas Aeneas.Std Result
 open milhouse
 
 namespace milhouse.progressive_list
+
+/-- Representing the empty sequence requires exactly zero backing length,
+an absent map maximum, and absent map reads. No tree, packing, or pending-
+emptiness law is required: zero backing length bypasses every traversal. -/
+theorem ProgressiveList.represents_nil_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) :
+    self.Represents ValueInst mapInst [] ↔
+      self.length = 0#usize ∧ mapInst.max_index self.updates = ok none ∧
+      ∀ index, mapInst.get self.updates index = ok none := by
+  constructor
+  · rintro ⟨⟨length, hlen, hzero⟩, hreads⟩
+    rw [ProgressiveList.len_eq_updated_length] at hlen
+    obtain ⟨largest, hmax, hextent⟩ :=
+      (utils.updated_length_eq_ok_iff mapInst self.length self.updates length).mp hlen
+    have hstate : self.length = 0#usize ∧ largest = none := by
+      cases largest with
+      | none =>
+        simp only [Option.elim_none] at hextent
+        exact ⟨by scalar_tac, rfl⟩
+      | some last =>
+        simp only [Option.elim_some] at hextent
+        simp only [_root_.List.length_nil] at hzero
+        omega
+    refine ⟨hstate.1, by simpa only [hstate.2] using hmax, ?_⟩
+    intro index
+    have hread := hreads index
+    rw [ProgressiveList.get_eq_map_get_of_backing_bound ValueInst mapInst self index
+      (by simp [hstate.1])] at hread
+    simpa using hread
+  · rintro ⟨hlength, hmax, hget⟩
+    refine ⟨⟨self.length, ProgressiveList.len_of_no_max_index ValueInst mapInst self hmax,
+      by simp [hlength]⟩, ?_⟩
+    intro index
+    rw [ProgressiveList.get_eq_map_get_of_backing_bound ValueInst mapInst self index
+      (by simp [hlength]), hget index]
+    rfl
 
 /-- For a target whose length equals the recorded backing length, dense
 traversal represents it exactly when the pending map overlays the backing
