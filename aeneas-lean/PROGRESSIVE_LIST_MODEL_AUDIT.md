@@ -376,6 +376,24 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- `Rebase/Ready.lean` completes the selected-input success criterion for both
+  public variants without a separate packing-layout or global query-success
+  premise. Missing/shared input stops omit packing queries. Entered node pairs
+  require their actual factor/defaulted-depth results and selected arithmetic,
+  geometry, and element calls; the results are recovered from execution,
+  without positivity or power-of-two/coherence laws. Nonmutating rebase still
+  requires its actual pending-map clone on every branch. Existing total success
+  proofs now use this criterion. At `3231f6f` (foundations `d1ba797`, `4952ade`,
+  `cb7e79e`), the full build passes (2,060 jobs), and the axiom/import audit
+  covers 5,430 declarations across 344 modules. Seven additional declarations
+  reuse the existing pointer contract, for 97 total. No new axiom or admission
+  was introduced; `size_of` remains unused. Actual packing-helper outcomes,
+  including the logarithm for packed factors, stay explicit conditions; no
+  blanket query-totality or source-fidelity result is claimed. Packing and
+  geometry for content/cache correctness, remaining assumption review,
+  borrowed CoW, and model fidelity remain open. No Rust, extraction, external
+  model, or Aeneas source changed; source suites and the 42-root/151-declaration
+  model dependency gate were not repeated.
 - The general public success criteria in `Rebase/SelectedConditions.lean`
   remove whole-tree shape and representable-layer assumptions. At a fixed
   packing layout, the selected arithmetic, binary geometry, and external

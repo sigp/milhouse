@@ -61,8 +61,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `iter_cow_from` | `ProgressiveList.iter_cow_from_spec`, `ProgressiveList.iter_cow_from_error_iff`; stepping pending |
 | `to_vec` | `ProgressiveList.to_vec_total_spec`, `ProgressiveList.to_vec_mapM` |
 | `pop_front` | `ProgressiveList.pop_front_nonzero_clones_total_spec`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
-| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_success_iff_requirements`, `ProgressiveList.rebase_cache_iff` |
-| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_success_iff_requirements`, `ProgressiveList.rebase_on_cache_iff` |
+| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_success_iff_ready`, `ProgressiveList.rebase_cache_iff` |
+| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_success_iff_ready`, `ProgressiveList.rebase_on_cache_iff` |
 
 ## List trait methods
 
@@ -135,17 +135,36 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
-`Rebase/SelectedConditions.lean` proves general success criteria for both
+`Rebase/Ready.lean` proves complete public success criteria with no separate
+packing-layout or global query-success premise. Missing or shared inputs
+omit packing queries; entered node pairs require the actual factor and
+defaulted-depth results and the selected arithmetic/geometry/element calls.
+No positivity or power-of-two/coherence law is assumed. Nonmutating rebase
+still needs the actual pending-map clone on tree shortcuts. The progressive
+proof recovers query results from actual successful execution, and existing
+total success proofs now use the complete public criterion. Query helper
+outcomes remain explicit conditions; this is not a blanket metadata-totality
+or source-fidelity claim. Packing and geometry for content/cache correctness
+remain separate obligations.
+At `3231f6f` (foundations `d1ba797`, `4952ade`, `cb7e79e`), focused and full
+builds pass (2,060 jobs), and the axiom/import audit covers 5,430 declarations
+across 344 modules. Seven additional declarations reuse the existing pointer
+contract, for 97 total. No new axiom or admission was introduced; `size_of`
+remains unused. The full goal remains incomplete.
+
+The preceding `Rebase/SelectedConditions.lean` criteria cover both
 public rebase variants, without whole-tree shape or representable-layer
-assumptions. At a fixed packing layout, selected depth/shape/shift checks and
-element calls are jointly necessary and sufficient; nonmutating rebase also
-requires the actual pending-map clone to return. The progressive requirements
+assumptions. Under the original fixed-layout premise, selected depth/shape/shift
+checks and element calls were jointly necessary and sufficient; nonmutating
+rebase also required the actual pending-map clone to return. The requirements
 retain both machine clamps in layer lengths, and pointer, zero-input, and
 hash shortcuts omit unreached checks. All metadata and recursive successes
 are derived. Existing progressive/public success lemmas now use the general
 proof through invariant adapters, including the existing total contents/cache
 contracts. Geometry for semantic correctness, packing assumptions, and model
-fidelity remain separate obligations.
+fidelity remain separate obligations. These lemmas now require only actual
+packing query results (`4952ade`); the complete criterion above also makes
+those queries conditional on entered node pairs.
 At `2d63438` (foundations `15af31a`, `9e1c78c`, `9afa364`, `dfe9e73`), focused
 and full builds pass (2,057 jobs), and the axiom/import audit covers 5,399
 declarations across 341 modules. Nine additional declarations reuse the
