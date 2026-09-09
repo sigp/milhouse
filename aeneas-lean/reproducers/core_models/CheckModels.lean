@@ -79,6 +79,176 @@ theorem core_saturating_mul_agrees (value other : Std.U128) :
     apply U128.bv_eq_imp_eq
     exact (UScalar.BitVec_ofNat_val product).symm
 
+private def boundedU128 (n : Nat) : Option Std.U128 :=
+  if n < U128.size then some ⟨BitVec.ofNat _ n⟩ else none
+
+private theorem boundedU128_value (value : Std.U128) :
+    boundedU128 value.val = some value := by
+  have hbound : value.val < U128.size := by scalar_tac
+  simp only [boundedU128, if_pos hbound]
+  congr 1
+  apply U128.bv_eq_imp_eq
+  exact UScalar.BitVec_ofNat_val value
+
+private theorem boundedU128_overflow {n : Nat} (h : U128.max < n) :
+    boundedU128 n = none := by
+  have hn : ¬n < U128.size := by scalar_tac
+  exact if_neg hn
+
+private theorem checked_mul_none {left right : Std.U128}
+    (h : U128.checked_mul left right = none) : U128.max < left.val * right.val := by
+  simpa only [h] using U128.checked_mul_bv_spec left right
+
+private theorem checked_mul_some {left right product : Std.U128}
+    (h : U128.checked_mul left right = some product) :
+    product.val = left.val * right.val := by
+  have hs := U128.checked_mul_bv_spec left right
+  simp only [h] at hs
+  exact hs.2.1
+
+private theorem odd_bit (exp : Std.U32) :
+    (exp &&& 1#u32) = 1#u32 ↔ exp.val % 2 = 1 := by
+  rw [UScalar.eq_equiv]
+  have hone : (1#u32).val = 1 := by scalar_tac
+  simp only [UScalar.val_and, hone, Nat.and_one_is_mod]
+
+private theorem pow_even (base exp : Nat) (h : exp % 2 = 0) :
+    base ^ exp = (base * base) ^ (exp / 2) := by
+  have he : exp = 2 * (exp / 2) := by omega
+  conv_lhs => rw [he]
+  rw [Nat.pow_mul, Nat.pow_two]
+
+private theorem pow_odd (base exp : Nat) (h : exp % 2 = 1) :
+    base ^ exp = base * (base * base) ^ (exp / 2) := by
+  have he : exp = 2 * (exp / 2) + 1 := by omega
+  conv_lhs => rw [he]
+  rw [Nat.pow_succ, Nat.pow_mul, Nat.pow_two, Nat.mul_comm]
+
+private theorem square_le_power (base exp : Nat) (h : 2 ≤ exp) :
+    base * base ≤ base ^ exp := by
+  by_cases hz : base = 0
+  · simp [hz]
+  · simpa only [Nat.pow_two] using Nat.pow_le_pow_right (by omega : 0 < base) h
+
+private theorem square_overflow {base acc : Std.U128} {exp : Nat}
+    (he : 2 ≤ exp) (ha : 0 < acc.val ∨ base.val = 0)
+    (hm : U128.checked_mul base base = none) :
+    boundedU128 (acc.val * base.val ^ exp) = none := by
+  have hov := checked_mul_none hm
+  have hb : base.val ≠ 0 := by
+    intro hz
+    simp only [hz, Nat.zero_mul] at hov
+    omega
+  have hap : 1 ≤ acc.val := by omega
+  have hpow := square_le_power base.val exp he
+  have hacc : base.val ^ exp ≤ acc.val * base.val ^ exp := by
+    simpa using Nat.mul_le_mul_right (base.val ^ exp) hap
+  exact boundedU128_overflow (lt_of_lt_of_le hov (hpow.trans hacc))
+
+/-- Halving the positive exponent proves termination. The accumulator is
+positive unless the base is zero, so an intermediate overflow cannot be
+masked by later multiplication by zero. The public call establishes this
+invariant from its initial accumulator of one. -/
+private theorem checked_pow_loop_agrees (exp : Std.U32) (base acc : Std.U128)
+    (hpos : 0 < exp.val) (ha : 0 < acc.val ∨ base.val = 0) :
+    CoreSource.core.num.U128.checked_pow_loop exp base acc =
+      ok (boundedU128 (acc.val * base.val ^ exp.val)) := by
+  obtain ⟨half, hdiv, hhalf⟩ := UScalar.div_spec exp
+    (by scalar_tac : (2#u32).val ≠ 0)
+  have hh : half.val = exp.val / 2 := by scalar_tac
+  have hdecr : half.val < exp.val := by
+    rw [hh]
+    exact Nat.div_lt_self hpos (by decide)
+  rw [CoreSource.core.num.U128.checked_pow_loop, loop]
+  by_cases hodd : exp.val % 2 = 1
+  · have hbit := (odd_bit exp).mpr hodd
+    cases hm : U128.checked_mul acc base with
+    | none =>
+      have hbound := Nat.mul_le_mul_left acc.val
+        (Nat.le_self_pow (n := exp.val) (by omega) base.val)
+      have hout := boundedU128_overflow (lt_of_lt_of_le (checked_mul_none hm) hbound)
+      simp only [CoreSource.core.num.U128.checked_pow_loop.body,
+        lift, bind_tc_ok, if_pos hbit, hm, hout]
+    | some product =>
+      have hp := checked_mul_some hm
+      by_cases hone : exp = 1#u32
+      · have he : exp.val = 1 := by scalar_tac
+        simp only [CoreSource.core.num.U128.checked_pow_loop.body,
+          lift, bind_tc_ok, if_pos hbit, hm, if_pos hone, he, Nat.pow_one,
+          ← hp, boundedU128_value]
+      · have he : 2 ≤ exp.val := by scalar_tac
+        cases hs : U128.checked_mul base base with
+        | none =>
+          have hout := square_overflow he ha hs
+          simp only [CoreSource.core.num.U128.checked_pow_loop.body,
+            lift, bind_tc_ok, if_pos hbit, hm, if_neg hone, hdiv, hs, hout]
+        | some squared =>
+          have hsq := checked_mul_some hs
+          have hpositiveHalf : 0 < half.val := by omega
+          have hnext : 0 < product.val ∨ squared.val = 0 := by
+            by_cases hb : base.val = 0
+            · right
+              simp only [hsq, hb, Nat.zero_mul]
+            · left
+              have hap : 0 < acc.val := by omega
+              rw [hp]
+              exact Nat.mul_pos hap (by omega)
+          have hi := checked_pow_loop_agrees half squared product hpositiveHalf hnext
+          simp only [CoreSource.core.num.U128.checked_pow_loop.body,
+            lift, bind_tc_ok, if_pos hbit, hm, if_neg hone, hdiv, hs]
+          change CoreSource.core.num.U128.checked_pow_loop half squared product = _
+          rw [hi, hp, hsq, hh, pow_odd base.val exp.val hodd, Nat.mul_assoc]
+  · have hbit : ¬ (exp &&& 1#u32) = 1#u32 := by
+      simpa only [odd_bit] using hodd
+    have heven : exp.val % 2 = 0 := by omega
+    have he : 2 ≤ exp.val := by omega
+    cases hs : U128.checked_mul base base with
+    | none =>
+      have hout := square_overflow he ha hs
+      simp only [CoreSource.core.num.U128.checked_pow_loop.body,
+        lift, bind_tc_ok, if_neg hbit, hdiv, hs, hout]
+    | some squared =>
+      have hsq := checked_mul_some hs
+      have hpositiveHalf : 0 < half.val := by omega
+      have hnext : 0 < acc.val ∨ squared.val = 0 := by
+        rcases ha with hap | hb
+        · exact Or.inl hap
+        · right
+          simp only [hsq, hb, Nat.zero_mul]
+      have hi := checked_pow_loop_agrees half squared acc hpositiveHalf hnext
+      simp only [CoreSource.core.num.U128.checked_pow_loop.body,
+        lift, bind_tc_ok, if_neg hbit, hdiv, hs]
+      change CoreSource.core.num.U128.checked_pow_loop half squared acc = _
+      rw [hi, hsq, hh, pow_even base.val exp.val heven]
+termination_by exp.val
+
+/-- The actual standard-library squaring loop equals the local mathematical
+power model for all bases and exponents, including zero and overflow. No
+termination or arithmetic premise is assumed. Checked multiplication remains
+an existing Aeneas foundation primitive. -/
+theorem core_checked_pow_agrees (value : Std.U128) (exp : Std.U32) :
+    CoreSource.core.num.U128.checked_pow value exp =
+      core.num.U128.checked_pow value exp := by
+  by_cases hz : exp = 0#u32
+  · have he : exp.val = 0 := by scalar_tac
+    simp only [CoreSource.core.num.U128.checked_pow, if_pos hz,
+      core.num.U128.checked_pow, he, Nat.pow_zero]
+    have hsmall : 1 < U128.size := by scalar_tac
+    rw [if_pos hsmall]
+    have hv := boundedU128_value 1#u128
+    have hone : (1#u128).val = 1 := by scalar_tac
+    simp only [hone, boundedU128, if_pos hsmall] at hv
+    exact congrArg ok hv.symm
+  · have hpos : 0 < exp.val := by scalar_tac
+    have hloop := checked_pow_loop_agrees exp value 1#u128 hpos
+      (Or.inl (by scalar_tac))
+    simp only [CoreSource.core.num.U128.checked_pow, if_neg hz]
+    rw [hloop]
+    have hone : (1#u128).val = 1 := by scalar_tac
+    simp only [hone, Nat.one_mul, boundedU128, core.num.U128.checked_pow]
+    split <;> rfl
+
 #print axioms core_take_agrees
 #print axioms core_div_ceil_agrees
 #print axioms core_saturating_mul_agrees
+#print axioms core_checked_pow_agrees

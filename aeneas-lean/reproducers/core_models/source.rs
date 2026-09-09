@@ -7,10 +7,13 @@ pub fn div_ceil(value: usize, divisor: usize) -> usize {
 pub fn saturating_mul(value: u128, other: u128) -> u128 {
     value.saturating_mul(other)
 }
+pub fn checked_pow(value: u128, exponent: u32) -> Option<u128> {
+    value.checked_pow(exponent)
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{div_ceil, saturating_mul, take};
+    use super::{checked_pow, div_ceil, saturating_mul, take};
     use std::cell::{Cell, RefCell};
     use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -89,6 +92,36 @@ mod tests {
                 };
                 assert_eq!(saturating_mul(value, other), expected);
             }
+        }
+    }
+
+    #[test]
+    fn checked_power_matches_repeated_multiplication() {
+        fn reference(value: u128, exponent: u32) -> Option<u128> {
+            let mut product = 1;
+            for _ in 0..exponent {
+                if value != 0 && product > u128::MAX / value {
+                    return None;
+                }
+                product *= value;
+            }
+            Some(product)
+        }
+
+        for value in [0, 1, 2, 3, 4, 1 << 64, u128::MAX] {
+            for exponent in [0, 1, 2, 3, 63, 64, 80, 81, 127, 128, 129] {
+                assert_eq!(checked_pow(value, exponent), reference(value, exponent));
+            }
+        }
+    }
+
+    #[test]
+    fn checked_power_handles_large_exponents() {
+        for exponent in [u32::MAX - 1, u32::MAX] {
+            assert_eq!(checked_pow(0, exponent), Some(0));
+            assert_eq!(checked_pow(1, exponent), Some(1));
+            assert_eq!(checked_pow(2, exponent), None);
+            assert_eq!(checked_pow(u128::MAX, exponent), None);
         }
     }
 }
