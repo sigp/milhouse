@@ -72,7 +72,9 @@ theorem ProgressiveList.apply_updates_spec {T U : Type}
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)

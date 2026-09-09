@@ -46,7 +46,9 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hrange : update_map.RangeExcludesValues mapInst self.updates)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
@@ -74,8 +76,7 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
       simpa only [hcontentsLength] using hrep.extension_complete
     obtain ⟨hnewShape, hnewEnds, hnewContents⟩ :=
       progressive_tree.ProgressiveTree.with_updated_leaves_shape_contents ValueInst mapInst self.updates
-        hlayout (fun maximum _ => progressive_tree.ProgressiveTree.BulkCloneOn.of_all
-          ValueInst mapInst self.updates factor maximum hclone self.tree 0#u32)
+        hlayout hclone
         hrange hmaximum hcomplete hshape hends hupdate
     refine ⟨⟨⟨length, ?_, hcontentsLength⟩, ?_⟩, hnewShape, hnewEnds⟩
     · exact ProgressiveList.len_of_no_max_index ValueInst mapInst _ (hdefaultMax defaults hdefault)

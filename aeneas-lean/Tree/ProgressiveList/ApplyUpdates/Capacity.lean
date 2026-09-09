@@ -57,7 +57,9 @@ theorem ProgressiveList.apply_updates_nonempty_success_iff_length_fits {T U : Ty
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →

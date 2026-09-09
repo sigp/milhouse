@@ -15,7 +15,9 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
     (hrep : self.Represents ValueInst mapInst contents)
@@ -44,7 +46,7 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
     (fun query => ProgressiveList.pending_get_of_get_success ValueInst mapInst self (hrep.2 query))
     hqueries hrange maximum hmax self.length.val contents.length hmaximum hrep.dense_update_domain
     hfits self.tree
-    (ProgressiveTree.BulkCloneOn.of_all ValueInst mapInst self.updates factor maximum hclone self.tree 0#u32)
+    (hclone maximum hmax)
     hdense
   refine ⟨{ tree, length, updates := defaults }, ?_, hcontentsLength, rfl⟩
   simp! only [ProgressiveList.apply_updates, hempty, Bool.false_eq_true, ↓reduceIte,
@@ -58,7 +60,9 @@ theorem ProgressiveList.apply_updates_nonempty_total_spec {T U : Type}
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
@@ -76,7 +80,9 @@ theorem ProgressiveList.apply_updates_nonempty_total_spec {T U : Type}
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst result = ok false := by
   obtain ⟨result, happly, _, _⟩ := ProgressiveList.apply_updates_nonempty_success ValueInst mapInst
-    self contents hlayout (fun value => ⟨value, hclone value⟩) hqueries hrange hrep hbacking.1 hfits
+    self contents hlayout (fun maximum hmax => ProgressiveTree.BulkCloneOn.mono
+      ValueInst mapInst self.updates factor maximum (fun value h => ⟨value, h⟩) self.tree 0#u32
+      (hclone maximum hmax)) hqueries hrange hrep hbacking.1 hfits
     hempty defaults hdefault
   refine ⟨result, happly, ProgressiveList.apply_updates_spec ValueInst mapInst self contents
     hlayout hclone hrange hmaximum ?_ hrep hbacking happly⟩
@@ -98,7 +104,9 @@ theorem ProgressiveList.apply_updates_total_spec {T U : Type}
     (hlayout : mapInst.is_empty self.updates = ok false →
       tree.PackingLayout ValueInst factor packingDepth)
     (hclone : mapInst.is_empty self.updates = ok false →
-      ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+          ValueInst mapInst self.updates factor maximum 0#u32)
     (hqueries : mapInst.is_empty self.updates = ok false →
       ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
     (hrange : mapInst.is_empty self.updates = ok false →
