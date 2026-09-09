@@ -61,8 +61,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `iter_cow_from` | `ProgressiveList.iter_cow_from_spec`, `ProgressiveList.iter_cow_from_error_iff`; stepping pending |
 | `to_vec` | `ProgressiveList.to_vec_total_spec`, `ProgressiveList.to_vec_mapM` |
 | `pop_front` | `ProgressiveList.pop_front_nonzero_clones_total_spec`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
-| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_cache_iff` |
-| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_cache_iff` |
+| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_success_iff`, `ProgressiveList.rebase_cache_iff` |
+| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_success_iff`, `ProgressiveList.rebase_on_cache_iff` |
 
 ## List trait methods
 
@@ -134,6 +134,24 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`Rebase/Conditions.lean` proves exact success criteria for both public rebase
+variants. Under packing layout, compatible shapes, and representable original
+layers, `rebase_on` succeeds exactly when its selected element comparisons
+terminate; `rebase` additionally requires the actual pending-map clone to
+return. No comparison success, density, accurate length metadata, semantic
+equality/hash law, or map-preservation law is assumed. Binary and progressive
+reflection recover the comparison scopes from actual successful calls,
+including final pointer reuse, and the Arc/vector criteria retain every short
+circuit. Binary reflection needs no geometry; progressive reflection needs
+only layout and original capacity. These results audit comparison termination
+under the stated geometry, not necessity of the geometry itself.
+At `d5836d4` (foundations `3f2f4fa`, `c3ff39d`, `212ac40`), focused and full
+builds pass (2,052 jobs), and the axiom/import audit covers 5,314 declarations
+across 336 modules. Of 34 new declarations, 24 use only standard axioms or none
+and ten reuse the existing pointer contract, for 81 dependent declarations
+total. No new axioms or admissions were introduced. Remaining assumption
+reviews, borrowed CoW, and model-fidelity obligations stay open.
 
 `Rebase/CacheEquivalence.lean` proves the exact cache criterion for both public
 rebase variants: a successful result has valid caches if and only if the

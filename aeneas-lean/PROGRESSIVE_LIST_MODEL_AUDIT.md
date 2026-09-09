@@ -376,6 +376,23 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Both public rebase success criteria are now equivalences. Under packing
+  layout, compatible shapes, and representable original layers, in-place
+  success requires exactly the selected element comparisons to terminate;
+  nonmutating success also requires the actual pending-map clone to return.
+  Binary/progressive reflection recovers these comparisons from successful
+  calls, including final pointer reuse, without density, accurate lengths,
+  semantic comparison/hash laws, or map-preservation laws. Binary reflection
+  needs no geometry; progressive reflection needs only layout and original
+  capacity. At `d5836d4` (foundations `3f2f4fa`, `c3ff39d`, `212ac40`), the full
+  build passes (2,052 jobs), and the axiom/import audit covers 5,314 declarations
+  across 336 modules. Of the 34 new declarations, 24 use only standard axioms
+  or none, and ten reuse the existing pointer contract, for 81 dependent
+  declarations total. No new axiom or admission was introduced. These are
+  termination criteria under the stated geometry, whose necessity remains a
+  separate review. They do not establish source fidelity of the external
+  operations. Rust/extraction/models/Aeneas are unchanged, so neither source
+  suites nor the 42-root/151-declaration dependency gate were repeated.
 - Both public rebase cache criteria are now equivalences: under the existing
   semantic content laws and geometry, successful output validity holds
   exactly when retained-original and imported-base validity hold together.
