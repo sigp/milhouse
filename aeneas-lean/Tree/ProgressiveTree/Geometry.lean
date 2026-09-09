@@ -22,6 +22,21 @@ theorem progressiveCapacity_succ (factor : Option Std.Usize) (depth : Nat) :
   simp only [progressiveCapacity, progressive_sum_succ, Nat.add_mul,
     tree.subtreeCapacity, hpower, Nat.mul_comm (4 ^ depth)]
 
+/-- Three copies of the completed prefix, plus one packed leaf, fill the next
+layer. This exact geometric identity also bounds counters near machine limits. -/
+theorem progressiveCapacity_layer_relation (factor : Option Std.Usize) (depth : Nat) :
+    3 * progressiveCapacity factor depth + tree.leafCapacity factor =
+      tree.subtreeCapacity factor (2 * depth) := by
+  induction depth with
+  | zero => simp [tree.subtreeCapacity]
+  | succ depth ih =>
+    have hstep : tree.subtreeCapacity factor (2 * (depth + 1)) =
+        4 * tree.subtreeCapacity factor (2 * depth) := by
+      simp only [tree.subtreeCapacity, Nat.mul_add, pow_add]
+      ring
+    rw [progressiveCapacity_succ, hstep]
+    omega
+
 theorem progressiveCapacity_mono (factor : Option Std.Usize) :
     Monotone (progressiveCapacity factor) := by
   intro left right hle
