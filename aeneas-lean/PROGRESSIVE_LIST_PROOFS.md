@@ -49,6 +49,9 @@ public inherent methods, direct and inherited trait entry points, returned
 iterator/handle methods, and the corresponding theorem, unresolved obligation,
 or explicit scope exclusion.
 It is a source-coverage check, separate from hypothesis and model-fidelity audits.
+The [model dependency audit](PROGRESSIVE_LIST_MODEL_AUDIT.md) inventories the
+local external definitions referenced by the 42 available included entry
+points and records the trusted boundaries that still need fidelity review.
 
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
@@ -973,7 +976,33 @@ Command logs, the raw inventory, and a detailed JSON report are retained under
 coverage; model fidelity, API coverage, and theorem-hypothesis minimality still
 require their separate audits.
 
-Latest constructor-reflection checkpoint (through `ed766a4`): the builder
+For the available included API roots' local model dependencies, run:
+
+```sh
+python3 scripts/aeneas-audit-progressive-models.py
+```
+
+This separate gate builds first, follows elaborated definition-body references,
+and checks the root inventory, generated root provenance, complete output, and
+absence of selected incompatible local models. Its conservative dependency
+closure includes unused dictionary fields and branches and does not resolve
+abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
+for the manifest, report, trusted boundaries, and remaining fidelity work.
+
+Latest model-dependency checkpoint (through `07ef38d`): the full library build
+passes (2,023 jobs). All 42 available included roots pass the dependency audit,
+with 151 referenced local model declarations across seven modules. No closure
+references the older `List::intra_rebase` identity model, hash-map/hasher models,
+or SmallVec models. Eight deliberately invalid inventories are rejected,
+including a root outside the generated module and a local model replacing a
+milhouse implementation. External model comments now state their restricted
+domains; their definition bodies are unchanged. This checkpoint introduces
+audit tooling and documentation only, with no proof, Rust, extraction, or
+Aeneas change. The last complete axiom/import audit remains the 4,958-declaration
+constructor checkpoint below. Model fidelity and minimal hypotheses are not
+established by dependency closure alone, and borrowed CoW remains unproved.
+
+Latest proof/axiom checkpoint (constructor reflection through `ed766a4`): the builder
 trace, tree/list construction trace, and public success-condition focused
 builds pass. The full library build passes (2,023 jobs), and the complete
 axiom/import audit covers 4,958 theorem declarations across all 307 `Tree`

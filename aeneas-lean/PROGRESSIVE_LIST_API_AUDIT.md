@@ -9,6 +9,10 @@ hypotheses.
 The SSZ reflection and success-criterion proof checkpoint is `029fdc4`.
 The subsequent empty-input premise audit is through `b41b66a`.
 The constructor trace and complete success-criterion checkpoint is `ed766a4`.
+The local model dependency audit is through `07ef38d`; its
+[separate report and gate](PROGRESSIVE_LIST_MODEL_AUDIT.md) cover the 42
+available included extraction roots without counting unavailable borrowed
+methods or excluded/deferred implementations.
 
 Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
@@ -123,6 +127,14 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The model dependency inventory finds 151 local declarations across seven model
+modules under the 42 available roots. None of those definition closures
+references the older `List::intra_rebase` identity model, hash-map/hasher models,
+or SmallVec models. This conservative inventory includes unused trait fields
+and branches; it identifies trusted dependencies without proving runtime
+reachability or source fidelity. External-model comments were narrowed without
+changing their bodies, and the full library still builds.
 
 Constructor reflection now derives the finite actual input sequence from any
 successful call, with exact stored contents, length, and default map. Iterator
