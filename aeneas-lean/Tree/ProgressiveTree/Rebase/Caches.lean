@@ -32,7 +32,7 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
     cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
     | same => exact ⟨rfl, horigCache⟩
     | @node _ baseHash _ baseLeft _ baseRight newRight start capacity binary fullDepth origLeftLength baseLeftLength next
-        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright =>
+        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright hpointer =>
       obtain ⟨hleftFit, hrightFit⟩ := hfit
       have horigLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
         hstart hnext hcapacity hbinary horigLength
@@ -45,7 +45,7 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
       have hbaseLeft : DenseTree factor baseLeft (2 * depth.val) baseLeftLength.val := by
         simpa only [hbaseLengthVal] using hbase.split_layer.1
       have hnewLeft := tree.Tree.rebase_on_cache_spec ValueInst hlayout P
-        (by omega) horigLeft hbaseLeft hequality.1 hhashes.1 horigCache.2.1 hbaseCache.1 hleft
+        (by omega) horigLeft hbaseLeft (hequality hpointer).1 (hhashes hpointer).1 horigCache.2.1 hbaseCache.1 hleft
       have hadd := UScalar.add_equiv depth 1#u32
       rw [hnext] at hadd
       simp at hadd
@@ -55,7 +55,7 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
       have hbaseRight : baseRight.Dense factor next.val (baseLength.val - progressiveCapacity factor next.val) := by
         simpa only [hnextVal] using hbase.right_remainder
       have hnewRight := ih horigRight hbaseRight
-        (by simpa only [hnextVal] using hrightFit) hequality.2 hhashes.2
+        (by simpa only [hnextVal] using hrightFit) (hequality hpointer).2 (hhashes hpointer).2
         (by simpa only [hnextVal] using horigCache.2.2)
         (by simpa only [hnextVal] using hbaseCache.2) hright
       refine ⟨?_, ?_, hnewLeft.2, ?_⟩

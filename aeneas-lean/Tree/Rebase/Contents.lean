@@ -109,10 +109,10 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
           obtain ⟨baseLeftDense, baseRightDense⟩ := hbase.split_node
           have hleftCorrect := ih newDepth.val hsmall origLeft baseLeft child ol bl newDepth leftAction
             (Nat.le_refl _) hnewFull (by simpa only [hlengths.1] using origLeftDense)
-            (by simpa only [hlengths.2.1] using baseLeftDense) hequality.1 hhashes.2.1 hleft
+            (by simpa only [hlengths.2.1] using baseLeftDense) (hequality hpointer).1 (hhashes hpointer).2.1 hleft
           have hrightCorrect := ih newDepth.val hsmall origRight baseRight child or br newDepth rightAction
             (Nat.le_refl _) hnewFull (by simpa only [hlengths.2.2.1] using origRightDense)
-            (by simpa only [hlengths.2.2.2] using baseRightDense) hequality.2 hhashes.2.2 hright
+            (by simpa only [hlengths.2.2.2] using baseRightDense) (hequality hpointer).2 (hhashes hpointer).2.2 hright
           exact combineRebaseActions_contents_correct origHash baseHash origLeft origRight baseLeft baseRight
             leftAction rightAction hleftCorrect hrightCorrect
         by_cases hpositive : fullDepth > 0#usize
@@ -140,7 +140,7 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
                   change (Tree.Node origHash origLeft origRight).elements.length =
                     (Tree.Node baseHash baseLeft baseRight).elements.length
                   rw [horig.elements_length, hbase.elements_length, hlength]
-                have helements := hhashes.1 hnonzero hhashEqual hlengths
+                have helements := (hhashes hpointer).1 hnonzero hhashEqual hlengths
                 simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction,
                   Tree.elements, helements]
               · exact childrenCorrect hrebase

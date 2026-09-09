@@ -34,7 +34,9 @@ inductive ProgressiveTree.RebaseStep {T : Type} (ValueInst : Value T)
       (hleft : tree.Tree.rebase_on ValueInst origLeft baseLeft
         (some (origLeftLength, baseLeftLength)) fullDepth = ok (core.result.Result.Ok action))
       (hright : ProgressiveTree.rebase_on_recursive ValueInst origRight baseRight origLength baseLength next =
-        ok (core.result.Result.Ok newRight)) :
+        ok (core.result.Result.Ok newRight))
+      (hpointer : triomphe.arc.Arc.ptr_eq (.ProgressiveNode origHash origLeft origRight : ProgressiveTree T)
+        (.ProgressiveNode baseHash baseLeft baseRight) = ok false) :
       RebaseStep ValueInst origLength baseLength depth packingDepth
         (.ProgressiveNode origHash origLeft origRight) (.ProgressiveNode baseHash baseLeft baseRight)
         (.ProgressiveNode origHash (tree.applyRebaseAction origLeft action) newRight)
@@ -118,7 +120,7 @@ theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T
             have hnode : ProgressiveTree.RebaseStep ValueInst origLength baseLength depth packingDepth
                 (.ProgressiveNode origHash origLeft origRight) (.ProgressiveNode baseHash baseLeft baseRight)
                 (.ProgressiveNode origHash (tree.applyRebaseAction origLeft action) newRight) :=
-              .node action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright
+              .node action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright hpointer
             cases leftSame with
             | false =>
               simp [lock_api.rwlock.RwLock.read,

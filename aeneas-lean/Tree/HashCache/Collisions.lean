@@ -46,11 +46,13 @@ noncomputable def Tree.rebaseHashInputs {T : Type} (orig base : Tree T) (depth :
     _root_.List (BinaryHashInputPair T) := by
   classical
   exact match orig, base with
-  | .Node hash left right, .Node _ baseLeft baseRight =>
-    let children := left.rebaseHashInputs baseLeft (depth - 1) ++
-      right.rebaseHashInputs baseRight (depth - 1)
-    if hash = Array.repeat 32#usize 0#u8 then children
-    else (depth, left.elements ++ right.elements, baseLeft.elements ++ baseRight.elements) :: children
+  | .Node hash left right, .Node baseHash baseLeft baseRight =>
+    if triomphe.arc.Arc.ptr_eq (.Node hash left right : Tree T) (.Node baseHash baseLeft baseRight) = ok false then
+      let children := left.rebaseHashInputs baseLeft (depth - 1) ++
+        right.rebaseHashInputs baseRight (depth - 1)
+      if hash = Array.repeat 32#usize 0#u8 then children
+      else (depth, left.elements ++ right.elements, baseLeft.elements ++ baseRight.elements) :: children
+    else []
   | _, _ => []
 
 /-- Cleared original caches require no collision assumption against any base. -/
@@ -78,6 +80,7 @@ theorem Tree.cachedHashesAgree_of_cleared {T : Type}
   | Node hash left right ihleft ihright =>
     cases base <;> simp only [Tree.CachedHashesAgree]
     rename_i baseHash baseLeft baseRight
+    intro _
     refine ⟨?_, ihleft baseLeft hclear.2.1, ihright baseRight hclear.2.2⟩
     intro hnonzero
     apply False.elim
@@ -103,12 +106,13 @@ theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
     | PackedLeaf leaf => trivial
     | Zero level => trivial
     | Node baseHash baseLeft baseRight =>
+      intro hpointer
       have hchildren : BinaryHashCollisionSoundOn reference
           (left.rebaseHashInputs baseLeft (depth - 1) ++
             right.rebaseHashInputs baseRight (depth - 1)) := by
         apply hcollisions.mono
         intro pair hpair
-        simp only [Tree.rebaseHashInputs]
+        simp only [Tree.rebaseHashInputs, hpointer, ↓reduceIte]
         split <;> simp [hpair]
       refine ⟨?_, ihleft baseLeft (depth - 1) horig.2.1 hbase.2.1
           (hchildren.mono (fun pair hpair => List.mem_append_left _ hpair)),
@@ -126,7 +130,7 @@ theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
         exact hnonzero' (hhash.trans hzero))
       apply hcollisions (depth, left.elements ++ right.elements,
         baseLeft.elements ++ baseRight.elements)
-      · simp [Tree.rebaseHashInputs, hnonzero']
+      · simp [Tree.rebaseHashInputs, hpointer, hnonzero']
       · exact hlength
       · simpa only [← horigRef] using hnonzero'
       · exact horigRef.symm.trans (hhash.trans hbaseRef)

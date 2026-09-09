@@ -8,7 +8,9 @@ namespace milhouse.progressive_tree
 layers require no element law; progressive caches are never compared. -/
 def ProgressiveTree.RebaseEqualitySound {T : Type} (inst : core.cmp.PartialEq T T) :
     ProgressiveTree T → ProgressiveTree T → Prop
-  | .ProgressiveNode _ left right, .ProgressiveNode _ baseLeft baseRight =>
+  | .ProgressiveNode hash left right, .ProgressiveNode baseHash baseLeft baseRight =>
+      triomphe.arc.Arc.ptr_eq (.ProgressiveNode hash left right : ProgressiveTree T)
+        (.ProgressiveNode baseHash baseLeft baseRight) = ok false →
       left.RebaseEqualitySound inst baseLeft ∧ right.RebaseEqualitySound inst baseRight
   | _, _ => True
 
@@ -24,6 +26,6 @@ theorem ProgressiveTree.rebaseEqualitySound_of_sound {T : Type} (inst : core.cmp
     cases base with
     | ProgressiveZero => trivial
     | ProgressiveNode baseHash baseLeft baseRight =>
-      exact ⟨left.rebaseEqualitySound_of_sound inst heq hne baseLeft, ih baseRight⟩
+      exact fun _ => ⟨left.rebaseEqualitySound_of_sound inst heq hne baseLeft, ih baseRight⟩
 
 end milhouse.progressive_tree

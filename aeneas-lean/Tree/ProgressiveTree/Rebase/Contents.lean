@@ -13,7 +13,9 @@ namespace milhouse.progressive_tree
     Progressive-node hashes are ignored because this operation never uses them
     to establish equality. -/
 def ProgressiveTree.CachedHashesAgree {T : Type} : ProgressiveTree T → ProgressiveTree T → Prop
-  | .ProgressiveNode _ origLeft origRight, .ProgressiveNode _ baseLeft baseRight =>
+  | .ProgressiveNode hash origLeft origRight, .ProgressiveNode baseHash baseLeft baseRight =>
+      triomphe.arc.Arc.ptr_eq (.ProgressiveNode hash origLeft origRight : ProgressiveTree T)
+        (.ProgressiveNode baseHash baseLeft baseRight) = ok false →
       origLeft.CachedHashesAgree baseLeft ∧ origRight.CachedHashesAgree baseRight
   | _, _ => True
 
@@ -40,7 +42,7 @@ theorem ProgressiveTree.rebase_on_recursive_preserves_contents {T : Type} (Value
     cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
     | same => rfl
     | @node _ baseHash _ baseLeft _ baseRight newRight start capacity binary fullDepth origLeftLength baseLeftLength next
-        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright =>
+        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright hpointer =>
       obtain ⟨hleftFit, hrightFit⟩ := hfit
       have horigLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
         hstart hnext hcapacity hbinary horigLength
@@ -53,7 +55,7 @@ theorem ProgressiveTree.rebase_on_recursive_preserves_contents {T : Type} (Value
       have hbaseLeft : DenseTree factor baseLeft (2 * depth.val) baseLeftLength.val := by
         simpa only [hbaseLengthVal] using hbase.split_layer.1
       have hnewLeft := tree.Tree.rebase_on_contents_correct ValueInst hlayout
-        (by omega) horigLeft hbaseLeft hequality.1 hhashes.1 hleft
+        (by omega) horigLeft hbaseLeft (hequality hpointer).1 (hhashes hpointer).1 hleft
       have hadd := UScalar.add_equiv depth 1#u32
       rw [hnext] at hadd
       simp at hadd
@@ -63,7 +65,7 @@ theorem ProgressiveTree.rebase_on_recursive_preserves_contents {T : Type} (Value
       have hbaseRight : baseRight.Dense factor next.val (baseLength.val - progressiveCapacity factor next.val) := by
         simpa only [hnextVal] using hbase.right_remainder
       have hnewRight := ih horigRight hbaseRight
-        (by simpa only [hnextVal] using hrightFit) hequality.2 hhashes.2 hright
+        (by simpa only [hnextVal] using hrightFit) (hequality hpointer).2 (hhashes hpointer).2 hright
       simp only [ProgressiveTree.elements]
       rw [hnewLeft.1, hnewRight]
 

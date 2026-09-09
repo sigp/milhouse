@@ -84,10 +84,10 @@ private theorem rebase_success_aux {T : Type} (ValueInst : Value T) :
               (fun hsome => by have := hbits hsome; omega)
               (fun childLengths hsome => ih newDepth.val hsmaller origLeft baseLeft factor child childLengths newDepth
                 (Nat.le_refl _) origLeftShape baseLeftShape hchildDepth
-                (fun hchildSome => by have := hbits (hsome ▸ hchildSome); omega) hcompare.1)
+                (fun hchildSome => by have := hbits (hsome ▸ hchildSome); omega) (hcompare hpointer).1)
               (fun childLengths hsome => ih newDepth.val hsmaller origRight baseRight factor child childLengths newDepth
                 (Nat.le_refl _) origRightShape baseRightShape hchildDepth
-                (fun hchildSome => by have := hbits (hsome ▸ hchildSome); omega) hcompare.2)
+                (fun hchildSome => by have := hbits (hsome ▸ hchildSome); omega) (hcompare hpointer).2)
             rw [if_pos hpositive]
             simp only [lock_api.rwlock.RwLock.read,
               lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref,

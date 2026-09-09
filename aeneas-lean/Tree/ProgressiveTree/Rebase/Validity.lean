@@ -8,11 +8,16 @@ namespace milhouse.progressive_tree
 
 /-- The finite binary hash-input pairs at corresponding progressive layers.
 Progressive caches are omitted because rebasing does not compare them. -/
-noncomputable def ProgressiveTree.rebaseHashInputs {T : Type} :
-    ProgressiveTree T → ProgressiveTree T → Nat → _root_.List (BinaryHashInputPair T)
-  | .ProgressiveNode _ left right, .ProgressiveNode _ baseLeft baseRight, depth =>
-      left.rebaseHashInputs baseLeft (2 * depth) ++ right.rebaseHashInputs baseRight (depth + 1)
-  | _, _, _ => []
+noncomputable def ProgressiveTree.rebaseHashInputs {T : Type}
+    (orig base : ProgressiveTree T) (depth : Nat) : _root_.List (BinaryHashInputPair T) := by
+  classical
+  exact match orig, base with
+  | .ProgressiveNode hash left right, .ProgressiveNode baseHash baseLeft baseRight =>
+      if triomphe.arc.Arc.ptr_eq (.ProgressiveNode hash left right : ProgressiveTree T)
+          (.ProgressiveNode baseHash baseLeft baseRight) = ok false then
+        left.rebaseHashInputs baseLeft (2 * depth) ++ right.rebaseHashInputs baseRight (depth + 1)
+      else []
+  | _, _ => []
 
 theorem ProgressiveTree.rebaseHashInputs_eq_nil_of_cleared {T : Type}
     (orig base : ProgressiveTree T) (depth : Nat) (hclear : orig.CachesCleared) :
@@ -36,6 +41,7 @@ theorem ProgressiveTree.cachedHashesAgree_of_cleared {T : Type}
     cases base with
     | ProgressiveZero => trivial
     | ProgressiveNode baseHash baseLeft baseRight =>
+      intro _
       exact ⟨tree.Tree.cachedHashesAgree_of_cleared left baseLeft hclear.2.1,
         ih baseRight hclear.2.2⟩
 
@@ -54,6 +60,8 @@ theorem ProgressiveTree.cachedHashesAgree_of_valid_caches {T : Type}
     cases base with
     | ProgressiveZero => trivial
     | ProgressiveNode baseHash baseLeft baseRight =>
+      intro hpointer
+      simp only [ProgressiveTree.rebaseHashInputs, hpointer, ↓reduceIte] at hcollisions
       exact ⟨tree.Tree.cachedHashesAgree_of_valid_caches reference left baseLeft (2 * depth)
           horig.1 hbase.1 (hcollisions.mono (fun pair hpair => List.mem_append_left _ hpair)),
         ih baseRight (depth + 1) horig.2 hbase.2

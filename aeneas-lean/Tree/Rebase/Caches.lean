@@ -91,14 +91,14 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
             simpa only [hlengths.2.2.2] using baseRightDense
           simp only [Tree.CachesOn, Nat.add_sub_cancel] at horigCache hbaseCache
           have hleftContents := Tree.rebase_on_contents_correct ValueInst hlayout
-            hnewFull hol hbl hequality.1 hhashes.2.1 hleft
+            hnewFull hol hbl (hequality hpointer).1 (hhashes hpointer).2.1 hleft
           have hrightContents := Tree.rebase_on_contents_correct ValueInst hlayout
-            hnewFull hor hbr hequality.2 hhashes.2.2 hright
+            hnewFull hor hbr (hequality hpointer).2 (hhashes hpointer).2.2 hright
           exact combineRebaseActions_preserves_caches P origHash baseHash origLeft origRight
             baseLeft baseRight leftAction rightAction child horigCache.1 hbaseCache
             hleftContents.1 hrightContents.1
-            (ihleft hnewFull hol hbl hequality.1 hhashes.2.1 horigCache.2.1 hbaseCache.2.1 hleft)
-            (ihright hnewFull hor hbr hequality.2 hhashes.2.2 horigCache.2.2 hbaseCache.2.2 hright)
+            (ihleft hnewFull hol hbl (hequality hpointer).1 (hhashes hpointer).2.1 horigCache.2.1 hbaseCache.2.1 hleft)
+            (ihright hnewFull hor hbr (hequality hpointer).2 (hhashes hpointer).2.2 horigCache.2.2 hbaseCache.2.2 hright)
         by_cases hpositive : fullDepth > 0#usize
         · rw [if_pos hpositive] at hrebase
           simp [lock_api.rwlock.RwLock.read,

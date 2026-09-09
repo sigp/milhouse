@@ -10,7 +10,9 @@ namespace milhouse.progressive_tree
 of these trees. A zero on either side ends rebasing without element calls. -/
 def ProgressiveTree.RebaseComparisons {T : Type} (inst : core.cmp.PartialEq T T) :
     ProgressiveTree T → ProgressiveTree T → Prop
-  | .ProgressiveNode _ left right, .ProgressiveNode _ baseLeft baseRight =>
+  | .ProgressiveNode hash left right, .ProgressiveNode baseHash baseLeft baseRight =>
+      triomphe.arc.Arc.ptr_eq (.ProgressiveNode hash left right : ProgressiveTree T)
+        (.ProgressiveNode baseHash baseLeft baseRight) = ok false →
       left.RebaseComparisons inst baseLeft ∧ right.RebaseComparisons inst baseRight
   | _, _ => True
 
@@ -22,7 +24,7 @@ theorem ProgressiveTree.rebaseComparisons_of_total {T : Type} (inst : core.cmp.P
   | ProgressiveZero => cases base <;> trivial
   | ProgressiveNode hash left right ih =>
     cases base <;> simp only [ProgressiveTree.RebaseComparisons]
-    exact ⟨Tree.rebaseComparisons_of_total inst heq hne _ _, ih _⟩
+    exact fun _ => ⟨Tree.rebaseComparisons_of_total inst heq hne _ _, ih _⟩
 
 /-- Compatible shapes and representable original layers guarantee successful
 rebasing when the compared leaves terminate. All layer arithmetic is derived;
@@ -80,11 +82,11 @@ theorem ProgressiveTree.rebase_on_recursive_success {T : Type} (ValueInst : Valu
             obtain ⟨fullDepth, hfullDepth, hfullDepthVal⟩ := usize_add_succeeds (lt_of_lt_of_le hbits hword)
             obtain ⟨action, hleft⟩ := Tree.rebase_on_success ValueInst origLeft baseLeft
               origLeftShape baseLeftShape (some (origLocal, baseLocal)) fullDepth
-              (by omega) (fun _ => by rw [UScalarTy.Usize_numBits_eq]; omega) hcompare.1
+              (by omega) (fun _ => by rw [UScalarTy.Usize_numBits_eq]; omega) (hcompare hpointer).1
             obtain ⟨newRight, hright⟩ := ih baseRight next
               (by simpa only [hnextVal] using origRightShape)
               (by simpa only [hnextVal] using baseRightShape)
-              (by simpa only [hnextVal] using hfit.2) hcompare.2
+              (by simpa only [hnextVal] using hfit.2) (hcompare hpointer).2
             obtain ⟨leftSame, hleftSame, _⟩ :=
               triomphe.arc.Arc.ptr_eq_spec (applyRebaseAction origLeft action) origLeft
             obtain ⟨rightSame, hrightSame, _⟩ := triomphe.arc.Arc.ptr_eq_spec newRight origRight

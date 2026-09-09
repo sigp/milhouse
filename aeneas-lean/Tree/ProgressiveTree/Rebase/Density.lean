@@ -30,7 +30,7 @@ theorem ProgressiveTree.rebase_on_recursive_preserves_backing {T : Type} (ValueI
     cases ProgressiveTree.rebase_on_recursive_step ValueInst hlayout hrebase with
     | same => exact ⟨horig, hfit⟩
     | @node _ baseHash _ baseLeft _ baseRight newRight start capacity binary fullDepth origLeftLength baseLeftLength next
-        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright =>
+        action hstart hnext hcapacity hbinary horigLength hbaseLength hfullDepth hleft hright hpointer =>
       obtain ⟨hleftFit, hrightFit⟩ := hfit
       have horigLengthVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hleftFit
         hstart hnext hcapacity hbinary horigLength

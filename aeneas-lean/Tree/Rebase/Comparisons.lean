@@ -62,7 +62,8 @@ def Tree.RebaseComparisons {T : Type} (inst : core.cmp.PartialEq T T) : Tree T �
       left.values.val.length = right.values.val.length →
       ∀ pair ∈ left.values.val.zip right.values.val,
         ∃ different, inst.ne pair.1 pair.2 = ok different
-  | .Node _ left right, .Node _ baseLeft baseRight =>
+  | .Node hash left right, .Node baseHash baseLeft baseRight =>
+      triomphe.arc.Arc.ptr_eq (.Node hash left right : Tree T) (.Node baseHash baseLeft baseRight) = ok false →
       left.RebaseComparisons inst baseLeft ∧ right.RebaseComparisons inst baseRight
   | _, _ => True
 
@@ -82,6 +83,6 @@ theorem Tree.rebaseComparisons_of_total {T : Type} (inst : core.cmp.PartialEq T 
   | Zero depth => cases base <;> trivial
   | Node hash left right ihleft ihright =>
     cases base <;> simp only [Tree.RebaseComparisons]
-    exact ⟨ihleft _, ihright _⟩
+    exact fun _ => ⟨ihleft _, ihright _⟩
 
 end milhouse.tree

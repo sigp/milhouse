@@ -11,6 +11,8 @@ namespace milhouse.tree
     on zero caches or on hashes of sequences with different lengths. -/
 def Tree.CachedHashesAgree {T : Type} : Tree T → Tree T → Prop
   | .Node origHash origLeft origRight, .Node baseHash baseLeft baseRight =>
+      triomphe.arc.Arc.ptr_eq (.Node origHash origLeft origRight : Tree T)
+        (.Node baseHash baseLeft baseRight) = ok false →
       ((¬ ∀ byte ∈ origHash.val, byte = 0#u8) → origHash.val = baseHash.val →
         (origLeft.elements ++ origRight.elements).length =
           (baseLeft.elements ++ baseRight.elements).length →
