@@ -15,6 +15,14 @@ def RangeExcludesValuesAt {T U : Type} (mapInst : UpdateMap U T) (updates : U)
     mapInst.get updates query = ok found →
     lo.val ≤ query.val → query.val < hi.val → found = none
 
+/-- A positive range answer has a pending-value witness inside its window.
+This direction alone suffices to recover a necessary start condition from a
+successful binary rebuild; false answers are unconstrained. -/
+def RangeSelectsValuesAt {T U : Type} (mapInst : UpdateMap U T) (updates : U)
+    (lo hi : Std.Usize) : Prop :=
+  mapInst.has_any_in_range updates lo hi = ok true →
+    ∃ index, lo.val ≤ index ∧ index < hi.val ∧ HasValueAt mapInst updates index
+
 /-- Every successful range answer agrees with the presence of a pending
     value. Density preservation needs positive answers to have witnesses as
     well: visiting an empty zero subtree can produce a noncanonical empty
@@ -25,6 +33,13 @@ def RangeReflectsValuesAt {T U : Type} (mapInst : UpdateMap U T) (updates : U)
     mapInst.has_any_in_range updates lo hi = ok answer →
     (answer = true ↔ ∃ index, lo.val ≤ index ∧ index < hi.val ∧
       HasValueAt mapInst updates index)
+
+theorem RangeReflectsValuesAt.selectsValues {T U : Type}
+    {mapInst : UpdateMap U T} {updates : U} {lo hi : Std.Usize}
+    (h : RangeReflectsValuesAt mapInst updates lo hi) :
+    RangeSelectsValuesAt mapInst updates lo hi := by
+  intro htrue
+  exact (h true htrue).mp rfl
 
 theorem RangeReflectsValuesAt.excludesValues {T U : Type}
     {mapInst : UpdateMap U T} {updates : U}

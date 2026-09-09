@@ -26,8 +26,9 @@ def Tree.BulkChildStep {T U : Type}
 
 /-- Decompose successful node updates into aligned child windows and the
     actual recursive or preserved-child actions. All checked arithmetic and
-    both child error paths are included, without assuming map range laws. -/
-theorem Tree.with_updated_leaves_node_step {T U : Type}
+    both child error paths are included. Success also forces at least one positive
+    child answer, without assuming map range laws. -/
+theorem Tree.with_updated_leaves_node_step_selected {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
@@ -47,7 +48,9 @@ theorem Tree.with_updated_leaves_node_step {T U : Type}
       stop.val = prefix1.val + offset.val + subtreeCapacity factor depth.val ∧
       updated = Tree.Node hash newLeft newRight ∧
       Tree.BulkChildStep ValueInst mapInst updates left newLeft prefix1 offset nd lo middle hashes ∧
-      Tree.BulkChildStep ValueInst mapInst updates right newRight rightPrefix offset nd middle stop hashes := by
+      Tree.BulkChildStep ValueInst mapInst updates right newRight rightPrefix offset nd middle stop hashes ∧
+      (mapInst.has_any_in_range updates lo middle = ok true ∨
+        mapInst.has_any_in_range updates middle stop = ok true) := by
   unfold Tree.with_updated_leaves at hupdate
   rw [bind_eq_ok_iff] at hupdate
   obtain ⟨opt, hopt, hupdate⟩ := hupdate
@@ -112,6 +115,8 @@ theorem Tree.with_updated_leaves_node_step {T U : Type}
         Tree.BulkChildStep ValueInst mapInst updates left newLeft prefix1 offset nd lo middle hashes →
         Tree.BulkChildStep ValueInst mapInst updates right newRight
           (prefix1 ||| stride) offset nd middle stop hashes →
+        (mapInst.has_any_in_range updates lo middle = ok true ∨
+          mapInst.has_any_in_range updates middle stop = ok true) →
         ∃ nd rightPrefix lo middle stop hash newLeft newRight,
           depth.val = nd.val + 1 ∧
           rightPrefix.val = prefix1.val + subtreeCapacity factor nd.val ∧
@@ -120,10 +125,12 @@ theorem Tree.with_updated_leaves_node_step {T U : Type}
           stop.val = prefix1.val + offset.val + subtreeCapacity factor depth.val ∧
           updated = Tree.Node hash newLeft newRight ∧
           Tree.BulkChildStep ValueInst mapInst updates left newLeft prefix1 offset nd lo middle hashes ∧
-          Tree.BulkChildStep ValueInst mapInst updates right newRight rightPrefix offset nd middle stop hashes := by
-      intro newLeft newRight htree hleft hright
+          Tree.BulkChildStep ValueInst mapInst updates right newRight rightPrefix offset nd middle stop hashes ∧
+          (mapInst.has_any_in_range updates lo middle = ok true ∨
+            mapInst.has_any_in_range updates middle stop = ok true) := by
+      intro newLeft newRight htree hleft hright hselected
       exact ⟨nd, prefix1 ||| stride, lo, middle, stop, hash, newLeft, newRight,
-        hndVal, hrightPrefix, hloVal, hmiddleVal, hstopWindow, htree, hleft, hright⟩
+        hndVal, hrightPrefix, hloVal, hmiddleVal, hstopWindow, htree, hleft, hright, hselected⟩
     cases bl with
     | false =>
       cases br with
@@ -140,7 +147,7 @@ theorem Tree.with_updated_leaves_node_step {T U : Type}
         | Ok newRight =>
           simp [core.result.Result.Insts.CoreOpsTry.branch, Tree.node,
             lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
-          exact finish left newRight hupdate.symm (Or.inl ⟨hbl, rfl⟩) (Or.inr ⟨hbr, hr⟩)
+          exact finish left newRight hupdate.symm (Or.inl ⟨hbl, rfl⟩) (Or.inr ⟨hbr, hr⟩) (Or.inr hbr)
     | true =>
       simp only [if_true] at hupdate
       rw [bind_eq_ok_iff] at hupdate
@@ -155,7 +162,7 @@ theorem Tree.with_updated_leaves_node_step {T U : Type}
         cases br with
         | false =>
           simp [Tree.node, lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
-          exact finish newLeft right hupdate.symm (Or.inr ⟨hbl, hr⟩) (Or.inl ⟨hbr, rfl⟩)
+          exact finish newLeft right hupdate.symm (Or.inr ⟨hbl, hr⟩) (Or.inl ⟨hbr, rfl⟩) (Or.inl hbl)
         | true =>
           simp only [if_true] at hupdate
           rw [bind_eq_ok_iff] at hupdate
@@ -166,7 +173,36 @@ theorem Tree.with_updated_leaves_node_step {T U : Type}
               core.convert.FromSame.from] at hupdate
           | Ok newRight =>
             simp [Tree.node, lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
-            exact finish newLeft newRight hupdate.symm (Or.inr ⟨hbl, hr⟩) (Or.inr ⟨hbr, hr1⟩)
+            exact finish newLeft newRight hupdate.symm (Or.inr ⟨hbl, hr⟩) (Or.inr ⟨hbr, hr1⟩) (Or.inl hbl)
   · simp [hpositive] at hupdate
+
+/-- The original child-step contract, obtained by forgetting the positive
+    answer guaranteed by successful node rebuilding. -/
+theorem Tree.with_updated_leaves_node_step {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {left right updated : Tree T} {updates : U} {prefix1 offset depth : Std.Usize}
+    {oldHash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize)}
+    {hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
+    (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
+    (hupdate : Tree.with_updated_leaves ValueInst mapInst (.Node oldHash left right) updates
+      prefix1 offset depth hashes = ok (core.result.Result.Ok updated)) :
+    ∃ nd rightPrefix lo middle stop hash newLeft newRight,
+      depth.val = nd.val + 1 ∧
+      rightPrefix.val = prefix1.val + subtreeCapacity factor nd.val ∧
+      lo.val = prefix1.val + offset.val ∧
+      middle.val = rightPrefix.val + offset.val ∧
+      stop.val = prefix1.val + offset.val + subtreeCapacity factor depth.val ∧
+      updated = Tree.Node hash newLeft newRight ∧
+      Tree.BulkChildStep ValueInst mapInst updates left newLeft prefix1 offset nd lo middle hashes ∧
+      Tree.BulkChildStep ValueInst mapInst updates right newRight rightPrefix offset nd middle stop hashes := by
+  obtain ⟨nd, rightPrefix, lo, middle, stop, hash, newLeft, newRight,
+    hnd, hrightPrefix, hlo, hmiddle, hstop, hafter, hleft, hright, _⟩ :=
+    Tree.with_updated_leaves_node_step_selected ValueInst mapInst hlayout halign hupdate
+  exact ⟨nd, rightPrefix, lo, middle, stop, hash, newLeft, newRight,
+    hnd, hrightPrefix, hlo, hmiddle, hstop, hafter, hleft, hright⟩
 
 end milhouse.tree

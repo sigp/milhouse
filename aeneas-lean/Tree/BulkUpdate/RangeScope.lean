@@ -71,6 +71,16 @@ theorem BulkRangeOn.excludesValues {T U : Type}
       mapInst updates factor depth start :=
   hself.mono (fun _ _ h => h.excludesValues)
 
+/-- Reflection supplies positive witnesses at the same queried ranges. -/
+theorem BulkRangeOn.selectsValues {T U : Type}
+    {mapInst : update_map.UpdateMap U T} {updates : U} {factor : Option Std.Usize}
+    {depth start : Nat}
+    (hself : BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      mapInst updates factor depth start) :
+    BulkRangeOn (update_map.RangeSelectsValuesAt mapInst updates)
+      mapInst updates factor depth start :=
+  hself.mono (fun _ _ h => h.selectsValues)
+
 theorem BulkRangeOn.left_query {T U : Type} {Q : Std.Usize → Std.Usize → Prop}
     {mapInst : update_map.UpdateMap U T} {updates : U} {factor : Option Std.Usize}
     {depth start : Nat} {lo hi : Std.Usize}
