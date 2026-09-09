@@ -52,14 +52,14 @@ theorem ProgressiveList.pop_front_nonzero_total_spec {T U : Type}
   · exact ProgressiveList.has_pending_updates_spec ValueInst mapInst result true hempty
 
 /-- Front removal within the logical length terminates and preserves exactly
-the retained suffix. A zero removal is the original list and requires no clone,
-capacity, or default-map law. Nonzero removal rebuilds and clears pending
+the retained suffix. A zero removal is the original list and requires no packing,
+clone, capacity, or default-map law. Nonzero removal rebuilds and clears pending
 updates using only the retained values' laws and capacities. -/
 theorem ProgressiveList.pop_front_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
     (self : ProgressiveList T U) (contents : _root_.List T) (n : Std.Usize)
+    (hlayout : n ≠ 0#usize → tree.PackingLayout ValueInst factor packingDepth)
     (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
     (hbound : n.val ≤ contents.length)
     (hclone : n ≠ 0#usize → ∀ value ∈ contents.drop n.val,
@@ -79,7 +79,7 @@ theorem ProgressiveList.pop_front_total_spec {T U : Type}
     · simpa only [show (0#usize).val = 0 from rfl, _root_.List.drop_zero] using hrep
   · obtain ⟨updates, hmap, hget, hmax, hempty⟩ := hdefault hzero
     obtain ⟨result, hpop, hcontents, hvalid, hpending⟩ :=
-      ProgressiveList.pop_front_nonzero_total_spec ValueInst mapInst hlayout self contents n hrep hbacking
+      ProgressiveList.pop_front_nonzero_total_spec ValueInst mapInst (hlayout hzero) self contents n hrep hbacking
         hzero hbound (hclone hzero) (hfits hzero) updates hmap hget hmax hempty
     exact ⟨result, hpop, hcontents, hvalid, fun _ => hpending⟩
 
