@@ -37,11 +37,11 @@ theorem ProgressiveList.Represents.extension_complete {T U : Type}
     rw [hnone, _root_.List.getElem?_eq_getElem hhi] at hread
     cases hread
 
-/-- The nonempty branch materializes every merged read in the new backing
-and establishes its spine shape. This concerns backing reads before the new
-default map is consulted, so no default-map law is required. Clone identity
-is scoped only to the retained stored slots and selected pending values. -/
-theorem ProgressiveList.apply_updates_nonempty_backing_spec {T U : Type}
+/-- Actual nonempty application materializes every merged read when pending
+values agree with backing only in the suffixes skipped by the maximum guard.
+The checked length supplies the numeric extension bound. No default-map law
+is required, and clone identity concerns only retained slots and selected values. -/
+theorem ProgressiveList.apply_updates_nonempty_backing_spec_of_skipped {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -52,8 +52,8 @@ theorem ProgressiveList.apply_updates_nonempty_backing_spec {T U : Type}
     (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRangeOn (update_map.RangeExcludesValuesAt mapInst self.updates)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
-      update_map.MaximumBoundsValues mapInst self.updates maximum)
+    (hskipped : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32)
     (hrep : self.Represents ValueInst mapInst contents)
     (hshape : self.tree.Shape factor 0) (hends : self.tree.EndsAfter factor 0 self.length.val)
     (hempty : mapInst.is_empty self.updates = ok false)
@@ -70,9 +70,17 @@ theorem ProgressiveList.apply_updates_nonempty_backing_spec {T U : Type}
     cases hobserved
     have hcomplete : update_map.ExtensionComplete mapInst self.updates self.length.val length.val := by
       simpa only [hcontentsLength] using hrep.extension_complete
+    have hextent : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        length.val ≤ maximum.elim self.length.val (fun last => max (last.val + 1) self.length.val) := by
+      intro maximum hmax
+      obtain ⟨actual, hactual, hvalue⟩ :=
+        (utils.updated_length_eq_ok_iff mapInst self.length self.updates length).mp hlength
+      have heq : actual = maximum := Result.ok.inj (hactual.symm.trans hmax)
+      simpa only [heq] using Nat.le_of_eq hvalue.symm
     obtain ⟨hnewShape, hnewEnds, hnewContents⟩ :=
-      progressive_tree.ProgressiveTree.with_updated_leaves_shape_contents ValueInst mapInst self.updates
-        hlayout hclone hrange hmaximum hcomplete hshape hends hupdate
+      progressive_tree.ProgressiveTree.with_updated_leaves_shape_contents_of_skipped ValueInst mapInst self.updates
+        hlayout hclone hrange hextent (by simpa only [hcontentsLength] using hskipped)
+        hcomplete hshape hends hupdate
     refine ⟨hnewShape, hnewEnds, ?_⟩
     intro query
     by_cases hin : query.val < contents.length
@@ -98,6 +106,83 @@ theorem ProgressiveList.apply_updates_nonempty_backing_spec {T U : Type}
       have hnone : contents[query.val]? = none := _root_.List.getElem?_eq_none (by omega)
       simp only [ProgressiveList.backing_get, ProgressiveList.backing_len, utils.Length.as_usize,
         bind_tc_ok, if_neg hindex, hnone]
+
+/-- The nonempty branch materializes every merged read in the new backing
+and establishes its spine shape. This concerns backing reads before the new
+default map is consulted, so no default-map law is required. Clone identity
+is scoped only to the retained stored slots and selected pending values. -/
+theorem ProgressiveList.apply_updates_nonempty_backing_spec {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeExcludesValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      update_map.MaximumBoundsValues mapInst self.updates maximum)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hshape : self.tree.Shape factor 0) (hends : self.tree.EndsAfter factor 0 self.length.val)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
+    result.tree.Shape factor 0 ∧ result.tree.EndsAfter factor 0 result.length.val ∧
+      ∀ query, ProgressiveList.backing_get ValueInst mapInst result query = ok contents[query.val]? := by
+  exact ProgressiveList.apply_updates_nonempty_backing_spec_of_skipped ValueInst mapInst self contents
+    hlayout hclone hrange
+    (fun maximum hmax => progressive_tree.ProgressiveTree.BulkSkippedValuesAgree.of_maximum
+      contents.length (hmaximum maximum hmax) self.tree 0#u32)
+    hrep hshape hends hempty happly
+
+/-- Successful application preserves the sequence and spine under agreement
+of pending values in skipped suffixes. All work laws apply only on nonempty
+application; the empty branch preserves the original representation directly. -/
+theorem ProgressiveList.apply_updates_represents_of_skipped {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrange : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn (update_map.RangeExcludesValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hskipped : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32)
+    (hdefaultGet : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+      ∀ query, mapInst.get defaults query = ok none)
+    (hdefaultMax : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+      mapInst.max_index defaults = ok none)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hshape : self.tree.Shape factor 0) (hends : self.tree.EndsAfter factor 0 self.length.val)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self =
+      ok (core.result.Result.Ok (), result)) :
+    result.Represents ValueInst mapInst contents ∧ result.tree.Shape factor 0 ∧
+      result.tree.EndsAfter factor 0 result.length.val := by
+  rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
+    ⟨_, rfl⟩ | ⟨defaults, length, newTree, hempty, hdefault, hlength, hupdate, rfl⟩
+  · exact ⟨hrep, hshape, hends⟩
+  · obtain ⟨hnewShape, hnewEnds, hreads⟩ := ProgressiveList.apply_updates_nonempty_backing_spec_of_skipped
+      ValueInst mapInst self contents (hlayout hempty) (hclone hempty) (hrange hempty)
+      (hskipped hempty) hrep hshape hends hempty happly
+    have hcontentsLength := ProgressiveList.backing_length_after_nonempty_apply_updates
+      ValueInst mapInst self contents hrep hempty happly
+    refine ⟨⟨⟨length, ProgressiveList.len_of_no_max_index ValueInst mapInst _
+      (hdefaultMax hempty defaults hdefault), hcontentsLength⟩, ?_⟩, hnewShape, hnewEnds⟩
+    intro query
+    simp only [ProgressiveList.get, hdefaultGet hempty defaults hdefault query, bind_tc_ok]
+    exact hreads query
 
 /-- Successful application preserves the represented sequence at every index
     and preserves the structural spine invariants for the new backing length.
@@ -135,18 +220,10 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     result.Represents ValueInst mapInst contents ∧ result.tree.Shape factor 0 ∧
       result.tree.EndsAfter factor 0 result.length.val := by
-  rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨_, rfl⟩ | ⟨defaults, length, newTree, hempty, hdefault, hlength, hupdate, rfl⟩
-  · exact ⟨hrep, hshape, hends⟩
-  · obtain ⟨hnewShape, hnewEnds, hreads⟩ := ProgressiveList.apply_updates_nonempty_backing_spec
-      ValueInst mapInst self contents (hlayout hempty) (hclone hempty) (hrange hempty)
-      (hmaximum hempty) hrep hshape hends hempty happly
-    have hcontentsLength := ProgressiveList.backing_length_after_nonempty_apply_updates
-      ValueInst mapInst self contents hrep hempty happly
-    refine ⟨⟨⟨length, ProgressiveList.len_of_no_max_index ValueInst mapInst _
-      (hdefaultMax hempty defaults hdefault), hcontentsLength⟩, ?_⟩, hnewShape, hnewEnds⟩
-    intro query
-    simp only [ProgressiveList.get, hdefaultGet hempty defaults hdefault query, bind_tc_ok]
-    exact hreads query
+  exact ProgressiveList.apply_updates_represents_of_skipped ValueInst mapInst self contents
+    hlayout hclone hrange
+    (fun hempty maximum hmax => progressive_tree.ProgressiveTree.BulkSkippedValuesAgree.of_maximum
+      contents.length (hmaximum hempty maximum hmax) self.tree 0#u32)
+    hdefaultGet hdefaultMax hrep hshape hends happly
 
 end milhouse.progressive_list
