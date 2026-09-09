@@ -135,6 +135,20 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+Original cache validity now follows two separate scopes: `RebaseOrigCachesOn`
+for retained caches and `RebaseHashCachesOn` for reached hash-shortcut checks.
+Eight successful-execution/total public cache contracts use these weaker
+premises. Discarded original caches need no retention law, and unselected
+original hash caches need no comparison-validity law. The error-inclusive
+wrapper retains full original validity because errors restore the original;
+cleared-input contracts derive both scopes internally. The progressive step
+certificate retains child calls even when final pointer checks reuse the
+original node. At `01f0d4f` (foundations `a653121`, `8173c77`), the full build
+passes (2,045 jobs) and the axiom/import audit covers 5,257 declarations across
+329 modules. All eleven public cache/validity contracts build. There are no
+new axioms or admissions; the pointer-equality helper adds one use of the
+existing pointer contract, for 64 total.
+
 Binary action categories now select the base caches required by all eleven
 public rebase cache/validity contracts. No-ops need no base validity;
 whole-base replacement needs full base validity; rebuilding uses selected
@@ -146,8 +160,9 @@ finite-collision bridges use this scope, with full-base adapters retained.
 At `99fad96` (foundation `b7e16e2`), focused and full builds pass (2,041 jobs),
 and the axiom/import audit covers 5,235 declarations across 325 modules. There
 are no new axioms or admissions; the reflection lemma adds one use of the
-existing pointer contract, for 63 total. Original-cache assumptions and
-remaining model-fidelity/borrowed CoW work stay open.
+existing pointer contract, for 63 total. The original-cache refinement is
+recorded above; remaining assumption/model-fidelity and borrowed CoW work
+stay open.
 
 The base-cache premise of all eleven public rebase cache/validity contracts is
 `RebaseBaseCachesOn`. At the earlier progressive-layer checkpoint, validity

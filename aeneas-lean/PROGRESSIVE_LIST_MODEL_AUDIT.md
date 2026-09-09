@@ -376,6 +376,21 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- `RebaseOrigCachesOn` scopes original validity to retained caches, while
+  `RebaseHashCachesOn` separately covers reached nonzero hash-shortcut checks.
+  Binary/progressive preservation uses the first; the collision bridges use
+  the second. Eight successful-execution/total public cache contracts accept
+  these weaker premises. Full original validity supplies both through
+  adapters and is retained by the error-inclusive wrapper, whose error branch
+  restores the original tree. Cleared-input contracts derive both scopes.
+  The progressive step certificate retains completed child calls when final
+  pointer checks reuse the original node. At `01f0d4f` (foundations `a653121`,
+  `8173c77`), the full build passes (2,045 jobs), and the axiom/import audit
+  covers 5,257 declarations across 329 modules. All 21 new scope declarations
+  use only standard axioms or none. A pointer-equality helper adds one use of
+  the existing pointer contract, for 64 total; no new axiom or admission was
+  introduced. No Rust/extraction/model/Aeneas source changed, and neither the
+  source suites nor the 42-root/151-declaration dependency gate were repeated.
 - `RebaseBaseCachesOn` now selects base caches by the binary action category
   inside each reached progressive layer. No-ops require no base validity;
   whole-base replacement requires full base validity; rebuilding requires
@@ -391,8 +406,8 @@ check also pass.
   modules, with no new axioms or admissions. The reflection adds one use of
   the existing pointer contract, for 63 total. Rust/extraction/models are
   unchanged; neither source suites nor the 42-root/151-declaration dependency
-  gate were repeated. Original-cache assumptions and remaining fidelity work
-  stay open.
+  gate were repeated. The original-cache refinement is recorded above;
+  remaining assumption and fidelity work stay open.
 - Packed rebase equality now uses `NeSoundIfAllFalse`: element agreement is
   needed only when every paired `ne` returns false. The guarded law is proved
   necessary and sufficient for sound positive vector equality, conditional
