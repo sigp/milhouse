@@ -9,8 +9,9 @@ namespace milhouse.progressive_list
 /-- Complete append correctness, including unchanged full-list rejection.
 Representation supplies the actual logical-length calculation. Below the
 maximum, only the insertion at that length must terminate, record the new
-maximum, and preserve the other pending reads. No behavior is required of the
-discarded previous-value result, and full lists need no insertion law.
+maximum, and preserve other reads after the actual backing fallback. No
+behavior is required of the discarded previous-value result, and full lists
+need no insertion law.
 
 The backing tree and its recorded length remain exactly unchanged in either
 case. No packing, structural capacity, backing validity, or cloning premise is
@@ -22,8 +23,7 @@ theorem ProgressiveList.push_total_spec {T U : Type}
     (hinsert : ∀ index : Std.Usize, index.val = contents.length → index.val < Std.Usize.max →
       ∃ previous updates, mapInst.insert self.updates index value = ok (previous, updates) ∧
         mapInst.max_index updates = ok (some index) ∧
-        ∀ query, mapInst.get updates query =
-          if query = index then ok (some value) else mapInst.get self.updates query) :
+        ∀ query, self.AppendReadAgrees ValueInst mapInst updates index value query) :
     ∃ outcome result, ProgressiveList.push ValueInst mapInst self value = ok (outcome, result) ∧
       result.tree = self.tree ∧ result.length = self.length ∧
       match outcome with
@@ -37,14 +37,8 @@ theorem ProgressiveList.push_total_spec {T U : Type}
   · obtain ⟨previous, updates, hins, hmax, hget⟩ := hinsert index hcontentlen hroom
     have hpush := ProgressiveList.push_succeeds ValueInst mapInst self value index hlen
       (by scalar_tac) hins
-    have hnewRep := (ProgressiveList.push_represents_append_iff_max_index ValueInst mapInst self contents value
-      hrep (by
-        intro actual previous' updates' hactual hactualInsert
-        rw [hlen] at hactual
-        cases hactual
-        rw [hins] at hactualInsert
-        cases hactualInsert
-        exact hget) hpush).mpr ⟨index, hcontentlen, hmax⟩
+    have hnewRep := (ProgressiveList.push_represents_append_iff
+      ValueInst mapInst self contents value hrep hpush).mpr ⟨index, hcontentlen, hmax, hget⟩
     exact ⟨.Ok (), { self with updates := updates }, hpush, rfl, rfl,
       by omega, hnewRep⟩
   · have hfull : index = core.num.Usize.MAX := by scalar_tac

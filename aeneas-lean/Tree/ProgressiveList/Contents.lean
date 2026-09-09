@@ -58,8 +58,7 @@ theorem ProgressiveList.push_represents_append {T U : Type}
       ProgressiveList.len ValueInst mapInst self = ok index →
       mapInst.insert self.updates index value = ok (previous, updates) →
       mapInst.max_index updates = ok (some index) ∧
-      ∀ query, mapInst.get updates query =
-        if query = index then ok (some value) else mapInst.get self.updates query)
+      ∀ query, self.AppendReadAgrees ValueInst mapInst updates index value query)
     {pushed : ProgressiveList T U}
     (hpush : ProgressiveList.push ValueInst mapInst self value =
       ok (core.result.Result.Ok (), pushed)) :
