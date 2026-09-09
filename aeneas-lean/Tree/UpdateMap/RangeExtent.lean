@@ -6,6 +6,12 @@ open milhouse
 
 namespace milhouse.update_map
 
+/-- A successful positive range answer selects an interval whose start is
+inside the new logical prefix. False answers impose no condition. -/
+def RangeSelectsInsideAt {T U : Type} (mapInst : UpdateMap U T) (updates : U)
+    (newLength : Nat) (lo hi : Std.Usize) : Prop :=
+  mapInst.has_any_in_range updates lo hi = ok true → lo.val < newLength
+
 /-- Numeric effects required of a range answer by density preservation.
 A skipped interval retains its occupied length; a selected interval starts
 inside the final prefix. No pending-value witness or absence law is required. -/
@@ -14,6 +20,12 @@ structure RangePreservesExtentAt {T U : Type} (mapInst : UpdateMap U T) (updates
   empty_length : mapInst.has_any_in_range updates lo hi = ok false →
     min (newLength - lo.val) (hi.val - lo.val) = min (oldLength - lo.val) (hi.val - lo.val)
   selected_inside : mapInst.has_any_in_range updates lo hi = ok true → lo.val < newLength
+
+theorem RangePreservesExtentAt.selectsInside {T U : Type}
+    {mapInst : UpdateMap U T} {updates : U} {oldLength newLength : Nat}
+    {lo hi : Std.Usize}
+    (h : RangePreservesExtentAt mapInst updates oldLength newLength lo hi) :
+    RangeSelectsInsideAt mapInst updates newLength lo hi := h.selected_inside
 
 /-- Correct range reflection supplies the weaker numeric conditions from
 the actual dense update domain. Queries outside the final prefix cannot be

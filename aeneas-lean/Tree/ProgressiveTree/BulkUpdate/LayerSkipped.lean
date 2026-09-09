@@ -60,6 +60,39 @@ theorem ProgressiveTree.BulkLayerSkipped.range_queried {T U : Type}
   | zero_tail hgeometry hhas hmaximum _ ih => exact .zero_tail hgeometry hhas hmaximum (ih hnonempty)
   | node_tail hgeometry hhas hmaximum _ ih => exact .node_tail hgeometry hhas hmaximum (ih hnonempty)
 
+theorem ProgressiveTree.BulkLayerRangeQueried.nonempty {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {maximum : Option Std.Usize} {self : ProgressiveTree T}
+    {depth : Std.U32} {start stop : Std.Usize}
+    (hquery : self.BulkLayerRangeQueried ValueInst mapInst updates maximum depth start stop) :
+    start.val < stop.val := by
+  induction hquery with
+  | here _ hnonempty => exact hnonempty
+  | zero_tail _ _ _ _ ih => exact ih
+  | node_tail _ _ _ _ ih => exact ih
+
+/-- Every reached progressive range query answered false skips the layer
+of its actual input subtree. This requires no rebuilding call or result. -/
+theorem ProgressiveTree.BulkLayerRangeQueried.skipped_of_false {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {maximum : Option Std.Usize} {self : ProgressiveTree T}
+    {depth : Std.U32} {start stop : Std.Usize}
+    (hquery : self.BulkLayerRangeQueried ValueInst mapInst updates maximum depth start stop)
+    (hfalse : ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok false) :
+    ∃ layer layerDepth,
+      self.BulkLayerSkipped ValueInst mapInst updates maximum depth layer layerDepth start stop := by
+  induction hquery with
+  | @here before depth next start stop binary hgeometry _ =>
+    cases before with
+    | ProgressiveZero => exact ⟨_, _, .zero_here hgeometry hfalse⟩
+    | ProgressiveNode hash left right => exact ⟨_, _, .node_here hgeometry hfalse⟩
+  | zero_tail hgeometry hhas hmaximum _ ih =>
+    obtain ⟨layer, layerDepth, hskip⟩ := ih hfalse
+    exact ⟨layer, layerDepth, .zero_tail hgeometry hhas hmaximum hskip⟩
+  | node_tail hgeometry hhas hmaximum _ ih =>
+    obtain ⟨layer, layerDepth, hskip⟩ := ih hfalse
+    exact ⟨layer, layerDepth, .node_tail hgeometry hhas hmaximum hskip⟩
+
 /-- Present pending values in a skipped progressive layer agree with its
 unchanged input reads. Only values inside both the layer interval and the
 new logical prefix matter. Missing entries impose no lookup law. -/

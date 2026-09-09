@@ -87,6 +87,26 @@ theorem ProgressiveTree.BulkLayerSkipped.start_after {T U : Type}
       (ProgressiveTree.total_capacity_success_mono ValueInst hcapacity hgeometry.stop_eq (by omega))
       (ih hgeometry.stop_eq)
 
+/-- The original tree routes each query in a skipped layer to its recorded
+input subtree. Only actual input geometry and guard observations are used. -/
+theorem ProgressiveTree.BulkLayerSkipped.get_before_eq_layer {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {maximum : Option Std.Usize} {before layer : ProgressiveTree T}
+    {depth layerDepth : Std.U32} {start stop query : Std.Usize}
+    (hskip : before.BulkLayerSkipped ValueInst mapInst updates maximum depth layer layerDepth start stop)
+    (hlo : start.val ≤ query.val) :
+    ProgressiveTree.get_recursive ValueInst before query depth =
+      ProgressiveTree.get_recursive ValueInst layer query layerDepth := by
+  induction hskip with
+  | zero_here _ _ => rfl
+  | node_here _ _ => rfl
+  | zero_tail _ _ _ _ ih => simpa only [ProgressiveTree.get_recursive] using ih hlo
+  | @node_tail hash left right depth next start stop binary has layer layerDepth layerStart layerStop
+      hgeometry _ _ hskip ih =>
+    rw [node_get_right ValueInst hgeometry.next_eq hgeometry.stop_eq
+      (Nat.le_trans (hskip.start_after hgeometry.stop_eq) hlo)]
+    exact ih hlo
+
 /-- A successful update preserves the entire read result in a skipped
 progressive layer. Ancestor routing follows from the actual capacities;
 no packing, shape, clone, range-correctness, or lookup-termination law is needed. -/
