@@ -166,6 +166,47 @@ and rebasing; they do not change the scope exclusions or complete the goal.
 No production/model/Aeneas changes were made, and the main library and
 dependency counts are unchanged.
 
+## Arbitrary control source comparison
+
+Run `python3 scripts/aeneas-audit-arbitrary-models.py` from the repository root.
+The [Arbitrary comparison](reproducers/arbitrary_models/README.md) validates
+`nextControl` against actual `bool::arbitrary` in pinned `arbitrary` 1.4.1.
+It includes the actual byte generator and `fill_buffer` source, proving the
+one-byte copy/zeroing loop, write-back, termination, and low-bit interpretation.
+For every input slice, both the Boolean answer and exact remaining input agree.
+An even stopping byte is consumed; exhaustion succeeds with false and retains
+empty input. There is no input, success, or termination premise.
+
+The helper theorem covers the one-byte buffer reached by this control path,
+not general buffer widths. Existing Aeneas array, slice, copy/index,
+mutable-iterator, scalar, and Result foundations remain boundaries. The
+source `Unstructured` is its actual extracted structure, compared through its
+single byte-slice field. Its three error variants are mapped individually.
+
+The runner checks the bool implementation's source module, distinguishing its
+`arbitrary` method from the byte method with the same name. Type provenance
+uses the dependency crate independently. Changing only the source error
+type's final metadata name avoids a generated discriminant-instance collision;
+restoring it must recover the entire original LLBC. Ten malformed source
+inventories, ten invalid metadata/type-namespace cases, and four invalid axiom
+reports are rejected.
+
+At `db45ecc`, the comparison passes with only standard Lean axioms. Seven
+native tests cover all 256 control values, repeated exhaustion, 768 one-byte
+buffer overwrites, first-error and panic input state, generator input
+replacement, owning-default dispatch, and size-hint defaults/overrides. All
+seven source suites pass: 30 direct comparisons and two compositions,
+totaling 32 proofs (16 axiom-free, sixteen standard-only).
+
+Full vector generation and the three Arbitrary defaults remain source
+boundaries. The owning default fails when ending the borrow of the real
+`Unstructured`; vector extraction additionally fails on mutable iterator
+borrows and collection adapters. Size-hint bodies are emitted in a partial
+module whose generic trait also has namespace shadowing. No failed output
+is used in a proof. Exact commands and diagnostics are in the fixture README
+and UPSTREAM_BUGS issue 27. No production Rust, local model, or Aeneas source
+changed; the main proof and 42-root/151-declaration inventories are unchanged.
+
 ## SSZ offset source comparisons
 
 Run `python3 scripts/aeneas-audit-ssz-offset-models.py` from the repository root.

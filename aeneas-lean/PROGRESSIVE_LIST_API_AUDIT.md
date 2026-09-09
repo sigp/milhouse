@@ -195,6 +195,20 @@ foundation remain unresolved (UPSTREAM_BUGS 26). The main proof/dependency
 inventories and scope exclusions remain unchanged; borrowed CoW and the
 remaining model/assumption review stay open.
 
+The [Arbitrary source comparison](reproducers/arbitrary_models/README.md)
+validates collection control against the actual bool/byte generators and
+one-byte copy/zeroing loop. For every input, the Boolean answer and exact
+remaining input match, including consumed even stopping bytes and successful
+false at exhaustion. There are no extra premises, and the proof uses only
+standard Lean axioms. Seven native tests additionally check vector input
+replacement, error/panic short-circuiting, and default-method dispatch. Full
+vector generation and the three Arbitrary defaults remain source boundaries;
+direct owning-default/vector extraction fails (UPSTREAM_BUGS 27). At `db45ecc`,
+all seven source suites pass: 30 direct comparisons and two compositions,
+totaling 32 proofs (16 axiom-free, sixteen standard-only). The main proof and
+model-root inventories are unchanged; borrowed CoW and the remaining model
+and assumption review remain open.
+
 Append now uses exact observable lookup conditions. `AppendReadAgrees` in
 `Push/Lookup.lean` requires the appended key to return the new pending value;
 other keys need only agree after the original backing fallback, without raw

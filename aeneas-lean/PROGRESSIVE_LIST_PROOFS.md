@@ -84,6 +84,18 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [Arbitrary source comparison](reproducers/arbitrary_models/README.md)
+  validates collection control against actual `bool::arbitrary`, including
+  the actual byte generator and one-byte fill/zeroing loop. It proves the
+  Boolean result and exact remaining input for every slice, consuming even
+  stopping bytes and returning false at exhaustion, without extra premises.
+  The proof uses only standard Lean axioms and retains array/slice/iterator,
+  scalar, copy, and Result foundations. Seven native tests also check vector
+  error/panic state, input replacement, and trait-default dispatch. Full vector
+  generation and the three defaults remain source boundaries; direct owning
+  default and vector extraction fail (UPSTREAM_BUGS 27). At `db45ecc`, all seven
+  source suites pass: 30 direct comparisons and two compositions, totaling
+  32 proofs (16 axiom-free, sixteen standard-only).
 - The [SSZ offset source comparisons](reproducers/ssz_offset_models/README.md)
   validate the actual four-byte constant and private decoder for every input
   length, including the complete copy loop and exact error payloads. A separate
@@ -1287,7 +1299,32 @@ The model dependency inventory remains 42 roots/151 local declarations; that
 separate gate was not repeated for these proof-only changes. Borrowed CoW and
 the remaining assumption/model-fidelity review stay open.
 
-Latest source-model checkpoint (`c0d7c7f`): the SSZ offset suite compares the
+Latest source-model checkpoint (`db45ecc`): the Arbitrary suite compares the
+actual Boolean generator with `nextControl` for every input slice. The proof
+follows the actual byte generator, one-byte prefix copy, zeroing loop and
+write-back, and low-bit test. Both the result and remaining input agree,
+including consumption of even stopping bytes and zero at exhaustion. No
+input-length, success, or termination premise is added; the proof uses only
+standard Lean axioms. The one-byte helper covers the buffer width reached by
+this path, not arbitrary buffer widths.
+The runner distinguishes the bool method's module from the identically named
+byte method and checks type provenance independently. Renaming only the source
+error type avoids a generated instance collision; restoring its metadata
+must recover the entire original LLBC. Ten malformed source inventories, ten
+invalid metadata/type-namespace cases, and four invalid axiom reports are
+rejected. Seven native tests cover all control bytes, buffer overwrite,
+first-error/panic input state, custom input replacement, and default dispatch.
+Full vector generation and all three trait defaults remain source boundaries;
+the verified owning-default/vector extraction failures are UPSTREAM_BUGS 27.
+All seven source suites pass: 30 direct comparisons and two compositions,
+for 32 proofs (16 axiom-free, sixteen standard-only). No production Rust, local
+model, main proof, or Aeneas source changed. The main gate was not repeated
+for this standalone audit; its latest pass remains 5,117 declarations across
+320 modules and 2,036 build jobs. The model inventory remains 42 roots/151
+declarations. Borrowed CoW and the remaining model/assumption review stay open.
+Debug and Serde remain excluded; TreeHash remains deferred.
+
+Earlier source-model checkpoint (`c0d7c7f`): the SSZ offset suite compares the
 actual constant and private decoder with the local model, and separately proves
 the public reader's prefix-slicing composition. The complete four-copy loop,
 checked increments, termination, and all length/error cases are proved without

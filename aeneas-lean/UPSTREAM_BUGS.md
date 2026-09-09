@@ -1072,6 +1072,55 @@ length errors. All three comparisons use only standard Lean axioms, retaining
 the byte/array/slice/scalar foundations. Four native tests and all six source
 audit suites pass. The other SSZ and model boundaries remain open.
 
+## 27. Aeneas: Arbitrary owning-input defaults and vector iterator borrows
+
+**Stage:** symbolic interpretation, iterator adapters, and generated names.
+**Status:** collection control has a verified source comparison, including
+the actual bool/byte generators and one-byte fill/zeroing loop. Full vector
+generation and the three trait defaults remain source boundaries. No Rust
+bug is established, and no Aeneas source change is made.
+
+The [Arbitrary source fixture](reproducers/arbitrary_models/README.md) pins
+`arbitrary` 1.4.1, Charon 0.1.223, Aeneas `b59d5188`, and
+`nightly-2026-06-01`. Its README preserves exact commands for the two failing
+probes. With the real single-field `Unstructured` type, Charon succeeds but
+Aeneas exits 1 on the owning trait default at `lib.rs:216`: `Can not end a
+borrow because the value to give back contains bottom`, from
+`InterpBorrows.ml:358`, followed by `Interp.ml:609`.
+
+Both size-hint defaults are emitted in the resulting partial module. The
+generic trait's `arbitrary` field also shadows the `arbitrary` namespace:
+Lean rejects the later `unstructured`, `error`, and `MaxRecursionReached`
+references as fields of a function. This matches the qualification issue
+already handled for the main library by `scripts/aeneas-qualify-arbitrary.py`.
+These partial source outputs are not imported by the audit.
+
+The full vector probe also lets Charon succeed but produces five Aeneas
+errors (four unique emitter locations):
+
+- `ArbitraryIter::next` at `unstructured.rs:758`: `Can't copy a mutable borrow`
+  (`InterpExpressions.ml:197`).
+- The generic `Unstructured::arbitrary` helper at `unstructured.rs:168` and
+  owning trait default at `lib.rs:216`: the borrow-ending error above.
+- `Vec::arbitrary` at `foreign/alloc/vec.rs:10`: an internal error from
+  `InterpBorrowsCore.ml:1498`.
+- `Unstructured::arbitrary_iter` at `unstructured.rs:643`: `Unimplemented`
+  from `SymbolicToPureExpressions.ml:1157`.
+
+The foundation Iterator dictionary additionally lacks `collect`. The audit
+does not replace these methods or admit their partial bodies. Native tests
+exercise exact stopping/error/panic input state, replacement of the input by
+custom generators, and trait-default dispatch, without claiming full source
+refinement of vector collection or the defaults.
+
+The independent control comparison succeeds for every input slice, proving
+the returned Boolean and remaining input with no length, success, or
+termination premise. It retains the existing array/slice/iterator, scalar,
+copy, and Result foundations. A name-only metadata adjustment avoids the
+source error type's global `instDiscriminantErrorIsize` collision with
+`Tree.Types`; reversing that adjustment must recover the entire original
+LLBC. Seven native tests and all seven source suites pass at `db45ecc`.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
