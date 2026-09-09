@@ -5,6 +5,7 @@ import Tree.ProgressiveList.Arbitrary.Behavior
 import Tree.ProgressiveList.Arbitrary.Generated
 import Tree.ProgressiveList.Arbitrary.Total
 import Tree.ProgressiveList.Arbitrary.Traits
+import Tree.ProgressiveList.Arbitrary.Caches
 import Tree.ProgressiveList.TreeHash.Metadata
 import Tree.Formatting.Error
 import Tree.Invariants
