@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Contents
+import Tree.ProgressiveList.Push.Maximum
 import Tree.ProgressiveList.Push.State
 
 open Aeneas Aeneas.Std Result
@@ -37,14 +37,14 @@ theorem ProgressiveList.push_total_spec {T U : Type}
   · obtain ⟨previous, updates, hins, hmax, hget⟩ := hinsert index hcontentlen hroom
     have hpush := ProgressiveList.push_succeeds ValueInst mapInst self value index hlen
       (by scalar_tac) hins
-    have hnewRep := ProgressiveList.push_represents_append ValueInst mapInst self contents value
+    have hnewRep := (ProgressiveList.push_represents_append_iff_max_index ValueInst mapInst self contents value
       hrep (by
         intro actual previous' updates' hactual hactualInsert
         rw [hlen] at hactual
         cases hactual
         rw [hins] at hactualInsert
         cases hactualInsert
-        exact ⟨hmax, hget⟩) hpush
+        exact hget) hpush).mpr ⟨index, hcontentlen, hmax⟩
     exact ⟨.Ok (), { self with updates := updates }, hpush, rfl, rfl,
       by omega, hnewRep⟩
   · have hfull : index = core.num.Usize.MAX := by scalar_tac
