@@ -54,14 +54,16 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
     htree, triomphe.arc.Arc.new]
 
 /-- Nonempty application succeeds, preserves every merged value, establishes
-the updated backing invariant, and clears pending updates. -/
+the updated backing invariant, and clears pending updates. Selected stored
+clones need only terminate when a pending replacement discards their result;
+identity is required only for retained stored slots and pending values. -/
 theorem ProgressiveList.apply_updates_nonempty_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
     (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
-      self.tree.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+      self.tree.BulkCloneLaws
         ValueInst mapInst self.updates factor maximum 0#u32)
     (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
@@ -80,12 +82,12 @@ theorem ProgressiveList.apply_updates_nonempty_total_spec {T U : Type}
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst result = ok false := by
   obtain ⟨result, happly, _, _⟩ := ProgressiveList.apply_updates_nonempty_success ValueInst mapInst
-    self contents hlayout (fun maximum hmax => ProgressiveTree.BulkCloneOn.mono
-      ValueInst mapInst self.updates factor maximum (fun value h => ⟨value, h⟩) self.tree 0#u32
-      (hclone maximum hmax)) hqueries hrange hrep hbacking.1 hfits
+    self contents hlayout (fun maximum hmax => (hclone maximum hmax).terminates)
+    hqueries hrange hrep hbacking.1 hfits
     hempty defaults hdefault
   refine ⟨result, happly, ProgressiveList.apply_updates_spec ValueInst mapInst self contents
-    hlayout hclone hrange hmaximum ?_ hrep hbacking happly⟩
+    hlayout (fun maximum hmax => (hclone maximum hmax).preserves)
+    hrange hmaximum ?_ hrep hbacking happly⟩
   intro actual hactual
   rw [hdefault] at hactual
   cases hactual
@@ -105,7 +107,7 @@ theorem ProgressiveList.apply_updates_total_spec {T U : Type}
       tree.PackingLayout ValueInst factor packingDepth)
     (hclone : mapInst.is_empty self.updates = ok false →
       ∀ maximum, mapInst.max_index self.updates = ok maximum →
-        self.tree.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        self.tree.BulkCloneLaws
           ValueInst mapInst self.updates factor maximum 0#u32)
     (hqueries : mapInst.is_empty self.updates = ok false →
       ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
