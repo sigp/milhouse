@@ -80,6 +80,39 @@ theorem ProgressiveList.apply_updates_preserves_backing_of_range_extents {T U : 
       (hlayout hempty) hextent hdomain (by simpa only [hcontentsLength] using hlayers hempty)
       (hrange hempty) hbacking.1 hbacking.2 hupdate
 
+/-- Skipped-layer agreement supplies false-answer extents from the input
+representation and backing invariant. The remaining progressive range law
+constrains only positive answers, on nonempty application. -/
+theorem ProgressiveList.apply_updates_preserves_backing_of_layer_agreement {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hselected : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+        ValueInst mapInst self.updates maximum 0#u32)
+    (hagreement : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32)
+    (hrange : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self =
+      ok (core.result.Result.Ok (), result)) :
+    result.BackingValid factor := by
+  apply ProgressiveList.apply_updates_preserves_backing_of_range_extents ValueInst mapInst self contents
+    hlayout _ hrange hrep hbacking happly
+  intro hempty maximum hmax
+  exact (hagreement hempty maximum hmax).preservesExtents (hlayout hempty)
+    (by simpa [progressive_tree.progressiveCapacity] using hbacking.1)
+    hbacking.2 hrep.dense_update_domain.length_mono hrep.extension_complete (hselected hempty maximum hmax)
+
 /-- Applying pending updates preserves the full backing traversal invariant.
     The dense update domain comes from the old representation. Density and
     capacity bounds need neither identity cloning nor default-map laws.
