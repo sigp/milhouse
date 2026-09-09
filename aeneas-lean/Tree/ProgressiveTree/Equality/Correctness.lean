@@ -24,9 +24,9 @@ private theorem arc_eq_of_eq_spec {T : Type} (ValueInst : Value T)
     simpa only [ProgressiveTree.arc_eq, hpointer, bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
       triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] using hcompare hpointer
 
-/-- Derived progressive-tree equality terminates and compares the complete
-    spine and every binary layer, ignoring caches. The only generic premise
-    is the element inequality law used by the actual comparison. -/
+/-- Derived progressive-tree equality terminates and characterizes the
+    complete structure, ignoring caches. Element laws concern only selected
+    input pairs; a suffix is considered only after its binary layer agrees. -/
 theorem ProgressiveTree.partial_eq_spec {T : Type} (ValueInst : Value T)
     (self other : ProgressiveTree T)
     (hne : self.EqualityOn ValueInst.corecmpPartialEqInst

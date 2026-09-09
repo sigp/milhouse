@@ -182,3 +182,4 @@ import Tree.ProgressiveList.Rebase.Pointer
 import Tree.Rebase.HashShortcutSteps
 import Tree.Rebase.ComparisonInputs
 import Tree.ProgressiveTree.Equality.Scope
+import Tree.ProgressiveList.Equality.Pointer

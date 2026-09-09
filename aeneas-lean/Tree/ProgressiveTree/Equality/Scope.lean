@@ -32,6 +32,11 @@ theorem ProgressiveTree.arcEqualityOn_of_all {T : Type} (inst : core.cmp.Partial
     (hpairs : ∀ left right, P left right) (self other : ProgressiveTree T) :
     self.ArcEqualityOn inst P other := fun _ => self.equalityOn_of_all inst P hpairs other
 
+theorem ProgressiveTree.arcEqualityOn_of_ptr_eq {T : Type} (inst : core.cmp.PartialEq T T) (P : T → T → Prop)
+    (self other : ProgressiveTree T) (hpointer : triomphe.arc.Arc.ptr_eq self other = ok true) :
+    self.ArcEqualityOn inst P other := by
+  simp [ProgressiveTree.ArcEqualityOn, hpointer]
+
 theorem ProgressiveTree.EqualityOn.mono {T : Type} {inst : core.cmp.PartialEq T T} {P Q : T → T → Prop}
     (himp : ∀ left right, P left right → Q left right)
     {self other : ProgressiveTree T} (hscope : self.EqualityOn inst P other) :

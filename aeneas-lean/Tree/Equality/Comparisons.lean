@@ -5,9 +5,9 @@ open Aeneas Aeneas.Std Result
 
 namespace milhouse_models
 
-/-- The semantic law used by derived equality: `ne` terminates and is false
-    exactly for equal values. No separate `eq` or clone law is needed by the
-    derived tree comparisons, which use this operation. -/
+/-- Uniform specialization of the per-pair element `ne` law. Public equality
+    specifications use only the selected input scope; this global law remains
+    a sufficient way to establish it. No separate `eq` or clone law is needed. -/
 def NeSpec {T : Type} (eqInst : core.cmp.PartialEq T T) : Prop :=
   ∀ x y, NeSpecAt eqInst x y
 

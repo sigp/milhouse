@@ -23,8 +23,8 @@ private theorem arc_eq_of_eq_spec {T : Type} (ValueInst : Value T) (self other :
       triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] using hcompare hpointer
 
 /-- The actual derived binary-tree comparison terminates and characterizes
-    structural equality with caches ignored. It needs only the semantic law
-    for element `ne`; no density, packing, cloning, or hash law is required. -/
+    structural equality with caches ignored. Element laws apply only to these
+    selected input branches; no density, packing, cloning, or hash law is required. -/
 theorem Tree.partial_eq_spec {T : Type} (ValueInst : Value T)
     (self other : Tree T)
     (hne : self.EqualityOn ValueInst.corecmpPartialEqInst

@@ -44,6 +44,12 @@ theorem Tree.arcEqualityOn_of_all {T : Type} (inst : core.cmp.PartialEq T T) (P 
     (hpairs : ∀ left right, P left right) (self other : Tree T) : self.ArcEqualityOn inst P other :=
   fun _ => self.equalityOn_of_all inst P hpairs other
 
+/-- A shared tree needs no element law anywhere in its descendants. -/
+theorem Tree.arcEqualityOn_of_ptr_eq {T : Type} (inst : core.cmp.PartialEq T T) (P : T → T → Prop)
+    (self other : Tree T) (hpointer : triomphe.arc.Arc.ptr_eq self other = ok true) :
+    self.ArcEqualityOn inst P other := by
+  simp [Tree.ArcEqualityOn, hpointer]
+
 theorem Tree.EqualityOn.mono {T : Type} {inst : core.cmp.PartialEq T T} {P Q : T → T → Prop}
     (himp : ∀ left right, P left right → Q left right)
     {self other : Tree T} (hscope : self.EqualityOn inst P other) : self.EqualityOn inst Q other := by
