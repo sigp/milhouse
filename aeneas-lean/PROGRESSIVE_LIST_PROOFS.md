@@ -74,6 +74,15 @@ lower-level hypothesis and count the wrapper as proved.
   target length and merged indexed contents. Clone identity is scoped to
   copied stored and pending values; success and length need only terminating
   clones. The original global-clone content interfaces remain specializations.
+- `Tree/BulkUpdate.lean` now derives an unpacked leaf's actual pending lookup
+  and stored clone directly from successful execution, without clone laws.
+  Its existing value and extracted-lookup lemmas require clone identity only
+  for the pending value at the checked `prefix + offset` key.
+  `Tree/BulkUpdate/Contents.lean` uses the scoped packed-leaf theorem in its
+  offset bridge, restricting clone identity to that leaf's stored values and
+  pending update window. The recursive binary/progressive and public list
+  specifications still use global clone laws; propagating scoped assumptions
+  through those recursions remains an open part of the full goal.
 - `Tree/BulkUpdate/Arithmetic.lean` and `Success.lean` derive every binary
   split operation from the aligned endpoint bound and prove total recursive
   reconstruction, density, and merged contents. Zero expansion and unchanged
@@ -545,7 +554,18 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest mutable-access checkpoint (through `77a778d`): the full Lean build
+Latest clone-scope foundation checkpoint (through `f3112b4`): the full Lean
+build passes (1,942 jobs), including all earlier mutable-access and public
+apply-updates proofs. The new actual-clone leaf theorem, the two strengthened
+unpacked-leaf theorems, and the strengthened packed offset bridge were audited
+together; all four depend only on `propext`, `Classical.choice`, and
+`Quot.sound`. Logs are `/tmp/milhouse-mutable-bulk-scoped-final-build.log` and
+`/tmp/milhouse-bulk-leaf-clone-audit.log`. No Rust, extraction, model, or Aeneas
+source changed. These leaf-level results are foundations for removing global
+clone assumptions from the recursive specifications, not completion of that
+remaining obligation.
+
+Previous mutable-access checkpoint (through `77a778d`): the full Lean build
 passes (1,942 jobs). The four read lemmas completed in `6b08cbd` and the three
 new success/replacement lemmas were audited together; each depends only on
 `propext`, `Classical.choice`, and `Quot.sound`. No admission, native-evaluation,
