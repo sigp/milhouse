@@ -402,7 +402,7 @@ def tree.Tree.node_unboxed
   ok (tree.Tree.Node rl left right)
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::push]:
-    Source: 'src/packed_leaf.rs', lines 128:4-136:5
+    Source: 'src/packed_leaf.rs', lines 128:4-137:5
     Visibility: public -/
 def packed_leaf.PackedLeaf.push
   {T : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T) (corecloneCloneInst
@@ -417,7 +417,13 @@ def packed_leaf.PackedLeaf.push
     ok (core.result.Result.Err (error.Error.PackedLeafFull i2), self)
   else
     let v ← alloc.vec.Vec.push self.values value
-    ok (core.result.Result.Ok (), { self with values := v })
+    let (_, get_mut_back) ←
+      lock_api.rwlock.RwLock.get_mut
+        parking_lot.raw_rwlock.RawRwLock.Insts.Lock_apiRwlockRawRwLockGuardNoSend
+        self.hash
+    let fb ← alloy_primitives.bits.fixed.FixedBytes.ZERO 32#usize
+    let rl := get_mut_back fb
+    ok (core.result.Result.Ok (), { hash := rl, values := v })
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::single]:
     Source: 'src/packed_leaf.rs', lines 57:4-65:5

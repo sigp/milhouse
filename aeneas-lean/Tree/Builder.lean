@@ -1286,7 +1286,8 @@ theorem packedLeaf_push_preserves_dense {T : Type} (ValueInst : Value T)
       | fail error => simp [hvalues] at hpush
       | div => simp [hvalues] at hpush
       | ok values =>
-        simp [hvalues] at hpush
+        simp [hvalues, lock_api.rwlock.RwLock.get_mut,
+          alloy_primitives.bits.fixed.FixedBytes.ZERO] at hpush
         subst updated
         have hlength : values.val.length = leaf.values.val.length + 1 := by
           unfold alloc.vec.Vec.push at hvalues
@@ -1298,7 +1299,7 @@ theorem packedLeaf_push_preserves_dense {T : Type} (ValueInst : Value T)
           apply UScalar.eq_of_val_eq
           simpa using heq
         have hnew := DenseTree.packed factor
-          ({ hash := leaf.hash, values := values } : packed_leaf.PackedLeaf T)
+          ({ hash := Array.repeat 32#usize 0#u8, values := values } : packed_leaf.PackedLeaf T)
           (by simp [hlength]) (by simp [hlength]; omega)
         simpa [hlength] using hnew
 

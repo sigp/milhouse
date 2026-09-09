@@ -1,4 +1,4 @@
-import Tree.Funs
+import Tree.PackedLeaf.PushState
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -26,7 +26,9 @@ theorem PackedLeaf.push_success {T : Type}
     simp only [alloc.vec.Vec.len_val] at hlen
     change self.values.val.length = factor.val at hlen
     omega
-  refine ⟨{ self with values }, ?_, hvalues⟩
-  simp only [PackedLeaf.push, hfactor, hne, ↓reduceIte, bind_tc_ok, hpush]
+  refine ⟨{ hash := Array.repeat 32#usize 0#u8, values }, ?_, hvalues⟩
+  simp only [PackedLeaf.push, hfactor, hne, ↓reduceIte, bind_tc_ok, hpush,
+    lock_api.rwlock.RwLock.get_mut, alloy_primitives.bits.fixed.FixedBytes.ZERO]
+  rfl
 
 end milhouse.packed_leaf

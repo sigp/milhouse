@@ -116,7 +116,7 @@ theorem packed_push_values {T : Type} (ValueInst : Value T)
   · simp at hpush
   · rw [bind_eq_ok_iff] at hpush
     obtain ⟨values, hvalues, hpush⟩ := hpush
-    simp at hpush
+    simp [lock_api.rwlock.RwLock.get_mut, alloy_primitives.bits.fixed.FixedBytes.ZERO] at hpush
     subst result
     exact vec_push_values hvalues
 
