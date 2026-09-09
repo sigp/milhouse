@@ -1,5 +1,6 @@
 import Tree.Funs
 import Tree.Tuple.Comparison
+import Tree.PackingDepth
 import Tree.Arbitrary.Generation
 import Tree.Arbitrary.Reflection
 import Tree.ProgressiveList.Arbitrary.Behavior
