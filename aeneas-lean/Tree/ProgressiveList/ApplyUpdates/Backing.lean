@@ -1,6 +1,7 @@
 import Tree.ProgressiveList.ApplyUpdates.Contents
 import Tree.ProgressiveList.Backing
 import Tree.ProgressiveTree.BulkUpdate.Density
+import Tree.ProgressiveTree.BulkUpdate.LayerSelection
 
 open Aeneas Aeneas.Std Result
 open milhouse
