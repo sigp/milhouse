@@ -44,14 +44,14 @@ theorem ProgressiveList.clone_preserves_backing {T U : Type}
   exact hbacking
 
 /-- Cloning preserves the represented sequence when cloning the pending map
-    preserves its reads and logical extent. Its maximum may change below the
-    backing length. No element-clone law or exact map/maximum identity is needed. -/
+    preserves reads after the backing fallback and logical extent. Raw reads
+    and maxima may differ. No element-clone law or exact map identity is needed. -/
 theorem ProgressiveList.clone_represents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
     (hrep : self.Represents ValueInst mapInst contents)
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
-      ∀ query, mapInst.get updates query = mapInst.get self.updates query)
+      self.UpdateReadsAgree ValueInst mapInst updates)
     (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       ∃ largest, mapInst.max_index updates = ok largest ∧
         largest.elim self.length.val

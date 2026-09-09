@@ -95,7 +95,7 @@ theorem ProgressiveList.rebase_total_cache_spec {T U : Type}
       packingDepth.val self.length.val base.length.val 0)
     (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates)
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
-      ∀ query, mapInst.get updates query = mapInst.get self.updates query)
+      self.UpdateReadsAgree ValueInst mapInst updates)
     (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       ∃ largest, mapInst.max_index updates = ok largest ∧
         largest.elim self.length.val
