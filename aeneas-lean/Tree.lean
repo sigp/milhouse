@@ -74,6 +74,7 @@ import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.Builder.New
 import Tree.ProgressiveTree.Builder.Bounds
 import Tree.ProgressiveTree.Builder.Push
+import Tree.ProgressiveTree.Builder.SpineSuccess
 import Tree.ProgressiveTree.BulkUpdate.Contents
 import Tree.ProgressiveTree.BulkUpdate.Density
 import Tree.ProgressiveTree.Rebase.Density
