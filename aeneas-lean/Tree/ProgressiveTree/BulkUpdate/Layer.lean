@@ -15,7 +15,7 @@ theorem ProgressiveTree.updated_layer_contents {T U : Type}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
     {depth next : Std.U32} {start stop binary : Std.Usize}
     {before after : tree.Tree T}
-    (hclone : before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       mapInst updates factor binary.val start.val)
     (hrange : update_map.RangeExcludesValues mapInst updates)
     (hnext : depth + 1#u32 = ok next)
@@ -39,7 +39,7 @@ theorem ProgressiveTree.updated_layer_contents {T U : Type}
   have hshape' : before.Shape factor binary.val := by simpa only [hbinaryVal] using hshape
   obtain ⟨hfit, hafter, hcontents⟩ := tree.Tree.with_updated_leaves_capacity_shape_contents
     ValueInst mapInst updates hlayout
-    (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone.retained)
+    (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone)
     hrange hshape' (by simp) hoffset hupdate
   obtain ⟨actualStart, actualStop, hactualStart, hactualStop, _, hwidth, _⟩ :=
     ProgressiveTree.layer_window ValueInst hlayout hnext hbinary hfit
@@ -67,7 +67,7 @@ theorem ProgressiveTree.get_after_updated_layer {T U : Type}
     {oldHash newHash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
       (alloy_primitives.bits.fixed.FixedBytes 32#usize)}
     {pending : Option T}
-    (hclone : before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       mapInst updates factor binary.val start.val)
     (hrange : update_map.RangeExcludesValues mapInst updates)
     (hnext : depth + 1#u32 = ok next)
@@ -90,7 +90,7 @@ theorem ProgressiveTree.get_after_updated_layer {T U : Type}
   have hshape' : before.Shape factor binary.val := by simpa only [hbinaryVal] using hshape
   have hlocal := saturating_sub_val query start
   have hread := tree.Tree.get_after_with_updated_leaves ValueInst mapInst updates
-    hlayout (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone.retained)
+    hlayout (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone)
     hrange hshape' (by simp) hoffset
     (index := core.num.Usize.saturating_sub query start) (by omega)
     (by simp) (by simp only [hlocal]; omega) hget hupdate
@@ -111,7 +111,7 @@ theorem ProgressiveTree.get_after_expanded_layer {T U : Type}
     {hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
       (alloy_primitives.bits.fixed.FixedBytes 32#usize)}
     {pending : Option T}
-    (hclone : (tree.Tree.Zero binary : tree.Tree T).BulkCloneOn
+    (hclone : (tree.Tree.Zero binary : tree.Tree T).BulkRetainedCloneOn
       (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       mapInst updates factor binary.val start.val)
     (hrange : update_map.RangeExcludesValues mapInst updates)
@@ -151,7 +151,7 @@ theorem ProgressiveTree.get_after_updated_layer_override {T U : Type}
     {oldHash newHash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
       (alloy_primitives.bits.fixed.FixedBytes 32#usize)}
     {pending : Option T}
-    (hclone : before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       mapInst updates factor binary.val start.val)
     (hrange : update_map.RangeExcludesValues mapInst updates)
     (hnext : depth + 1#u32 = ok next)

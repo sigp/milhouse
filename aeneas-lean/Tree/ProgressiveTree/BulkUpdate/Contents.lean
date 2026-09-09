@@ -63,7 +63,7 @@ private theorem bulk_contents_aux {T U : Type}
     ∀ (fuel : Nat) (depth : Std.U32) (before after : ProgressiveTree T),
       Std.U32.max - depth.val ≤ fuel →
       before.Shape factor depth.val → before.EndsAfter factor depth.val oldLength →
-      before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+      before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
         ValueInst mapInst updates factor maximum depth →
       ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
         ok (core.result.Result.Ok after) →
@@ -95,7 +95,7 @@ private theorem bulk_contents_aux {T U : Type}
     have rightCorrect : ∀ (right newRight : ProgressiveTree T),
         right.Shape factor next.val → right.EndsAfter factor next.val oldLength →
         ((∃ last, maximum = some last ∧ stop.val ≤ last.val) →
-          right.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+          right.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
             ValueInst mapInst updates factor maximum next) →
         ProgressiveTree.BulkRightStep ValueInst mapInst updates maximum next stop right newRight →
         newRight.Shape factor next.val ∧ newRight.EndsAfter factor next.val newLength.val ∧
@@ -200,7 +200,7 @@ theorem ProgressiveTree.with_updated_leaves_recursive_shape_contents {T U : Type
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
     {maximum : Option Std.Usize} {before after : ProgressiveTree T} {depth : Std.U32}
-    (hclone : before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
       ValueInst mapInst updates factor maximum depth)
     (hrange : update_map.RangeExcludesValues mapInst updates)
     (hmaximum : update_map.MaximumBoundsValues mapInst updates maximum)
@@ -222,7 +222,7 @@ theorem ProgressiveTree.with_updated_leaves_shape_contents {T U : Type}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
     {before after : ProgressiveTree T}
     (hclone : ∀ maximum, mapInst.max_index updates = ok maximum →
-      before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+      before.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
         ValueInst mapInst updates factor maximum 0#u32)
     (hrange : update_map.RangeExcludesValues mapInst updates)
     (hmaximum : ∀ maximum, mapInst.max_index updates = ok maximum →
