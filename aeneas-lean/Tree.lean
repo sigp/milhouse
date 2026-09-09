@@ -55,6 +55,7 @@ import Tree.ProgressiveTree.Rebase.Success
 import Tree.ProgressiveTree.Rebase.Caches
 import Tree.ProgressiveTree.BulkUpdate.Caches
 import Tree.ProgressiveList.Rebase.Caches
+import Tree.HashCache.Collisions
 import Tree.ProgressiveList.ApplyUpdates.CacheTotal
 import Tree.ProgressiveTree.Equality.Structure
 import Tree.ProgressiveTree.Equality.Correctness
