@@ -80,6 +80,7 @@ import Tree.ProgressiveList.Iter.Length
 import Tree.ProgressiveList.ToVec
 import Tree.ProgressiveList.Backing
 import Tree.ProgressiveList.Clone
+import Tree.ProgressiveList.Clone.Maximum
 import Tree.ProgressiveList.Clone.Total
 import Tree.ProgressiveList.Clone.From
 import Tree.ProgressiveList.Caches
