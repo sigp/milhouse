@@ -64,6 +64,7 @@ import Tree.ProgressiveTree.Rebase.OriginalCaches
 import Tree.ProgressiveTree.Rebase.HashInputs
 import Tree.ProgressiveTree.BulkUpdate.Caches
 import Tree.ProgressiveList.Rebase.Caches
+import Tree.ProgressiveList.Rebase.CacheEquivalence
 import Tree.HashCache.Collisions
 import Tree.ProgressiveTree.Rebase.Validity
 import Tree.ProgressiveList.Rebase.Validity
