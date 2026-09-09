@@ -569,7 +569,7 @@ only partial files. `progressive-next-explicit.rs` and `next-explicit.log`
 preserve this trial. No production rewrite is retained. This confirms that
 removing both the fallback closure and option adapter is insufficient.
 
-## 17. External equality models must preserve Arc shortcuts and slice `ne` calls
+## 17. External equality models must preserve Arc shortcuts and slice/tuple `ne` calls
 
 **Stage:** external-model fidelity review and proof premise audit.
 **Status:** corrected locally in commits `2d2ca69` and `89044cc`; Aeneas is
@@ -600,6 +600,25 @@ theorems; structural backing preservation still requires neither. Derived
 tree/list equality uses element `ne` throughout: its total specification needs
 the corresponding complete comparison law, while positive-result soundness
 needs only the false-`ne` implication and assumes no comparison termination.
+
+The later model-dependency review also found that the local tuple `ne` model
+negated tuple `eq`. In the same pinned Rust toolchain, `core/src/tuple.rs`
+instead calls element `ne` from left to right, short-circuiting with `||`.
+The local model now preserves that dispatch, first-call failure/divergence,
+and exact delegation to the second call after a false first result.
+`Tree/Tuple/Comparison.lean` proves six branch and success-characterization
+lemmas without an `eq`/`ne` coherence law or laws on unreached callbacks.
+They failed against the old model and pass after correction. The four native
+tests in `reproducers/tuple_comparison/native.rs` independently confirm call
+order, both second-call answers, and panic propagation; every element `eq`
+panics with a distinct recorded call.
+
+The 42-root ProgressiveList inventory includes this tuple dictionary only
+through `utils.opt_hash` under `apply_updates`. The progressive update path
+passes `None` to binary rebuilding, and the existing bulk-update proofs
+reduce `utils.opt_hash none` directly. Thus this generic model correction
+does not demonstrate a defect in the public update proofs or Rust code.
+The generated signatures and bodies and Aeneas sources are unchanged.
 
 ## 18. SSZ encoding: iterator adapters and recursive default dictionaries
 

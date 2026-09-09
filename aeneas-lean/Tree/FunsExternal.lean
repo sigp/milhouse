@@ -324,16 +324,17 @@ def Pair.Insts.CoreCmpPartialEqPair.eq
     let b1 ← cmpPartialEqInst.eq p.1 q.1
     if b1 then cmpPartialEqInst1.eq p.2 q.2 else ok false
 
-/-- [core::tuple::{impl core::cmp::PartialEq<(U, T)> for (U, T)}::ne]: -/
+/-- [core::tuple::{impl core::cmp::PartialEq<(U, T)> for (U, T)}::ne]:
+    Rust calls element `ne` from left to right and stops at the first true
+    result. Negating tuple `eq` would call different generic methods. -/
 @[rust_fun "core::tuple::{core::cmp::PartialEq<(@U, @T), (@U, @T)>}::ne"]
 def Pair.Insts.CoreCmpPartialEqPair.ne
   {U : Type} {T : Type} (cmpPartialEqInst : core.cmp.PartialEq U U)
   (cmpPartialEqInst1 : core.cmp.PartialEq T T) :
   (U × T) → (U × T) → Result Bool :=
   fun p q => do
-    let b ← Pair.Insts.CoreCmpPartialEqPair.eq cmpPartialEqInst
-      cmpPartialEqInst1 p q
-    ok (!b)
+    let b ← cmpPartialEqInst.ne p.1 q.1
+    if b then ok true else cmpPartialEqInst1.ne p.2 q.2
 
 /-- [core::tuple::{impl core::cmp::PartialOrd<(U, T)> for (U, T)}::partial_cmp]:
     Lexicographic, as in Rust. -/
