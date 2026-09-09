@@ -25,7 +25,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` and `Backing.lean` preserve both backing-spine and dense/representable traversal invariants on success without extra map laws or capacity assumptions |
 | `get_mut` | Return the pending value or actual clone of the backing value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact pending-or-clone equation, including failures; read agreement with `get` needs clone identity only for the actual backing fallback. `Mutable/Total.lean`: `get_mut_total_spec` proves successful access at every machine index, exact initial-value behavior, single-element replacement with unchanged logical length and backing fields, and out-of-bounds no-op. Clone termination, write, and maximum-index laws are scoped to present elements; the missing-handle law is scoped to out-of-bounds access. No global clone law, clone identity, or structural backing premise is needed by the total replacement specification. `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release under generic map lookup/release laws, without cloning. `CopyOnWrite/Consuming.lean` proves actual `get_cow` followed by `Cow::into_mut` succeeds at every represented in-bounds index and every write replaces exactly that sequence element, preserving logical length and backing state. Premises are representation and the generic map's read, entry-location, occupied-handle, lookup-frame, and maximum laws; only a value absent from pending updates needs a terminating clone, and clone identity is unnecessary. `Cow/Consuming.lean` proves the actual consuming body, exact stored value/maximum write-back, and unchanged missing-entry rejection. Every list write-back also preserves backing-spine and dense/representable traversal invariants. Rust `Deref` and borrowed `make_mut` remain pending extraction limitations; neither handle-data observation nor consuming mutation substitutes for those methods |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Clone laws are scoped through the progressive and binary traversals to selected inputs for the actual maximum; no global element-clone law remains. Copied storage needs terminating clones, while identity is required only for retained stored slots and selected pending values; discarded stored copies need no identity law. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. Earlier `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Clone laws are scoped through the progressive and binary traversals to selected inputs for the actual maximum; no global element-clone law remains. Copied storage needs terminating clones, while identity is required only for retained stored slots and selected pending values; discarded stored copies need no identity law. Range-query termination is required only at reached progressive layers and selected binary queries for the actual maximum; range-answer correctness laws still have broad domains. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. Earlier `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. Binary and progressive traversal and the pending overlay are proved underneath. `Iter/Traits.lean` proves the same complete enumeration through the actual borrowed `IntoIterator` method, made reachable by `to_vec` |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | `Iter/Next.lean`: live calls return the represented indexed value and preserve the constructed cursor; exhausted calls return unchanged `none`, including past-end indices. Pending replacements and extensions are covered. `Iter/Length.lean`: both size-hint bounds and exact length equal the represented suffix length; these observers require only agreement of the recorded and sequence lengths |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | `IterCow/Construction.lean`: the extracted constructors establish the exact backing suffix and merged pending overlay, retain the requested start and pending state, accept the logical end, and reject oversized starts with exact bounds errors and complete restoration. Premises are representation, backing validity, and packing layout, with no additional map or cloning laws. `IterCow/State.lean` proves exact unchanged release, error restoration, and backing preservation through arbitrary constructor continuations without representation or map-law premises. `next_cow` extraction/enumeration, handle dereferencing, and borrowed `make_mut` remain pending borrowing limitations (UPSTREAM_BUGS issues 9 and 16). Consuming handles through `into_mut` is proved separately; neither that result nor constructor invariants substitutes for iterator stepping |
@@ -111,6 +111,19 @@ lower-level hypothesis and count the wrapper as proved.
   clone laws project to the separate termination and retained-value premises;
   no public content or total specification requires identity of discarded
   stored copies.
+- `Tree/BulkUpdate/RangeScope.lean` describes both immediate child queries at
+  each binary node and deeper queries only below positive answers. Leaf
+  updates have no range-query requirement; zero expansion uses the same
+  query geometry. `ProgressiveTree/BulkUpdate/RangeScope.lean` adds each
+  reached nonempty layer window, its selected binary queries, and suffix
+  queries guarded by the actual range answers and maximum. These relations
+  contain no own-operation result or recursive-success premise. `BulkRangeOn`
+  restricts an external law to those ranges. Both success inductions and all
+  public apply-updates success/total/capacity specifications now use it for
+  range-query termination, with the public scope tied to the actual maximum.
+  The empty public branch still needs no query law. The domains of the
+  separate `RangeExcludesValues` and `RangeReflectsValues` correctness laws
+  remain to be narrowed; this checkpoint scopes termination only.
 - `Tree/BulkUpdate/Arithmetic.lean` and `Success.lean` derive every binary
   split operation from the aligned endpoint bound and prove total recursive
   reconstruction, density, and merged contents. Zero expansion and unchanged
@@ -582,7 +595,31 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest retained-value clone checkpoint (through `6f48984`): the full Lean
+Latest range-termination checkpoint (through `5a40c32`): the full Lean build
+passes (1,947 jobs), with all 230 project modules reachable from `Tree`.
+Seven binary query-scope helpers, six progressive query-scope helpers, three
+binary success/total specifications, two progressive success specifications,
+and four public list success/total/capacity specifications were audited. All
+22 use only `propext`, `Classical.choice`, and `Quot.sound` (or subsets).
+The build and audit logs are
+`/tmp/milhouse-apply-updates-range-final-build.log`,
+`/tmp/milhouse-binary-range-scope-audit.log`,
+`/tmp/milhouse-progressive-range-scope-audit.log`,
+`/tmp/milhouse-binary-range-success-audit.log`,
+`/tmp/milhouse-progressive-range-success-audit.log`, and
+`/tmp/milhouse-apply-updates-range-audit.log`.
+
+Public total application no longer assumes terminating range queries for
+arbitrary endpoints. Termination is required at the reached layer queries and
+selected binary queries for the maximum actually read, conditional on a
+nonempty pending map. Every recursive success proof carries this restriction;
+no successful internal update is assumed. No Rust, extraction, external-model,
+or Aeneas source changed. The full goal remains open: range-answer correctness
+laws still have broad domains, and the remaining assumption audit, borrowed
+CoW extraction, semantic hashing/cache validity, serialization/deserialization,
+Debug, and pending coverage rows are not discharged by this checkpoint.
+
+Previous retained-value clone checkpoint (through `6f48984`): the full Lean
 build passes (1,945 jobs), with all 228 project modules reachable from `Tree`.
 Two vector-clone lemmas, three queried-slot scan/update lemmas, four packed
 content/total lemmas, eleven binary-scope helpers, four binary specifications,
