@@ -135,6 +135,29 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The maximum-premise review (`aa023cf`, lower proofs `f0daba3`) removes
+`MaximumBoundsValues` from five existing public lemmas: backing preservation,
+both occupied-capacity criteria, and both representation criteria using the
+actual rebuilt values. The actual checked length calculation supplies the
+numeric bound required by the generalized bulk-density proof. Three new lower
+lemmas retain the old semantic-maximum contracts as adapters. Content
+preservation, materialization, and total sequence contracts still require
+the semantic maximum law to justify skipped pending values; that review is
+unfinished. Existing total and cache contracts validate.
+
+Focused and full builds pass (2,087 jobs). The axiom/import audit covers
+5,566 declarations across 371 modules: 5,447 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. The three new lower lemmas
+and five strengthened public lemmas use only standard Lean axioms; generated
+helpers are included in the inventory. External axiom use is unchanged. No
+new axiom or admission was introduced, and `size_of` remains unused. This
+proof-only work changed no Rust, extraction, external model, or Aeneas source;
+the seven source suites and 42-root/151-declaration dependency gate were not
+repeated. Borrowed CoW and the remaining assumption/model-fidelity audit are
+unfinished. Debug and Serde remain excluded; TreeHash remains deferred.
+
+Previous apply-updates overlay checkpoint:
+
 `ApplyUpdates/Overlay.lean` characterizes representation from actual rebuilt
 values and default-map overlay/extent, without separate clone identity or
 empty-default laws. `Contents.lean` derives actual backing reads independently

@@ -376,6 +376,25 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The maximum-premise review (`aa023cf`, lower proofs `f0daba3`) removes
+  `MaximumBoundsValues` from `apply_updates` backing preservation, both
+  occupied-capacity criteria, and both actual-rebuilt-value representation
+  criteria. The actual checked length calculation supplies the numeric
+  extension bound required by the generalized bulk-density proof. The old
+  lower density contracts remain as adapters. Content-preservation,
+  materialization, and total sequence contracts retain the semantic maximum
+  law for skipped pending values; that premise remains under review. Existing
+  total and cache contracts validate. The full build passes (2,087 jobs), and
+  the axiom/import audit covers 5,566 declarations across 371 modules: 5,447
+  use only standard Lean axioms or none, and 119 use the existing pointer
+  contract. The three new lower lemmas and five strengthened public lemmas
+  use only standard Lean axioms; generated helpers are included in the
+  inventory. External axiom use is unchanged. No new axiom or admission was
+  introduced, and `size_of` remains unused. No Rust, extraction, external
+  model, or Aeneas source changed. The seven source suites and
+  42-root/151-declaration dependency gate were not repeated for this proof-only
+  work. Borrowed CoW and the remaining assumption/model-fidelity audit stay
+  open. Debug and Serde remain excluded; TreeHash remains deferred.
 - `apply_updates` now has exact representation criteria using the actual
   rebuilt values and installed-map overlay/extent, without a separate clone-
   identity or empty-default law. Actual backing reads are derived independently
