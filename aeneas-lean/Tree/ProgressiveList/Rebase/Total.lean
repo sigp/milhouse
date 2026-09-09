@@ -1,4 +1,4 @@
-import Tree.ProgressiveTree.Rebase.Success
+import Tree.ProgressiveList.Rebase.SelectedConditions
 import Tree.ProgressiveList.Rebase.Contents
 
 open Aeneas Aeneas.Std Result
@@ -20,11 +20,9 @@ theorem ProgressiveList.rebase_on_success {T U : Type}
       packingDepth.val self.length.val base.length.val 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.length = self.length ∧ result.updates = self.updates := by
-  obtain ⟨newTree, htree⟩ := progressive_tree.ProgressiveTree.rebase_on_success ValueInst hlayout
-    self.tree base.tree self.length base.length hself hbase hfit hcompare
-  refine ⟨{ self with tree := newTree }, ?_, rfl, rfl⟩
-  rw [ProgressiveList.rebase_on_eq, htree]
-  rfl
+  obtain ⟨result, hrebase⟩ := (ProgressiveList.rebase_on_success_iff_requirements ValueInst mapInst hlayout self base).mpr
+    (progressive_tree.ProgressiveTree.rebaseRequirements_of_invariants ValueInst hlayout hself hbase hfit hcompare)
+  exact ⟨result, hrebase, ProgressiveList.rebase_on_preserves_metadata ValueInst mapInst self base hrebase⟩
 
 /-- Nonmutating rebasing additionally needs only the actual pending-map clone
 to terminate. Its output map is exactly that clone and its backing length is
@@ -41,13 +39,9 @@ theorem ProgressiveList.rebase_success {T U : Type}
     (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates := by
-  obtain ⟨updates, hclone⟩ := hclone
-  obtain ⟨result, hrebase, hlength, hupdates⟩ := ProgressiveList.rebase_on_success ValueInst mapInst
-    hlayout { self with updates } base hself hbase hfit hcompare
-  refine ⟨result, ?_, hlength, ?_⟩
-  · simp! only [ProgressiveList.rebase, ProgressiveList.clone_eq, hclone, bind_tc_ok,
-      hrebase, core.result.Result.Insts.CoreOpsTry.branch]
-  · simpa only [hupdates] using hclone
+  obtain ⟨result, hrebase⟩ := (ProgressiveList.rebase_success_iff_requirements ValueInst mapInst hlayout self base).mpr
+    ⟨hclone, progressive_tree.ProgressiveTree.rebaseRequirements_of_invariants ValueInst hlayout hself hbase hfit hcompare⟩
+  exact ⟨result, hrebase, ProgressiveList.rebase_preserves_metadata ValueInst mapInst self base hrebase⟩
 
 /-- Total in-place rebasing preserves every represented value, valid backing,
 the recorded length, and the exact pending map. Comparison termination is
