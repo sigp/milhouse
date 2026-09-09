@@ -1,5 +1,6 @@
 import Tree.Rebase.ComparisonInputs
 import Tree.Arc.Equality
+import Tree.Rebase.ElementComparisons
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -18,30 +19,16 @@ theorem arc_eq_success {T : Type} (inst : core.cmp.PartialEq T T) (left right : 
     obtain ⟨equal, hcompare⟩ := heq hpointer
     exact ⟨equal, (triomphe.arc.Arc.eq_of_ptr_eq_false inst hpointer).trans hcompare⟩
 
-/-- Vector comparison terminates when the element `ne` calls at paired
-positions do. Different-length vectors require no element-comparison law. -/
+/-- Vector comparison terminates when the element calls actually reached by
+its `ne` loop do. Unequal-length vectors require no element call; equal-length
+vectors stop at the first true `ne` without laws on subsequent pairs. -/
 theorem vec_eq_success {T U : Type} (inst : core.cmp.PartialEq T U)
     (left : alloc.vec.Vec T) (right : alloc.vec.Vec U)
-    (hne : left.val.length = right.val.length →
-      ∀ pair ∈ left.val.zip right.val, ∃ different, inst.ne pair.1 pair.2 = ok different) :
+    (hne : left.val.length = right.val.length → NeComparisons inst (left.val.zip right.val)) :
     ∃ equal, vec_eq inst left right = ok equal := by
-  have hloop : ∀ pairs : _root_.List (T × U),
-      (∀ pair ∈ pairs, ∃ different, inst.ne pair.1 pair.2 = ok different) →
-      ∃ different, _root_.List.anyM (fun pair => inst.ne pair.1 pair.2) pairs = ok different := by
-    intro pairs
-    induction pairs with
-    | nil => intro _; exact ⟨false, rfl⟩
-    | cons pair pairs ih =>
-      intro hne
-      obtain ⟨different, hcompare⟩ := hne pair (by simp)
-      cases different with
-      | true => exact ⟨true, by simp [_root_.List.anyM_cons, hcompare, pure]⟩
-      | false =>
-        obtain ⟨different, htail⟩ := ih (fun item hitem => hne item (by simp [hitem]))
-        exact ⟨different, by simp [_root_.List.anyM_cons, hcompare, htail]⟩
   unfold vec_eq alloc.vec.partial_eq.PartialEqVec.ne
   split
-  · obtain ⟨different, hcompare⟩ := hloop _ (hne (by assumption))
+  · obtain ⟨different, hcompare⟩ := (hne (by assumption)).anyM_success
     exact ⟨!different, by simp [hcompare]⟩
   · exact ⟨false, rfl⟩
 
@@ -62,8 +49,7 @@ def Tree.RebaseComparisons {T : Type} (inst : core.cmp.PartialEq T T) :
   | .PackedLeaf left, .PackedLeaf right, _, _ =>
       triomphe.arc.Arc.ptr_eq (.PackedLeaf left : Tree T) (.PackedLeaf right : Tree T) = ok false →
       left.values.val.length = right.values.val.length →
-      ∀ pair ∈ left.values.val.zip right.values.val,
-        ∃ different, inst.ne pair.1 pair.2 = ok different
+      milhouse_models.NeComparisons inst (left.values.val.zip right.values.val)
   | .Node hash left right, .Node baseHash baseLeft baseRight, lengths, fullDepth =>
       triomphe.arc.Arc.ptr_eq (.Node hash left right : Tree T) (.Node baseHash baseLeft baseRight) = ok false →
       0 < fullDepth → ¬ RebaseHashShortcutFor hash baseHash lengths →
@@ -84,7 +70,7 @@ theorem Tree.rebaseComparisons_of_total {T : Type} (inst : core.cmp.PartialEq T 
     exact fun _ _ => heq _ _
   | PackedLeaf value =>
     cases base <;> simp only [Tree.RebaseComparisons]
-    exact fun _ _ pair _ => hne pair.1 pair.2
+    exact fun _ _ => milhouse_models.neComparisons_of_pairs inst _ (fun pair _ => hne pair.1 pair.2)
   | Zero depth => cases base <;> trivial
   | Node hash left right ihleft ihright =>
     cases base <;> simp only [Tree.RebaseComparisons]
