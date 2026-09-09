@@ -1,5 +1,6 @@
 -- Structural invariants for milhouse trees.
 import Tree.Arithmetic
+import Tree.PackingDepth
 open Aeneas Aeneas.Std Result
 set_option maxHeartbeats 4000000
 set_option linter.unusedVariables false
@@ -16,20 +17,17 @@ namespace milhouse.tree
     `PackingLayout` deliberately includes the power-of-two law.  The extracted
     trait signatures permit arbitrary packing factors, while tree routing uses
     `packing_depth` bits and therefore relies on
-    `packing_factor = 2 ^ packing_depth`. -/
+    `packing_factor = 2 ^ packing_depth`. The depth query follows from the
+    factor query and this law; it is not a separate assumption. -/
 inductive PackingLayout {T : Type} (ValueInst : Value T) :
     Option Std.Usize → Std.Usize → Prop where
   | unpacked
       (factor_eq : utils.opt_packing_factor
-        ValueInst.tree_hashTreeHashInst = ok none)
-      (depth_eq : utils.opt_packing_depth
         ValueInst.tree_hashTreeHashInst = ok none) :
       PackingLayout ValueInst none 0#usize
   | packed (factor packing_depth : Std.Usize)
       (factor_eq : utils.opt_packing_factor
         ValueInst.tree_hashTreeHashInst = ok (some factor))
-      (depth_eq : utils.opt_packing_depth
-        ValueInst.tree_hashTreeHashInst = ok (some packing_depth))
       (factor_is_power : factor.val = 2 ^ packing_depth.val) :
       PackingLayout ValueInst (some factor) packing_depth
 
@@ -200,7 +198,7 @@ theorem PackingLayout.leafCapacity_pos {T : Type} {ValueInst : Value T}
     0 < leafCapacity packing_factor := by
   cases h with
   | unpacked => simp [leafCapacity]
-  | packed factor packing_depth _ _ hpower =>
+  | packed factor packing_depth _ hpower =>
     simp [leafCapacity, hpower]
 
 /-- Every subtree capacity described by a valid layout is positive. -/
@@ -223,10 +221,10 @@ theorem PackingLayout.subtreeCapacity_eq_two_pow {T : Type}
       2 ^ (packing_depth.val + depth) := by
   cases h with
   | unpacked => simp [subtreeCapacity, leafCapacity]
-  | packed factor packing_depth _ _ hpower =>
+  | packed factor packing_depth _ hpower =>
     simp [subtreeCapacity, leafCapacity, hpower, pow_add]
 
-/-- The optional packing-depth query recorded by a layout. -/
+/-- Derive the actual packing-depth query from the factor and power law. -/
 theorem PackingLayout.opt_packing_depth_eq {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
     {packing_depth : Std.Usize}
@@ -234,9 +232,11 @@ theorem PackingLayout.opt_packing_depth_eq {T : Type}
     utils.opt_packing_depth ValueInst.tree_hashTreeHashInst =
       ok (if packing_factor.isSome then some packing_depth else none) := by
   cases h with
-  | unpacked factor_eq depth_eq => simpa using depth_eq
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
-    simpa using depth_eq
+  | unpacked factor_eq =>
+    simpa using utils.opt_packing_depth_of_none ValueInst.tree_hashTreeHashInst factor_eq
+  | packed factor packing_depth factor_eq factor_is_power =>
+    simpa using utils.opt_packing_depth_of_power ValueInst.tree_hashTreeHashInst
+      factor_eq factor_is_power
 
 /-- The optional packing-factor query recorded by a layout. -/
 theorem PackingLayout.opt_packing_factor_eq {T : Type}
@@ -246,11 +246,11 @@ theorem PackingLayout.opt_packing_factor_eq {T : Type}
     utils.opt_packing_factor ValueInst.tree_hashTreeHashInst =
       ok packing_factor := by
   cases h with
-  | unpacked factor_eq depth_eq => exact factor_eq
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+  | unpacked factor_eq => exact factor_eq
+  | packed factor packing_depth factor_eq factor_is_power =>
     exact factor_eq
 
-/-- Unwrapping the optional depth recorded by a layout yields its routing
+/-- Unwrapping the optional depth derived from a layout yields its routing
     depth in both packed and unpacked modes. -/
 theorem PackingLayout.unwrap_opt_packing_depth_eq {T : Type}
     {ValueInst : Value T} {packing_factor : Option Std.Usize}
@@ -289,7 +289,7 @@ theorem PackingLayout.tree_hash_packing_factor_eq {T : Type}
     (h : PackingLayout ValueInst (some factor) packing_depth) :
     ValueInst.tree_hashTreeHashInst.tree_hash_packing_factor = ok factor := by
   cases h with
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+  | packed factor packing_depth factor_eq factor_is_power =>
     exact tree_hash_packing_factor_eq_of_opt_some factor_eq
 
 /-- The logical length of a dense tree never exceeds its subtree capacity. -/

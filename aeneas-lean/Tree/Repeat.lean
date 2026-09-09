@@ -450,7 +450,8 @@ private theorem list_from_parts_fields {T N U : Type}
       result.interface.backing.packing_depth = packing_depth := by
   unfold list.List.from_parts at hparts
   cases hlayout with
-  | unpacked factor_eq depth_eq =>
+  | unpacked factor_eq =>
+    have depth_eq := utils.opt_packing_depth_of_none ValueInst.tree_hashTreeHashInst factor_eq
     rw [depth_eq] at hparts
     simp [core.option.Option.unwrap_or] at hparts
     unfold interface.Interface.new at hparts
@@ -461,7 +462,9 @@ private theorem list_from_parts_fields {T N U : Type}
       simp [hdefault, lift] at hparts
       subst result
       simp
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+  | packed factor packing_depth factor_eq factor_is_power =>
+    have depth_eq := utils.opt_packing_depth_of_power ValueInst.tree_hashTreeHashInst
+      factor_eq factor_is_power
     rw [depth_eq] at hparts
     simp [core.option.Option.unwrap_or] at hparts
     unfold interface.Interface.new at hparts
@@ -623,7 +626,7 @@ private theorem repeatInitialLayer_preserves {T : Type}
       exact UScalar.eq_of_val_eq (by simpa using hzero)
     omega
   cases hlayout with
-  | unpacked factor_eq depth_eq =>
+  | unpacked factor_eq =>
     unfold repeatInitialLayer at hinitial
     simp [leaf.Leaf.new, leaf.Leaf.with_hash,
       alloy_primitives.bits.fixed.FixedBytes.ZERO,
@@ -636,10 +639,10 @@ private theorem repeatInitialLayer_preserves {T : Type}
     · simp
     · right
       simp [subtreeCapacity, leafCapacity]
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+  | packed factor packing_depth factor_eq factor_is_power =>
     have hfactor_pos : 0 < factor.val := by
       simpa [leafCapacity, factor_is_power] using
-        (PackingLayout.packed factor packing_depth factor_eq depth_eq
+        (PackingLayout.packed factor packing_depth factor_eq
           factor_is_power).leafCapacity_pos
     unfold repeatInitialLayer at hinitial
     cases hdiv : n / factor with
@@ -676,7 +679,7 @@ private theorem repeatInitialLayer_preserves {T : Type}
           | ok repeated_leaf =>
             have hrepeated_dense := packedLeaf_repeat_preserves_dense
               ValueInst
-              (PackingLayout.packed factor packing_depth factor_eq depth_eq
+              (PackingLayout.packed factor packing_depth factor_eq
                 factor_is_power) cloned hfactor_pos hrepeated_leaf
             cases hlonely_leaf : packed_leaf.PackedLeaf.repeat
                 ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst
@@ -696,7 +699,7 @@ private theorem repeatInitialLayer_preserves {T : Type}
                   have hlonely_dense := packedLeaf_repeat_preserves_dense
                     ValueInst
                     (PackingLayout.packed factor packing_depth factor_eq
-                      depth_eq factor_is_power) elem hlonely_pos hlonely_leaf
+                      factor_is_power) elem hlonely_pos hlonely_leaf
                   simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
                     hrepeated_zero, hlonely_zero, triomphe.arc.Arc.new] at hinitial
                   subst layer
@@ -731,7 +734,7 @@ private theorem repeatInitialLayer_preserves {T : Type}
                   have hlonely_dense := packedLeaf_repeat_preserves_dense
                     ValueInst
                     (PackingLayout.packed factor packing_depth factor_eq
-                      depth_eq factor_is_power) elem hlonely_pos hlonely_leaf
+                      factor_is_power) elem hlonely_pos hlonely_leaf
                   simp [hdiv, hrem, hclone, hrepeated_leaf, hlonely_leaf,
                     hrepeated_zero, hlonely_zero, triomphe.arc.Arc.new] at hinitial
                   subst layer

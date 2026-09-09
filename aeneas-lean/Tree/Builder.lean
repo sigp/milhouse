@@ -965,7 +965,7 @@ private theorem PackingLayout.packing_depth_lt_u32 {T : Type}
     packing_depth.val < 2 ^ 32 := by
   cases hlayout with
   | unpacked => simp
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+  | packed factor packing_depth factor_eq factor_is_power =>
     have hdepth_bits : packing_depth.val < System.Platform.numBits := by
       by_contra hnot_lt
       have hpow_le : 2 ^ System.Platform.numBits ≤
@@ -1158,7 +1158,8 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
       ok (core.result.Result.Ok self)) :
     BuilderInvariant ValueInst self := by
   cases hlayout with
-  | unpacked factor_eq depth_eq =>
+  | unpacked factor_eq =>
+    have depth_eq := utils.opt_packing_depth_of_none ValueInst.tree_hashTreeHashInst factor_eq
     simp [builder.Builder.new, depth_eq, factor_eq, lift] at hnew
     cases hmax : MAX_TREE_DEPTH with
     | fail error => simp [hmax] at hnew
@@ -1180,7 +1181,7 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
           | ok capacity =>
             simp [hcapacity] at hnew
             subst self
-            refine ⟨PackingLayout.unpacked factor_eq depth_eq, hlevel,
+            refine ⟨PackingLayout.unpacked factor_eq, hlevel,
               hlevel_bound, ?_, ?_, ?_, ?_⟩
             · have hsum_val := UScalar.add_equiv depth 0#usize
               rw [hsum] at hsum_val
@@ -1202,11 +1203,13 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
                 (T := T) (packing_factor := none) depth.val hbase_le
               refine ⟨0, hnormalized, by simp, by simp, ?_⟩
               have hpos := PackingLayout.subtreeCapacity_pos
-                (PackingLayout.unpacked factor_eq depth_eq) base_depth
+                (PackingLayout.unpacked factor_eq) base_depth
               simpa [base_depth] using hpos
             · intro _ hpartial
               simp at hpartial
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+  | packed factor packing_depth factor_eq factor_is_power =>
+    have depth_eq := utils.opt_packing_depth_of_power ValueInst.tree_hashTreeHashInst
+      factor_eq factor_is_power
     simp [builder.Builder.new, depth_eq, factor_eq, lift] at hnew
     cases hmax : MAX_TREE_DEPTH with
     | fail error => simp [hmax] at hnew
@@ -1229,7 +1232,7 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
             simp [hcapacity] at hnew
             subst self
             refine ⟨PackingLayout.packed factor packing_depth factor_eq
-              depth_eq factor_is_power, hlevel, hlevel_bound, ?_, ?_, ?_, ?_⟩
+              factor_is_power, hlevel, hlevel_bound, ?_, ?_, ?_, ?_⟩
             · change capacity.val = subtreeCapacity (some factor) depth.val
               have hsum_val := UScalar.add_equiv depth packing_depth
               rw [hsum] at hsum_val
@@ -1253,7 +1256,7 @@ theorem builder_new_establishes_invariant {T : Type} (ValueInst : Value T)
                 (T := T) (packing_factor := some factor) depth.val hbase_le
               refine ⟨0, hnormalized, by simp, by simp, ?_⟩
               have hpos := PackingLayout.subtreeCapacity_pos
-                (PackingLayout.packed factor packing_depth factor_eq depth_eq
+                (PackingLayout.packed factor packing_depth factor_eq
                   factor_is_power) base_depth
               simpa [base_depth] using hpos
             · intro _ hpartial
@@ -3982,7 +3985,7 @@ private theorem PackingLayout.packing_depth_zero_of_none {T : Type}
     (hfactor : packing_factor = none) : packing_depth.val = 0 := by
   cases hlayout with
   | unpacked => rfl
-  | packed factor packing_depth factor_eq depth_eq factor_is_power =>
+  | packed factor packing_depth factor_eq factor_is_power =>
     simp at hfactor
 
 theorem push_full_base_merge_count_eq {T : Type}
