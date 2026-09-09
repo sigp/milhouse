@@ -34,4 +34,28 @@ theorem combineRebaseActions_preserves_caches {T : Type}
   cases leftAction <;> cases rightAction <;>
     simp_all [RebaseAction.kind, RebaseKind.combine, combineRebaseActions, applyRebaseAction, Tree.CachesOn]
 
+/-- Cache validity of the combined result exposes exactly the cache inputs
+used by its branch. Whole-base replacement supplies base validity; every
+other branch supplies the retained root and both actual child results.
+The content laws only identify the retained root's logical subject. -/
+theorem combineRebaseActions_cache_inputs {T : Type}
+    (P : CacheSubject T → CacheHash → Prop)
+    (origHash baseHash : CacheHash) (origLeft origRight baseLeft baseRight : Tree T)
+    (leftAction rightAction : RebaseAction (Tree T)) (depth : Nat)
+    (hleftContents : leftAction.kind.combine rightAction.kind ≠ .equalReplace →
+      (applyRebaseAction origLeft leftAction).elements = origLeft.elements)
+    (hrightContents : leftAction.kind.combine rightAction.kind ≠ .equalReplace →
+      (applyRebaseAction origRight rightAction).elements = origRight.elements)
+    (hcache : (applyRebaseAction (.Node origHash origLeft origRight)
+      (combineRebaseActions origHash baseHash origLeft origRight baseLeft baseRight
+        leftAction rightAction)).CachesOn P (depth + 1)) :
+    (leftAction.kind.combine rightAction.kind = .equalReplace →
+      (Tree.Node baseHash baseLeft baseRight).CachesOn P (depth + 1)) ∧
+    (leftAction.kind.combine rightAction.kind ≠ .equalReplace →
+      P (.binary (depth + 1) (origLeft.elements ++ origRight.elements)) origHash ∧
+        (applyRebaseAction origLeft leftAction).CachesOn P depth ∧
+          (applyRebaseAction origRight rightAction).CachesOn P depth) := by
+  cases leftAction <;> cases rightAction <;>
+    simp_all [RebaseAction.kind, RebaseKind.combine, combineRebaseActions, applyRebaseAction, Tree.CachesOn]
+
 end milhouse.tree

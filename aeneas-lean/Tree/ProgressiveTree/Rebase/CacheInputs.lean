@@ -66,4 +66,18 @@ theorem ProgressiveTree.rebaseBaseCachesOn_of_ptr_eq {T : Type}
     orig.RebaseBaseCachesOn inst P .ProgressiveZero depth := by
   cases orig <;> trivial
 
+/-- An immediate missing/shared-input stop needs no imported base-cache law. -/
+theorem ProgressiveTree.rebaseBaseCachesOn_of_stop {T : Type}
+    (inst : core.cmp.PartialEq T T) (P : CacheSubject T → CacheHash → Prop)
+    (orig base : ProgressiveTree T) (depth : Nat)
+    (hstop : orig = .ProgressiveZero ∨ base = .ProgressiveZero ∨
+      triomphe.arc.Arc.ptr_eq orig base = ok true) :
+    orig.RebaseBaseCachesOn inst P base depth := by
+  rcases hstop with horig | hbase | hpointer
+  · subst orig
+    exact ProgressiveTree.rebaseBaseCachesOn_zero_left inst P base depth
+  · subst base
+    exact orig.rebaseBaseCachesOn_zero_right inst P depth
+  · exact orig.rebaseBaseCachesOn_of_ptr_eq inst P base depth hpointer
+
 end milhouse.progressive_tree
