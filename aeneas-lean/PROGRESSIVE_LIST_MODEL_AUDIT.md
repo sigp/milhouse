@@ -376,6 +376,23 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The general public success criteria in `Rebase/SelectedConditions.lean`
+  remove whole-tree shape and representable-layer assumptions. At a fixed
+  packing layout, the selected arithmetic, binary geometry, and external
+  element calls are jointly necessary and sufficient; nonmutating rebase
+  additionally requires only the actual pending-map clone to return. The
+  progressive input calculation preserves both machine clamps, and every
+  metadata and recursive success is derived. Existing progressive/public
+  success lemmas and total contracts now use the general proof through
+  invariant adapters. At `2d63438` (foundations `15af31a`, `9e1c78c`, `9afa364`,
+  `dfe9e73`), the full build passes (2,057 jobs), and the axiom/import audit
+  covers 5,399 declarations across 341 modules. Nine additional declarations
+  reuse the existing pointer contract, for 90 total; no new axiom or admission
+  was introduced. This audits the selected success requirements at a fixed
+  packing layout. Geometry for content/cache correctness, packing assumptions,
+  remaining assumption review, and model fidelity stay open. No Rust,
+  extraction, external model, or Aeneas source changed; source suites and the
+  42-root/151-declaration model dependency gate were not repeated.
 - Both public rebase success criteria are now equivalences. Under packing
   layout, compatible shapes, and representable original layers, in-place
   success requires exactly the selected element comparisons to terminate;
@@ -389,9 +406,9 @@ check also pass.
   across 336 modules. Of the 34 new declarations, 24 use only standard axioms
   or none, and ten reuse the existing pointer contract, for 81 dependent
   declarations total. No new axiom or admission was introduced. These are
-  termination criteria under the stated geometry, whose necessity remains a
-  separate review. They do not establish source fidelity of the external
-  operations. Rust/extraction/models/Aeneas are unchanged, so neither source
+  termination criteria under the stated geometry, superseded by the general
+  selected-input criteria above. They do not establish source fidelity of
+  external operations. Rust/extraction/models/Aeneas are unchanged, so neither source
   suites nor the 42-root/151-declaration dependency gate were repeated.
 - Both public rebase cache criteria are now equivalences: under the existing
   semantic content laws and geometry, successful output validity holds
