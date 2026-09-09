@@ -83,6 +83,7 @@ import Tree.Ssz.VariablePrefix
 import Tree.Ssz.VariablePrefixErrors
 import Tree.Ssz.VariableElementErrors
 import Tree.Ssz.PrefixRead
+import Tree.Ssz.PayloadTrace
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
