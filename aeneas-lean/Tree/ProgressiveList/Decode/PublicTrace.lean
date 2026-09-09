@@ -93,17 +93,8 @@ theorem ProgressiveList.from_ssz_bytes_represents {T U : Type}
   obtain ⟨_, _, _, _, hmap⟩ :=
     ProgressiveList.from_ssz_bytes_trace ValueInst mapInst bytes hdecode
   obtain ⟨hget, hmax, hempty⟩ := hdefault self.updates hmap
-  have hpending := ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty
-  have hrep := (ProgressiveList.from_ssz_bytes_represents_iff
-    ValueInst mapInst bytes hlayout hdecode).mpr
-      ⟨⟨none, hmax, rfl⟩, fun index => ⟨none, hget index, rfl⟩⟩
-  rcases ProgressiveList.from_ssz_bytes_success_input ValueInst mapInst bytes hdecode with
-    ⟨_, hconstructed⟩ | ⟨hnonempty, _⟩
-  · exact ⟨hrep,
-      ProgressiveList.empty_backing_valid ValueInst mapInst factor hconstructed, hpending⟩
-  · obtain ⟨hbacking, _⟩ := ProgressiveList.from_ssz_bytes_backing
-      ValueInst mapInst bytes (hlayout hnonempty) hdecode
-    exact ⟨hrep, hbacking, hpending⟩
+  exact ProgressiveList.from_ssz_bytes_spec_of_overlay ValueInst mapInst bytes hlayout hdecode
+    ⟨none, hmax, rfl⟩ (fun index => ⟨none, hget index, rfl⟩) hempty
 
 /-- Successful decoding represents the actual payload trace at every index,
 with valid backing and no pending updates. Only the actual default map's empty

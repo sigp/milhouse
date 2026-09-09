@@ -46,4 +46,30 @@ theorem ProgressiveList.from_ssz_bytes_represents_iff {T U : Type}
       ValueInst mapInst (hlayout hnonempty) self self.tree.elements hbacking.1 hbacking.2
       hbacking.1.elements_length.symm
 
+/-- Successful decoding has the complete sequence/backing/observer contract
+under the actual default map's overlay and extent laws. Pending emptiness is
+used only by its observer, and empty bytes require no packing law. -/
+theorem ProgressiveList.from_ssz_bytes_spec_of_overlay {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (bytes : Slice Std.U8) {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : bytes.val ≠ [] → tree.PackingLayout ValueInst factor packingDepth)
+    {self : ProgressiveList T U}
+    (hdecode : ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
+      ok (.Ok self))
+    (hextent : ∃ largest, mapInst.max_index self.updates = ok largest ∧
+      largest.elim self.tree.elements.length
+        (fun index => max (index.val + 1) self.tree.elements.length) = self.tree.elements.length)
+    (hoverlay : ProgressiveListIter.Overlay mapInst self.updates self.tree.elements self.tree.elements)
+    (hempty : mapInst.is_empty self.updates = ok true) :
+    self.Represents ValueInst mapInst self.tree.elements ∧ self.BackingValid factor ∧
+      ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
+  refine ⟨(ProgressiveList.from_ssz_bytes_represents_iff
+    ValueInst mapInst bytes hlayout hdecode).mpr ⟨hextent, hoverlay⟩, ?_,
+    ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty⟩
+  rcases ProgressiveList.from_ssz_bytes_success_input ValueInst mapInst bytes hdecode with
+    ⟨_, hconstructed⟩ | ⟨hnonempty, _⟩
+  · exact ProgressiveList.empty_backing_valid ValueInst mapInst factor hconstructed
+  · exact (ProgressiveList.from_ssz_bytes_backing
+      ValueInst mapInst bytes (hlayout hnonempty) hdecode).1
+
 end milhouse.progressive_list
