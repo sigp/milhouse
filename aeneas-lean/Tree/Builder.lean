@@ -1708,7 +1708,7 @@ theorem BuilderCarryCount.finish_partial_merge_bits {T : Type}
           finish_partial_cursor_shift hlayout htotal hcursor htop_partial]
         exact hstop_bit)
 
-private theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
+theorem finish_top_depth_eq {T : Type} {ValueInst : Value T}
     {packing_factor : Option Std.Usize} {packing_depth level next_index : Std.Usize}
     (hlayout : PackingLayout ValueInst packing_factor packing_depth)
     {top_depth root_depth total physical units : Nat}

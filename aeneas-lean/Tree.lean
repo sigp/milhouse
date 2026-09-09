@@ -20,6 +20,8 @@ import Tree.Builder.Finish.Full
 import Tree.Builder.Finish.PackedMerge
 import Tree.Builder.Finish.Packed
 import Tree.Builder.Finish.LevelMerge
+import Tree.Builder.Finish.Step
+import Tree.Builder.Finish.Loop
 import Tree.PackedLeaf.Push
 import Tree.Lemmas
 import Tree.Roundtrip
