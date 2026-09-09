@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.Iter.Construction
+import Tree.ProgressiveList.Encode.FixedLength
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree
@@ -44,24 +45,6 @@ theorem ProgressiveList.ssz_bytes_len_loop_spec {T U : Type}
       exact hloop
     · simp only [_root_.List.map_cons, _root_.List.sum_cons]
       omega
-
-/-- Fixed-element encoding size is the element width times represented list
-    length. This branch never traverses the backing tree and needs no packing,
-    density, clone, or per-element size law. -/
-theorem ProgressiveList.ssz_bytes_len_fixed_spec {T U : Type}
-    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
-    (hfixed : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok true)
-    (width : Std.Usize) (hwidth : ValueInst.sszencodeEncodeInst.ssz_fixed_len = ok width)
-    (self : ProgressiveList T U) (contents : _root_.List T)
-    (hrep : self.Represents ValueInst mapInst contents)
-    (hbound : width.val * contents.length ≤ Std.Usize.max) :
-    ∃ length, ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len ValueInst mapInst self = ok length ∧
-      length.val = width.val * contents.length := by
-  obtain ⟨count, hcount, hcountValue⟩ := hrep.1
-  obtain ⟨length, hmul, hlength⟩ := WP.spec_imp_exists
-    (Usize.mul_spec (x := width) (y := count) (by simpa only [hcountValue] using hbound))
-  exact ⟨length, by simp [ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len,
-    hfixed, hwidth, hcount, hmul], by simpa only [hcountValue] using hlength⟩
 
 /-- Variable-element encoding size is the sum of represented element sizes
     plus one four-byte offset per element, including pending updates. The
