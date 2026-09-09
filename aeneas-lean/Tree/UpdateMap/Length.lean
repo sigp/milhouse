@@ -96,6 +96,69 @@ theorem updated_length_total_spec {T U : Type}
   | some index =>
     exact updated_length_succeeds mapInst previous updates index hmax (hbound index rfl)
 
+/-- Exact successful length criterion from the raw maximum query. The target
+machine length supplies successor representability, so neither a separate
+overflow bound nor any map-read or validity law is needed. -/
+theorem updated_length_eq_ok_iff {T U : Type}
+    (mapInst : update_map.UpdateMap U T) (previous : Length) (updates : U)
+    (length : Std.Usize) :
+    updated_length mapInst previous updates = ok length ↔
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim previous.val (fun index => max (index.val + 1) previous.val) = length.val := by
+  constructor
+  · intro hlength
+    cases hmax : mapInst.max_index updates with
+    | fail error | div => simp [updated_length, hmax] at hlength
+    | ok largest =>
+      refine ⟨largest, rfl, ?_⟩
+      cases largest with
+      | none =>
+        have heq : previous = length := by
+          simpa [updated_length, hmax, core.option.Option.map_or] using hlength
+        simp [heq]
+      | some index =>
+        exact (updated_length_max_spec mapInst previous updates index length hmax hlength).symm
+  · rintro ⟨largest, hmax, hextent⟩
+    have hbound : ∀ index, largest = some index → index.val < Std.Usize.max := by
+      intro index hindex
+      rw [hindex] at hextent
+      simp only [Option.elim_some] at hextent
+      scalar_tac
+    obtain ⟨computed, hcomputed, hvalue⟩ :=
+      updated_length_total_spec mapInst previous updates largest hmax hbound
+    have heq : computed = length := by
+      apply UScalar.eq_of_val_eq
+      exact hvalue.trans hextent
+    simpa only [heq] using hcomputed
+
+/-- To extend strictly beyond the backing sequence to `index + 1`, the raw
+maximum must be exactly `index`, and its successor must fit. There is no
+freedom to change the maximum while retaining this larger logical extent. -/
+theorem updated_length_succ_iff_max_index {T U : Type}
+    (mapInst : update_map.UpdateMap U T) (previous : Length) (updates : U)
+    (index : Std.Usize) (hbacking : previous.val ≤ index.val) :
+    (∃ length, updated_length mapInst previous updates = ok length ∧
+      length.val = index.val + 1) ↔
+      index.val < Std.Usize.max ∧ mapInst.max_index updates = ok (some index) := by
+  constructor
+  · rintro ⟨length, hlength, hvalue⟩
+    have hbound : index.val < Std.Usize.max := by scalar_tac
+    obtain ⟨largest, hmax, hextent⟩ :=
+      (updated_length_eq_ok_iff mapInst previous updates length).mp hlength
+    refine ⟨hbound, ?_⟩
+    cases largest with
+    | none => simp only [Option.elim_none] at hextent; omega
+    | some largest =>
+      have heq : largest = index := by
+        apply UScalar.eq_of_val_eq
+        simp only [Option.elim_some] at hextent
+        omega
+      simpa only [heq] using hmax
+  · rintro ⟨hbound, hmax⟩
+    obtain ⟨length, hlength, hvalue⟩ :=
+      updated_length_succeeds mapInst previous updates index hmax hbound
+    exact ⟨length, hlength, by omega⟩
+
 /-- With a returned map maximum, successor representability is both necessary
 and sufficient for the actual length computation to succeed. -/
 theorem updated_length_success_iff {T U : Type}
