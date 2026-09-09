@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.Iter.Next
+import Tree.ProgressiveList.Iter.Bounds
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree milhouse.progressive_tree
@@ -77,19 +78,5 @@ theorem ProgressiveList.iter_from_spec {T U : Type}
   · have hinside : ¬ index > length := by scalar_tac
     simp only [ProgressiveList.iter_from, hlen, bind_tc_ok, if_neg hinside, hfrom]
   · simpa [hcursorIndex] using ProgressiveListIter.yields_suffix ValueInst mapInst hlayout self.tree.elements contents cursor hvalid
-
-/-- Out-of-bounds public starts return the specified error and exact logical
-    length. This branch needs no backing-tree or element-packing invariant. -/
-theorem ProgressiveList.iter_from_out_of_bounds {T U : Type}
-    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
-    (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize)
-    (hrep : self.Represents ValueInst mapInst contents) (hindex : contents.length < index.val) :
-    ∃ length : Std.Usize, length.val = contents.length ∧
-      ProgressiveList.iter_from ValueInst mapInst self index =
-        ok (core.result.Result.Err (error.Error.OutOfBoundsIterFrom index length)) := by
-  obtain ⟨length, hlen, hlength⟩ := hrep.1
-  refine ⟨length, hlength, ?_⟩
-  have houtside : index > length := by scalar_tac
-  simp only [ProgressiveList.iter_from, hlen, bind_tc_ok, if_pos houtside]
 
 end milhouse.progressive_list
