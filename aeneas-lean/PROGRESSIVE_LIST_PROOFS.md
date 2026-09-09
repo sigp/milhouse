@@ -37,13 +37,30 @@ lower-level hypothesis and count the wrapper as proved.
 | `Debug` | Formatting through the derived formatter | Pending extraction and specification |
 | `TreeHash` methods | Progressive merkleization with length mix-in; reject pending updates and unsupported packed operations | Pending hash model/extraction; existing binary-tree hash extraction limitations remain |
 | `Encode` methods | SSZ encoding/encoded length of the merged sequence | `Encode/Length.lean`: exact fixed-width multiplication and variable payload-size sum plus four-byte offsets, with intermediate arithmetic bounds derived from the final byte bound. Fixed-size calculation needs no backing or traversal assumptions. `Encode/Fixed.lean`, `VariableLoop.lean`, and `Variable.lean`: actual `ssz_append` preserves the destination prefix and writes the exact represented merged payload, with the complete offset table for variable elements. `Encode/Owning.lean` proves both exact `as_ssz_bytes` formats. `Encode/Metadata.lean` proves variable-list classification, four-byte fixed-section width, and the concrete owning wrapper. Premises are representation, relevant traversal invariants/layout only for methods that iterate, element codec laws on the consumed values, final output-size bounds, and 32-bit bounds only on offsets actually emitted. No clone law or assumed iterator output is needed. `Tree/Ssz` models and proves the pinned external encoder state, offset writes, payload accumulation, and finalization |
-| `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | `Decode/FixedTotal.lean` and `VariableTotal.lean` prove successful public decoding of canonical bytes, exact indexed reads, recorded length, valid backing, and no pending updates, including empty lists and empty variable payloads. `FixedRoundtrip.lean` and `VariableRoundtrip.lean` compose actual owning encoding and public decoding, preserving the merged sequence and every indexed read while clearing pending updates. `Decode/Success.lean` proves streaming construction terminates with the exact decoded prefix and retained error. `ProgressiveTree/LengthFits.lean` and `Builder/PushLength.lean` derive every rollover bound from representability of the final sequence; fixed decoding retains this condition for general element widths, while the variable offset table supplies it internally. `Backing.lean` proves backing validity after any successful public decode without element-codec or parser laws. The cursor modules derive parsing from canonical bytes, including 32-bit bounds only on emitted offsets. `Decode/Entry.lean` covers metadata, empty input, zero fixed width, and short variable prefixes; `Ssz/VariableInit.lean` covers first-offset bounds/alignment/zero errors in the actual check order. `Decode/ErrorMessages.lean` proves exact builder-error text; `Ssz/ReadOffset.lean` proves four-byte reads and canonical offset roundtrips. Streaming bodies extract with the real error enum and local external models (UPSTREAM_BUGS issue 19); differential release tests cover error order and partial-builder finalization. `Decode/InitialErrors.lean` derives public first-offset bounds, alignment, and zero errors from raw offset bytes without packing, map, or element laws. `Decode/FixedErrors.lean` returns the first invalid element error after an arbitrary successful prefix, covering short final chunks and unconstrained bytes after a full-width invalid element. `Decode/VariableErrors.lean` derives second-offset fixed-section/bounds errors and third-offset decreasing errors directly from bytes, with exact element/error order. `Decode/ErrorResult.lean` propagates arbitrary cursor error traces through actual successful prefix finalization; `Ssz/DecodedLength.lean` derives variable prefix capacity from the table even for malformed input. General raw-byte variable error specifications after arbitrary-length prefixes remain pending |
+| `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | `Decode/FixedTotal.lean` and `VariableTotal.lean` prove successful public decoding of canonical bytes, exact indexed reads, recorded length, valid backing, and no pending updates, including empty lists and empty variable payloads. `FixedRoundtrip.lean` and `VariableRoundtrip.lean` compose actual owning encoding and public decoding, preserving the merged sequence and every indexed read while clearing pending updates. `Decode/Success.lean` proves streaming construction terminates with the exact decoded prefix and retained error. `ProgressiveTree/LengthFits.lean` and `Builder/PushLength.lean` derive every rollover bound from representability of the final sequence; fixed decoding retains this condition for general element widths, while the variable offset table supplies it internally. `Backing.lean` proves backing validity after any successful public decode without element-codec or parser laws. The cursor modules derive parsing from canonical bytes, including 32-bit bounds only on emitted offsets. `Decode/Entry.lean` covers metadata, empty input, zero fixed width, and short variable prefixes; `Ssz/VariableInit.lean` covers first-offset bounds/alignment/zero errors in the actual check order. `Decode/ErrorMessages.lean` proves exact builder-error text; `Ssz/ReadOffset.lean` proves four-byte reads and canonical offset roundtrips. Streaming bodies extract with the real error enum and local external models (UPSTREAM_BUGS issue 19); differential release tests cover error order and partial-builder finalization. `Decode/InitialErrors.lean` derives public first-offset bounds, alignment, and zero errors from raw offset bytes without packing, map, or element laws. `Decode/FixedErrors.lean` returns the first invalid element error after an arbitrary successful prefix, covering short final chunks and unconstrained bytes after a full-width invalid element. `Decode/VariableErrors.lean` derives second-offset fixed-section/bounds errors and third-offset decreasing errors directly from bytes, with exact element/error order. `Decode/ErrorResult.lean` propagates arbitrary cursor error traces through actual successful prefix finalization; `Ssz/DecodedLength.lean` derives variable prefix capacity from the table even for malformed input. `Ssz/VariablePrefix.lean`, `VariablePrefixErrors.lean`, and `VariableElementErrors.lean` derive every prefix step from raw table and payload bytes. `Decode/VariablePrefixErrors.lean` and `VariableElementErrors.lean` return the exact malformed-offset or element error after any successful prefix, including empty final payloads. `Decode/PayloadErrors.lean` generalizes both formats to per-entry payload bytes: equal values may have distinct accepted encodings, with no canonical-encoding assumption. `Ssz/PayloadTrace.lean` erases proof-level byte annotations to recover the exact original decoder trace. All public prefix-error results establish actual parser and builder behavior internally; later bytes and decoder calls are unconstrained |
 | `Serialize`, `Deserialize` | Serialize merged sequence; reconstruct the deserialized sequence | Pending serializer models and proofs |
 | Context deserialization feature | Reconstruct the contextual element sequence | Pending feature-specific extraction and proof |
 | `Arbitrary` feature | Successful generation establishes a valid backing tree and length | Pending feature-specific extraction and constructor proof |
 
 ## Existing foundations
 
+- `Tree/Ssz/VariablePrefix.lean` and `PrefixRead.lean`: arbitrary complete
+  variable prefixes compose with any remaining cursor behavior. Raw offset
+  table and payload suffixes determine each actual step. Only the largest
+  consumed offset needs an explicit 32-bit bound; all intermediate offsets,
+  indices, slices, and builder bounds are derived internally.
+- `Tree/Ssz/VariablePrefixErrors.lean`, `VariableElementErrors.lean`, and
+  their public `ProgressiveList/Decode` counterparts: malformed next offsets
+  retain fixed-section, bounds, then decreasing-offset precedence after any
+  successful prefix. Nonfinal payload errors follow their boundary checks;
+  final payload errors consume the complete remainder, including empty
+  payloads. No parser or builder result is assumed by the public specifications.
+- `Tree/Ssz/PayloadTrace.lean` and `ProgressiveList/Decode/PayloadErrors.lean`:
+  proof-level annotations record each value's actual consumed bytes and erase
+  back to the original decoder trace, including its stopping error. The five
+  public error specifications cover fixed and variable prefixes without an
+  encoding function or canonical-decoding law. Distinct encodings of equal
+  values are supported; element laws concern only consumed payloads.
 - `Tree/Ssz/VariableErrors.lean`: all variable item rejection branches return
   their exact error and preserve the current payload offset. Read failure,
   offsets into the fixed section, input bounds, decreasing offsets, and final
@@ -408,7 +425,28 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest malformed-SSZ checkpoint (through `7546b37`): the full Lean
+Latest arbitrary-payload-prefix checkpoint (through `0b3232d`): the full
+Lean build passes (1,910 jobs), including all earlier proofs. All 16 new
+public prefix, annotated-trace, and decoder-error results were audited together
+through the root `Tree` import. They use only `propext`, `Classical.choice`, and
+`Quot.sound` (or subsets), without admissions, native-evaluation axioms, or the
+Arc pointer axiom.
+
+Variable malformed-offset and element-error specifications now apply after
+arbitrary successful prefixes, with exact check order and actual partial-builder
+finalization. Both fixed and variable public error specifications support
+per-entry payload bytes, including different accepted encodings of equal
+values. No own-method success or canonical-encoding premise is exposed. The
+fixed format bounds only capacities occupied by successfully decoded values;
+variable capacity follows from the table. Empty variable payloads and short
+fixed final chunks retain the element decoder's exact result.
+
+No Rust, generated extraction, external models, or Aeneas sources changed.
+Serialization/deserialization, CoW stepping/materialization, Debug, semantic
+hashing/cache invariants, and feature-specific APIs remain in the full goal;
+all API rows above retain their stated limits and obligations.
+
+Previous malformed-SSZ checkpoint (through `7546b37`): the full Lean
 build passes (1,902 jobs), including all existing proofs. All 19 new public
 cursor, prefix, and decoder-error results were audited together through the
 root `Tree` import. They use only `propext`, `Classical.choice`, and `Quot.sound`,
@@ -423,9 +461,8 @@ capacity checks; fixed-input nonemptiness and bounds implied by other offsets
 are derived rather than exposed as extra premises.
 
 No Rust, generated extraction, external models, or Aeneas sources changed.
-General variable malformed-input specifications after arbitrary-length prefixes,
-serialization/deserialization, CoW stepping/materialization, Debug, semantic
-hashing/cache invariants, and feature-specific APIs remain in the full goal.
+At that checkpoint, general variable malformed-input specifications after
+arbitrary-length prefixes remained pending, alongside the other API work.
 
 Previous SSZ totality and roundtrip checkpoint (through `47e0e56`): the full
 Lean build passes (1,895 jobs), including all earlier proofs. All 14 new public
