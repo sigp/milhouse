@@ -6,6 +6,62 @@ open milhouse milhouse.progressive_tree
 
 namespace milhouse.progressive_list
 
+/-- Actual nonempty application succeeds when selected unpacked/internal
+layers contain a pending value; packed terminals need no such witness. False
+progressive answers carry no correctness law. Representation supplies lookup
+termination, the dense domain, and the numeric maximum bound. -/
+theorem ProgressiveList.apply_updates_nonempty_success_of_enabled {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hqueries : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn
+        (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (henabled : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerEnabled ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hdense : self.tree.Dense factor 0 self.length.val)
+    (hfits : ProgressiveTree.LengthFits factor contents.length)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    (defaults : U) (hdefault : mapInst.coredefaultDefaultInst.default = ok defaults) :
+    ∃ result, ProgressiveList.apply_updates ValueInst mapInst self =
+      ok (core.result.Result.Ok (), result) ∧
+      result.length.val = contents.length ∧ result.updates = defaults := by
+  obtain ⟨length, hlength, hcontentsLength⟩ := hrep.1
+  rw [ProgressiveList.len_eq_updated_length] at hlength
+  have hmaxSuccess : ∃ maximum, mapInst.max_index self.updates = ok maximum := by
+    cases hmax : mapInst.max_index self.updates with
+    | fail e => simp only [utils.updated_length, hmax, bind_tc_fail, reduceCtorEq] at hlength
+    | div => simp only [utils.updated_length, hmax, bind_tc_div, reduceCtorEq] at hlength
+    | ok maximum => exact ⟨maximum, rfl⟩
+  obtain ⟨maximum, hmax⟩ := hmaxSuccess
+  have hmaximum : ∀ last, maximum = some last → last.val < contents.length := by
+    intro last hlast
+    have hlengthVal := utils.updated_length_max_spec mapInst self.length self.updates last length
+      (by simpa only [hlast] using hmax) hlength
+    omega
+  obtain ⟨tree, htree⟩ := ProgressiveTree.with_updated_leaves_success_of_enabled ValueInst mapInst self.updates
+    hlayout
+    (fun query => ProgressiveList.pending_get_of_get_success ValueInst mapInst self (hrep.2 query))
+    maximum hmax self.length.val contents.length hmaximum hrep.dense_update_domain
+    hfits self.tree
+    (hclone maximum hmax)
+    (hqueries maximum hmax)
+    (henabled maximum hmax) (hrange maximum hmax)
+    hdense
+  refine ⟨{ tree, length, updates := defaults }, ?_, hcontentsLength, rfl⟩
+  simp! only [ProgressiveList.apply_updates, hempty, Bool.false_eq_true, ↓reduceIte,
+    core.mem.take, hdefault, bind_tc_ok, hlength, triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
+    htree, triomphe.arc.Arc.new]
+
 /-- Nonempty application terminates and installs the computed backing length
 and default map. Representation supplies lookup termination, a dense update
 domain, and the bound on the actual maximum; no extra laws for those facts
@@ -34,32 +90,11 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
     ∃ result, ProgressiveList.apply_updates ValueInst mapInst self =
       ok (core.result.Result.Ok (), result) ∧
       result.length.val = contents.length ∧ result.updates = defaults := by
-  obtain ⟨length, hlength, hcontentsLength⟩ := hrep.1
-  rw [ProgressiveList.len_eq_updated_length] at hlength
-  have hmaxSuccess : ∃ maximum, mapInst.max_index self.updates = ok maximum := by
-    cases hmax : mapInst.max_index self.updates with
-    | fail e => simp only [utils.updated_length, hmax, bind_tc_fail, reduceCtorEq] at hlength
-    | div => simp only [utils.updated_length, hmax, bind_tc_div, reduceCtorEq] at hlength
-    | ok maximum => exact ⟨maximum, rfl⟩
-  obtain ⟨maximum, hmax⟩ := hmaxSuccess
-  have hmaximum : ∀ last, maximum = some last → last.val < contents.length := by
-    intro last hlast
-    have hlengthVal := utils.updated_length_max_spec mapInst self.length self.updates last length
-      (by simpa only [hlast] using hmax) hlength
-    omega
-  obtain ⟨tree, htree⟩ := ProgressiveTree.with_updated_leaves_success ValueInst mapInst self.updates
-    hlayout
-    (fun query => ProgressiveList.pending_get_of_get_success ValueInst mapInst self (hrep.2 query))
-    maximum hmax self.length.val contents.length hmaximum hrep.dense_update_domain
-    hfits self.tree
-    (hclone maximum hmax)
-    (hqueries maximum hmax)
-    (hrange maximum hmax)
-    hdense
-  refine ⟨{ tree, length, updates := defaults }, ?_, hcontentsLength, rfl⟩
-  simp! only [ProgressiveList.apply_updates, hempty, Bool.false_eq_true, ↓reduceIte,
-    core.mem.take, hdefault, bind_tc_ok, hlength, triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
-    htree, triomphe.arc.Arc.new]
+  exact ProgressiveList.apply_updates_nonempty_success_of_enabled ValueInst mapInst self contents
+    hlayout hclone hqueries
+    (fun maximum hmax => ProgressiveTree.BulkLayerEnabled.of_ranges hlayout (hrange maximum hmax))
+    (fun maximum hmax => (hrange maximum hmax).binary_layers)
+    hrep hdense hfits hempty defaults hdefault
 
 /-- Nonempty application derives execution, represented contents, valid
 backing, and the pending observer using agreement only for skipped pending
