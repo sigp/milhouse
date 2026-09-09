@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared runner for comparisons with freshly extracted standard-library bodies."""
+"""Shared runner for comparisons with freshly extracted dependency bodies."""
 
 import argparse
 import hashlib
@@ -22,26 +22,42 @@ def check_llbc(data, suite):
     crate = data["translated"]
     if crate["crate_name"] != suite["crate"]:
         raise ValueError("Unexpected source crate")
+    source_crate = suite.get("source_crate", "core")
     files = {item["id"]: item for item in crate["files"] if item}
     verified = {}
     for name in suite["source_files"]:
         candidates = [
             item for item in crate["fun_decls"] if item
-            and item["item_meta"]["name"][0] == {"Ident": ["core", 0]}
+            and item["item_meta"]["name"][0] == {"Ident": [source_crate, 0]}
             and item["item_meta"]["name"][-1] == {"Ident": [name, 0]}
         ]
         if len(candidates) != 1:
-            raise ValueError(f"Expected one core body for {name}")
+            raise ValueError(f"Expected one {source_crate} body for {name}")
         item = candidates[0]
         meta = item["item_meta"]
         span = meta["span"]["data"]
         source = files[span["file_id"]]
         if (meta["is_local"] or meta["opacity"] != "Transparent"
-                or source["crate_name"] != "core"
+                or source["crate_name"] != source_crate
                 or source["name"] != {"Local": suite["source_files"][name]}
                 or not isinstance(item["body"], dict)
                 or not isinstance(item["body"].get("Structured"), dict)):
-            raise ValueError(f"Missing transparent standard-library provenance for {name}")
+            raise ValueError(f"Missing transparent dependency provenance for {name}")
+        initializer = item["is_global_initializer"]
+        if name in suite.get("initializers", []):
+            globals_ = [g for g in crate["global_decls"] if g
+                        and type(initializer) is int and g["def_id"] == initializer]
+            if len(globals_) != 1:
+                raise ValueError(f"Missing global declaration for {name}")
+            global_ = globals_[0]
+            call = global_["value"]["kind"].get("Call")
+            if (global_["item_meta"] != meta or global_["global_kind"] != "NamedConst"
+                    or not isinstance(call, list) or len(call) != 2
+                    or call[0]["kind"] != {"Fun": {"Regular": item["def_id"]}}
+                    or call[1] != []):
+                raise ValueError(f"Mismatched constant initializer for {name}")
+        elif initializer is not None:
+            raise ValueError(f"Unexpected global initializer for {name}")
         verified[name] = span
     return verified
 
@@ -96,20 +112,42 @@ def main(suite):
             or versions["toolchain"] != TOOLCHAIN
             or "14210df0e27ccd7d9e6a05b8085cbd438e4bbc65" not in versions["rustc"]):
         raise ValueError("Tool versions changed; review the source comparison before updating pins")
+    dependency_sources = []
+    cargo = suite.get("cargo_dependency")
+    if cargo:
+        metadata = json.loads(run("cargo-metadata", ["cargo", "+" + TOOLCHAIN,
+            "metadata", "--offline", "--locked", "--format-version", "1",
+            "--manifest-path", str(sources / "Cargo.toml")]))
+        packages = [p for p in metadata["packages"] if p["name"] == cargo["name"]]
+        if (len(packages) != 1 or packages[0]["version"] != cargo["version"]
+                or packages[0]["source"] != "registry+https://github.com/rust-lang/crates.io-index"):
+            raise ValueError("Unexpected dependency package/version/source")
+        package = packages[0]
+        for relative in cargo["files"]:
+            path = Path(package["manifest_path"]).parent / relative
+            dependency_sources.append({"package": cargo["name"], "version": cargo["version"],
+                "file": relative, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
     run("build", ["lake", "build", "Tree.FunsExternal"])
     run("rustfmt", ["rustfmt", "+" + TOOLCHAIN, "--edition", "2024", "--check", str(sources / "source.rs")])
-    run("native-build", ["rustc", "+" + TOOLCHAIN, "--edition", "2024", "--test",
-                         str(sources / "source.rs"), "-o", str(work / "native")])
-    run("native-tests", [str(work / "native")], cwd=work)
-    command = [args.charon, "rustc", "--preset=aeneas"]
+    if cargo:
+        run("native-tests", ["cargo", "+" + TOOLCHAIN, "test", "--offline", "--locked",
+            "--lib", "--manifest-path", str(sources / "Cargo.toml")])
+    else:
+        run("native-build", ["rustc", "+" + TOOLCHAIN, "--edition", "2024", "--test",
+                             str(sources / "source.rs"), "-o", str(work / "native")])
+        run("native-tests", [str(work / "native")], cwd=work)
+    command = [args.charon, "cargo" if cargo else "rustc", "--preset=aeneas"]
     for include in suite["includes"]:
         command += ["--include", include]
     llbc = work / (suite["crate"] + ".llbc")
     command += ["--dest-file", str(llbc)]
-    for name in suite["source_files"]:
+    for name in suite.get("roots", suite["source_files"]):
         command += ["--start-from", suite["crate"] + "::" + name]
-    command += ["--", "--edition=2024", "--crate-type", "lib", "--crate-name",
-                suite["crate"], str(sources / "source.rs")]
+    if cargo:
+        command += ["--", "--offline", "--locked", "--manifest-path", str(sources / "Cargo.toml")]
+    else:
+        command += ["--", "--edition=2024", "--crate-type", "lib", "--crate-name",
+                    suite["crate"], str(sources / "source.rs")]
     run("charon", command, cwd=work)
     provenance = check_llbc(json.loads(llbc.read_text()), suite)
     run("aeneas", [args.aeneas, "-backend", "lean", "-namespace", suite["namespace"],
@@ -131,11 +169,13 @@ def main(suite):
                      cwd=work, env=env)
         if module == "CheckModels":
             checked_axioms = check_axiom_output(output, suite["proofs"])
-    hashes = {str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest()
-              for path in (sources / "source.rs", sources / "CheckModels.lean",
-                           lean_project / "Tree/FunsExternal.lean")}
+    inputs = [sources / "source.rs", sources / "CheckModels.lean", lean_project / "Tree/FunsExternal.lean"]
+    if cargo:
+        inputs += [sources / "Cargo.toml", sources / "Cargo.lock"]
+    hashes = {str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     report.write_text(json.dumps({
         "versions": versions, "inputSha256": hashes, "runDirectory": str(work),
+        "dependencySources": dependency_sources,
         "directSourceComparisons": provenance, "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,
