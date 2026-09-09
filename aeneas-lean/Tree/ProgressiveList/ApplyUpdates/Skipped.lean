@@ -135,6 +135,50 @@ theorem ProgressiveList.apply_updates_nonempty_backing_reads_iff_skipped {T U : 
     exact ⟨progressive_tree.ProgressiveTree.BulkLayerSkippedValuesAgree.of_ranges contents.length
       ((hrange maximum hmax).layers (fun _ _ h => h)), hskipped maximum hmax⟩
 
+/-- Under numeric progressive-layer extents and selected binary reflection,
+exact stored materialization is equivalent to agreement in both kinds of
+skipped region. Successful application supplies output density and length;
+no default-map law is needed. -/
+theorem ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hextents : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerRangeOn
+        (update_map.RangePreservesExtentAt mapInst self.updates self.length.val contents.length)
+        ValueInst mapInst self.updates maximum 0#u32)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
+    result.tree.elements = contents ↔
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 ∧
+        self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 := by
+  constructor
+  · intro helements
+    have hafter := ProgressiveList.apply_updates_preserves_backing_of_range_extents ValueInst mapInst self contents
+      (fun _ => hlayout) (fun _ => hextents) (fun _ => hrange) hrep hbacking happly
+    apply (ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement ValueInst mapInst self contents
+      hlayout hclone
+      (fun maximum hmax layer start binary hvisit => (hrange maximum hmax layer start binary hvisit).excludesValues)
+      hrep hbacking.1.shape (by simpa using hbacking.1.endsAfter) hempty happly).mp
+    intro query
+    simpa only [helements] using
+      ProgressiveList.backing_get_eq_elements ValueInst mapInst hlayout result hafter.1 hafter.2 query
+  · intro hskipped
+    exact ProgressiveList.apply_updates_nonempty_backing_contents_of_layer_agreement ValueInst mapInst self contents
+      hlayout hclone hextents hrange (fun maximum hmax => (hskipped maximum hmax).1)
+      (fun maximum hmax => (hskipped maximum hmax).2) hrep hbacking hempty happly
+
 /-- Exact stored materialization is equivalent to skipped-value agreement
 under the selected clone/range and input backing laws. The actual successful
 update supplies output density and length; no default-map law is needed. -/
@@ -157,18 +201,15 @@ theorem ProgressiveList.apply_updates_nonempty_backing_contents_iff_skipped {T U
     result.tree.elements = contents ↔
       ∀ maximum, mapInst.max_index self.updates = ok maximum →
         self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 := by
+  rw [ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement ValueInst mapInst self contents
+    hlayout hclone
+    (fun maximum hmax => (hrange maximum hmax).layers
+      (fun _ _ h => h.preservesExtent hrep.dense_update_domain))
+    (fun maximum hmax => (hrange maximum hmax).binary_layers) hrep hbacking hempty happly]
   constructor
-  · intro helements
-    have hafter := ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
-      (fun _ => hlayout) (fun _ => hrange) hrep hbacking happly
-    apply (ProgressiveList.apply_updates_nonempty_backing_reads_iff_skipped ValueInst mapInst self contents
-      hlayout hclone (fun maximum hmax => (hrange maximum hmax).excludesValues)
-      hrep hbacking.1.shape (by simpa using hbacking.1.endsAfter) hempty happly).mp
-    intro query
-    simpa only [helements] using
-      ProgressiveList.backing_get_eq_elements ValueInst mapInst hlayout result hafter.1 hafter.2 query
-  · intro hskipped
-    exact ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped ValueInst mapInst self contents
-      hlayout hclone hrange hskipped hrep hbacking hempty happly
+  · exact fun hagreement maximum hmax => (hagreement maximum hmax).2
+  · intro hskipped maximum hmax
+    exact ⟨progressive_tree.ProgressiveTree.BulkLayerSkippedValuesAgree.of_ranges contents.length
+      ((hrange maximum hmax).excludesValues.layers (fun _ _ h => h)), hskipped maximum hmax⟩
 
 end milhouse.progressive_list
