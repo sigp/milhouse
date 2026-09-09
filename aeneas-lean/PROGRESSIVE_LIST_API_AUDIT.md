@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_enabled`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -135,32 +135,40 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
-The layer-condition review (`10447d8`, necessary selection `16b9b2c`, binary
-nonzero output `0f38573`, public sufficiency `2226423`, density `6fb973a`,
-derived extents `42d7ca1`, input routing `1474367`) removes independent
-progressive range assumptions from the exact valid-materialization criteria.
-Skipped-layer agreement and the input invariants imply false-answer occupied
-lengths. Actual successful binary rebuilding never returns `Zero`, so output
-density forces positive layer selection. The public criterion puts selection
-and agreement in skipped layers/suffixes on the necessary-and-sufficient side,
-under the remaining selected binary/clone laws and packing/backing invariants.
-The no-op must already store the contents; input representation and rebuilding
-laws apply only on the nonempty branch. Defaults are unconstrained. Output
-backing validity is proved along with equality of stored contents; equality
-alone is a weaker observation. These criteria assume actual successful
-execution, so weaker termination/total contracts remain separate work.
+The start-condition review (`ded30f2`/`4063863`, total correctness `56bb004`,
+public execution `2915fca`, progressive execution `13cac37`, progressive scope
+`9b286fc`, binary activation `6650b5d`) extends the preceding layer-condition
+results to execution and total correctness. Selected unpacked leaves/internal
+nodes require a pending value; packed terminals can start without one. Raw
+execution uses these input conditions, selected binary reflection, and reached
+query/clone termination, without positive progressive selection or skipped-value
+agreement. The total contracts add positive selection and skipped-layer/suffix
+agreement to establish valid backing and preserved contents, then exact default
+overlay/extent for representation and default emptiness for its observer.
 
-Focused and full builds pass (2,100 jobs). The axiom/import audit covers
-5,708 declarations across 384 modules: 5,589 use only standard Lean axioms or
+Four new existence equivalences cover valid stored materialization, with or
+without final representation, on the rebuilding branch and across both
+branches. No successful update, capacity, or default construction is assumed
+upfront. Occupied capacity, positive selection, skipped-layer/suffix agreement,
+and an actual default outcome form the criterion; final representation adds
+that default's exact extent and self-overlay. The no-op must already have valid
+backing storing the contents. Rebuilding laws apply only on the nonempty branch;
+the all-branch materialization-only criterion also requires input representation
+only there. These results include output backing validity; equality of stored
+lists alone is a weaker observation. Remaining start/binary/clone/geometry laws
+are sufficient, with full necessity/minimality still unproved.
+
+Focused and full builds pass (2,103 jobs). The axiom/import audit covers
+5,730 declarations across 387 modules: 5,611 use only standard Lean axioms or
 none, and 119 use the existing pointer contract. All 18 new named lemmas use
 standard Lean axioms or none; private/generated helpers are included in the
 inventory. No new axiom or admission was introduced; external axiom use is
-unchanged and `size_of` remains unused. Existing contracts, including total
-and cache proofs, validate. No Rust, extraction, external model, or Aeneas
-source changed; the seven source suites and 42-root/151-declaration dependency
-gate were not repeated for this proof-only work. Binary range/clone/geometry
-minimality, termination, borrowed CoW, and model fidelity remain unfinished.
-Debug and Serde remain excluded; TreeHash remains deferred.
+unchanged and `size_of` remains unused. Existing success, total, and cache
+proofs validate. No Rust, extraction, external model, or Aeneas source changed;
+the seven source suites and 42-root/151-declaration dependency gate were not
+repeated for this proof-only work. Remaining premise minimality, borrowed CoW,
+and model fidelity are unfinished. Debug and Serde remain excluded; TreeHash
+remains deferred.
 
 Previous skipped-layer agreement checkpoint:
 

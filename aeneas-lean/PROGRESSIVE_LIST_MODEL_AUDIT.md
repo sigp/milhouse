@@ -376,30 +376,33 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
-- The layer-condition review (`10447d8`, necessary selection `16b9b2c`,
-  binary nonzero output `0f38573`, public sufficiency `2226423`, density
-  `6fb973a`, derived extents `42d7ca1`, input routing `1474367`) removes
-  independent progressive range assumptions from valid-materialization
-  equivalences. Skipped agreement and input invariants derive false-answer
-  occupied lengths. Actual successful binary rebuilding never returns `Zero`,
-  without metadata, alignment, map, or clone laws; output density then forces
-  positive progressive selection. The final criterion makes selection and
-  agreement necessary and sufficient under the remaining selected binary/clone
-  laws and packing/backing invariants. A no-op must already store the contents;
-  input representation and rebuilding laws apply only on the nonempty branch.
-  The output includes backing validity and exact stored contents, with defaults
-  unconstrained. These are criteria for actual success, not termination proofs.
-  Focused and full builds pass (2,100 jobs). The axiom/import audit covers 5,708
-  declarations across 384 modules: 5,589 use standard Lean axioms or none, and
-  119 use the existing pointer contract. All 18 new named lemmas use standard
-  Lean axioms or none; private/generated declarations are included. No new
-  axiom or admission was introduced; external axiom use is unchanged and
-  `size_of` remains unused. Existing success/total and cache proofs validate.
-  No Rust, extraction, external model, or Aeneas source changed. The seven
-  source suites and 42-root/151-declaration dependency gate were not repeated
-  for this proof-only work. Weaker termination/total contracts, binary range/
-  clone/geometry minimality, borrowed CoW, and model fidelity remain open.
-  Debug and Serde remain excluded; TreeHash is deferred.
+- The start-condition review (`ded30f2`/`4063863`, total correctness `56bb004`,
+  public execution `2915fca`, progressive execution `13cac37`, progressive scope
+  `9b286fc`, binary activation `6650b5d`) proves execution under input start
+  conditions on selected layers. Packed terminals may start without pending
+  values. Raw execution needs selected binary reflection and reached query/clone
+  termination, but no positive progressive selection or skipped-value agreement.
+  Adding positive selection and skipped-layer/suffix agreement gives total valid
+  materialization; default overlay/extent establish representation and default
+  emptiness supplies only its observer. Four existence criteria cover valid
+  materialization, with or without representation, on the rebuilding branch and
+  across both branches. Capacity, selection, agreement, and actual default
+  construction appear on the necessary-and-sufficient side, without a supplied
+  successful update. Representation adds exact default extent and self-overlay.
+  The no-op must already have valid backing storing the contents. Output backing
+  validity is included; equality of stored lists alone is a weaker observation.
+  These criteria retain explicit start, binary, clone, geometry, and input laws;
+  full necessity/minimality of those laws remains open. Focused and full builds
+  pass (2,103 jobs). The axiom/import audit covers 5,730 declarations across
+  387 modules: 5,611 use standard Lean axioms or none, and 119 use the existing
+  pointer contract. All 18 new named lemmas use standard Lean axioms or none;
+  private/generated declarations are included. No new axiom or admission was
+  introduced; external axiom use is unchanged and `size_of` remains unused.
+  Existing success, total, and cache proofs validate. No Rust, extraction,
+  external model, or Aeneas source changed. The seven source suites and
+  42-root/151-declaration dependency gate were not repeated for this proof-only
+  work. Remaining premise minimality, borrowed CoW, and model fidelity remain
+  unfinished. Debug and Serde remain excluded; TreeHash is deferred.
 - The preceding skipped-layer review (`5a9398e`, read criterion `5481b38`, necessity
   `84224a8`, capacity geometry `f146b17`, contents `b53be68`/`bacc216`,
   bounds/scope `f3248ed`/`2f3e7bc`) weakens false progressive range answers
