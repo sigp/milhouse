@@ -25,7 +25,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `push` | Append one value, increase length by one, preserve earlier values; reject full lists unchanged | `Push.lean` and `Contents.lean`: read-back, all-index preservation, exact length growth, success/full rejection, and `push_represents_append` proved; `Spine.lean` and `Backing.lean` preserve both backing-spine and dense/representable traversal invariants on success without extra map laws or capacity assumptions |
 | `get_mut` | Read the current value; write-back changes only the chosen element; bounds and failure behavior | `Mutable.lean`: exact read/failure correspondence with `get`, successful handle construction, replacement of exactly one sequence element with unchanged length, and out-of-bounds no-op proved under the relevant generic map laws; clone identity is required only for read-value agreement, not replacement or missing reads; `Spine.lean` and `Backing.lean` preserve the backing-spine and full traversal invariants for every write-back |
 | `get_cow` | Read without materializing an update; mutation writes only the chosen element and maintains map metadata | `CopyOnWrite.lean`: exact handle-data read/failure correspondence with `get`, successful access at every represented index, missing-handle behavior, and exact list restoration on unchanged release proved under generic map lookup/release laws, without a clone law; every write-back preserves the backing-spine and dense/representable traversal invariants. Rust `Deref` and materializing mutation bridges remain pending Aeneas translation limitations; handle-data observation is not a proof of those methods |
-| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates.lean`: empty no-op, error restoration, successful state, logical-length preservation, cleared pending updates, and idempotence. `ApplyUpdates/Contents.lean` preserves the represented sequence at every index and the backing-spine invariant. `ApplyUpdates/Backing.lean`: `apply_updates_spec` also preserves full `BackingValid`, so the public iteration and collection proofs apply after rebuilding. The complete dense update domain is derived from representation. Premises are the input representation/backing invariant and relevant packing, clone, exact-range, maximum-bound, and empty-default-map laws; backing validity alone needs no clone or default-map law |
+| `apply_updates` | Preserve merged contents and length; clear pending updates on success; restore state on error | `ApplyUpdates/Total.lean`: the actual public operation now has a total specification preserving the complete represented sequence and `BackingValid` and clearing pending updates. All rebuilding laws and final-capacity bounds are conditional on the nonempty branch. Input representation supplies lookup termination, the complete dense update domain, and a bound on the actual maximum. `ApplyUpdates/Capacity.lean` proves that, given coherent range/maximum metadata and terminating external calls, nonempty application succeeds if and only if the occupied final layers satisfy `LengthFits`; no unused-successor bound is assumed. Packed, binary, and progressive bulk-update totality establish every actual helper call. Earlier `ApplyUpdates.lean`, `Contents.lean`, and `Backing.lean` retain unconditional empty no-op, error restoration, successful-state/length facts, content/backing preservation, and idempotence |
 | `iter`, `iter_from`, `IntoIterator` | Enumerate the merged sequence/suffix; reject invalid starting indices | `Iter/Construction.lean`: public `iter` enumerates the complete represented merged sequence; `iter_from` enumerates the requested suffix, accepts the end, and rejects oversized indices with the exact bounds error. Premises are representation, packing layout, and dense backing layers with representable capacities; no additional map-read, iterator-output, or termination assumptions. Binary and progressive traversal and the pending overlay are proved underneath. `Iter/Traits.lean` proves the same complete enumeration through the actual borrowed `IntoIterator` method, made reachable by `to_vec` |
 | `ProgressiveListIter::next`, `size_hint`, `ExactSizeIterator::len` | Yield the next merged element; exact remaining length; exhaustion | `Iter/Next.lean`: live calls return the represented indexed value and preserve the constructed cursor; exhausted calls return unchanged `none`, including past-end indices. Pending replacements and extensions are covered. `Iter/Length.lean`: both size-hint bounds and exact length equal the represented suffix length; these observers require only agreement of the recorded and sequence lengths |
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | `IterCow/Construction.lean`: the extracted constructors establish the exact backing suffix and merged pending overlay, retain the requested start and pending state, accept the logical end, and reject oversized starts with exact bounds errors and complete restoration. Premises are representation, backing validity, and packing layout, with no additional map or cloning laws. `IterCow/State.lean` proves exact unchanged release, error restoration, and backing preservation through arbitrary constructor continuations without representation or map-law premises. `next_cow` extraction/enumeration and handle dereferencing/materializing mutation remain pending borrowing limitations (UPSTREAM_BUGS issues 9 and 16); constructor invariants do not substitute for those proofs |
@@ -44,6 +44,24 @@ lower-level hypothesis and count the wrapper as proved.
 
 ## Existing foundations
 
+- `Tree/PackedLeaf/Insert.lean` proves necessary and sufficient position and
+  vector bounds for insertion. `PackedLeaf/BulkUpdateSuccess.lean` proves
+  actual vector cloning and the dense window scan terminate with the exact
+  target length and merged indexed contents. Clone identity is scoped to
+  copied stored and pending values; success and length need only terminating
+  clones. The original global-clone content interfaces remain specializations.
+- `Tree/BulkUpdate/Arithmetic.lean` and `Success.lean` derive every binary
+  split operation from the aligned endpoint bound and prove total recursive
+  reconstruction, density, and merged contents. Zero expansion and unchanged
+  shared children are covered. `ProgressiveTree/BulkUpdate/Success.lean`
+  derives future visited-layer bounds from the final occupied length and
+  proves the actual progressive spine recursion succeeds.
+- `Tree/ProgressiveList/ApplyUpdates/Total.lean` and `Capacity.lean` connect
+  these helpers to the public mutation. No successful rebuilding operation,
+  input-map lookup, no-gap property, or independently bounded maximum is
+  assumed. Final occupied capacity is both necessary and sufficient for
+  nonempty application under the stated external laws. Empty application
+  requires none of the rebuilding laws.
 - `Tree/ProgressiveTree/Builder/ExtendSuccess.lean` and
   `ProgressiveTree/ConstructionTotal.lean`: finite iterator consumption and
   both progressive-tree constructors now have total sequence, length, density,
@@ -443,7 +461,27 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest constructor/front-removal totality checkpoint (through `9663f44`):
+Latest apply-updates totality checkpoint (through `79534c8`): the full Lean
+build passes (1,923 jobs), including every earlier proof. All 19 new public
+insertion, packed/binary/progressive bulk-update, public application, and
+capacity-characterization lemmas were audited together through the root
+`Tree` import. Their only axioms are `propext`, `Classical.choice`, and
+`Quot.sound`; none inherits admissions, native-evaluation axioms, or the Arc
+pointer axiom. The existing upstream Slice/StringIter admissions and existing
+lint warnings remain in the build output.
+
+The actual public `apply_updates` now has a total sequence/backing/pending
+specification. Its empty-map branch has no rebuilding premises. For a
+nonempty map, representability of occupied final layers is an exact success
+condition under terminating external calls and coherent range/maximum
+metadata. The proofs derive all intermediate arithmetic, no-gap properties,
+map lookup termination, and the recursion-bound maximum from the stated
+invariants and representation. No Rust, extraction, external model, or Aeneas
+source changed. Serialization/deserialization, CoW stepping/materialization,
+Debug, semantic hashing/cache invariants, feature-specific APIs, and other
+outstanding coverage obligations remain in the full goal.
+
+Previous constructor/front-removal totality checkpoint (through `9663f44`):
 the full Lean build passes (1,916 jobs). All 15 new public extension,
 construction, capacity-characterization, and front-removal lemmas were audited
 together through the root `Tree` import. Their only axioms are `propext`,
