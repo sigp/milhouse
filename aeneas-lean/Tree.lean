@@ -91,6 +91,7 @@ import Tree.ProgressiveList.Encode.FixedCalls
 import Tree.ProgressiveList.Encode.Metadata
 import Tree.ProgressiveList.Encode.VariableLoop
 import Tree.ProgressiveList.Encode.Variable
+import Tree.ProgressiveList.Encode.VariableCalls
 import Tree.ProgressiveList.Encode.Owning
 import Tree.ProgressiveList.Decode.Entry
 import Tree.ProgressiveList.Decode.InitialErrors
