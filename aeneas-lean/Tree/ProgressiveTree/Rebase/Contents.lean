@@ -9,16 +9,6 @@ open milhouse milhouse.tree
 
 namespace milhouse.progressive_tree
 
-/-- Corresponding binary layer caches agree where rebasing can compare them.
-    Progressive-node hashes are ignored because this operation never uses them
-    to establish equality. -/
-def ProgressiveTree.CachedHashesAgree {T : Type} : ProgressiveTree T → ProgressiveTree T → Prop
-  | .ProgressiveNode hash origLeft origRight, .ProgressiveNode baseHash baseLeft baseRight =>
-      triomphe.arc.Arc.ptr_eq (.ProgressiveNode hash origLeft origRight : ProgressiveTree T)
-        (.ProgressiveNode baseHash baseLeft baseRight) = ok false →
-      origLeft.CachedHashesAgree baseLeft ∧ origRight.CachedHashesAgree baseRight
-  | _, _ => True
-
 /-- Recursive rebasing preserves the exact materialized suffix under sound
     positive element `eq`, false element `ne`, and agreement of the compared
     binary caches. -/

@@ -28,4 +28,14 @@ theorem ProgressiveTree.rebaseEqualitySound_of_sound {T : Type} (inst : core.cmp
     | ProgressiveNode baseHash baseLeft baseRight =>
       exact fun _ => ⟨left.rebaseEqualitySound_of_sound inst heq hne baseLeft, ih baseRight⟩
 
+/-- Corresponding binary layer caches agree where rebasing can compare them.
+    Progressive-node hashes are ignored because this operation never uses them
+    to establish equality. -/
+def ProgressiveTree.CachedHashesAgree {T : Type} : ProgressiveTree T → ProgressiveTree T → Prop
+  | .ProgressiveNode hash origLeft origRight, .ProgressiveNode baseHash baseLeft baseRight =>
+      triomphe.arc.Arc.ptr_eq (.ProgressiveNode hash origLeft origRight : ProgressiveTree T)
+        (.ProgressiveNode baseHash baseLeft baseRight) = ok false →
+      origLeft.CachedHashesAgree baseLeft ∧ origRight.CachedHashesAgree baseRight
+  | _, _ => True
+
 end milhouse.progressive_tree
