@@ -58,6 +58,8 @@ import Tree.Rebase.PackedSoundness
 import Tree.Rebase.SelectedKind
 import Tree.Rebase.SelectedKindReflection
 import Tree.Rebase.KindReflection
+import Tree.Rebase.SelectedCacheInputs
+import Tree.Rebase.SelectedCaches
 import Tree.Rebase.CacheInputs
 import Tree.Rebase.CacheReflection
 import Tree.Rebase.CacheAction
