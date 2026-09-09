@@ -227,6 +227,7 @@ import Tree.ProgressiveList.ApplyUpdates.Contents
 import Tree.ProgressiveList.ApplyUpdates.Backing
 import Tree.ProgressiveList.ApplyUpdates.Overlay
 import Tree.ProgressiveList.ApplyUpdates.Materialized
+import Tree.ProgressiveList.ApplyUpdates.Skipped
 import Tree.ProgressiveList.ApplyUpdates.Total
 import Tree.ProgressiveList.ApplyUpdates.Capacity
 import Tree.ProgressiveList.ApplyUpdates.Conditions
