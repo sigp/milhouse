@@ -95,7 +95,7 @@ private theorem bulk_shape_contents_aux {T U : Type}
     cases hshape with
     | leaf value =>
       obtain ⟨_, index, result, hindex, hget, rfl⟩ :=
-        Tree.with_updated_leaves_leaf_value ValueInst mapInst hclone hupdate
+        Tree.with_updated_leaves_leaf_value ValueInst mapInst (fun _ value _ _ => hclone value) hupdate
       exact ⟨by simpa [subtreeCapacity, leafCapacity] using (1#usize).hBounds,
         .leaf result, Tree.bulkContents_of_leaf_value hindex hget⟩
     | packed factor value =>
