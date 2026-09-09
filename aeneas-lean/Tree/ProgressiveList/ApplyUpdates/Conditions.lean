@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.ApplyUpdates.Capacity
+import Tree.ProgressiveList.ApplyUpdates.MaterializedConditions
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -35,32 +35,17 @@ theorem ProgressiveList.apply_updates_nonempty_success_represents_iff_of_skipped
           (∃ largest, mapInst.max_index defaults = ok largest ∧
             largest.elim contents.length (fun index => max (index.val + 1) contents.length) = contents.length) ∧
           ProgressiveListIter.Overlay mapInst defaults contents contents := by
+  have hcriterion := ProgressiveList.apply_updates_nonempty_success_materializes_represents_iff
+    ValueInst mapInst self contents hlayout hclone hqueries hrange hrep hbacking hempty
   constructor
   · rintro ⟨result, happly, hresult⟩
-    have hfits := ProgressiveList.length_fits_after_nonempty_apply_updates ValueInst mapInst self contents
-      hlayout hrange hrep hbacking hempty happly
-    have hdefault : mapInst.coredefaultDefaultInst.default = ok result.updates := by
-      rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-        ⟨htrue, _⟩ | ⟨defaults, length, newTree, _, hdefault, _, _, rfl⟩
-      · rw [hempty] at htrue
-        cases htrue
-      · exact hdefault
     have helements := ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped ValueInst mapInst self contents
       hlayout (fun maximum hmax => (hclone maximum hmax).preserves) hrange hskipped hrep hbacking hempty happly
-    refine ⟨hfits, result.updates, hdefault, ?_⟩
-    simpa only [helements] using
-      (ProgressiveList.apply_updates_nonempty_represents_iff ValueInst mapInst self contents
-        hlayout hrange hrep hbacking hempty happly).mp hresult
-  · rintro ⟨hfits, defaults, hdefault, hextent, hoverlay⟩
-    obtain ⟨result, happly, _, hdefaults⟩ := ProgressiveList.apply_updates_nonempty_success ValueInst mapInst
-      self contents hlayout (fun maximum hmax => (hclone maximum hmax).terminates)
-      hqueries hrange hrep hbacking.1 hfits hempty defaults hdefault
-    have helements := ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped ValueInst mapInst self contents
-      hlayout (fun maximum hmax => (hclone maximum hmax).preserves) hrange hskipped hrep hbacking hempty happly
-    refine ⟨result, happly,
-      (ProgressiveList.apply_updates_nonempty_represents_iff ValueInst mapInst self contents
-        hlayout hrange hrep hbacking hempty happly).mpr ?_⟩
-    simpa only [hdefaults, helements] using And.intro hextent hoverlay
+    obtain ⟨hfits, _, hdefault⟩ := hcriterion.mp ⟨result, happly, helements, hresult⟩
+    exact ⟨hfits, hdefault⟩
+  · rintro ⟨hfits, hdefault⟩
+    obtain ⟨result, happly, _, hresult⟩ := hcriterion.mpr ⟨hfits, hskipped, hdefault⟩
+    exact ⟨result, happly, hresult⟩
 
 /-- Under the selected clone and metadata laws, successful nonempty
 application preserves the merged sequence exactly when the occupied final
