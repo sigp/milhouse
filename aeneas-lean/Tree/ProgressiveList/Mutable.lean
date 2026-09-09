@@ -52,28 +52,24 @@ theorem ProgressiveList.get_mut_fallback_eq {T U : Type}
   · simp only [if_pos hindex]
   · simp only [if_neg hindex, bind_tc_ok, core.option.OptionShared0T.cloned]
 
-/-- Projecting the value from mutable access has exactly the behavior of
-    `get`, including missing indices and failures, when map lookup is lawful
-    and cloning preserves elements. -/
-theorem ProgressiveList.get_mut_read_eq_get {T U : Type}
+/-- Mutable access returns an existing pending value directly; otherwise it
+returns the actual clone of the backing value. This equation preserves clone
+failure and nonidentity results and requires only the generic map read law. -/
+theorem ProgressiveList.get_mut_read_eq_pending_or_clone {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (index : Std.Usize)
-    (hreads : update_map.GetMutWithReads mapInst self.updates index)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value) :
+    (hreads : update_map.GetMutWithReads mapInst self.updates index) :
     (do let (value, _) ← ProgressiveList.get_mut ValueInst mapInst self index
-        ok value) = ProgressiveList.get ValueInst mapInst self index := by
+        ok value) = (do
+      let pending ← mapInst.get self.updates index
+      match pending with
+      | some value => ok (some value)
+      | none => do
+        let backing ← ProgressiveList.backing_get ValueInst mapInst self index
+        core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst backing) := by
   have hread := hreads
     (ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption
       ValueInst mapInst) (self.tree, self.length)
-  have hfallback :
-      ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
-        ValueInst mapInst (self.tree, self.length) index =
-      ProgressiveList.backing_get ValueInst mapInst self index := by
-    rw [ProgressiveList.get_mut_fallback_eq]
-    cases ProgressiveList.backing_get ValueInst mapInst self index with
-    | fail e => rfl
-    | div => rfl
-    | ok found => cases found <;> simp [core.option.OptionShared0T.cloned, hclone]
   have hproject :
       (do let (value, _) ← ProgressiveList.get_mut ValueInst mapInst self index
           ok value) = (do
@@ -89,13 +85,40 @@ theorem ProgressiveList.get_mut_read_eq_get {T U : Type}
     | div => rfl
     | ok handle => obtain ⟨value, back⟩ := handle; rfl
   refine hproject.trans (hread.trans ?_)
-  simp only [hfallback]
+  simp! only [ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption,
+    ProgressiveList.get_mut_fallback_eq]
+  rfl
+
+/-- Read agreement with `get` needs identity cloning only for an actual
+    backing fallback after a missing pending lookup. Pending values, missing
+    backing reads, and failing reads need no cloning premise. -/
+theorem ProgressiveList.get_mut_read_eq_get {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index : Std.Usize)
+    (hreads : update_map.GetMutWithReads mapInst self.updates index)
+    (hclone : mapInst.get self.updates index = ok none → ∀ value,
+      ProgressiveList.backing_get ValueInst mapInst self index = ok (some value) →
+      ValueInst.corecloneCloneInst.clone value = ok value) :
+    (do let (value, _) ← ProgressiveList.get_mut ValueInst mapInst self index
+        ok value) = ProgressiveList.get ValueInst mapInst self index := by
+  refine (ProgressiveList.get_mut_read_eq_pending_or_clone
+    ValueInst mapInst self index hreads).trans ?_
   unfold ProgressiveList.get
   cases hpending : mapInst.get self.updates index with
   | fail e => rfl
   | div => rfl
   | ok pending =>
-    cases pending <;> rfl
+    cases pending with
+    | some value => rfl
+    | none =>
+      simp only [bind_tc_ok]
+      cases hfallback : ProgressiveList.backing_get ValueInst mapInst self index with
+      | fail e => rfl
+      | div => rfl
+      | ok backing =>
+        cases backing with
+        | none => rfl
+        | some value => simp [core.option.OptionShared0T.cloned, hclone hpending value hfallback]
 
 /-- Mutable access reads the same value as `get`, including `none` at missing
     indices, under the map lookup law and value-preserving element cloning. -/
@@ -103,7 +126,9 @@ theorem ProgressiveList.get_mut_reads_get {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (index : Std.Usize)
     (hreads : update_map.GetMutWithReads mapInst self.updates index)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : mapInst.get self.updates index = ok none → ∀ value,
+      ProgressiveList.backing_get ValueInst mapInst self index = ok (some value) →
+      ValueInst.corecloneCloneInst.clone value = ok value)
     {value : Option T} {back : Option T → ProgressiveList T U}
     (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (value, back)) :
     ProgressiveList.get ValueInst mapInst self index = ok value := by
@@ -116,7 +141,9 @@ theorem ProgressiveList.get_mut_succeeds {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (index : Std.Usize)
     (hreads : update_map.GetMutWithReads mapInst self.updates index)
-    (hclone : ∀ value, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : mapInst.get self.updates index = ok none → ∀ value,
+      ProgressiveList.backing_get ValueInst mapInst self index = ok (some value) →
+      ValueInst.corecloneCloneInst.clone value = ok value)
     {value : Option T}
     (hget : ProgressiveList.get ValueInst mapInst self index = ok value) :
     ∃ back, ProgressiveList.get_mut ValueInst mapInst self index = ok (value, back) := by
