@@ -376,6 +376,32 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- `apply_updates` now has exact representation criteria using the actual
+  rebuilt values and installed-map overlay/extent, without a separate clone-
+  identity or empty-default law. Actual backing reads are derived independently
+  of the default map, and selected clone preservation identifies the complete
+  stored sequence. Total contracts use exact default-map laws, retaining the
+  existing empty-map contracts as adapters. Under selected clone and range/
+  maximum assumptions, successful preservation is equivalent to the actual
+  empty no-op or occupied final capacity and an actual default outcome with
+  those laws. Rebuilding premises are conditional on the nonempty branch;
+  pending emptiness supplies only its observer. Complete length-result equality
+  has an exact extent criterion without representation, geometry, clone,
+  range, or successful-metadata assumptions, including unchanged failure and
+  divergence on the no-op branch. Length integration is `8e80e9c`, success
+  criteria `5823c1f`, total contracts `40ac435`, materialization `decf6f7`, and
+  overlay foundation `c338515`. These results audit default-map conditions
+  under stated premises; they do not complete clone/range/geometry minimality
+  or external-model source fidelity. Borrowed CoW remains open. The full build
+  passes (2,087 jobs), and the axiom/import audit covers 5,558 declarations
+  across 371 modules: 5,439 use only standard Lean axioms or none, and 119 use
+  the existing pointer contract. All nine new named lemmas use only standard
+  Lean axioms; generated helpers are included in the inventory. External axiom
+  use is unchanged. No new axiom or admission was introduced, and `size_of`
+  remains unused. No Rust, extraction, external model, or Aeneas source changed.
+  The seven source suites and 42-root/151-declaration dependency gate were not
+  repeated for this proof-only work. Debug and Serde remain excluded; TreeHash
+  remains deferred.
 - Both Arbitrary generator entry points now have exact representation and
   success criteria using the actual default map's overlay/extent, finite
   control/element traces, and occupied-layer `LengthFits`. The successful

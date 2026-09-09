@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_overlay`, `ProgressiveList.apply_updates_success_represents_iff`, `ProgressiveList.apply_updates_represents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,33 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`ApplyUpdates/Overlay.lean` characterizes representation from actual rebuilt
+values and default-map overlay/extent, without separate clone identity or
+empty-default laws. `Contents.lean` derives actual backing reads independently
+of the default map; `Materialized.lean` establishes the stored sequence under
+selected clone preservation. `Total.lean` uses exact default-map laws for its
+complete representation/backing/observer contracts, with existing empty-map
+contracts retained as adapters. Under the stated selected clone and metadata
+laws, `Conditions.lean` characterizes successful preservation by the actual
+empty-map no-op or occupied final capacity and an actual default outcome with
+the exact overlay/extent. Pending emptiness supplies only its observer. The
+representation and success criteria require all rebuilding laws only on the
+nonempty branch. `len_after_apply_updates_iff` independently characterizes
+complete length-result equality without representation or geometry, including
+unchanged failure/divergence on the no-op branch. Length integration is
+`8e80e9c`, success criteria `5823c1f`, total contracts `40ac435`, materialization
+`decf6f7`, and overlay foundation `c338515`. Remaining clone/range/geometry
+minimality and model fidelity are separate obligations.
+
+Focused and full builds pass (2,087 jobs). The axiom/import audit covers
+5,558 declarations across 371 modules: 5,439 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All nine new named lemmas use
+only standard Lean axioms; generated helpers are included in the inventory.
+External axiom use is unchanged. No new axiom or admission was introduced,
+and `size_of` remains unused. Borrowed CoW and the remaining assumption/model-
+fidelity audit are unfinished. Debug and Serde remain excluded; TreeHash is
+deferred outside the current goal.
 
 `Arbitrary/Overlay.lean` gives the actual default map's exact representation
 criterion, and `Conditions.lean` combines finite control/element traces,
