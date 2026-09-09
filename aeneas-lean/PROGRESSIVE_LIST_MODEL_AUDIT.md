@@ -376,6 +376,28 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Rebase read and representation contracts now identify the exact clone
+  conditions. In-place rebasing preserves all public read results without
+  representation or map-read-success premises. For nonmutating rebasing,
+  fallback-aware agreement with the actual cloned map is necessary and
+  sufficient for complete read equality; matching logical extent additionally
+  characterizes preservation of a represented sequence. Successful preserving
+  execution is equivalent to selected backing readiness and an actual map
+  clone with those read/extent outcomes. Both total contracts derive execution
+  and the complete representation/backing/metadata result, and existing
+  content/total/cache contracts now use them. Public integration is `594f218`,
+  with `eef66e2` and `297cfd4` as foundations. Layout and backing geometry
+  justify traversal, and selected content soundness remains explicit. This
+  proves necessity of the clone laws under those premises; it does not finish
+  all semantic-premise or model-fidelity review. Borrowed CoW remains open.
+  The full build passes (2,075 jobs), and the axiom/import audit covers 5,510
+  declarations across 359 modules: 5,391 use only standard Lean axioms or none,
+  and 119 use the existing pointer contract. Ten new declarations reuse it;
+  no new axiom or admission was introduced, and `size_of` remains unused.
+  No Rust, extraction, external model, or Aeneas source changed. The seven
+  source suites and 42-root/151-declaration model dependency gate were not
+  repeated for this proof-only work. Debug and Serde remain excluded; TreeHash
+  remains deferred outside the current goal.
 - The selected cache criteria now cover both public rebase methods without
   layout, geometry, density, capacity, accurate-length, query-success, map,
   or representation premises. Under selected content soundness and actual

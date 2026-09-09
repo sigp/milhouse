@@ -61,8 +61,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `iter_cow_from` | `ProgressiveList.iter_cow_from_spec`, `ProgressiveList.iter_cow_from_error_iff`; stepping pending |
 | `to_vec` | `ProgressiveList.to_vec_total_spec`, `ProgressiveList.to_vec_mapM` |
 | `pop_front` | `ProgressiveList.pop_front_nonzero_clones_total_spec`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
-| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_spec_of_content_inputs`, `ProgressiveList.rebase_preserves_backing_contents`, `ProgressiveList.rebase_success_iff_ready`, `ProgressiveList.rebase_cache_iff_of_inputs` |
-| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_spec_of_content_inputs`, `ProgressiveList.rebase_on_preserves_backing_contents`, `ProgressiveList.rebase_on_success_iff_ready`, `ProgressiveList.rebase_on_cache_iff_of_inputs` |
+| `rebase` | `ProgressiveList.rebase_total_spec_of_inputs`, `ProgressiveList.rebase_success_represents_iff`, `ProgressiveList.rebase_represents_iff`, `ProgressiveList.rebase_reads_eq_iff`, `ProgressiveList.rebase_cache_iff_of_inputs` |
+| `rebase_on` | `ProgressiveList.rebase_on_total_spec_of_inputs`, `ProgressiveList.rebase_on_success_represents_iff`, `ProgressiveList.rebase_on_represents_iff`, `ProgressiveList.rebase_on_get_eq`, `ProgressiveList.rebase_on_cache_iff_of_inputs` |
 
 ## List trait methods
 
@@ -134,6 +134,30 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`Rebase/Lookup.lean` establishes exact full-result in-place reads, including
+map failure/divergence and out-of-range indices, without representation or
+map-read-success premises. Nonmutating lookup equality is equivalent to the
+actual cloned map's answers agreeing at the original backing fallback.
+`Representation.lean` proves in-place representation equivalence and makes
+read/extent laws necessary and sufficient for the actual nonmutating clone to
+preserve an already represented sequence. `SelectedTotal.lean` characterizes
+successful sequence-preserving calls by backing readiness and, for nonmutating
+rebase, an actual clone outcome with precisely those read/extent laws. Both
+total contracts derive execution, represented contents, backing validity, and
+metadata; existing content/total/cache contracts now use these results.
+The public total checkpoint is `594f218` (representation `eef66e2`, lookup
+`297cfd4`). Layout and backing geometry still justify indexed traversal, and
+selected semantic content soundness remains explicit. The exact clone
+criterion does not establish minimality of all other premises or model fidelity.
+
+Focused and full builds pass (2,075 jobs). The axiom/import audit covers
+5,510 declarations across 359 modules: 5,391 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. Ten new declarations reuse
+that contract; no new axiom or admission was introduced, and `size_of` remains
+unused. Existing downstream cache and validity contracts also validate.
+Borrowed CoW and the remaining assumption/model-fidelity audit are unfinished.
+Debug and Serde remain excluded; TreeHash is deferred outside the goal.
 
 `Rebase/SelectedCaches.lean` gives general public cache criteria for both
 rebase methods. Under selected `RebaseContentInputs` soundness and actual
