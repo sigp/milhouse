@@ -1,5 +1,6 @@
 import Tree.ProgressiveList.Iter.Traits
 import Tree.ProgressiveList.Iter.Length
+import Tree.ProgressiveList.ToVec.Loop
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree milhouse.progressive_tree
