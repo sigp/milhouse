@@ -19,15 +19,15 @@ theorem ProgressiveTree.has_updates_in_range_true {T U : Type}
 
 theorem ProgressiveTree.has_updates_in_range_false_excludes {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) {updates : U}
-    (hrange : update_map.RangeExcludesValues mapInst updates)
     {start stop query : Std.Usize} {pending : Option T}
+    (hrange : start.val < stop.val → update_map.RangeExcludesValuesAt mapInst updates start stop)
     (hempty : ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok false)
     (hget : mapInst.get updates query = ok pending)
     (hlo : start.val ≤ query.val) (hhi : query.val < stop.val) :
     pending = none := by
   have hnonempty : start < stop := by scalar_tac
   simp only [ProgressiveTree.has_updates_in_range, if_pos hnonempty] at hempty
-  exact hrange start stop query pending hempty hget hlo hhi
+  exact hrange hnonempty query pending hempty hget hlo hhi
 
 /-- An empty first layer of a zero suffix precludes every dense extension
     into that suffix. The proof includes saturated endpoints and needs only
@@ -36,10 +36,11 @@ theorem ProgressiveTree.length_le_of_empty_zero_layer {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) {updates : U}
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hrange : update_map.RangeExcludesValues mapInst updates)
+    {start stop : Std.Usize}
+    (hrange : start.val < stop.val → update_map.RangeExcludesValuesAt mapInst updates start stop)
     {oldLength : Nat} {newLength : Std.Usize}
     (hcomplete : update_map.ExtensionComplete mapInst updates oldLength newLength.val)
-    {depth next : Std.U32} {start stop : Std.Usize}
+    {depth next : Std.U32}
     (hnext : depth + 1#u32 = ok next)
     (hstart : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start)
     (hstop : ProgressiveTree.total_capacity_at_depth ValueInst next = ok stop)
