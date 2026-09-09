@@ -70,9 +70,9 @@ theorem vec_eq_contents_on {T : Type} (inst : core.cmp.PartialEq T T)
 
 /-- Element soundness on corresponding leaves of these rebase inputs.
 Pointer-equal trees or values and unequal-length packed vectors need no
-element law. Binary children are included recursively, as in the existing
-comparison-termination and cache-agreement scopes; this is not an exact trace
-of calls selected after ancestor cache shortcuts. -/
+element law. Pointer and hash shortcuts omit every descendant obligation.
+The cache guard uses materialized lengths; the operational proof derives
+agreement with the supplied Rust metadata from input density. -/
 def Tree.RebaseEqualitySound {T : Type} (inst : core.cmp.PartialEq T T) : Tree T → Tree T → Prop
   | .Leaf left, .Leaf right =>
       triomphe.arc.Arc.ptr_eq (.Leaf left : Tree T) (.Leaf right : Tree T) = ok false →
@@ -85,6 +85,8 @@ def Tree.RebaseEqualitySound {T : Type} (inst : core.cmp.PartialEq T T) : Tree T
         inst.ne pair.1 pair.2 = ok false → pair.1 = pair.2
   | .Node hash left right, .Node baseHash baseLeft baseRight =>
       triomphe.arc.Arc.ptr_eq (.Node hash left right : Tree T) (.Node baseHash baseLeft baseRight) = ok false →
+      (¬ RebaseHashShortcut hash baseHash (left.elements ++ right.elements).length
+        (baseLeft.elements ++ baseRight.elements).length) →
       left.RebaseEqualitySound inst baseLeft ∧ right.RebaseEqualitySound inst baseRight
   | _, _ => True
 
@@ -104,6 +106,6 @@ theorem Tree.rebaseEqualitySound_of_sound {T : Type} (inst : core.cmp.PartialEq 
   | Zero depth => cases base <;> trivial
   | Node hash left right ihleft ihright =>
     cases base <;> simp only [Tree.RebaseEqualitySound]
-    exact fun _ => ⟨ihleft _, ihright _⟩
+    exact fun _ _ => ⟨ihleft _, ihright _⟩
 
 end milhouse.tree

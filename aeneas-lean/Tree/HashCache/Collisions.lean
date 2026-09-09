@@ -38,20 +38,20 @@ theorem CacheValidFor.eq_reference_of_nonzero {T : Type}
 
 namespace tree
 
-/-- Corresponding binary-node inputs for which the original cache is populated.
-The finite collection omits leaf comparisons, mismatched constructors, and
-zero-cache nodes. It contains no inputs from unrelated trees. Children remain
-included to supply the recursive cache law used by the existing rebase proof. -/
+/-- Binary inputs at selected nonzero equal-hash, equal-length shortcuts.
+Pointer sharing omits the complete subtree; taking a hash shortcut includes
+only its root pair. Otherwise the scope follows both corresponding children.
+Input density connects these sequence lengths to operational Rust metadata. -/
 noncomputable def Tree.rebaseHashInputs {T : Type} (orig base : Tree T) (depth : Nat) :
     _root_.List (BinaryHashInputPair T) := by
   classical
   exact match orig, base with
   | .Node hash left right, .Node baseHash baseLeft baseRight =>
     if triomphe.arc.Arc.ptr_eq (.Node hash left right : Tree T) (.Node baseHash baseLeft baseRight) = ok false then
-      let children := left.rebaseHashInputs baseLeft (depth - 1) ++
-        right.rebaseHashInputs baseRight (depth - 1)
-      if hash = Array.repeat 32#usize 0#u8 then children
-      else (depth, left.elements ++ right.elements, baseLeft.elements ++ baseRight.elements) :: children
+      if RebaseHashShortcut hash baseHash (left.elements ++ right.elements).length
+          (baseLeft.elements ++ baseRight.elements).length then
+        [(depth, left.elements ++ right.elements, baseLeft.elements ++ baseRight.elements)]
+      else left.rebaseHashInputs baseLeft (depth - 1) ++ right.rebaseHashInputs baseRight (depth - 1)
     else []
   | _, _ => []
 
@@ -66,7 +66,7 @@ theorem Tree.rebaseHashInputs_eq_nil_of_cleared {T : Type}
   | Node hash left right ihleft ihright =>
     cases base <;> simp only [Tree.rebaseHashInputs]
     rename_i baseHash baseLeft baseRight
-    simp [hclear.1, ihleft baseLeft (depth - 1) hclear.2.1,
+    simp [hclear.1, RebaseHashShortcut, Array.repeat, ihleft baseLeft (depth - 1) hclear.2.1,
       ihright baseRight (depth - 1) hclear.2.2]
 
 /-- Cleared original caches cannot take a hash shortcut. Their operational
@@ -81,10 +81,10 @@ theorem Tree.cachedHashesAgree_of_cleared {T : Type}
     cases base <;> simp only [Tree.CachedHashesAgree]
     rename_i baseHash baseLeft baseRight
     intro _
-    refine ⟨?_, ihleft baseLeft hclear.2.1, ihright baseRight hclear.2.2⟩
-    intro hnonzero
+    refine ⟨?_, fun _ => ⟨ihleft baseLeft hclear.2.1, ihright baseRight hclear.2.2⟩⟩
+    intro hshortcut
     apply False.elim
-    apply hnonzero
+    apply hshortcut.1
     simp [hclear.1, Array.repeat]
 
 /-- Valid caches and collision soundness on the corresponding finite hash
@@ -107,33 +107,34 @@ theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
     | Zero level => trivial
     | Node baseHash baseLeft baseRight =>
       intro hpointer
-      have hchildren : BinaryHashCollisionSoundOn reference
-          (left.rebaseHashInputs baseLeft (depth - 1) ++
-            right.rebaseHashInputs baseRight (depth - 1)) := by
-        apply hcollisions.mono
-        intro pair hpair
-        simp only [Tree.rebaseHashInputs, hpointer, ↓reduceIte]
-        split <;> simp [hpair]
-      refine ⟨?_, ihleft baseLeft (depth - 1) horig.2.1 hbase.2.1
-          (hchildren.mono (fun pair hpair => List.mem_append_left _ hpair)),
-        ihright baseRight (depth - 1) horig.2.2 hbase.2.2
-          (hchildren.mono (fun pair hpair => List.mem_append_right _ hpair))⟩
-      intro hnonzero hequal hlength
-      have hnonzero' : hash ≠ Array.repeat 32#usize 0#u8 := by
-        intro hzero
-        apply hnonzero
-        simp [hzero, Array.repeat]
-      have hhash : hash = baseHash := Subtype.ext hequal
-      have horigRef := horig.1.eq_reference_of_nonzero hnonzero'
-      have hbaseRef := hbase.1.eq_reference_of_nonzero (by
-        intro hzero
-        exact hnonzero' (hhash.trans hzero))
-      apply hcollisions (depth, left.elements ++ right.elements,
-        baseLeft.elements ++ baseRight.elements)
-      · simp [Tree.rebaseHashInputs, hpointer, hnonzero']
-      · exact hlength
-      · simpa only [← horigRef] using hnonzero'
-      · exact horigRef.symm.trans (hhash.trans hbaseRef)
+      refine ⟨?_, ?_⟩
+      · intro hshortcut
+        have hguard := hshortcut
+        obtain ⟨hnonzero, hequal, hlength⟩ := hshortcut
+        have hnonzero' : hash ≠ Array.repeat 32#usize 0#u8 := by
+          intro hzero
+          apply hnonzero
+          simp [hzero, Array.repeat]
+        have hhash : hash = baseHash := Subtype.ext hequal
+        have horigRef := horig.1.eq_reference_of_nonzero hnonzero'
+        have hbaseRef := hbase.1.eq_reference_of_nonzero (by
+          intro hzero
+          exact hnonzero' (hhash.trans hzero))
+        apply hcollisions (depth, left.elements ++ right.elements,
+          baseLeft.elements ++ baseRight.elements)
+        · simp only [Tree.rebaseHashInputs, hpointer, ↓reduceIte, if_pos hguard, List.mem_singleton]
+        · exact hlength
+        · simpa only [← horigRef] using hnonzero'
+        · exact horigRef.symm.trans (hhash.trans hbaseRef)
+      · intro hdescend
+        have hchildren : BinaryHashCollisionSoundOn reference
+            (left.rebaseHashInputs baseLeft (depth - 1) ++
+              right.rebaseHashInputs baseRight (depth - 1)) := by
+          simpa only [Tree.rebaseHashInputs, hpointer, ↓reduceIte, if_neg hdescend] using hcollisions
+        exact ⟨ihleft baseLeft (depth - 1) horig.2.1 hbase.2.1
+            (hchildren.mono (fun pair hpair => List.mem_append_left _ hpair)),
+          ihright baseRight (depth - 1) horig.2.2 hbase.2.2
+            (hchildren.mono (fun pair hpair => List.mem_append_right _ hpair))⟩
 
 end tree
 end milhouse

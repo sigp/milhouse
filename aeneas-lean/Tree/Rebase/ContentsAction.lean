@@ -1,23 +1,26 @@
 import Tree.Rebase.Steps
+import Tree.Rebase.HashShortcut
 
 open Aeneas Aeneas.Std Result
 open milhouse
 
 namespace milhouse.tree
 
-/-- The cache law needed by rebasing: corresponding nonzero equal node hashes
-    identify equal materialized sequences when their lengths agree. The law
-    also holds recursively for corresponding children. It imposes no condition
-    on zero caches or on hashes of sequences with different lengths. -/
+/-- Cache agreement is needed only at a reached nonzero, equal-hash,
+equal-length shortcut. Pointer sharing needs no cache law; a hash shortcut
+omits all descendant obligations. -/
 def Tree.CachedHashesAgree {T : Type} : Tree T → Tree T → Prop
   | .Node origHash origLeft origRight, .Node baseHash baseLeft baseRight =>
       triomphe.arc.Arc.ptr_eq (.Node origHash origLeft origRight : Tree T)
         (.Node baseHash baseLeft baseRight) = ok false →
-      ((¬ ∀ byte ∈ origHash.val, byte = 0#u8) → origHash.val = baseHash.val →
-        (origLeft.elements ++ origRight.elements).length =
-          (baseLeft.elements ++ baseRight.elements).length →
+      (RebaseHashShortcut origHash baseHash
+        (origLeft.elements ++ origRight.elements).length
+        (baseLeft.elements ++ baseRight.elements).length →
         origLeft.elements ++ origRight.elements = baseLeft.elements ++ baseRight.elements) ∧
-      origLeft.CachedHashesAgree baseLeft ∧ origRight.CachedHashesAgree baseRight
+      (¬ RebaseHashShortcut origHash baseHash
+        (origLeft.elements ++ origRight.elements).length
+        (baseLeft.elements ++ baseRight.elements).length →
+        origLeft.CachedHashesAgree baseLeft ∧ origRight.CachedHashesAgree baseRight)
   | _, _ => True
 
 /-- Applying an action preserves the original sequence; an equality action

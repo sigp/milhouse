@@ -80,10 +80,14 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
         split at hrebase <;> simp at hrebase <;> subst action <;>
           simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction, Tree.elements]
       case Node.Node origHash origLeft origRight baseHash baseLeft baseRight =>
-        have childrenCorrect : rebaseChildren ValueInst origHash baseHash origLeft origRight baseLeft baseRight
+        have childrenCorrect :
+            (¬ RebaseHashShortcut origHash baseHash
+              (origLeft.elements ++ origRight.elements).length
+              (baseLeft.elements ++ baseRight.elements).length) →
+            rebaseChildren ValueInst origHash baseHash origLeft origRight baseLeft baseRight
             (some (origLength, baseLength)) fullDepth = ok (core.result.Result.Ok action) →
             action.ContentsCorrect (.Node origHash origLeft origRight) (.Node baseHash baseLeft baseRight) := by
-          intro hchildren
+          intro hdescend hchildren
           obtain ⟨newDepth, mapped, leftLengths, rightLengths, leftAction, rightAction,
             hnewDepth, hmapped, hsplit, hleft, hright, rfl⟩ := rebaseChildren_success_state ValueInst hchildren
           have hnewDepthVal := usize_sub_one_val hnewDepth
@@ -109,10 +113,10 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
           obtain ⟨baseLeftDense, baseRightDense⟩ := hbase.split_node
           have hleftCorrect := ih newDepth.val hsmall origLeft baseLeft child ol bl newDepth leftAction
             (Nat.le_refl _) hnewFull (by simpa only [hlengths.1] using origLeftDense)
-            (by simpa only [hlengths.2.1] using baseLeftDense) (hequality hpointer).1 (hhashes hpointer).2.1 hleft
+            (by simpa only [hlengths.2.1] using baseLeftDense) (hequality hpointer hdescend).1 ((hhashes hpointer).2 hdescend).1 hleft
           have hrightCorrect := ih newDepth.val hsmall origRight baseRight child or br newDepth rightAction
             (Nat.le_refl _) hnewFull (by simpa only [hlengths.2.2.1] using origRightDense)
-            (by simpa only [hlengths.2.2.2] using baseRightDense) (hequality hpointer).2 (hhashes hpointer).2.2 hright
+            (by simpa only [hlengths.2.2.2] using baseRightDense) (hequality hpointer hdescend).2 ((hhashes hpointer).2 hdescend).2 hright
           exact combineRebaseActions_contents_correct origHash baseHash origLeft origRight baseLeft baseRight
             leftAction rightAction hleftCorrect hrightCorrect
         by_cases hpositive : fullDepth > 0#usize
@@ -124,7 +128,8 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             lock_api.rwlock.RwLock.new, triomphe.arc.Arc.Insts.CoreCloneClone.clone,
             triomphe.arc.Arc.new] at hrebase
           split at hrebase
-          · exact childrenCorrect hrebase
+          · rename_i hzero
+            exact childrenCorrect (fun hshortcut => hshortcut.1 hzero) hrebase
           · rename_i hnonzero
             split at hrebase
             · rename_i hhashEqual
@@ -140,11 +145,20 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
                   change (Tree.Node origHash origLeft origRight).elements.length =
                     (Tree.Node baseHash baseLeft baseRight).elements.length
                   rw [horig.elements_length, hbase.elements_length, hlength]
-                have helements := (hhashes hpointer).1 hnonzero hhashEqual hlengths
+                have helements := (hhashes hpointer).1 ⟨hnonzero, hhashEqual, hlengths⟩
                 simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction,
                   Tree.elements, helements]
-              · exact childrenCorrect hrebase
-            · exact childrenCorrect hrebase
+              · rename_i hlengthNe
+                apply childrenCorrect ?_ hrebase
+                intro hshortcut
+                apply hlengthNe
+                apply UScalar.eq_of_val_eq
+                have hlength := hshortcut.2.2
+                change (Tree.Node origHash origLeft origRight).elements.length =
+                  (Tree.Node baseHash baseLeft baseRight).elements.length at hlength
+                simpa only [horig.elements_length, hbase.elements_length] using hlength
+            · rename_i hhashNe
+              exact childrenCorrect (fun hshortcut => hhashNe hshortcut.2.1) hrebase
         · simp [hpositive] at hrebase
       all_goals simp at hrebase
       all_goals subst action

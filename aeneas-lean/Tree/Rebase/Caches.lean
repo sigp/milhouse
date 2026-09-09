@@ -55,10 +55,14 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
         exact horigCache
       | Node baseHash baseLeft baseRight =>
         simp only at hrebase
-        have childrenCorrect : rebaseChildren ValueInst origHash baseHash origLeft origRight baseLeft baseRight
+        have childrenCorrect :
+            (¬ RebaseHashShortcut origHash baseHash
+              (origLeft.elements ++ origRight.elements).length
+              (baseLeft.elements ++ baseRight.elements).length) →
+            rebaseChildren ValueInst origHash baseHash origLeft origRight baseLeft baseRight
             (some (origLength, baseLength)) fullDepth = ok (core.result.Result.Ok action) →
             (applyRebaseAction (.Node origHash origLeft origRight) action).CachesOn P depth := by
-          intro hchildren
+          intro hdescend hchildren
           obtain ⟨newDepth, mapped, leftLengths, rightLengths, leftAction, rightAction,
             hnewDepth, hmapped, hsplit, hleft, hright, rfl⟩ := rebaseChildren_success_state ValueInst hchildren
           have hnewDepthVal := usize_sub_one_val hnewDepth
@@ -91,14 +95,14 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
             simpa only [hlengths.2.2.2] using baseRightDense
           simp only [Tree.CachesOn, Nat.add_sub_cancel] at horigCache hbaseCache
           have hleftContents := Tree.rebase_on_contents_correct ValueInst hlayout
-            hnewFull hol hbl (hequality hpointer).1 (hhashes hpointer).2.1 hleft
+            hnewFull hol hbl (hequality hpointer hdescend).1 ((hhashes hpointer).2 hdescend).1 hleft
           have hrightContents := Tree.rebase_on_contents_correct ValueInst hlayout
-            hnewFull hor hbr (hequality hpointer).2 (hhashes hpointer).2.2 hright
+            hnewFull hor hbr (hequality hpointer hdescend).2 ((hhashes hpointer).2 hdescend).2 hright
           exact combineRebaseActions_preserves_caches P origHash baseHash origLeft origRight
             baseLeft baseRight leftAction rightAction child horigCache.1 hbaseCache
             hleftContents.1 hrightContents.1
-            (ihleft hnewFull hol hbl (hequality hpointer).1 (hhashes hpointer).2.1 horigCache.2.1 hbaseCache.2.1 hleft)
-            (ihright hnewFull hor hbr (hequality hpointer).2 (hhashes hpointer).2.2 horigCache.2.2 hbaseCache.2.2 hright)
+            (ihleft hnewFull hol hbl (hequality hpointer hdescend).1 ((hhashes hpointer).2 hdescend).1 horigCache.2.1 hbaseCache.2.1 hleft)
+            (ihright hnewFull hor hbr (hequality hpointer hdescend).2 ((hhashes hpointer).2 hdescend).2 horigCache.2.2 hbaseCache.2.2 hright)
         by_cases hpositive : fullDepth > 0#usize
         · rw [if_pos hpositive] at hrebase
           simp [lock_api.rwlock.RwLock.read,
@@ -108,7 +112,8 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
             lock_api.rwlock.RwLock.new, triomphe.arc.Arc.Insts.CoreCloneClone.clone,
             triomphe.arc.Arc.new] at hrebase
           split at hrebase
-          · exact childrenCorrect hrebase
+          · rename_i hzero
+            exact childrenCorrect (fun hshortcut => hshortcut.1 hzero) hrebase
           · split at hrebase
             · simp! only [core.option.Option.is_none_or,
                 Tree.rebase_on.closure.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthBool.call_once,
@@ -117,8 +122,17 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
               · simp at hrebase
                 subst action
                 exact hbaseCache
-              · exact childrenCorrect hrebase
-            · exact childrenCorrect hrebase
+              · rename_i hlengthNe
+                apply childrenCorrect ?_ hrebase
+                intro hshortcut
+                apply hlengthNe
+                apply UScalar.eq_of_val_eq
+                have hlength := hshortcut.2.2
+                change (Tree.Node origHash origLeft origRight).elements.length =
+                  (Tree.Node baseHash baseLeft baseRight).elements.length at hlength
+                simpa only [horig.elements_length, hbase.elements_length] using hlength
+            · rename_i hhashNe
+              exact childrenCorrect (fun hshortcut => hhashNe hshortcut.2.1) hrebase
         · simp [hpositive] at hrebase
   | Leaf origLeaf | PackedLeaf origLeaf | Zero origDepth =>
     unfold Tree.rebase_on at hrebase
