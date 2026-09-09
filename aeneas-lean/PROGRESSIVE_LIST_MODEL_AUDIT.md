@@ -376,7 +376,30 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
-- The layer-range review (`3780516`, density `2416785`, empty-layer bounds
+- The skipped-layer review (`5a9398e`, read criterion `5481b38`, necessity
+  `84224a8`, capacity geometry `f146b17`, contents `b53be68`/`bacc216`,
+  bounds/scope `f3248ed`/`2f3e7bc`) weakens false progressive range answers
+  from pending-value exclusion to agreement with unchanged input reads.
+  Scoping uses actual geometry and range/maximum observations, with no assumed
+  rebuilding result. Successful capacity calculations supply metadata success
+  and monotonicity, so complete read preservation in skipped layers needs no
+  packing, shape, clone, range-correctness, or lookup-termination law. The
+  public read and stored-materialization criteria prove agreement in skipped
+  layers and suffixes necessary and sufficient under the remaining selected
+  clone/binary laws and, for stored contents, numeric layer extents. Defaults
+  are unconstrained. Existing stronger contracts are adapters; success/total
+  and cache contracts validate but retain stronger range laws.
+  The full build passes (2,097 jobs), and the axiom/import audit covers 5,667
+  declarations across 381 modules: 5,548 use only standard Lean axioms or none,
+  and 119 use the existing pointer contract. All 22 new named lemmas use only
+  standard Lean axioms; private/generated helpers are included in the inventory.
+  External axiom use is unchanged. No new axiom or admission was introduced,
+  and `size_of` remains unused. No Rust, extraction, external model, or Aeneas
+  source changed. The seven source suites and 42-root/151-declaration dependency
+  gate were not repeated for this proof-only work. Necessity of numeric layer
+  extents, binary range/clone/geometry minimality, borrowed CoW, and model
+  fidelity remain open. Debug and Serde remain excluded; TreeHash is deferred.
+- The preceding layer-range review (`3780516`, density `2416785`, empty-layer bounds
   `01415b8`, scope `78cacde`) separates numeric occupied-length conditions at
   progressive layers from pending-value reflection within selected binary
   subtrees. A false layer answer need only preserve its occupied length;

@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_skipped`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,34 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The skipped-layer review (`5a9398e`, read criterion `5481b38`, necessity
+`84224a8`, capacity geometry `f146b17`, contents `b53be68`/`bacc216`,
+bounds/scope `f3248ed`/`2f3e7bc`) allows pending values in a progressive layer
+skipped by a false range answer when they match unchanged backing reads.
+The lower proof derives complete read preservation from actual traversal;
+its necessity direction needs no input representation, packing, shape, clone,
+range-correctness, or default-map law. With the remaining selected clone and
+binary range laws, correct backing reads are equivalent to agreement in both
+skipped layers and maximum-skipped suffixes. Under numeric layer extents and
+selected binary reflection, exact stored materialization has the same
+criterion. Neither equivalence assumes agreement upfront or constrains the
+installed default map. Existing stronger contracts are adapters. The
+success/total and cache contracts validate but still use stronger range laws.
+
+Focused and full builds pass (2,097 jobs). The axiom/import audit covers
+5,667 declarations across 381 modules: 5,548 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All 22 new named lemmas use
+only standard Lean axioms; private/generated helpers are included in the
+inventory. External axiom use is unchanged. No new axiom or admission was
+introduced, and `size_of` remains unused. No Rust, extraction, external model,
+or Aeneas source changed; the seven source suites and 42-root/151-declaration
+dependency gate were not repeated for this proof-only work. Necessity of the
+numeric layer extents, binary range/clone/geometry minimality, borrowed CoW,
+and model fidelity remain unfinished. Debug and Serde remain excluded;
+TreeHash remains deferred.
+
+Previous layer-range checkpoint:
 
 The layer-range review (`3780516`, density `2416785`, empty-layer bounds
 `01415b8`, scope `78cacde`) weakens four public contracts for backing

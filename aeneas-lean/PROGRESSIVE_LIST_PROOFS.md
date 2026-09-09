@@ -85,6 +85,30 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- `ProgressiveTree/BulkUpdate/LayerSkipped.lean` records input layers skipped
+  by actual false range answers. `BulkLayerSkippedValuesAgree` permits present
+  pending values that match unchanged reads inside the layer and final prefix.
+  Its scope follows the actual range/maximum guards without assuming an update
+  result. `LayerSkippedBounds.lean` derives the empty-zero bound from agreement
+  and extension completeness. The progressive and list contents proofs now
+  require exclusion only on selected binary queries; existing contracts are
+  adapters. `CapacitySuccess.lean` derives packing-factor success and monotone
+  capacities from actual successful calculations. `LayerSkippedReads.lean`
+  then proves complete read preservation in skipped layers without packing,
+  shape, clone, range-correctness, or lookup-termination laws. At list level,
+  `apply_updates_nonempty_backing_reads_iff_layer_agreement` characterizes
+  correct materialized reads by agreement in both false-range-skipped layers
+  and maximum-skipped suffixes. With numeric layer extents and selected binary
+  reflection, `apply_updates_nonempty_backing_contents_iff_layer_agreement`
+  characterizes exact stored contents the same way. Neither criterion assumes
+  agreement upfront or constrains the installed default map. All 22 new named
+  lemmas use only standard Lean axioms. Scope/bounds are `2f3e7bc`/`f3248ed`,
+  contents `b53be68`/`bacc216`, successful-capacity geometry `f146b17`, necessary
+  layer agreement `84224a8`, read equivalence `5481b38`, and materialization
+  `5a9398e`. Termination/total contracts still use stronger range laws;
+  necessity of the numeric extents and binary/clone/geometry minimality remain
+  open. Agreement is necessary for materialization; representation alone may
+  still be repaired by the installed default overlay.
 - `UpdateMap/RangeExtent.lean` defines `RangePreservesExtentAt`: a false
   answer preserves the interval's occupied length, and a true answer starts
   inside the final prefix. `ProgressiveTree/BulkUpdate/LayerRangeScope.lean`
@@ -99,8 +123,9 @@ points and records the trusted boundaries that still need fidelity review.
   adapters; the represented input supplies their conversion. All 21 new
   named lemmas use only standard Lean axioms. Scope and conversion are
   `78cacde`, empty-layer bounds `01415b8`, density `2416785`, and public
-  integration `3780516`. Content/materialization and termination contracts
-  still use stronger range laws. Necessity of the numeric layer conditions,
+  integration `3780516`. The later layer-agreement refinement also weakens
+  content/materialization; termination contracts retain stronger range laws.
+  Necessity of the numeric layer conditions,
   binary range/clone/geometry minimality, and source fidelity remain open.
 - `ProgressiveTree/BulkUpdate/SkippedReads.lean` proves that every actual
   successful update preserves the complete read result of a selected skipped
@@ -1527,7 +1552,34 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest apply-updates layer-range checkpoint (`3780516`, density `2416785`,
+Latest apply-updates skipped-layer agreement checkpoint (`5a9398e`, read
+criterion `5481b38`, necessary agreement `84224a8`, capacity geometry `f146b17`,
+contents `b53be68`/`bacc216`, bounds/scope `f3248ed`/`2f3e7bc`): focused and full
+library builds pass (2,097 jobs). The axiom/import audit covers 5,667 declarations
+across all 381 modules: 5,548 use only standard Lean axioms or none, and 119
+additionally use the existing Arc pointer contract. All 22 new named lemmas
+use only standard Lean axioms; private/generated declarations are included in
+the inventory. External axiom use is unchanged. No new axiom or admission was
+introduced, and `size_of` remains unused.
+
+False progressive range answers now permit matching pending entries in their
+unchanged backing. Complete read preservation through those layers is proved
+from actual successful traversal, without packing, shape, clone, or range
+correctness assumptions. Under the remaining selected clone and binary range
+laws, agreement in skipped layers and suffixes is equivalent to correct backing
+reads. With numeric layer extents and selected binary reflection, it is also
+equivalent to exact stored materialization. The old stronger contracts are
+adapters. These criteria concern actual success and do not constrain installed
+default maps; final representation may separately allow default-overlay
+compensation. Existing success/total and cache contracts validate but retain
+stronger range laws. Necessity of numeric layer extents, binary range/clone/
+geometry minimality, borrowed CoW, and model fidelity remain incomplete.
+No Rust, extraction, external model, or Aeneas source changed; the seven source
+suites and 42-root/151-declaration dependency gate were not repeated for this
+proof-only work. Debug and Serde remain excluded; TreeHash is deferred outside
+the goal.
+
+Previous apply-updates layer-range checkpoint (`3780516`, density `2416785`,
 empty-layer bounds `01415b8`, scope `78cacde`): focused and full library builds
 pass (2,093 jobs). The axiom/import audit covers 5,630 declarations across
 all 377 modules: 5,511 use only standard Lean axioms or none, and 119 additionally
