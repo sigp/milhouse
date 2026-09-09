@@ -151,6 +151,7 @@ import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
 import Tree.ProgressiveList.Rebase.Contents
 import Tree.ProgressiveList.Rebase.Total
+import Tree.ProgressiveList.Rebase.Conditions
 import Tree.ProgressiveList.PopFront.Contents
 import Tree.ProgressiveList.PopFront.Caches
 import Tree.ProgressiveList.PopFront.BuilderTotal
