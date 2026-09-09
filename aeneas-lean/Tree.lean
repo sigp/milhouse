@@ -7,6 +7,7 @@ import Tree.ProgressiveList.Arbitrary.Behavior
 import Tree.ProgressiveList.Arbitrary.Overlay
 import Tree.ProgressiveList.Arbitrary.Generated
 import Tree.ProgressiveList.Arbitrary.Total
+import Tree.ProgressiveList.Arbitrary.Conditions
 import Tree.ProgressiveList.Arbitrary.Traits
 import Tree.ProgressiveList.Arbitrary.Caches
 import Tree.ProgressiveList.TreeHash.Metadata

@@ -29,6 +29,32 @@ theorem ProgressiveList.arbitrary_total {T U : Type}
     ⟨values, arbitrary.vector_of_generates inst values htrace, hnew⟩,
     helements, hlength, hupdates, hbacking⟩
 
+/-- Generation along the actual finite trace succeeds and represents its
+values under precisely the default-map overlay and extent laws. Vector
+collection, construction, and backing/spine validity are derived internally.
+Pending emptiness is separate and supplies only its observer. -/
+theorem ProgressiveList.arbitrary_total_spec_of_overlay {T U : Type}
+    (inst : arbitrary.Arbitrary T) (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (input after : _root_.arbitrary.unstructured.Unstructured) (values : alloc.vec.Vec T)
+    (htrace : arbitrary.Generates inst input values.val after)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hfits : ProgressiveTree.LengthFits factor values.val.length)
+    (updates : U) (hdefault : mapInst.coredefaultDefaultInst.default = ok updates)
+    (hextent : ∃ largest, mapInst.max_index updates = ok largest ∧
+      largest.elim values.val.length (fun index => max (index.val + 1) values.val.length) = values.val.length)
+    (hoverlay : ProgressiveListIter.Overlay mapInst updates values.val values.val)
+    (hempty : mapInst.is_empty updates = ok true) :
+    ∃ self, ProgressiveList.Insts.ArbitraryArbitrary.arbitrary inst ValueInst mapInst input =
+      ok (.Ok self, after) ∧ self.Represents ValueInst mapInst values.val ∧
+      self.BackingValid factor ∧ self.SpineValid factor ∧
+      ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
+  obtain ⟨self, hnew, hrep, hbacking, hspine, hpending⟩ := ProgressiveList.new_total_spec_of_overlay
+    ValueInst mapInst values hlayout hfits updates hdefault hextent hoverlay hempty
+  exact ⟨self, (ProgressiveList.arbitrary_success_iff inst ValueInst mapInst input after self).mpr
+    ⟨values, arbitrary.vector_of_generates inst values htrace, hnew⟩,
+    hrep, hbacking, hspine, hpending⟩
+
 /-- Under the default map's empty-state laws, generated lists represent every
 traced value at its index, have valid backing/spine, and have no pending updates.
 No clone law, element-size hint, or assumed successful milhouse call is needed. -/
@@ -46,11 +72,9 @@ theorem ProgressiveList.arbitrary_total_spec {T U : Type}
       ok (.Ok self, after) ∧ self.Represents ValueInst mapInst values.val ∧
       self.BackingValid factor ∧ self.SpineValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
-  obtain ⟨self, hnew, hrep, hbacking, hspine, hpending⟩ := ProgressiveList.new_total_spec
-    ValueInst mapInst values hlayout hfits updates hdefault hget hmax hempty
-  exact ⟨self, (ProgressiveList.arbitrary_success_iff inst ValueInst mapInst input after self).mpr
-    ⟨values, arbitrary.vector_of_generates inst values htrace, hnew⟩,
-    hrep, hbacking, hspine, hpending⟩
+  exact ProgressiveList.arbitrary_total_spec_of_overlay inst ValueInst mapInst input after values
+    htrace hlayout hfits updates hdefault ⟨none, hmax, rfl⟩
+    (fun index => ⟨none, hget index, rfl⟩) hempty
 
 /-- An error after any finite successful prefix is returned unchanged with
 the exact consumed input, without any packing, builder, or default-map laws. -/
