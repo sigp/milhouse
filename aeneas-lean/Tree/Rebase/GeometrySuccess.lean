@@ -27,8 +27,9 @@ theorem rebase_split_shift_bound {T : Type} (ValueInst : Value T)
   · assumption
   · simp at hshift
 
-/-- The actual child computation supplies both selected length inputs and
-the optional shift bound, without assuming accurate lengths or any geometry. -/
+/-- The actual child computation supplies both selected length inputs, the
+optional shift bound, and the ordered combination of the returned actions,
+without assuming accurate lengths or any geometry. -/
 theorem rebaseChildren_selected_inputs {T : Type} (ValueInst : Value T)
     {origHash baseHash : CacheHash} {origLeft origRight baseLeft baseRight : Tree T}
     {lengths : Option (utils.Length × utils.Length)} {fullDepth : Std.Usize}
@@ -41,11 +42,12 @@ theorem rebaseChildren_selected_inputs {T : Type} (ValueInst : Value T)
       rebaseLengths leftLengths = rebaseLeftLengths (rebaseLengths lengths) newDepth.val ∧
       rebaseLengths rightLengths = rebaseRightLengths (rebaseLengths lengths) newDepth.val ∧
       Tree.rebase_on ValueInst origLeft baseLeft leftLengths newDepth = ok (.Ok leftAction) ∧
-      Tree.rebase_on ValueInst origRight baseRight rightLengths newDepth = ok (.Ok rightAction) := by
+      Tree.rebase_on ValueInst origRight baseRight rightLengths newDepth = ok (.Ok rightAction) ∧
+      action = combineRebaseActions origHash baseHash origLeft origRight baseLeft baseRight leftAction rightAction := by
   obtain ⟨newDepth, mapped, leftLengths, rightLengths, leftAction, rightAction,
-    hdepth, hmapped, hsplit, hleft, hright, _⟩ := rebaseChildren_success_state ValueInst hchildren
+    hdepth, hmapped, hsplit, hleft, hright, haction⟩ := rebaseChildren_success_state ValueInst hchildren
   have hdepthVal := usize_sub_one_val hdepth
-  refine ⟨newDepth, leftLengths, rightLengths, leftAction, rightAction, by omega, ?_, ?_, ?_, hleft, hright⟩
+  refine ⟨newDepth, leftLengths, rightLengths, leftAction, rightAction, by omega, ?_, ?_, ?_, hleft, hright, haction⟩
   all_goals
     cases lengths with
     | none =>
@@ -98,7 +100,7 @@ theorem Tree.rebase_on_geometry {T : Type} (ValueInst : Value T)
       refine ⟨by scalar_tac, fun hdescend => ?_⟩
       have hchildren := Tree.rebase_on_children_of_descend ValueInst hpointer hpositive hdescend hrebase
       obtain ⟨newDepth, leftLengths, rightLengths, leftAction, rightAction,
-        hdepthVal, hshift, hleftLengths, hrightLengths, hleft, hright⟩ :=
+        hdepthVal, hshift, hleftLengths, hrightLengths, hleft, hright, _⟩ :=
         rebaseChildren_selected_inputs ValueInst hchildren
       refine ⟨?_, ?_, ?_⟩
       · simpa only [rebaseLengths, Option.isSome_map, hdepthVal] using hshift
