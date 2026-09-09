@@ -236,6 +236,22 @@ lower-level hypothesis and count the wrapper as proved.
   density, packing, clone, arithmetic, or termination assumptions. The combined
   finalization theorem uses the existing builder invariant to supply density,
   the correct sequence length, and all routing bounds for exact indexed reads.
+- `Tree/Builder/Carry.lean`, `Push/Loop.lean`, `Push/Success.lean`, and
+  `Tree/PackedLeaf/Push.lean`: binary value insertion succeeds for every valid
+  leaf-level builder with spare capacity, appends the supplied value, and
+  preserves the invariant. The actual carry count is derived from the stack
+  and trailing bits; packed leaf growth requires no cloning law.
+  `Contents/Length.lean` identifies the logical counter with the complete
+  stored sequence directly from validity.
+- `Tree/Builder/Finish/PackedMerge.lean`, `Packed.lean`, `LevelMerge.lean`,
+  `Step.lean`, `Loop.lean`, `Finalize.lean`, and `Success.lean`: every valid
+  binary builder finishes successfully, including empty builders, partial
+  packed leaves, zero padding, and nonzero-level builders. Packed-leaf
+  finalization normalizes the forest, and each outer padding step strictly
+  decreases the remaining capacity. Checked shifts, powers, additions, vector
+  operations, and final singleton extraction are proved successful internally.
+  `Builder.finish_total_spec` requires only `BuilderInvariant` and returns the
+  exact stored sequence, depth, logical length, and dense root.
 - `Tree/Iterator.lean`, `Tree/ProgressiveTree/Builder/Spine.lean`,
   `Contents.lean`, `Iterator.lean`, and `Tree/ProgressiveTree/Construction.lean`:
   exact subtree assembly order, empty progressive builder contents, successful
@@ -262,6 +278,16 @@ lower-level hypothesis and count the wrapper as proved.
   Finalization returns the same values and length in a dense bounded spine.
   The cached capacity formula is derived through both internal saturation stages
   and the final machine clamp in `Capacity.lean` and `Geometry.lean`.
+- `Tree/ProgressiveTree/Builder/Bounds.lean`, `Push.lean`, `SpineSuccess.lean`,
+  and `FinishSuccess.lean`: the complete layer geometry supplies counter
+  agreement and guarantees room to increment total length. Progressive value
+  insertion succeeds and preserves exact contents and validity; only a full
+  current layer requires the next binary layer's capacity to be representable.
+  This bound is needed because a fitting total counter alone does not ensure
+  that a new power-of-two binary capacity fits. Spine assembly terminates with
+  the exact subtree fold without shape or packing assumptions. Finalization
+  succeeds from geometry alone; full validity additionally establishes the
+  exact value sequence and recorded length, density, and representable layers.
 - `Tree/ProgressiveTree/Bounds.lean`, `Lookup.lean`: representable layer
   capacities are preserved by assembly. From these bounds and packing layout,
   extracted lookup derives successful depth arithmetic, binary-depth conversion,
@@ -366,7 +392,30 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest variable-decoding and builder-totality checkpoint (through `2a59a23`):
+Latest builder-totality checkpoint (through `f759827`): the full Lean build
+passes (1,888 jobs). Binary value insertion, progressive insertion including
+rollover, complete binary finalization, and progressive finalization now have
+total specifications. Binary finalization requires only its invariant;
+progressive insertion requires next-layer representability only when rollover
+occurs. All other depth, counter, vector, and arithmetic conditions are derived
+internally. The finished binary and progressive trees retain their exact
+sequences, recorded lengths, and structural invariants.
+
+All 38 new or newly exposed lemmas since `bf270ae` were audited together through
+the root `Tree` import: 30 new lemmas and eight exposed existing helpers use
+only `propext`, `Classical.choice`, and `Quot.sound`. None inherits admissions,
+native-evaluation axioms, or the Arc pointer axiom. The full build includes all
+earlier decoding, encoding, iteration, mutation, equality, and rebase proofs.
+No Rust, generated extraction, external models, or Aeneas sources changed.
+
+Remaining decoding work includes deriving rollover bounds across the complete
+input sequence, composing these total builder operations through the streaming
+loop and public decoder, further malformed-input specifications, and full list
+roundtrips. Serialization, deserialization, CoW stepping/materialization, Debug,
+semantic hashing/cache invariants, and feature-specific APIs remain part of the
+full objective.
+
+Previous variable-decoding and builder-initialization checkpoint (through `2a59a23`):
 the full Lean build passes (1,871 jobs). Both fixed- and variable-element public decoders now have
 sequence-level partial correctness specifications, deriving actual cursor and
 builder invariants internally. Canonical variable offsets identify every
@@ -383,7 +432,7 @@ and `Quot.sound`.
 The preceding fixed-decoding and streaming-construction proofs are included
 in this full build, as is the canonical offset-reader bridge in `eb433d2`.
 No Rust, generated extraction, external models, or Aeneas sources changed.
-The remaining decoding work includes malformed-input specifications and
+At that checkpoint, remaining decoding work included malformed-input specifications and
 valid-input success/totality for full list roundtrips, including builder push
 and finalization totality and their streaming-loop composition. Serialization,
 deserialization, CoW stepping/materialization, Debug, semantic hashing/cache
