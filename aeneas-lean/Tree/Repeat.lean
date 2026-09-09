@@ -133,7 +133,7 @@ private theorem usize_zero_add_one :
   | fail error =>
     rw [hadd] at hspec
     simp at hspec
-    have hbits : 0 < System.Platform.numBits := by native_decide
+    have hbits : 0 < System.Platform.numBits := System.Platform.numBits_pos
     omega
   | div => rw [hadd] at hspec; simp at hspec
   | ok result =>
@@ -149,7 +149,8 @@ private theorem usize_one_add_one :
   | fail error =>
     rw [hadd] at hspec
     simp at hspec
-    have hbits : 2 < 2 ^ System.Platform.numBits := by native_decide
+    have hbits : 2 < 2 ^ System.Platform.numBits := by
+      rcases System.Platform.numBits_eq with h | h <;> simp [h]
     omega
   | div => rw [hadd] at hspec; simp at hspec
   | ok result =>
