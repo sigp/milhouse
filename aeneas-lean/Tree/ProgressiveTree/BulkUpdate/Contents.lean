@@ -127,7 +127,8 @@ private theorem bulk_contents_aux {T U : Type}
         exact .zero factor binary
       have hnonempty := (ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas).1
       obtain ⟨hleftShape, _, _, _⟩ := ProgressiveTree.updated_layer_contents ValueInst mapInst updates
-        hlayout hclone hrange hnext hstart hstop hbinary hnonempty hzeroShape hleft
+        hlayout (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone (.Zero binary) binary.val _)
+        hrange hnext hstart hstop hbinary hnonempty hzeroShape hleft
       have hrightEnds : ProgressiveTree.EndsAfter factor (.ProgressiveZero : ProgressiveTree T)
           next.val oldLength := by
         change oldLength ≤ progressiveCapacity factor next.val
@@ -139,7 +140,8 @@ private theorem bulk_contents_aux {T U : Type}
       intro query pending hlo hhi hget
       by_cases hroute : query < stop
       · have hread := ProgressiveTree.get_after_expanded_layer ValueInst mapInst updates
-          hlayout hclone hrange (hash := hash) (right := right) hnext hstart hstop hbinary
+          hlayout (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone (.Zero binary) binary.val _)
+          hrange (hash := hash) (right := right) hnext hstart hstop hbinary
           (by omega) (by scalar_tac) hget hleft
         cases pending <;> simpa only [zero_get] using hread
       · rw [node_get_right ValueInst hnext hstop hroute]
@@ -157,7 +159,8 @@ private theorem bulk_contents_aux {T U : Type}
           rcases hleft with ⟨_, rfl⟩ | ⟨hhas, hleft⟩
           · exact hleftShape
           · have hnonempty := (ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas).1
-            exact (ProgressiveTree.updated_layer_contents ValueInst mapInst updates hlayout hclone hrange
+            exact (ProgressiveTree.updated_layer_contents ValueInst mapInst updates hlayout
+              (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone left binary.val _) hrange
               hnext hstart hstop hbinary hnonempty hleftShape hleft).1
         refine ⟨.node newHash hnewLeftShape (by simpa only [hnextVal] using hnewRightShape),
           by simpa only [ProgressiveTree.EndsAfter, hnextVal] using hnewRightEnds, ?_⟩
@@ -168,7 +171,8 @@ private theorem bulk_contents_aux {T U : Type}
               hrange hempty hget (by omega) (by scalar_tac)
             simp only [hnone]
             exact node_get_same_left ValueInst hnext hstop hroute
-          · exact ProgressiveTree.get_after_updated_layer_override ValueInst mapInst updates hlayout hclone hrange
+          · exact ProgressiveTree.get_after_updated_layer_override ValueInst mapInst updates hlayout
+              (tree.Tree.BulkCloneOn.of_all mapInst updates factor hclone left binary.val _) hrange
               hnext hstart hstop hbinary hleftShape (by omega) (by scalar_tac) hget hleft
         · rw [node_get_right ValueInst hnext hstop hroute, node_get_right ValueInst hnext hstop hroute]
           exact hrightContents query pending (queryAfterStop query hroute hhi) hhi hget
