@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_retained_clones`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_retained_clones`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -135,42 +135,43 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
-The start-necessity review (`0f0b606`, progressive/list necessity `ffe7dc6`,
-selected execution/shape `effb200`, binary necessity/equivalence `85703b8`, node
-selection `3d2a8b4`) proves the selected-layer start condition necessary as well
-as sufficient under the remaining execution laws. Successful binary nodes must
-select a child; only positive range witnesses are needed to derive a pending
-entry. Packed terminals retain the no-pending-entry exception. Binary necessity
-uses layout, alignment, and packed-leaf metadata compatibility, without clone,
-false-answer, density, capacity, or termination laws. Actual progressive success
-supplies successful binary calls at every selected layer without external or
-input-invariant laws; input shape separately supplies metadata compatibility.
+The stored-clone review (`d3dbb3c`, progressive/list necessity `5595942`,
+binary necessity `c9ca4f3`, scope/packed necessity `5934163`) proves termination
+of all selected stored clones necessary for actual execution. This includes
+values later overwritten. Any returned packed-update result, even a Rust error,
+certifies those clones without metadata or input invariants. Binary necessity
+uses layout and prefix alignment, without shape, density, capacity, range,
+lookup-termination, or clone laws. Progressive and list necessity use only
+layout on nonempty application. The total clone law splits exactly into
+stored-clone termination and identity of retained slots and pending values.
 
-Four public existence criteria now put start conditions on the
-necessary-and-sufficient side alongside occupied capacity, positive selection,
-skipped-layer/suffix agreement, and an actual default outcome. They assume no
-start condition or successful update upfront and cover valid stored
-materialization, with or without final representation, on the rebuilding branch
-and across both branches. Final representation adds exact default extent and
-self-overlay. The no-op must already have valid backing storing the contents;
-its representation variant also uses input representation. Rebuilding laws
-apply only on the nonempty branch, and the materialization-only criterion
-requires input representation only there. Output backing validity is included;
-equality of stored lists alone is a weaker observation. Selected binary
-reflection, clone laws, query termination, layout, and input invariants remain
-in the existence criteria; their full necessity/minimality is still unproved.
+Four public existence criteria now use retained/pending identity as their only
+upfront clone law. Stored-clone termination joins start, occupied capacity, positive
+selection, skipped-layer/suffix agreement, and an actual default outcome on the
+necessary-and-sufficient side. The criteria cover valid materialization, with
+or without final representation, on the rebuilding branch and across both
+branches. They assume neither successful execution nor stored-clone termination.
+Final representation additionally requires exact default extent and self-overlay;
+pending emptiness remains an independent observer law. The no-op must already
+have valid backing storing the contents and carries no rebuilding clone law;
+its representation variant uses input representation. Rebuilding laws apply
+only on the nonempty branch. Output backing validity is included; stored-list
+equality alone is a weaker observation. Retained/pending identity, selected
+binary reflection, query termination, layout, and input invariants remain in
+the existence criteria; full necessity/minimality of these laws is open.
 
-Focused and full builds pass (2,108 jobs). The axiom/import audit covers
-5,770 declarations across 392 modules: 5,651 use only standard Lean axioms
-or none, and 119 use the existing pointer contract. All 16 new named lemmas use
-standard Lean axioms or none; private/generated helpers are included in the
-inventory. No new axiom or admission was introduced; external axiom use is
-unchanged and `size_of` remains unused. Existing success, total, and cache
-proofs validate. No Rust, extraction, external model, or Aeneas source changed;
-the seven source suites and 42-root/151-declaration dependency gate were not
-repeated for this proof-only work. Remaining premise minimality, borrowed CoW,
-and model fidelity are unfinished. Debug and Serde remain excluded; TreeHash
-remains deferred.
+Focused and full builds pass (2,114 jobs). The axiom/import audit covers
+5,794 declarations across 398 modules: 5,675 use only standard Lean axioms
+or none, and 119 use the existing Arc pointer contract. All 13 new named lemmas
+use standard Lean axioms; private/generated helpers are included in the inventory.
+No new axiom or admission was introduced. External axiom use is unchanged, and
+`size_of` remains unused. Existing success, total, and cache proofs validate.
+
+Remaining retained-identity, binary range, query-termination, and geometry
+minimality, borrowed CoW, and model fidelity are unfinished. No Rust, extraction,
+external model, or Aeneas source changed; the seven source suites and
+42-root/151-declaration dependency gate were not repeated for this proof-only
+work. Debug and Serde remain excluded; TreeHash is deferred outside the goal.
 
 Previous skipped-layer agreement checkpoint:
 

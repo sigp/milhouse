@@ -376,36 +376,36 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
-- The start-necessity review (`0f0b606`, progressive/list necessity `ffe7dc6`,
-  selected execution/shape `effb200`, binary necessity/equivalence `85703b8`,
-  node selection `3d2a8b4`) proves the selected-layer start condition necessary
-  as well as sufficient under the remaining execution laws. Successful binary
-  nodes select at least one child; positive range witnesses then supply a
-  pending entry. Packed terminals may still start without pending entries.
-  Binary necessity uses layout, alignment, and packed-leaf metadata
-  compatibility, without clone, false-answer, density, capacity, or termination
-  laws. Actual progressive success supplies successful calls at all selected
-  binary layers without external or input-invariant laws; input shape separately
-  supplies metadata compatibility. Four public valid-materialization existence
-  criteria move start conditions to the necessary-and-sufficient side with
-  occupied capacity, positive selection, skipped-layer/suffix agreement, and
-  an actual default outcome. No start condition or successful update is assumed
-  upfront. Final representation adds exact default extent and self-overlay.
-  The no-op must already have valid backing storing the contents; its
-  representation variant also uses input representation. Output backing validity
-  is included; stored-list equality alone is a weaker observation. Selected
-  binary reflection, clone laws, query termination, layout, and input invariants
+- The stored-clone review (`d3dbb3c`, progressive/list necessity `5595942`,
+  binary necessity `c9ca4f3`, scope/packed necessity `5934163`) proves termination
+  of every selected stored clone necessary, including copies later overwritten.
+  Any returned packed-update result certifies those clones without metadata or
+  input invariants. Binary necessity needs layout and prefix alignment, without
+  shape, density, capacity, range, lookup-termination, or clone laws; progressive
+  and public list necessity need only layout on nonempty application. The total
+  clone law is exactly stored termination and retained/pending identity. Four
+  public existence criteria now require only retained/pending identity as an
+  upfront clone law.
+  Stored-clone termination joins start, occupied capacity, positive selection,
+  skipped-layer/suffix agreement, and an actual default outcome on the
+  necessary-and-sufficient side, without assuming successful execution. Final
+  representation adds exact default extent and self-overlay. The no-op needs
+  valid backing already storing the contents and no rebuilding clone law; its
+  representation variant uses input representation. Output backing validity is
+  included; stored-list equality alone is a weaker observation. Identity,
+  selected binary reflection, query termination, layout, and input invariants
   remain in the existence criteria; their full necessity/minimality is open.
-  Focused and full builds pass (2,108 jobs). The axiom/import audit covers
-  5,770 declarations across 392 modules: 5,651 use standard Lean axioms or
-  none, and 119 use the existing pointer contract. All 16 new named lemmas use
-  standard Lean axioms or none; private/generated declarations are included.
-  No new axiom or admission was introduced; external axiom use is unchanged
-  and `size_of` remains unused. Existing success, total, and cache proofs validate.
-  No Rust, extraction, external model, or Aeneas source changed. The seven source
-  suites and 42-root/151-declaration dependency gate were not repeated for this
-  proof-only work. Remaining premise minimality, borrowed CoW, and model fidelity
-  remain unfinished. Debug and Serde remain excluded; TreeHash is deferred.
+  Focused and full builds pass (2,114 jobs). The axiom/import audit covers
+  5,794 declarations across 398 modules: 5,675 use only standard Lean axioms
+  or none, and 119 use the existing Arc pointer contract. All 13 new named lemmas
+  use standard Lean axioms; private/generated helpers are included in the inventory.
+  No new axiom or admission was introduced. External axiom use is unchanged, and
+  `size_of` remains unused. Existing success, total, and cache proofs validate.
+  Remaining retained-identity, binary range, query-termination, and geometry
+  minimality, borrowed CoW, and model fidelity are unfinished. No Rust, extraction,
+  external model, or Aeneas source changed; the seven source suites and
+  42-root/151-declaration dependency gate were not repeated for this proof-only
+  work. Debug and Serde remain excluded; TreeHash is deferred outside the goal.
 - The preceding skipped-layer review (`5a9398e`, read criterion `5481b38`, necessity
   `84224a8`, capacity geometry `f146b17`, contents `b53be68`/`bacc216`,
   bounds/scope `f3248ed`/`2f3e7bc`) weakens false progressive range answers
