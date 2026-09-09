@@ -17,6 +17,8 @@ import Tree.Builder.Carry
 import Tree.Builder.Push.Loop
 import Tree.Builder.Push.Success
 import Tree.Builder.Finish.Full
+import Tree.Builder.Finish.PackedMerge
+import Tree.Builder.Finish.Packed
 import Tree.PackedLeaf.Push
 import Tree.Lemmas
 import Tree.Roundtrip
