@@ -160,6 +160,18 @@ pass, alongside the core and Option suites after extending the shared runner
 for locked dependencies and constant-initializer provenance. Public API
 coverage and the scope exclusions are unchanged.
 
+The rebase observer contract now drops maximum-index identity as well.
+`UpdateMap/Length/Equivalence.lean` proves an exact criterion on raw maximum
+query results: successful maxima may differ if they give the same mathematical
+extent, and failure/divergence/overflow outcomes are retained. For example,
+with backing length 10, `None`, `Some 0`, and `Some 9` all give length 10.
+`rebase_observers_eq_iff` proves that this condition and equality of the actual
+emptiness queries are necessary and sufficient for the two observer results
+to agree. The revised preservation theorem assumes no map validity, indexed
+read law, representation, or successful observer/query call. The focused and
+full builds pass, and the axiom/import audit covers 5,070 declarations across
+315 modules without new axioms or admissions.
+
 Clone and clone_from sequence contracts, and the rebase contracts that depend
 on them, no longer require cloned maximum-index identity. Under unchanged map
 reads, `Clone/Maximum.lean` proves the new metadata condition necessary and

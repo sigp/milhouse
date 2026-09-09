@@ -66,7 +66,8 @@ duplicate comparison, and an added axiom in the clone proof. The existing
 core and Option suites also pass after the shared runner extension.
 
 These five checks have their own compilation/axiom gate outside `Tree`.
-They leave the main library's 5,015 declarations across 314 modules and the
+At their `c3e0616` checkpoint, they left the main library's 5,015 declarations
+across 314 modules and the
 42-root/151-declaration dependency inventory unchanged. The full library gate
 was not repeated for these standalone checks. Borrowed CoW, the three numeric
 intrinsic boundaries, and the remaining model/assumption review stay open.
