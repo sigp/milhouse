@@ -14,8 +14,9 @@ namespace milhouse.progressive_list
 theorem ProgressiveList.partial_eq_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (mapEqInst : core.cmp.PartialEq U U)
-    (hne : milhouse_models.NeSpec ValueInst.corecmpPartialEqInst)
     (updatesEqual : U → U → Prop) (self other : ProgressiveList T U)
+    (hne : self.tree.ArcEqualityOn ValueInst.corecmpPartialEqInst
+      (milhouse_models.NeSpecAt ValueInst.corecmpPartialEqInst) other.tree)
     (hmap : self.tree.StructuralEq other.tree → self.length = other.length →
       ∃ different, mapEqInst.ne self.updates other.updates = ok different ∧
         (different = false ↔ updatesEqual self.updates other.updates)) :
@@ -23,7 +24,7 @@ theorem ProgressiveList.partial_eq_spec {T U : Type}
       ValueInst mapInst ValueInst mapInst mapEqInst self other = ok equal ∧
       (equal = true ↔ self.StructuralEq updatesEqual other) := by
   obtain ⟨treeEqual, htree, htreeSame⟩ :=
-    progressive_tree.ProgressiveTree.arc_eq_spec ValueInst hne self.tree other.tree
+    progressive_tree.ProgressiveTree.arc_eq_spec ValueInst self.tree other.tree hne
   cases treeEqual with
   | false =>
     refine ⟨false, ?_, ?_⟩
@@ -50,8 +51,9 @@ theorem ProgressiveList.partial_eq_spec {T U : Type}
 theorem ProgressiveList.partial_ne_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (mapEqInst : core.cmp.PartialEq U U)
-    (hne : milhouse_models.NeSpec ValueInst.corecmpPartialEqInst)
     (updatesEqual : U → U → Prop) (self other : ProgressiveList T U)
+    (hne : self.tree.ArcEqualityOn ValueInst.corecmpPartialEqInst
+      (milhouse_models.NeSpecAt ValueInst.corecmpPartialEqInst) other.tree)
     (hmap : self.tree.StructuralEq other.tree → self.length = other.length →
       ∃ different, mapEqInst.ne self.updates other.updates = ok different ∧
         (different = false ↔ updatesEqual self.updates other.updates)) :
@@ -59,7 +61,7 @@ theorem ProgressiveList.partial_ne_spec {T U : Type}
       ValueInst mapInst ValueInst mapInst mapEqInst).ne self other = ok different ∧
       (different = false ↔ self.StructuralEq updatesEqual other) := by
   obtain ⟨equal, hcompare, hsame⟩ :=
-    ProgressiveList.partial_eq_spec ValueInst mapInst mapEqInst hne updatesEqual self other hmap
+    ProgressiveList.partial_eq_spec ValueInst mapInst mapEqInst updatesEqual self other hne hmap
   refine ⟨!equal, ?_, ?_⟩
   · simp [core.cmp.PartialEq.ne.default, hcompare]
   · cases equal <;> simpa using hsame
@@ -94,8 +96,9 @@ theorem ProgressiveList.partial_eq_true_iff {T U : Type}
 theorem ProgressiveList.partial_eq_true_imp_structural {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (mapEqInst : core.cmp.PartialEq U U)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     (updatesEqual : U → U → Prop) {self other : ProgressiveList T U}
+    (hsound : self.tree.ArcEqualityOn ValueInst.corecmpPartialEqInst
+      (milhouse_models.NeSoundAt ValueInst.corecmpPartialEqInst) other.tree)
     (hmap : mapEqInst.ne self.updates other.updates = ok false →
       updatesEqual self.updates other.updates)
     (hequal : ProgressiveList.Insts.CoreCmpPartialEqProgressiveList.eq
@@ -112,9 +115,10 @@ theorem ProgressiveList.partial_eq_true_imp_structural {T U : Type}
 theorem ProgressiveList.partial_eq_represents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (mapEqInst : core.cmp.PartialEq U U)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     {factor : Option Std.Usize}
     (self other : ProgressiveList T U) (contents : _root_.List T)
+    (hsound : self.tree.ArcEqualityOn ValueInst.corecmpPartialEqInst
+      (milhouse_models.NeSoundAt ValueInst.corecmpPartialEqInst) other.tree)
     (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
     (hmapGet : mapEqInst.ne self.updates other.updates = ok false →
       ∀ query, mapInst.get other.updates query = mapInst.get self.updates query)
@@ -125,7 +129,7 @@ theorem ProgressiveList.partial_eq_represents {T U : Type}
     other.Represents ValueInst mapInst contents ∧ other.BackingValid factor := by
   let updatesEqual := fun left right => mapEqInst.ne left right = ok false
   have heq := ProgressiveList.partial_eq_true_imp_structural ValueInst mapInst mapEqInst
-    hsound updatesEqual (fun h => h) hequal
+    updatesEqual hsound (fun h => h) hequal
   exact ⟨heq.represents ValueInst mapInst contents hrep hmapGet hmapMax,
     heq.backing hbacking⟩
 
