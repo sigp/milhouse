@@ -23,6 +23,27 @@ theorem ProgressiveTree.LengthFits.mono {factor : Option Std.Usize} {length smal
   intro depth hdepth
   exact hfits depth (lt_of_lt_of_le hdepth hle)
 
+/-- Four bytes per value suffice to make every occupied progressive layer
+representable. The initial packed capacity fits by its machine type; each
+later layer is at most four times the start of that layer. -/
+theorem ProgressiveTree.LengthFits.of_four_mul_le_max (factor : Option Std.Usize)
+    {length : Nat} (hbound : 4 * length ≤ Std.Usize.max) :
+    ProgressiveTree.LengthFits factor length := by
+  intro depth hinside
+  cases depth with
+  | zero =>
+    cases factor <;> simp only [subtreeCapacity, leafCapacity, Nat.mul_zero, pow_zero, Nat.mul_one] <;> scalar_tac
+  | succ depth =>
+    have hprevious : subtreeCapacity factor (2 * depth) ≤ progressiveCapacity factor (depth + 1) := by
+      rw [progressiveCapacity_succ]
+      omega
+    have hscale : subtreeCapacity factor (2 * (depth + 1)) =
+        4 * subtreeCapacity factor (2 * depth) := by
+      simp only [subtreeCapacity, Nat.mul_add, pow_add]
+      ring
+    rw [hscale]
+    omega
+
 private theorem ProgressiveTree.Dense.layer_bound {T : Type} {factor : Option Std.Usize}
     {self : ProgressiveTree T} {start length : Nat}
     (hdense : self.Dense factor start length) (hfits : self.Fits factor start) :
