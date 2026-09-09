@@ -96,6 +96,8 @@ import Tree.ProgressiveTree.Builder.Bounds
 import Tree.ProgressiveTree.Builder.Push
 import Tree.ProgressiveTree.LengthFits
 import Tree.ProgressiveTree.Builder.PushLength
+import Tree.ProgressiveTree.Builder.ExtendSuccess
+import Tree.ProgressiveTree.ConstructionTotal
 import Tree.ProgressiveTree.Builder.SpineSuccess
 import Tree.ProgressiveTree.Builder.FinishSuccess
 import Tree.ProgressiveTree.BulkUpdate.Contents
