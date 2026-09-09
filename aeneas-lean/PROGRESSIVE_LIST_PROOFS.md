@@ -767,7 +767,48 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest clone-from checkpoint (through `b0e66b5`): fresh Charon/Aeneas
+For the complete current library axiom/import audit, run from the repository
+root:
+
+```sh
+python3 scripts/aeneas-audit-axioms.py
+```
+
+The command builds first, inventories every public, private, and generated
+theorem declaration from the Lean environment, and verifies that all `Tree`
+library source modules are imported (excluding the two external templates).
+It rejects unexpected axiom dependencies and axiom declarations, incomplete
+inventories, and missing modules. The only permitted nonstandard axioms are
+the two existing external contracts documented in `Tree/FunsExternal.lean`.
+Command logs, the raw inventory, and a detailed JSON report are retained under
+`aeneas-lean/.lake/axiom-audit/`. This gate checks axiom dependencies and module
+coverage; model fidelity, API coverage, and theorem-hypothesis minimality still
+require their separate audits.
+
+Latest full-library axiom checkpoint (through `ff6d1bc`): the full Lean build
+passes (1,994 jobs), and all 278 modules of the `Tree` library are included.
+The environment audit covers 4,829 theorem declarations, including private
+and generated proofs. Of these, 4,767 use only standard Lean axioms or none;
+62 also use the existing `triomphe.arc.Arc.ptr_eq_spec`. No audited theorem
+depends on an admission, native evaluation, or another external axiom. The
+existing `core.mem.size_of.usize_spec` is declared but unused by these theorems.
+Only those two documented external axiom declarations remain in the library.
+
+The initial complete audit found two `native_decide` axioms affecting seven
+declarations in `Tree/Repeat.lean`, including `repeat_list_returns_dense`.
+Commit `561a68f` replaces both arithmetic evaluations with kernel-checked
+platform-width proofs and removes those dependencies without new premises.
+The reusable audit accepted the resulting inventory and rejected four negative
+cases: the actual former native dependency, a missing proof module, a truncated
+inventory, and an additional axiom declaration. No Rust, extraction, external
+model, or Aeneas source changed at this checkpoint.
+
+The full ProgressiveList goal remains active. The axiom/import gate is now
+complete for the current library; actual root hashing/shared cache effects,
+borrowed CoW methods and stepping, general Debug, Serde/context protocols,
+and the remaining API and hypothesis audit are still outstanding.
+
+Previous clone-from checkpoint (through `b0e66b5`): fresh Charon/Aeneas
 extraction and the full Lean build pass (1,994 jobs), with all 278 project
 modules reachable from `Tree`, excluding external templates. All eight new
 `clone_from` results and the eight existing Clone results were audited and use
