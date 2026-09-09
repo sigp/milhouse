@@ -1,5 +1,6 @@
 import Tree.Rebase
 import Tree.Arc.Equality
+import Tree.ProgressiveTree.Rebase.PackingQueries
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -48,13 +49,15 @@ inductive ProgressiveTree.RebaseStep {T : Type} (ValueInst : Value T)
 /-- Operational decomposition of successful progressive rebasing. Pointer
     equality uses the existing model law; no density, length, equality, or
     hash-correctness assumption is required. -/
-theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T)
-    {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+theorem ProgressiveTree.rebase_on_recursive_step_of_depth_query {T : Type} (ValueInst : Value T)
+    {packingDepth : Std.Usize}
+    (hquery : ∃ optionalDepth, utils.opt_packing_depth ValueInst.tree_hashTreeHashInst = ok optionalDepth ∧
+      core.option.Option.unwrap_or optionalDepth 0#usize = packingDepth)
     {orig base after : ProgressiveTree T} {origLength baseLength : Std.Usize} {depth : Std.U32}
     (hrebase : ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
       ok (core.result.Result.Ok after)) :
     ProgressiveTree.RebaseStep ValueInst origLength baseLength depth packingDepth orig base after := by
+  obtain ⟨optionalDepth, hquery, hdefault⟩ := hquery
   unfold ProgressiveTree.rebase_on_recursive at hrebase
   obtain ⟨pointerEqual, hpointer, hpointerTrue⟩ := triomphe.arc.Arc.ptr_eq_spec orig base
   rw [hpointer] at hrebase
@@ -88,7 +91,7 @@ theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T
         obtain ⟨capacity, hcapacity, hrebase⟩ := hrebase
         rw [bind_eq_ok_iff] at hrebase
         obtain ⟨binary, hbinary, hrebase⟩ := hrebase
-        simp only [hlayout.opt_packing_depth_eq, hlayout.unwrap_opt_packing_depth_eq,
+        simp only [hquery, hdefault,
           lift, bind_tc_ok] at hrebase
         rw [bind_eq_ok_iff] at hrebase
         obtain ⟨origLeftLength, horigLength, hrebase⟩ := hrebase
@@ -150,5 +153,17 @@ theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T
                 have hleftEq := triomphe.arc.Arc.eq_of_ptr_eq hleftSame
                 have hrightEq := triomphe.arc.Arc.eq_of_ptr_eq hrightSame
                 simpa only [hleftEq, hrightEq] using hnode
+
+/-- Layout-based adapter to the operational decomposition. The general proof
+needs only the actual defaulted depth query, without packing coherence. -/
+theorem ProgressiveTree.rebase_on_recursive_step {T : Type} (ValueInst : Value T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    {orig base after : ProgressiveTree T} {origLength baseLength : Std.Usize} {depth : Std.U32}
+    (hrebase : ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
+      ok (core.result.Result.Ok after)) :
+    ProgressiveTree.RebaseStep ValueInst origLength baseLength depth packingDepth orig base after :=
+  ProgressiveTree.rebase_on_recursive_step_of_depth_query ValueInst
+    (RebasePackingQueries.of_layout hlayout).depth_eq hrebase
 
 end milhouse.progressive_tree
