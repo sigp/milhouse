@@ -376,6 +376,22 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Packed rebase equality now uses `NeSoundIfAllFalse`: element agreement is
+  needed only when every paired `ne` returns false. The guarded law is proved
+  necessary and sufficient for sound positive vector equality, conditional
+  on matching lengths, and is implied by the earlier reached-pair law.
+  One non-false paired result removes all soundness obligations for that
+  vector, including earlier false answers. Every dependent public rebase
+  contents/cache contract uses this weaker law; pointer/hash shortcuts and
+  comparison termination laws retain their existing scope. At `fbf2a27`
+  (foundation `e9ada7a`), focused and full builds pass (2,037 jobs), and the
+  axiom/import audit validates 5,127 declarations across 321 modules. New
+  results use only standard Lean axioms or none; the 62 existing pointer
+  contract users are unchanged. This is an assumption audit, not additional
+  Rust/model refinement. No Rust, extraction, external model, or Aeneas source
+  changed; the dependency inventory remains 42 roots/151 local declarations,
+  and its gate and the source-model suites were not repeated for this
+  proof-only change.
 - Clone and dependent rebase read laws now require agreement after the actual
   backing fallback, without exact raw map-read equality. `LookupResultsAgree`
   compares raw `Result (Option T)` outcomes, preserving failure and divergence

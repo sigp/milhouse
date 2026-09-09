@@ -135,6 +135,20 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+Packed rebase soundness now constrains elements only if every paired `ne`
+call returns false. `Rebase/PackedSoundness.lean` proves that this guarded
+element law, conditional on equal vector lengths, is necessary and sufficient
+for sound positive vector equality. The previous reached-pair law implies it.
+Any true, failed, or diverging paired call removes all soundness obligations
+for that vector, including earlier false answers. The binary rebase branch
+equivalence and every dependent public contents/cache contract use the weaker
+law, retaining pointer/hash shortcuts and separate termination assumptions.
+At `fbf2a27` (foundation `e9ada7a`), focused and full builds pass (2,037 jobs);
+the axiom/import audit validates 5,127 declarations across 321 modules, with
+the same 62 pointer-contract dependencies and no new axioms or admissions.
+This changes proof assumptions; model fidelity and borrowed CoW remain open.
+Debug, Serde, and TreeHash remain outside the current scope.
+
 The separate [Option source comparison](reproducers/option_models/README.md)
 now validates eleven local models against freshly extracted pinned
 standard-library bodies and one additional `cloned` composition, all without
