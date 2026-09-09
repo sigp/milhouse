@@ -50,6 +50,8 @@ import Tree.Rebase.Success
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.Rebase.PackedSoundness
+import Tree.Rebase.KindReflection
+import Tree.Rebase.CacheInputs
 import Tree.Rebase.CacheAction
 import Tree.Rebase.Caches
 import Tree.BulkUpdate.Caches
