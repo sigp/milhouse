@@ -36,6 +36,7 @@ import Tree.PackedLeaf.Insert
 import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
+import Tree.Rebase.Arithmetic
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.ProgressiveTree
