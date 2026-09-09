@@ -6,7 +6,9 @@ open milhouse
 
 namespace milhouse.tree
 
-private theorem rebase_children_success {T : Type} (ValueInst : Value T)
+/-- Successful checked splitting and both selected child calls suffice for
+the actual ordered action combination. -/
+theorem rebaseChildren_success {T : Type} (ValueInst : Value T)
     (origHash baseHash : alloy_primitives.bits.fixed.FixedBytes 32#usize)
     (origLeft origRight baseLeft baseRight : Tree T)
     (lengths : Option (utils.Length × utils.Length)) (fullDepth newDepth : Std.Usize)
@@ -84,7 +86,7 @@ private theorem rebase_success_aux {T : Type} (ValueInst : Value T) :
             have hchildDepth : child ≤ newDepth.val := by omega
             have hnewDepthNat : newDepth.val = fullDepth.val - 1 := by omega
             have hchildren (hdescend : ¬ RebaseHashShortcutFor origHash baseHash (rebaseLengths lengths)) :=
-              rebase_children_success ValueInst origHash baseHash
+              rebaseChildren_success ValueInst origHash baseHash
                 origLeft origRight baseLeft baseRight lengths fullDepth newDepth hnewDepth
                 (fun hsome => by have := hbits hsome; omega)
                 (fun childLengths hselected => ih newDepth.val hsmaller origLeft baseLeft factor child childLengths newDepth
