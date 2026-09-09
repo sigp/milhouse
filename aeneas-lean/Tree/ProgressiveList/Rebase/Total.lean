@@ -20,7 +20,8 @@ theorem ProgressiveList.rebase_on_success {T U : Type}
       packingDepth.val self.length.val base.length.val 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.length = self.length ∧ result.updates = self.updates := by
-  obtain ⟨result, hrebase⟩ := (ProgressiveList.rebase_on_success_iff_requirements ValueInst mapInst hlayout self base).mpr
+  obtain ⟨result, hrebase⟩ := (ProgressiveList.rebase_on_success_iff_requirements ValueInst mapInst
+    (progressive_tree.RebasePackingQueries.of_layout hlayout) self base).mpr
     (progressive_tree.ProgressiveTree.rebaseRequirements_of_invariants ValueInst hlayout hself hbase hfit hcompare)
   exact ⟨result, hrebase, ProgressiveList.rebase_on_preserves_metadata ValueInst mapInst self base hrebase⟩
 
@@ -39,7 +40,8 @@ theorem ProgressiveList.rebase_success {T U : Type}
     (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates := by
-  obtain ⟨result, hrebase⟩ := (ProgressiveList.rebase_success_iff_requirements ValueInst mapInst hlayout self base).mpr
+  obtain ⟨result, hrebase⟩ := (ProgressiveList.rebase_success_iff_requirements ValueInst mapInst
+    (progressive_tree.RebasePackingQueries.of_layout hlayout) self base).mpr
     ⟨hclone, progressive_tree.ProgressiveTree.rebaseRequirements_of_invariants ValueInst hlayout hself hbase hfit hcompare⟩
   exact ⟨result, hrebase, ProgressiveList.rebase_preserves_metadata ValueInst mapInst self base hrebase⟩
 

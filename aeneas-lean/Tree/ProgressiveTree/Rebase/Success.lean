@@ -18,7 +18,7 @@ theorem ProgressiveTree.rebase_on_recursive_success {T : Type} (ValueInst : Valu
       packingDepth.val origLength.val baseLength.val depth.val) :
     ∃ after, ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
       ok (.Ok after) :=
-  ProgressiveTree.rebase_on_recursive_success_of_requirements ValueInst hlayout
+  ProgressiveTree.rebase_on_recursive_success_of_requirements ValueInst (RebasePackingQueries.of_layout hlayout)
     orig base origLength baseLength depth
     (ProgressiveTree.rebaseRequirements_of_invariants ValueInst hlayout horig hbase hfit hcompare)
 
