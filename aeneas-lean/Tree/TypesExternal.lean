@@ -1,11 +1,11 @@
 -- [milhouse]: external types.
 -- Hand-written models for the external (opaque) types.
 --
--- The guiding principle: Aeneas's functionalization has already erased sharing
--- and aliasing, so pointer-like containers (`Arc`, `RwLock`) are modelled as
--- plain values. These are trusted *definitions* rather than axioms: a
--- definition cannot introduce logical inconsistency, and it lets proofs
--- compute. The trusted claim for each is stated in its docstring.
+-- Pointer-like containers (`Arc`, `RwLock`) are modelled by values in the
+-- supported sequential fragment. Heap addresses, reference counts, and lock
+-- contention are not represented. These trusted definitions let proofs
+-- compute, but logical consistency alone does not establish Rust/model
+-- fidelity. See the individual contracts and PROGRESSIVE_LIST_MODEL_AUDIT.md.
 import Aeneas
 open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
@@ -26,7 +26,7 @@ def arbitrary.MaxRecursionReached : Type := Unit
 
 /-- [std::collections::hash::map::HashMap]
     Modelled as an association list; the hasher state `S` and allocator `A` are
-    semantically inert (see the hashing models in `FunsExternal.lean`). -/
+    erased (see the restricted hashing-model domain in `FunsExternal.lean`). -/
 @[reducible, rust_type "std::collections::hash::map::HashMap"]
 def std.collections.hash.map.HashMap (K : Type) (V : Type) (S : Type) (A :
   Type) : Type := List (K × V)
@@ -74,11 +74,11 @@ def alloc.collections.btree.map.BTreeMap (K : Type) (V : Type) (A : Type) :
 def lock_api.GuardNoSend : Type := Unit
 
 /-- [lock_api::rwlock::RwLock]
-    Modelled as the protected value itself. This is sound for the extracted
-    subset because Aeneas only supports sequential code and no reachable
-    function writes through a shared reference (`Tree::tree_hash`, which
-    populates the hash caches through `&self`, is excluded from extraction).
-    Revisit this model if interior mutability comes back into scope. -/
+    Modelled as the protected value itself for sequential value accesses.
+    The selected fragment does not write through shared references:
+    `Tree::tree_hash`, which populates caches through `&self`, is excluded.
+    This model does not represent contention, blocking, or shared cache writes;
+    those require a different extraction/model interface (UPSTREAM_BUGS issue 21). -/
 @[reducible, rust_type "lock_api::rwlock::RwLock"]
 def lock_api.rwlock.RwLock (R : Type) (T : Type) : Type := T
 
@@ -115,11 +115,11 @@ structure ssz.encode.SszEncoder where
   variable_bytes : alloc.vec.Vec Std.U8
 
 /-- [triomphe::arc::Arc]
-    Modelled as the pointed-to value: after functionalization, sharing is
-    invisible and `Arc`'s safe API behaves exactly like a value of `T`
-    (see `new`/`clone`/`deref` in `FunsExternal.lean`). The one operation this
-    model cannot capture is `ptr_eq`, which is kept opaque with a
-    characterizing axiom. -/
+    Modelled as the pointed-to value for the selected `new`, `clone`, `deref`,
+    and `as_ref` operations in `FunsExternal.lean`. This does not model heap
+    identity or reference counts. `ptr_eq` is opaque with a one-way soundness
+    and termination axiom; no converse from equal values to shared pointers
+    is assumed. This is not a model of the entire safe Arc API. -/
 @[reducible, rust_type "triomphe::arc::Arc"]
 def triomphe.arc.Arc (T : Type) : Type := T
 

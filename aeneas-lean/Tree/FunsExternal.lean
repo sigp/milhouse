@@ -9,10 +9,11 @@
 --   * `core.mem.size_of.usize_spec`: `size_of` cannot be defined uniformly in
 --     its type argument, so it is opaque with a spec at the one instantiation
 --     the code uses (`usize`).
--- Hashing (`Hasher`/`Hash`/`BuildHasher`) is modelled as semantically inert:
--- hasher state is `Unit` and the `HashMap` model compares keys with `Eq`.
--- This is faithful because hashing only affects performance in Rust, never
--- observable behaviour (for law-abiding `Hash`/`Eq` impls).
+-- The older HashMap models retain map contents while erasing hasher state.
+-- This abstraction requires pure, total, mutually consistent Hash/Eq calls
+-- and unobserved hash outputs; it does not preserve arbitrary hash-callback
+-- effects or failures. The available in-scope ProgressiveList roots do not
+-- reference these models (see PROGRESSIVE_LIST_MODEL_AUDIT.md).
 import Aeneas
 import Tree.Types
 import Tree.Ssz.Models
@@ -689,8 +690,9 @@ def Array.Insts.SmallvecArray.size
 
 /-! ## triomphe
 
-`Arc T` is modelled as `T` (see `TypesExternal.lean`): after
-functionalization, sharing is invisible and the safe API is the identity. -/
+`Arc T` is modelled as `T` (see `TypesExternal.lean`). The selected new,
+clone, deref, and as_ref operations preserve pointee values; pointer equality
+remains an explicit trusted boundary. This is not a model of every Arc API. -/
 
 /-- [triomphe::arc::{triomphe::arc::Arc<T>}::new]: -/
 @[rust_fun "triomphe::arc::{triomphe::arc::Arc<@T>}::new"]
