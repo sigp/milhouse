@@ -7,7 +7,8 @@ namespace milhouse.progressive_list
 
 /-- A list with cleared caches can be rebased in place without any collision
 assumption. Construction and the nonzero front-removal proofs establish this
-input invariant; only the base caches that may be imported need validity. -/
+input invariant; base binary caches need validity only in matching progressive
+layers reached after pointer-identity checks. -/
 theorem ProgressiveList.rebase_on_total_from_cleared_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -20,7 +21,7 @@ theorem ProgressiveList.rebase_on_total_from_cleared_spec {T U : Type}
     (hclear : self.tree.CachesCleared)
     (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
       packingDepth.val self.length.val base.length.val 0)
-    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0) :
+    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ result.updates = self.updates ∧
@@ -54,7 +55,7 @@ theorem ProgressiveList.rebase_total_from_cleared_spec {T U : Type}
       ∃ largest, mapInst.max_index updates = ok largest ∧
         largest.elim self.length.val
           (fun index => max (index.val + 1) self.length.val) = contents.length)
-    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0) :
+    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates ∧

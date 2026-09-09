@@ -7,8 +7,9 @@ open milhouse
 namespace milhouse.progressive_list
 
 /-- Successful in-place rebasing preserves the backing contents and reference
-cache validity. The operational cache-shortcut premise is derived from valid
-input caches and collision soundness on the finite corresponding input pairs. -/
+cache validity. The operational shortcut premise is derived from original
+cache validity, base binary-cache validity in selected progressive layers,
+and collision soundness on the finite corresponding input pairs. -/
 theorem ProgressiveList.rebase_on_valid_cache_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -21,7 +22,7 @@ theorem ProgressiveList.rebase_on_valid_cache_spec {T U : Type}
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0))
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0)
+    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0)
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result)) :
     result.tree.elements = self.tree.elements ∧ result.tree.CachesOn (CacheValidFor reference) 0 := by
@@ -44,7 +45,7 @@ theorem ProgressiveList.rebase_valid_cache_spec {T U : Type}
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0))
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0)
+    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0)
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result)) :
     result.tree.elements = self.tree.elements ∧ result.tree.CachesOn (CacheValidFor reference) 0 := by
@@ -69,7 +70,7 @@ theorem ProgressiveList.rebase_on_total_valid_cache_spec {T U : Type}
     (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
       packingDepth.val self.length.val base.length.val 0)
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0) :
+    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ result.updates = self.updates ∧
@@ -81,7 +82,8 @@ theorem ProgressiveList.rebase_on_total_valid_cache_spec {T U : Type}
 
 /-- Total nonmutating rebasing preserves the represented sequence, backing
 validity, and reference-valid caches. Only the actual pending-map clone must
-terminate and preserve reads and maximum; cache-shortcut soundness is derived. -/
+terminate, preserve reads after the backing fallback, and match logical extent;
+cache-shortcut soundness is derived. -/
 theorem ProgressiveList.rebase_total_valid_cache_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -102,7 +104,7 @@ theorem ProgressiveList.rebase_total_valid_cache_spec {T U : Type}
         largest.elim self.length.val
           (fun index => max (index.val + 1) self.length.val) = contents.length)
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0) :
+    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates ∧
@@ -127,7 +129,7 @@ theorem ProgressiveList.rebase_on_preserves_valid_caches {T U : Type}
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0))
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : base.tree.BinaryCachesOn (CacheValidFor reference) 0)
+    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0)
     {status : core.result.Result Unit error.Error} {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase_on ValueInst mapInst self base = ok (status, result)) :
     result.tree.CachesOn (CacheValidFor reference) 0 := by

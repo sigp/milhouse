@@ -8,7 +8,8 @@ namespace milhouse.progressive_list
 
 /-- Successful in-place rebasing preserves the backing sequence and every
 cache invariant. The pending map is irrelevant to this result: no map reads,
-clones, or representation assumption are required. -/
+clones, or representation assumption are required. Base cache validity covers
+only matching progressive layers reached after pointer-identity checks. -/
 theorem ProgressiveList.rebase_on_cache_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -20,7 +21,7 @@ theorem ProgressiveList.rebase_on_cache_spec {T U : Type}
     (hfit : self.tree.Fits factor 0)
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
-    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : base.tree.BinaryCachesOn P 0)
+    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : self.tree.RebaseBaseCachesOn P base.tree 0)
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result)) :
     result.tree.elements = self.tree.elements ∧ result.tree.CachesOn P 0 := by
@@ -42,7 +43,7 @@ theorem ProgressiveList.rebase_cache_spec {T U : Type}
     (hfit : self.tree.Fits factor 0)
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
-    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : base.tree.BinaryCachesOn P 0)
+    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : self.tree.RebaseBaseCachesOn P base.tree 0)
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result)) :
     result.tree.elements = self.tree.elements ∧ result.tree.CachesOn P 0 := by
@@ -66,7 +67,7 @@ theorem ProgressiveList.rebase_on_total_cache_spec {T U : Type}
     (hhashes : self.tree.CachedHashesAgree base.tree)
     (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
       packingDepth.val self.length.val base.length.val 0)
-    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : base.tree.BinaryCachesOn P 0) :
+    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : self.tree.RebaseBaseCachesOn P base.tree 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ result.updates = self.updates ∧
@@ -79,8 +80,8 @@ theorem ProgressiveList.rebase_on_total_cache_spec {T U : Type}
   exact ⟨result, hrebase, hresult, hvalid, hlength, hupdates, hcache.2⟩
 
 /-- Total nonmutating rebasing additionally preserves all cache invariants.
-The pending-map clone is required only to terminate and preserve its reads
-and maximum, as in the existing represented-sequence specification. -/
+The pending-map clone is required only to terminate, preserve reads after the
+backing fallback, and match logical extent, as in the sequence specification. -/
 theorem ProgressiveList.rebase_total_cache_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -100,7 +101,7 @@ theorem ProgressiveList.rebase_total_cache_spec {T U : Type}
       ∃ largest, mapInst.max_index updates = ok largest ∧
         largest.elim self.length.val
           (fun index => max (index.val + 1) self.length.val) = contents.length)
-    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : base.tree.BinaryCachesOn P 0) :
+    (hselfCache : self.tree.CachesOn P 0) (hbaseCache : self.tree.RebaseBaseCachesOn P base.tree 0) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates ∧
