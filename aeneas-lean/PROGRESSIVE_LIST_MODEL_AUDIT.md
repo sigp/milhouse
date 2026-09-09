@@ -376,6 +376,26 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Selected content proofs now preserve exact materialized backing contents
+  for both public rebase methods from actual success and `RebaseContentInputs`,
+  without packing layout, global query success, shape, density, capacity, or
+  accurate-length premises. The binary scope follows actual optional metadata;
+  the progressive scope follows actual query results and clamped lengths.
+  Existing content contracts use the general proof through dense-input
+  adapters. New merged-sequence contracts retain geometry/layout for indexed
+  traversal and the existing nonmutating map-clone read/extent laws. Semantic
+  soundness remains explicit; necessity and complete assumption minimality are
+  not claimed. Public integration is `c8724e7`, with `78d9600`, `b166ec0`,
+  `aa0bb68`, `5832bf5`, `47c372e`, and `1fa4dbc` as foundations. This proof-only
+  change does not establish source fidelity of external definitions. Borrowed
+  CoW, remaining assumption review, and model fidelity remain incomplete.
+  The full build passes (2,065 jobs), and the axiom/import audit covers 5,450
+  declarations across 349 modules: 5,345 use only standard Lean axioms or none,
+  and 105 use the existing pointer contract. Eight additional declarations
+  reuse that contract; no new axiom or admission was introduced, and `size_of`
+  remains unused. No Rust, extraction, external model, or Aeneas source changed;
+  the seven source suites and 42-root/151-declaration model dependency gate
+  were not repeated. Debug and Serde remain excluded; TreeHash is deferred.
 - `Rebase/Ready.lean` completes the selected-input success criterion for both
   public variants without a separate packing-layout or global query-success
   premise. Missing/shared input stops omit packing queries. Entered node pairs

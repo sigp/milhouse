@@ -61,8 +61,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `iter_cow_from` | `ProgressiveList.iter_cow_from_spec`, `ProgressiveList.iter_cow_from_error_iff`; stepping pending |
 | `to_vec` | `ProgressiveList.to_vec_total_spec`, `ProgressiveList.to_vec_mapM` |
 | `pop_front` | `ProgressiveList.pop_front_nonzero_clones_total_spec`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
-| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_success_iff_ready`, `ProgressiveList.rebase_cache_iff` |
-| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_success_iff_ready`, `ProgressiveList.rebase_on_cache_iff` |
+| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_spec_of_content_inputs`, `ProgressiveList.rebase_preserves_backing_contents`, `ProgressiveList.rebase_success_iff_ready`, `ProgressiveList.rebase_cache_iff` |
+| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_spec_of_content_inputs`, `ProgressiveList.rebase_on_preserves_backing_contents`, `ProgressiveList.rebase_on_success_iff_ready`, `ProgressiveList.rebase_on_cache_iff` |
 
 ## List trait methods
 
@@ -134,6 +134,30 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`Rebase/SelectedContents.lean` proves exact materialized backing-content
+preservation for both public methods under the selected `RebaseContentInputs`
+law and actual success. Its binary obligations use the actual supplied
+optional lengths/full depth, and progressive obligations are conditional on
+actual packing results with clamped layer lengths. No layout, density, shape,
+capacity, accurate-length, comparison-termination, or query-success premise
+is needed for this content result. The new `rebase_on_spec_of_content_inputs`
+and `rebase_spec_of_content_inputs` preserve the merged sequence with the same
+semantic law; geometry/layout still justify indexed traversal, and nonmutating
+rebase retains fallback-aware clone reads and logical extent. Existing content
+contracts now use these results through dense-input adapters. Semantic
+soundness remains explicit; this does not establish necessity or finish the
+assumption audit. The public integration checkpoint is `c8724e7` (public backing
+results `78d9600`, progressive contents `b166ec0`, inputs `aa0bb68`, binary
+foundations `1fa4dbc`, `47c372e`, and `5832bf5`).
+
+Focused and full builds pass (2,065 jobs). The axiom/import audit covers
+5,450 declarations across 349 modules: 5,345 use only standard Lean axioms or
+none, and 105 additionally use the existing pointer contract. Eight additional
+declarations reuse that contract; no new axiom or admission was introduced,
+and `size_of` remains unused. Borrowed CoW extraction and the remaining
+assumption/model-fidelity audit are incomplete. Debug and Serde remain
+excluded, and TreeHash is deferred outside the current scope.
 
 `Rebase/Ready.lean` proves complete public success criteria with no separate
 packing-layout or global query-success premise. Missing or shared inputs
