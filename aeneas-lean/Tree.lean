@@ -68,6 +68,7 @@ import Tree.ProgressiveTree.Rebase.Requirements
 import Tree.ProgressiveTree.Rebase.SelectedSuccess
 import Tree.ProgressiveTree.Rebase.Ready
 import Tree.ProgressiveTree.Rebase.ContentInputs
+import Tree.ProgressiveTree.Rebase.SelectedContents
 import Tree.ProgressiveTree.Rebase.Caches
 import Tree.ProgressiveTree.Rebase.CacheInputs
 import Tree.ProgressiveTree.Rebase.OriginalCaches
