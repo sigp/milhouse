@@ -25,6 +25,7 @@ import Tree.Builder.Finish.Loop
 import Tree.Builder.Finish.Finalize
 import Tree.Builder.Finish.Success
 import Tree.PackedLeaf.Push
+import Tree.PackedLeaf.Insert
 import Tree.Lemmas
 import Tree.Roundtrip
 import Tree.Rebase
