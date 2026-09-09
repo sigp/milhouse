@@ -168,4 +168,20 @@ theorem updated_length_eq_iff_max_index {T U : Type}
       MaxIndexResultsAgree previous (mapInst.max_index left) (mapInst.max_index right) := by
   rw [updated_length_eq_maximumLength, updated_length_eq_maximumLength, maximumLength_eq_iff]
 
+/-- The exact insertion rule implies agreement of length outcomes when the
+inserted key is below an already successful logical length. Agreement itself
+does not require the new maximum to record that key exactly. -/
+theorem max_index_results_agree_of_insert_below {T U : Type}
+    (mapInst : update_map.UpdateMap U T) (previous : Length) (updates updated : U)
+    (index length : Std.Usize)
+    (hlen : updated_length mapInst previous updates = ok length)
+    (hindex : index.val < length.val)
+    (hmax : ∀ oldMax, mapInst.max_index updates = ok oldMax →
+      mapInst.max_index updated = ok (some (oldMax.elim index
+        (core.cmp.impls.OrdUsize.max index)))) :
+    MaxIndexResultsAgree previous (mapInst.max_index updated) (mapInst.max_index updates) := by
+  apply (updated_length_eq_iff_max_index mapInst previous updated updates).mp
+  rw [updated_length_insert_below mapInst previous updates updated index length hlen hindex hmax,
+    hlen]
+
 end milhouse.utils

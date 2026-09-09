@@ -1,4 +1,4 @@
-import Tree.Funs
+import Tree.UpdateMap.Length.Equivalence
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -40,6 +40,30 @@ def GetMutWithMaxIndex {T U : Type} (mapInst : UpdateMap U T)
     ∀ replacement oldMax, mapInst.max_index updates = ok oldMax →
       mapInst.max_index (back (some replacement)) = ok (some (oldMax.elim index
         (core.cmp.impls.OrdUsize.max index)))
+
+/-- Mutable write-back preserves the extent described by maximum metadata at
+the given backing length. This constrains raw query outcomes, including
+failure and divergence, without prescribing an exact insertion maximum. -/
+def GetMutWithMaxIndexAgrees {T U : Type} (mapInst : UpdateMap U T)
+    (updates : U) (index : Std.Usize) (previous : utils.Length) : Prop :=
+  ∀ {F : Type} (fnInst : core.ops.function.FnOnce F Std.Usize (Option T))
+    (fallback : F) (value : T) (back : Option T → U),
+    mapInst.get_mut_with fnInst updates index fallback = ok (some value, back) →
+    ∀ replacement, utils.MaxIndexResultsAgree previous
+      (mapInst.max_index (back (some replacement))) (mapInst.max_index updates)
+
+/-- The usual exact insertion contract supplies the weaker observer contract
+for every write below an existing successful logical length. -/
+theorem GetMutWithMaxIndex.agrees_of_in_bounds {T U : Type} (mapInst : UpdateMap U T)
+    (updates : U) (index : Std.Usize) (previous : utils.Length) (length : Std.Usize)
+    (hmax : GetMutWithMaxIndex mapInst updates index)
+    (hlen : utils.updated_length mapInst previous updates = ok length)
+    (hindex : index.val < length.val) :
+    GetMutWithMaxIndexAgrees mapInst updates index previous := by
+  intro F fnInst fallback value back hcall replacement
+  exact utils.max_index_results_agree_of_insert_below mapInst previous updates
+    (back (some replacement)) index length hlen hindex
+    (hmax fnInst fallback value back hcall replacement)
 
 /-- A missing mutable lookup leaves the map unchanged when its absent handle
     is released. No element reference exists through which to write a value. -/
