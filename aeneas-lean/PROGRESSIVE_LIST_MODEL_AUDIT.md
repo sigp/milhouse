@@ -125,6 +125,14 @@ check also pass.
 - Generic update-map, element clone/equality, codec, and generator calls use
   the operation-specific laws recorded in the proof coverage document. The
   dependency inventory does not verify concrete implementations of those laws.
+  `Clone/Maximum.lean` now characterizes the exact maximum-metadata condition
+  for preserving a represented sequence under unchanged map reads. Clone,
+  clone_from, and dependent rebase contracts require matching logical extent,
+  rather than exact maximum identity, and derive successor safety internally.
+  This narrows a generic map law without assuming successful list-length
+  evaluation or changing any external model. The full build and axiom/import
+  audit pass for 5,015 declarations across 314 modules (2,030 jobs); the
+  separate dependency gate was not rerun for these proof-only changes.
   Fixed-encoder call equations in `Encode/FixedCalls.lean` now preserve the
   actual buffer fold, reservation checks, failure, and divergence without
   codec laws. Exact fixed-byte contracts separately bound reservation and

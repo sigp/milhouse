@@ -135,6 +135,17 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+Clone and clone_from sequence contracts, and the rebase contracts that depend
+on them, no longer require cloned maximum-index identity. Under unchanged map
+reads, `Clone/Maximum.lean` proves the new metadata condition necessary and
+sufficient: the returned maximum must give the same mathematical logical
+length, using the backing length for `None` and `max (index + 1) backing_length`
+for `Some index`. Source representation supplies successor safety. The
+contracts assume no successful new list-length call. Reads remain constrained
+at every machine index because public `get` queries the map before checking
+backing bounds. The generalized contracts pass the full build and axiom/import
+audit (5,015 declarations across 314 modules).
+
 The shared `PackingLayout` assumption now requires only the actual factor
 query and the routing power-of-two law. Its packing-depth result is derived
 from those facts, with the word bound supplied by the represented factor and
