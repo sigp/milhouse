@@ -64,7 +64,8 @@ theorem ProgressiveList.rebase_on_total_cache_spec {T U : Type}
     (hbase : base.tree.Dense factor 0 base.length.val)
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
-    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree)
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
+      packingDepth.val self.length.val base.length.val 0)
     (hselfCache : self.tree.CachesOn P 0) (hbaseCache : base.tree.BinaryCachesOn P 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
@@ -90,7 +91,8 @@ theorem ProgressiveList.rebase_total_cache_spec {T U : Type}
     (hbase : base.tree.Dense factor 0 base.length.val)
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
-    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree)
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
+      packingDepth.val self.length.val base.length.val 0)
     (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates)
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       ∀ query, mapInst.get updates query = mapInst.get self.updates query)

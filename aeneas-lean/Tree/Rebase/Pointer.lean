@@ -16,8 +16,9 @@ theorem Tree.rebase_on_of_ptr_eq {T : Type} (ValueInst : Value T)
   rfl
 
 theorem Tree.rebaseComparisons_of_ptr_eq {T : Type} (inst : core.cmp.PartialEq T T)
-    (orig base : Tree T) (hpointer : triomphe.arc.Arc.ptr_eq orig base = ok true) :
-    orig.RebaseComparisons inst base := by
+    (orig base : Tree T) (lengths : RebaseLengths) (fullDepth : Nat)
+    (hpointer : triomphe.arc.Arc.ptr_eq orig base = ok true) :
+    orig.RebaseComparisons inst base lengths fullDepth := by
   cases orig <;> cases base <;> simp [Tree.RebaseComparisons, hpointer]
 
 theorem Tree.rebaseEqualitySound_of_ptr_eq {T : Type} (inst : core.cmp.PartialEq T T)

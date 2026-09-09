@@ -16,7 +16,8 @@ theorem ProgressiveList.rebase_on_success {T U : Type}
     (self base : ProgressiveList T U)
     (hself : self.tree.Shape factor 0) (hbase : base.tree.Shape factor 0)
     (hfit : self.tree.Fits factor 0)
-    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree) :
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
+      packingDepth.val self.length.val base.length.val 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.length = self.length ∧ result.updates = self.updates := by
   obtain ⟨newTree, htree⟩ := progressive_tree.ProgressiveTree.rebase_on_success ValueInst hlayout
@@ -35,7 +36,8 @@ theorem ProgressiveList.rebase_success {T U : Type}
     (self base : ProgressiveList T U)
     (hself : self.tree.Shape factor 0) (hbase : base.tree.Shape factor 0)
     (hfit : self.tree.Fits factor 0)
-    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree)
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
+      packingDepth.val self.length.val base.length.val 0)
     (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates := by
@@ -59,7 +61,8 @@ theorem ProgressiveList.rebase_on_total_spec {T U : Type}
     (hbase : base.tree.Dense factor 0 base.length.val)
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
-    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree) :
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
+      packingDepth.val self.length.val base.length.val 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ result.updates = self.updates := by
@@ -80,7 +83,8 @@ theorem ProgressiveList.rebase_total_spec {T U : Type}
     (hbase : base.tree.Dense factor 0 base.length.val)
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
-    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree)
+    (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
+      packingDepth.val self.length.val base.length.val 0)
     (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates)
     (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
       ∀ query, mapInst.get updates query = mapInst.get self.updates query)

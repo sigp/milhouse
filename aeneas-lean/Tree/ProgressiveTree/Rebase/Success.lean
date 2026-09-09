@@ -1,30 +1,12 @@
 import Tree.Rebase.Success
 import Tree.ProgressiveTree.Bounds
+import Tree.ProgressiveTree.Rebase.Comparisons
+import Tree.ProgressiveTree.Rebase.Geometry
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree
 
 namespace milhouse.progressive_tree
-
-/-- Successful comparisons are required only at corresponding binary layers
-of these trees. A zero on either side ends rebasing without element calls. -/
-def ProgressiveTree.RebaseComparisons {T : Type} (inst : core.cmp.PartialEq T T) :
-    ProgressiveTree T → ProgressiveTree T → Prop
-  | .ProgressiveNode hash left right, .ProgressiveNode baseHash baseLeft baseRight =>
-      triomphe.arc.Arc.ptr_eq (.ProgressiveNode hash left right : ProgressiveTree T)
-        (.ProgressiveNode baseHash baseLeft baseRight) = ok false →
-      left.RebaseComparisons inst baseLeft ∧ right.RebaseComparisons inst baseRight
-  | _, _ => True
-
-theorem ProgressiveTree.rebaseComparisons_of_total {T : Type} (inst : core.cmp.PartialEq T T)
-    (heq : ∀ left right, ∃ equal, inst.eq left right = ok equal)
-    (hne : ∀ left right, ∃ different, inst.ne left right = ok different)
-    (orig base : ProgressiveTree T) : orig.RebaseComparisons inst base := by
-  induction orig generalizing base with
-  | ProgressiveZero => cases base <;> trivial
-  | ProgressiveNode hash left right ih =>
-    cases base <;> simp only [ProgressiveTree.RebaseComparisons]
-    exact fun _ => ⟨Tree.rebaseComparisons_of_total inst heq hne _ _, ih _⟩
 
 /-- Compatible shapes and representable original layers guarantee successful
 rebasing when the compared leaves terminate. All layer arithmetic is derived;
@@ -35,7 +17,8 @@ theorem ProgressiveTree.rebase_on_recursive_success {T : Type} (ValueInst : Valu
     (orig base : ProgressiveTree T) (origLength baseLength : Std.Usize) (depth : Std.U32)
     (horig : orig.Shape factor depth.val) (hbase : base.Shape factor depth.val)
     (hfit : orig.Fits factor depth.val)
-    (hcompare : orig.RebaseComparisons ValueInst.corecmpPartialEqInst base) :
+    (hcompare : orig.RebaseComparisons ValueInst.corecmpPartialEqInst base factor
+      packingDepth.val origLength.val baseLength.val depth.val) :
     ∃ after, ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
       ok (.Ok after) := by
   induction orig generalizing base depth with
@@ -80,13 +63,21 @@ theorem ProgressiveTree.rebase_on_recursive_success {T : Type} (ValueInst : Valu
             have hword : System.Platform.numBits ≤ 2 ^ System.Platform.numBits := by
               rcases System.Platform.numBits_eq with h | h <;> norm_num [h]
             obtain ⟨fullDepth, hfullDepth, hfullDepthVal⟩ := usize_add_succeeds (lt_of_lt_of_le hbits hword)
+            have horigLocalVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hfit.1
+              hstart hnext hcapacity hbinary horigLocal
+            have hbaseLocalVal := ProgressiveTree.rebase_layer_length ValueInst hlayout hfit.1
+              hstart hnext hcapacity hbinary hbaseLocal
+            have hfullDepthNat : fullDepth.val = 2 * depth.val + packingDepth.val := by omega
             obtain ⟨action, hleft⟩ := Tree.rebase_on_success ValueInst origLeft baseLeft
               origLeftShape baseLeftShape (some (origLocal, baseLocal)) fullDepth
-              (by omega) (fun _ => by rw [UScalarTy.Usize_numBits_eq]; omega) (hcompare hpointer).1
+              (by omega) (fun _ => by rw [UScalarTy.Usize_numBits_eq]; omega) (by
+                simpa only [rebaseLengths, Option.map_some, horigLocalVal, hbaseLocalVal, hfullDepthNat]
+                  using (hcompare hpointer).1)
             obtain ⟨newRight, hright⟩ := ih baseRight next
               (by simpa only [hnextVal] using origRightShape)
               (by simpa only [hnextVal] using baseRightShape)
-              (by simpa only [hnextVal] using hfit.2) (hcompare hpointer).2
+              (by simpa only [hnextVal] using hfit.2)
+              (by simpa only [hnextVal] using (hcompare hpointer).2)
             obtain ⟨leftSame, hleftSame, _⟩ :=
               triomphe.arc.Arc.ptr_eq_spec (applyRebaseAction origLeft action) origLeft
             obtain ⟨rightSame, hrightSame, _⟩ := triomphe.arc.Arc.ptr_eq_spec newRight origRight
@@ -108,7 +99,8 @@ theorem ProgressiveTree.rebase_on_success {T : Type} (ValueInst : Value T)
     (orig base : ProgressiveTree T) (origLength baseLength : Std.Usize)
     (horig : orig.Shape factor 0) (hbase : base.Shape factor 0)
     (hfit : orig.Fits factor 0)
-    (hcompare : orig.RebaseComparisons ValueInst.corecmpPartialEqInst base) :
+    (hcompare : orig.RebaseComparisons ValueInst.corecmpPartialEqInst base factor
+      packingDepth.val origLength.val baseLength.val 0) :
     ∃ after, ProgressiveTree.rebase_on ValueInst orig base origLength baseLength = ok (.Ok after) :=
   ProgressiveTree.rebase_on_recursive_success ValueInst hlayout orig base origLength baseLength 0#u32
     horig hbase hfit hcompare

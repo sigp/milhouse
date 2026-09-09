@@ -12,9 +12,11 @@ private theorem rebase_children_success {T : Type} (ValueInst : Value T)
     (lengths : Option (utils.Length × utils.Length)) (fullDepth newDepth : Std.Usize)
     (hdepth : fullDepth - 1#usize = ok newDepth)
     (hshift : lengths.isSome = true → newDepth.val < UScalarTy.Usize.numBits)
-    (hleft : ∀ childLengths, childLengths.isSome = lengths.isSome → ∃ action,
+    (hleft : ∀ childLengths,
+      rebaseLengths childLengths = rebaseLeftLengths (rebaseLengths lengths) newDepth.val → ∃ action,
       Tree.rebase_on ValueInst origLeft baseLeft childLengths newDepth = ok (.Ok action))
-    (hright : ∀ childLengths, childLengths.isSome = lengths.isSome → ∃ action,
+    (hright : ∀ childLengths,
+      rebaseLengths childLengths = rebaseRightLengths (rebaseLengths lengths) newDepth.val → ∃ action,
       Tree.rebase_on ValueInst origRight baseRight childLengths newDepth = ok (.Ok action)) :
     ∃ action, rebaseChildren ValueInst origHash baseHash origLeft origRight baseLeft baseRight
       lengths fullDepth = ok (.Ok action) := by
@@ -30,8 +32,9 @@ private theorem rebase_children_success {T : Type} (ValueInst : Value T)
     obtain ⟨origLength, baseLength⟩ := lengths
     obtain ⟨ol, bl, or, br, hsplit, _⟩ :=
       rebase_split_lengths_success ValueInst origLength baseLength newDepth (hshift rfl)
-    obtain ⟨leftAction, hleft⟩ := hleft (some (ol, bl)) rfl
-    obtain ⟨rightAction, hright⟩ := hright (some (or, br)) rfl
+    have hinputs := rebase_split_comparison_inputs ValueInst hsplit
+    obtain ⟨leftAction, hleft⟩ := hleft (some (ol, bl)) hinputs.1
+    obtain ⟨rightAction, hright⟩ := hright (some (or, br)) hinputs.2
     refine ⟨combineRebaseActions origHash baseHash origLeft origRight baseLeft baseRight leftAction rightAction, ?_⟩
     cases leftAction <;> cases rightAction <;>
       simp! [rebaseChildren, hdepth, core.option.Option.map, core.option.OptionPair.unzip,
@@ -42,7 +45,7 @@ private theorem rebase_success_aux {T : Type} (ValueInst : Value T) :
       (lengths : Option (utils.Length × utils.Length)) (fullDepth : Std.Usize),
       fullDepth.val ≤ n → orig.Shape factor depth → base.Shape factor depth →
       depth ≤ fullDepth.val → (lengths.isSome = true → fullDepth.val ≤ UScalarTy.Usize.numBits) →
-      orig.RebaseComparisons ValueInst.corecmpPartialEqInst base →
+      orig.RebaseComparisons ValueInst.corecmpPartialEqInst base (rebaseLengths lengths) fullDepth.val →
       ∃ action, Tree.rebase_on ValueInst orig base lengths fullDepth = ok (.Ok action) := by
   intro n
   induction n using Nat.strong_induction_on with
@@ -79,24 +82,43 @@ private theorem rebase_success_aux {T : Type} (ValueInst : Value T) :
               usize_sub_one_succeeds (show 0 < fullDepth.val by omega)
             have hsmaller : newDepth.val < n := by omega
             have hchildDepth : child ≤ newDepth.val := by omega
-            have hchildren := rebase_children_success ValueInst origHash baseHash
-              origLeft origRight baseLeft baseRight lengths fullDepth newDepth hnewDepth
-              (fun hsome => by have := hbits hsome; omega)
-              (fun childLengths hsome => ih newDepth.val hsmaller origLeft baseLeft factor child childLengths newDepth
-                (Nat.le_refl _) origLeftShape baseLeftShape hchildDepth
-                (fun hchildSome => by have := hbits (hsome ▸ hchildSome); omega) (hcompare hpointer).1)
-              (fun childLengths hsome => ih newDepth.val hsmaller origRight baseRight factor child childLengths newDepth
-                (Nat.le_refl _) origRightShape baseRightShape hchildDepth
-                (fun hchildSome => by have := hbits (hsome ▸ hchildSome); omega) (hcompare hpointer).2)
+            have hnewDepthNat : newDepth.val = fullDepth.val - 1 := by omega
+            have hchildren (hdescend : ¬ RebaseHashShortcutFor origHash baseHash (rebaseLengths lengths)) :=
+              rebase_children_success ValueInst origHash baseHash
+                origLeft origRight baseLeft baseRight lengths fullDepth newDepth hnewDepth
+                (fun hsome => by have := hbits hsome; omega)
+                (fun childLengths hselected => ih newDepth.val hsmaller origLeft baseLeft factor child childLengths newDepth
+                  (Nat.le_refl _) origLeftShape baseLeftShape hchildDepth
+                  (fun hchildSome => by
+                    have hsome : childLengths.isSome = lengths.isSome := by
+                      have := congrArg Option.isSome hselected
+                      simpa [rebaseLengths, rebaseLeftLengths] using this
+                    have := hbits (hsome ▸ hchildSome)
+                    omega)
+                  (by
+                    rw [hselected, hnewDepthNat]
+                    exact (hcompare hpointer (by omega) hdescend).1))
+                (fun childLengths hselected => ih newDepth.val hsmaller origRight baseRight factor child childLengths newDepth
+                  (Nat.le_refl _) origRightShape baseRightShape hchildDepth
+                  (fun hchildSome => by
+                    have hsome : childLengths.isSome = lengths.isSome := by
+                      have := congrArg Option.isSome hselected
+                      simpa [rebaseLengths, rebaseRightLengths] using this
+                    have := hbits (hsome ▸ hchildSome)
+                    omega)
+                  (by
+                    rw [hselected, hnewDepthNat]
+                    exact (hcompare hpointer (by omega) hdescend).2))
             rw [if_pos hpositive]
             simp only [lock_api.rwlock.RwLock.read,
               lock_api.rwlock.RwLockReadGuard.Insts.CoreOpsDerefDeref.deref,
               alloy_primitives.bits.fixed.FixedBytes.is_zero,
               alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCmpPartialEqFixedBytes.eq,
               lock_api.rwlock.RwLock.new, triomphe.arc.Arc.Insts.CoreCloneClone.clone,
-              triomphe.arc.Arc.new, bind_tc_ok]
+              triomphe.arc.Arc.new, bind_tc_ok, List.all_eq_true, beq_iff_eq, decide_eq_true_eq]
             split
-            · exact hchildren
+            · rename_i hzero
+              exact hchildren (fun hshortcut => hshortcut.1 hzero)
             · split
               · cases lengths with
                 | none => simp [core.option.Option.is_none_or]
@@ -107,8 +129,10 @@ private theorem rebase_success_aux {T : Type} (ValueInst : Value T) :
                     utils.Length.Insts.CoreCmpPartialEqLength.eq, bind_tc_ok, decide_eq_true_eq]
                   split
                   · simp
-                  · exact hchildren
-              · exact hchildren
+                  · rename_i hlengthNe
+                    exact hchildren (fun hshortcut => hlengthNe (UScalar.eq_of_val_eq hshortcut.2.2))
+              · rename_i hhashNe
+                exact hchildren (fun hshortcut => hhashNe hshortcut.2.1)
       all_goals first
         | exact ⟨.NotEqualNoop, rfl⟩
         | (cases horig <;> cases hbase)
@@ -124,7 +148,8 @@ theorem Tree.rebase_on_success {T : Type} (ValueInst : Value T)
     (lengths : Option (utils.Length × utils.Length)) (fullDepth : Std.Usize)
     (hdepth : depth ≤ fullDepth.val)
     (hbits : lengths.isSome = true → fullDepth.val ≤ UScalarTy.Usize.numBits)
-    (hcompare : orig.RebaseComparisons ValueInst.corecmpPartialEqInst base) :
+    (hcompare : orig.RebaseComparisons ValueInst.corecmpPartialEqInst base
+      (rebaseLengths lengths) fullDepth.val) :
     ∃ action, Tree.rebase_on ValueInst orig base lengths fullDepth = ok (.Ok action) :=
   rebase_success_aux ValueInst fullDepth.val orig base factor depth lengths fullDepth (Nat.le_refl _)
     horig hbase hdepth hbits hcompare

@@ -1,4 +1,4 @@
-import Tree.Shape
+import Tree.Rebase.ComparisonInputs
 import Tree.Arc.Equality
 
 open Aeneas Aeneas.Std Result
@@ -49,31 +49,36 @@ end milhouse_models
 
 namespace milhouse.tree
 
-/-- Termination laws for potentially compared leaf pairs. They are scoped to
-corresponding positions of these input trees, not arbitrary values of T.
-Pointer-equal leaves and unequal-length packed vectors need no element law. -/
-def Tree.RebaseComparisons {T : Type} (inst : core.cmp.PartialEq T T) : Tree T → Tree T → Prop
-  | .Leaf left, .Leaf right =>
+/-- Termination laws for the leaf pairs reached using the supplied lengths
+and full depth. Pointer and cache shortcuts omit all descendants. The scope
+uses no materialized-length or density assumption; `none` allows the cache
+shortcut regardless of either tree's stored contents. -/
+def Tree.RebaseComparisons {T : Type} (inst : core.cmp.PartialEq T T) :
+    Tree T → Tree T → RebaseLengths → Nat → Prop
+  | .Leaf left, .Leaf right, _, _ =>
       triomphe.arc.Arc.ptr_eq (.Leaf left : Tree T) (.Leaf right : Tree T) = ok false →
       triomphe.arc.Arc.ptr_eq left.value right.value = ok false →
       ∃ equal, inst.eq left.value right.value = ok equal
-  | .PackedLeaf left, .PackedLeaf right =>
+  | .PackedLeaf left, .PackedLeaf right, _, _ =>
       triomphe.arc.Arc.ptr_eq (.PackedLeaf left : Tree T) (.PackedLeaf right : Tree T) = ok false →
       left.values.val.length = right.values.val.length →
       ∀ pair ∈ left.values.val.zip right.values.val,
         ∃ different, inst.ne pair.1 pair.2 = ok different
-  | .Node hash left right, .Node baseHash baseLeft baseRight =>
+  | .Node hash left right, .Node baseHash baseLeft baseRight, lengths, fullDepth =>
       triomphe.arc.Arc.ptr_eq (.Node hash left right : Tree T) (.Node baseHash baseLeft baseRight) = ok false →
-      left.RebaseComparisons inst baseLeft ∧ right.RebaseComparisons inst baseRight
-  | _, _ => True
+      0 < fullDepth → ¬ RebaseHashShortcutFor hash baseHash lengths →
+      left.RebaseComparisons inst baseLeft (rebaseLeftLengths lengths (fullDepth - 1)) (fullDepth - 1) ∧
+        right.RebaseComparisons inst baseRight (rebaseRightLengths lengths (fullDepth - 1)) (fullDepth - 1)
+  | _, _, _, _ => True
 
-/-- Ordinary totality laws for an element type imply the scoped pair law.
-The operation specifications can instead use the weaker scoped condition. -/
+/-- Ordinary totality laws imply the scope at arbitrary supplied lengths and
+full depth. The operation specifications use only the weaker selected law. -/
 theorem Tree.rebaseComparisons_of_total {T : Type} (inst : core.cmp.PartialEq T T)
     (heq : ∀ left right, ∃ equal, inst.eq left right = ok equal)
     (hne : ∀ left right, ∃ different, inst.ne left right = ok different)
-    (orig base : Tree T) : orig.RebaseComparisons inst base := by
-  induction orig generalizing base with
+    (orig base : Tree T) (lengths : RebaseLengths) (fullDepth : Nat) :
+    orig.RebaseComparisons inst base lengths fullDepth := by
+  induction orig generalizing base lengths fullDepth with
   | Leaf value =>
     cases base <;> simp only [Tree.RebaseComparisons]
     exact fun _ _ => heq _ _
@@ -83,6 +88,17 @@ theorem Tree.rebaseComparisons_of_total {T : Type} (inst : core.cmp.PartialEq T 
   | Zero depth => cases base <;> trivial
   | Node hash left right ihleft ihright =>
     cases base <;> simp only [Tree.RebaseComparisons]
-    exact fun _ => ⟨ihleft _, ihright _⟩
+    exact fun _ _ _ => ⟨ihleft _ _ _, ihright _ _ _⟩
+
+/-- A selected hash shortcut needs no terminating element comparison, even
+when all comparisons in its descendants fail or diverge. -/
+theorem Tree.rebaseComparisons_of_hash_shortcut {T : Type} (inst : core.cmp.PartialEq T T)
+    (hash baseHash : CacheHash) (left right baseLeft baseRight : Tree T)
+    (lengths : RebaseLengths) (fullDepth : Nat)
+    (hshortcut : RebaseHashShortcutFor hash baseHash lengths) :
+    (Tree.Node hash left right).RebaseComparisons inst (.Node baseHash baseLeft baseRight)
+      lengths fullDepth := by
+  intro _ _ hdescend
+  exact (hdescend hshortcut).elim
 
 end milhouse.tree

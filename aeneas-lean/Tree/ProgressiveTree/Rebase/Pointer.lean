@@ -23,8 +23,9 @@ theorem ProgressiveTree.rebase_on_of_ptr_eq {T : Type} (ValueInst : Value T)
   ProgressiveTree.rebase_on_recursive_of_ptr_eq ValueInst orig base origLength baseLength 0#u32 hpointer
 
 theorem ProgressiveTree.rebaseComparisons_of_ptr_eq {T : Type} (inst : core.cmp.PartialEq T T)
-    (orig base : ProgressiveTree T) (hpointer : triomphe.arc.Arc.ptr_eq orig base = ok true) :
-    orig.RebaseComparisons inst base := by
+    (orig base : ProgressiveTree T) (factor : Option Std.Usize) (packingDepth origLength baseLength depth : Nat)
+    (hpointer : triomphe.arc.Arc.ptr_eq orig base = ok true) :
+    orig.RebaseComparisons inst base factor packingDepth origLength baseLength depth := by
   cases orig <;> cases base <;> simp [ProgressiveTree.RebaseComparisons, hpointer]
 
 theorem ProgressiveTree.rebaseEqualitySound_of_ptr_eq {T : Type} (inst : core.cmp.PartialEq T T)
