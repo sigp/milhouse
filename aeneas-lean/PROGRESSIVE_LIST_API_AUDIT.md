@@ -94,7 +94,7 @@ trait has no additional in-place default. Ordinary Serde does.
 | `Encode::as_ssz_bytes` | `ProgressiveList.as_ssz_bytes_fixed_calls` and `ProgressiveList.as_ssz_bytes_variable_calls` give actual call behavior; `ProgressiveList.as_ssz_bytes_fixed_spec` and `ProgressiveList.as_ssz_bytes_variable_spec` give exact bytes |
 | `Decode::is_ssz_fixed_len` | `ProgressiveList.decode_is_fixed_len_eq` |
 | `Decode::ssz_fixed_len` | `ProgressiveList.decode_fixed_len_eq` |
-| `Decode::from_ssz_bytes` | `ProgressiveList.from_ssz_bytes_trace`, `ProgressiveList.from_ssz_bytes_trace_spec`, and `ProgressiveList.from_ssz_bytes_success_iff`: every successful input determines its actual payload trace; success is equivalent to a complete trace, occupied-layer capacity, and a successful default-map call. Constructive payload contracts remain `ProgressiveList.from_ssz_bytes_fixed_payloads_total_spec`, `ProgressiveList.from_ssz_bytes_fixed_final_payload_total_spec`, and `ProgressiveList.from_ssz_bytes_variable_payloads_total_spec`; empty, zero-width, malformed-offset, and prefix-error results are in the coverage record |
+| `Decode::from_ssz_bytes` | `ProgressiveList.from_ssz_bytes_represents_iff`, `ProgressiveList.from_ssz_bytes_success_represents_iff`, `ProgressiveList.from_ssz_bytes_trace_total_spec_of_overlay`, `ProgressiveList.from_ssz_bytes_fixed_total_spec_of_overlay`, and `ProgressiveList.from_ssz_bytes_variable_total_spec_of_overlay` give exact default-map criteria and total representation contracts. `from_ssz_bytes_trace` recovers actual consumed payloads; `from_ssz_bytes_success_iff` retains the execution-only criterion. Per-occurrence payload, empty-input, zero-width, malformed-offset, prefix-error, and roundtrip contracts remain in the coverage record |
 | `Serialize::serialize` | Out of scope. Historical Serde protocol findings: issue 20 |
 | `Deserialize::deserialize` | Out of scope. Historical visitor/sequence and error-order findings: issues 20 and 22 |
 | `Deserialize::deserialize_in_place` | Out of scope, including the inherited default. Historical source audit: issue 20 |
@@ -134,6 +134,30 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`Decode/Overlay.lean` gives exact default-map overlay and extent conditions
+for representation of the actual decoded sequence. `OverlayTotal.lean`
+combines them with actual input-bound payload consumption and occupied-layer
+`LengthFits` for an exact success and representation criterion. The trace is
+recovered from successful execution; the complete trace total contract derives
+execution, represented contents, valid backing, exact stored sequence/count,
+and installed map. The fixed- and variable-format total contracts also use
+these laws, with existing empty-map contracts retained as adapters. Pending
+emptiness supplies only its observer. Empty bytes bypass packing and element
+metadata; `represents_nil_iff` independently proves the empty sequence's exact
+zero-length, absent-maximum, and absent-read conditions without tree or packing
+premises. Public format integration is `decd3f9` (trace criteria `5c49998`,
+representation foundation `5b8202a`). Geometry, codec-premise, and model-fidelity
+review remain separate obligations; Arbitrary's default-map audit remains open.
+
+Focused and full builds pass (2,082 jobs). The axiom/import audit covers
+5,538 declarations across 366 modules: 5,419 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. The nine named new lemmas
+and two generated helpers use only standard Lean axioms; external axiom use
+is unchanged. No new axiom or admission was introduced, and `size_of` remains
+unused. Borrowed CoW and the remaining assumption/model-fidelity audit are
+unfinished. Debug and Serde remain excluded; TreeHash is deferred outside the
+current goal.
 
 `Construction/Overlay.lean` characterizes representation for all four sequence
 constructors using the actual default map's overlay and logical extent.

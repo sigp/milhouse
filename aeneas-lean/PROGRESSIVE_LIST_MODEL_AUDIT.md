@@ -376,6 +376,28 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Public decoding now has exact default-map representation and success
+  criteria tied to actual consumed payloads. The trace total contract derives
+  execution, represented contents, valid backing, exact stored values/count,
+  and installed map; both canonical-format total contracts also use the exact
+  overlay and extent laws. Existing empty-map contracts remain adapters.
+  Pending emptiness supplies only its observer. Empty bytes bypass packing
+  and element metadata, and `represents_nil_iff` proves that zero backing
+  length, absent maximum, and absent reads are precisely the empty sequence's
+  representation requirements without a tree or packing law. Public format
+  integration is `decd3f9`, trace criteria `5c49998`, and representation
+  foundation `5b8202a`. The full build passes (2,082 jobs); the axiom/import
+  audit covers 5,538 declarations across 366 modules: 5,419 use only standard
+  Lean axioms or none, and 119 use the existing pointer contract. All nine
+  named new lemmas and two generated helpers use only standard Lean axioms;
+  external axiom use is unchanged. No new axiom or admission was introduced,
+  and `size_of` remains unused. These proofs audit default-map laws under the
+  stated packing and decoding premises; they do not finish geometry, codec-
+  premise, or external-model fidelity review. Arbitrary's default-map audit
+  and borrowed CoW remain open. No Rust, extraction, external model, or Aeneas
+  source changed. The seven source suites and 42-root/151-declaration dependency
+  gate were not repeated for this proof-only work. Debug and Serde remain
+  excluded; TreeHash remains deferred.
 - All four sequence constructors now have exact success and representation
   criteria using the actual default map's overlay and
   logical extent. Redundant matching entries and maxima below the input
