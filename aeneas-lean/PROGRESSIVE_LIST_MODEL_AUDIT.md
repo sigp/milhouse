@@ -376,33 +376,36 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
-- The start-condition review (`ded30f2`/`4063863`, total correctness `56bb004`,
-  public execution `2915fca`, progressive execution `13cac37`, progressive scope
-  `9b286fc`, binary activation `6650b5d`) proves execution under input start
-  conditions on selected layers. Packed terminals may start without pending
-  values. Raw execution needs selected binary reflection and reached query/clone
-  termination, but no positive progressive selection or skipped-value agreement.
-  Adding positive selection and skipped-layer/suffix agreement gives total valid
-  materialization; default overlay/extent establish representation and default
-  emptiness supplies only its observer. Four existence criteria cover valid
-  materialization, with or without representation, on the rebuilding branch and
-  across both branches. Capacity, selection, agreement, and actual default
-  construction appear on the necessary-and-sufficient side, without a supplied
-  successful update. Representation adds exact default extent and self-overlay.
-  The no-op must already have valid backing storing the contents. Output backing
-  validity is included; equality of stored lists alone is a weaker observation.
-  These criteria retain explicit start, binary, clone, geometry, and input laws;
-  full necessity/minimality of those laws remains open. Focused and full builds
-  pass (2,103 jobs). The axiom/import audit covers 5,730 declarations across
-  387 modules: 5,611 use standard Lean axioms or none, and 119 use the existing
-  pointer contract. All 18 new named lemmas use standard Lean axioms or none;
-  private/generated declarations are included. No new axiom or admission was
-  introduced; external axiom use is unchanged and `size_of` remains unused.
-  Existing success, total, and cache proofs validate. No Rust, extraction,
-  external model, or Aeneas source changed. The seven source suites and
-  42-root/151-declaration dependency gate were not repeated for this proof-only
-  work. Remaining premise minimality, borrowed CoW, and model fidelity remain
-  unfinished. Debug and Serde remain excluded; TreeHash is deferred.
+- The start-necessity review (`0f0b606`, progressive/list necessity `ffe7dc6`,
+  selected execution/shape `effb200`, binary necessity/equivalence `85703b8`,
+  node selection `3d2a8b4`) proves the selected-layer start condition necessary
+  as well as sufficient under the remaining execution laws. Successful binary
+  nodes select at least one child; positive range witnesses then supply a
+  pending entry. Packed terminals may still start without pending entries.
+  Binary necessity uses layout, alignment, and packed-leaf metadata
+  compatibility, without clone, false-answer, density, capacity, or termination
+  laws. Actual progressive success supplies successful calls at all selected
+  binary layers without external or input-invariant laws; input shape separately
+  supplies metadata compatibility. Four public valid-materialization existence
+  criteria move start conditions to the necessary-and-sufficient side with
+  occupied capacity, positive selection, skipped-layer/suffix agreement, and
+  an actual default outcome. No start condition or successful update is assumed
+  upfront. Final representation adds exact default extent and self-overlay.
+  The no-op must already have valid backing storing the contents; its
+  representation variant also uses input representation. Output backing validity
+  is included; stored-list equality alone is a weaker observation. Selected
+  binary reflection, clone laws, query termination, layout, and input invariants
+  remain in the existence criteria; their full necessity/minimality is open.
+  Focused and full builds pass (2,108 jobs). The axiom/import audit covers
+  5,770 declarations across 392 modules: 5,651 use standard Lean axioms or
+  none, and 119 use the existing pointer contract. All 16 new named lemmas use
+  standard Lean axioms or none; private/generated declarations are included.
+  No new axiom or admission was introduced; external axiom use is unchanged
+  and `size_of` remains unused. Existing success, total, and cache proofs validate.
+  No Rust, extraction, external model, or Aeneas source changed. The seven source
+  suites and 42-root/151-declaration dependency gate were not repeated for this
+  proof-only work. Remaining premise minimality, borrowed CoW, and model fidelity
+  remain unfinished. Debug and Serde remain excluded; TreeHash is deferred.
 - The preceding skipped-layer review (`5a9398e`, read criterion `5481b38`, necessity
   `84224a8`, capacity geometry `f146b17`, contents `b53be68`/`bacc216`,
   bounds/scope `f3248ed`/`2f3e7bc`) weakens false progressive range answers
