@@ -40,10 +40,30 @@ lower-level hypothesis and count the wrapper as proved.
 | `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | `Decode/FixedTotal.lean` and `VariableTotal.lean` prove successful public decoding of canonical bytes, exact indexed reads, recorded length, valid backing, and no pending updates, including empty lists and empty variable payloads. `FixedRoundtrip.lean` and `VariableRoundtrip.lean` compose actual owning encoding and public decoding, preserving the merged sequence and every indexed read while clearing pending updates. `Decode/Success.lean` proves streaming construction terminates with the exact decoded prefix and retained error. `ProgressiveTree/LengthFits.lean` and `Builder/PushLength.lean` derive every rollover bound from representability of the final sequence; fixed decoding retains this condition for general element widths, while the variable offset table supplies it internally. `Backing.lean` proves backing validity after any successful public decode without element-codec or parser laws. The cursor modules derive parsing from canonical bytes, including 32-bit bounds only on emitted offsets. `Decode/Entry.lean` covers metadata, empty input, zero fixed width, and short variable prefixes; `Ssz/VariableInit.lean` covers first-offset bounds/alignment/zero errors in the actual check order. `Decode/ErrorMessages.lean` proves exact builder-error text; `Ssz/ReadOffset.lean` proves four-byte reads and canonical offset roundtrips. Streaming bodies extract with the real error enum and local external models (UPSTREAM_BUGS issue 19); differential release tests cover error order and partial-builder finalization. `Decode/InitialErrors.lean` derives public first-offset bounds, alignment, and zero errors from raw offset bytes without packing, map, or element laws. `Decode/FixedErrors.lean` returns the first invalid element error after an arbitrary successful prefix, covering short final chunks and unconstrained bytes after a full-width invalid element. `Decode/VariableErrors.lean` derives second-offset fixed-section/bounds errors and third-offset decreasing errors directly from bytes, with exact element/error order. `Decode/ErrorResult.lean` propagates arbitrary cursor error traces through actual successful prefix finalization; `Ssz/DecodedLength.lean` derives variable prefix capacity from the table even for malformed input. `Ssz/VariablePrefix.lean`, `VariablePrefixErrors.lean`, and `VariableElementErrors.lean` derive every prefix step from raw table and payload bytes. `Decode/VariablePrefixErrors.lean` and `VariableElementErrors.lean` return the exact malformed-offset or element error after any successful prefix, including empty final payloads. `Decode/PayloadErrors.lean` generalizes both formats to per-entry payload bytes: equal values may have distinct accepted encodings, with no canonical-encoding assumption. `Ssz/PayloadTrace.lean` erases proof-level byte annotations to recover the exact original decoder trace. All public prefix-error results establish actual parser and builder behavior internally; later bytes and decoder calls are unconstrained |
 | `Serialize`, `Deserialize` | Serialize merged sequence; reconstruct the deserialized sequence | Pending. A fresh concrete `Serialize` extraction probe reaches the actual `collect_seq` call but generates mutually recursive Serde dictionaries that fail Lean elaboration (UPSTREAM_BUGS issue 20). A faithful external protocol model or backend support must preserve serializer overrides, element behavior, errors, and iterator length hints. Excluding generic dispatch did not remove the cycle; no failed generated files, erased element dictionary, or opaque milhouse method is retained. Deserialization needs its own extraction/protocol work |
 | Context deserialization feature | Reconstruct the contextual element sequence | Pending feature-specific extraction and proof |
-| `Arbitrary` feature | Successful generation establishes a valid backing tree and length | Actual generator and four trait entry points now extract with the feature enabled. `Arbitrary/Models.lean` models the pinned external Vec control-byte loop and trait defaults, preserving consumed input, first errors, and input replacement by custom generators. High-level generator correctness proofs remain pending |
+| `Arbitrary` feature | Successful generation establishes a valid backing tree and length | `Arbitrary/Behavior.lean` proves every successful actual generator stores the exact generated backing sequence and length and establishes `BackingValid`, without element-generation or default-map laws. `Generated.lean` derives the actual finite control/element trace from every successful call and proves indexed representation, valid backing/spine, and no pending updates under packing and empty-default-map laws. `Total.lean` proves actual generation and construction succeed along finite element traces; occupied-layer `LengthFits` is necessary and sufficient for success under a terminating default map. First element errors propagate unchanged with their consumed input and need no construction laws; constructor errors map to `IncorrectFormat`. `Traits.lean` proves both size-hint methods at every depth and the actual owning-input default, including its total representation and successful backing guarantees. The feature and all four trait entry points are extracted. `Tree/Arbitrary/Models.lean`, `Generation.lean`, and `Reflection.lean` model and prove pinned external Vec collection, including even stopping-byte consumption, first-error state, and custom input replacement; vector success is equivalent to a finite trace. No opaque milhouse method or assumed intermediate success |
 
 ## Existing foundations
 
+- `Tree/Arbitrary/Models.lean`, `Generation.lean`, and `Reflection.lean`:
+  the pinned arbitrary 1.4.1 vector protocol consumes a control byte before
+  each element, stops on false or the first element error, and preserves the
+  exact remaining input. Finite control/element traces imply termination with
+  exact values, and every successful collection has such a trace. Vector
+  capacity follows from the resulting or successful-prefix vector. Custom
+  generators may replace their input; there is no artificial fuel, byte-length
+  termination premise, or element-size-hint assumption.
+- `Tree/ProgressiveList/Arbitrary/Behavior.lean` and `Generated.lean`:
+  every successful extracted list generator stores the actual element-call
+  sequence and its exact recorded length with dense, representable backing.
+  Indexed representation and no pending updates require only the relevant
+  empty-default-map laws. Vector and constructor errors retain exact input
+  state and Rust error mapping, with no packing or map laws on error branches.
+- `Tree/ProgressiveList/Arbitrary/Total.lean` and `Traits.lean`: constructor
+  totality composes with the external trace to establish successful generation
+  and full representation. Occupied-layer capacity is necessary and sufficient
+  for success under a terminating default map. The actual owning-input default
+  runs ordinary generation and discards its final input; both size-hint methods
+  return their pinned defaults without element or map assumptions.
 - `Tree/PackedLeaf/Insert.lean` proves necessary and sufficient position and
   vector bounds for insertion. `PackedLeaf/BulkUpdateSuccess.lean` proves
   actual vector cloning and the dense window scan terminate with the exact
@@ -461,7 +481,28 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest apply-updates totality checkpoint (through `79534c8`): the full Lean
+Latest Arbitrary checkpoint (through `5940d7b`): the full Lean build passes
+(1,930 jobs), including every earlier proof and all new modules through the
+root `Tree` import. All 26 new public control, trace, list-generation,
+capacity-characterization, and trait-default lemmas were audited together;
+their only axioms are `propext`, `Classical.choice`, and `Quot.sound` (or
+subsets). No new lemma inherits an admission, native-evaluation axiom, or Arc
+pointer axiom. Existing upstream Slice/StringIter admissions and lint warnings
+remain in the build output.
+
+The complete extraction was regenerated with `arbitrary` enabled, using the
+actual ProgressiveList method and extraction-only trait callers. The external
+Vec model follows pinned arbitrary 1.4.1. All 326 release tests pass with this
+feature enabled, including four new protocol tests for stopping-byte
+consumption, first-error state, custom input replacement, and list/Vec
+agreement plus trait defaults across progressive layer boundaries. Formatting
+passes. No production method or Aeneas source changed; a local qualification
+postprocessor handles the generated trait's namespace shadowing (UPSTREAM_BUGS
+issue 7). Serialization/deserialization, CoW stepping/materialization, Debug,
+semantic hashing/cache invariants, context deserialization, and other remaining
+coverage obligations above remain part of the full goal.
+
+Previous apply-updates totality checkpoint (through `79534c8`): the full Lean
 build passes (1,923 jobs), including every earlier proof. All 19 new public
 insertion, packed/binary/progressive bulk-update, public application, and
 capacity-characterization lemmas were audited together through the root
