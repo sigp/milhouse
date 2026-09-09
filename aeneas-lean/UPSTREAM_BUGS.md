@@ -144,6 +144,35 @@ nonreflexive values with shared subtrees and differently populated hash caches.
 shortcuts, structural characterization, and sequence soundness. No Aeneas
 source change or replacement model of a milhouse equality method is used.
 
+The concrete `ProgressiveList::fmt` probe at `47d6b81` adds a proof caller
+with explicit `T: Value + Debug` and `U: UpdateMap<T> + Debug`, and removes
+the binary `Tree` Debug exclusion. Charon and Aeneas finish successfully.
+The emitted binary and progressive `fmt` bodies still construct their own
+Debug dictionary before its declaration, through `Arc` fields in `Dyn.mk`.
+Inlining the dictionary and arranging recursive definitions would address
+that syntactic dependency, but would not by itself establish faithful public
+formatting semantics:
+
+- The local `milhouse_fmt` model deliberately supports only default-option
+  SSZ error messages with a string buffer. It does not represent arbitrary
+  formatter options or user-provided sinks. Its helpers currently cover one-
+  and two-field error structs; the derived list/tree formatters also use
+  three-field structs and tuple variants.
+- The existing external `FixedBytes` and `RwLock` Debug models return the
+  opaque built-in formatter unchanged. Redirecting generated dictionaries
+  to `milhouse_fmt.Debug` also exposes this interface mismatch. Reusing these
+  no-op bodies cannot prove visible cache formatting.
+- Pinned `lock_api` 0.4.12, `src/rwlock.rs:1208`, uses `try_read` when
+  formatting: it prints either the protected data or `<locked>`. The current
+  value-only `RwLock` model has no state distinguishing these outcomes.
+  Assuming unlocked caches would restrict the public method's behavior.
+
+The probe is isolated; no generated Debug body, no-op output proof, or Rust
+rewrite is retained in the production extraction. Full Debug correctness
+needs faithful formatter and lock-observation models as well as a solution
+to recursive dictionary emission. This is an extraction/model limitation,
+not evidence of a bug in milhouse's derived Rust implementation.
+
 ## 6. Aeneas Lean backend: `impl_def` fails on self-referential default method
 
 **Stage:** Lean elaboration of generated code.
