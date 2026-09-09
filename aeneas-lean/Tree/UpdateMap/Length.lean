@@ -81,6 +81,37 @@ theorem updated_length_succeeds {T U : Type}
       simp [hnext]
     exact ⟨_, hlen, updated_length_max_spec mapInst previous updates index _ hmax hlen⟩
 
+/-- Exact total merged-length calculation from the actual optional maximum.
+Only a present maximum needs a representable successor; no map-read or
+representation law is needed by this metadata computation. -/
+theorem updated_length_total_spec {T U : Type}
+    (mapInst : update_map.UpdateMap U T) (previous : Length) (updates : U)
+    (largest : Option Std.Usize) (hmax : mapInst.max_index updates = ok largest)
+    (hbound : ∀ index, largest = some index → index.val < Std.Usize.max) :
+    ∃ length, updated_length mapInst previous updates = ok length ∧
+      length.val = largest.elim previous.val (fun index => max (index.val + 1) previous.val) := by
+  cases largest with
+  | none =>
+    exact ⟨previous, by simp [updated_length, hmax, core.option.Option.map_or], rfl⟩
+  | some index =>
+    exact updated_length_succeeds mapInst previous updates index hmax (hbound index rfl)
+
+/-- With a returned map maximum, successor representability is both necessary
+and sufficient for the actual length computation to succeed. -/
+theorem updated_length_success_iff {T U : Type}
+    (mapInst : update_map.UpdateMap U T) (previous : Length) (updates : U)
+    (largest : Option Std.Usize) (hmax : mapInst.max_index updates = ok largest) :
+    (∃ length, updated_length mapInst previous updates = ok length) ↔
+      ∀ index, largest = some index → index.val < Std.Usize.max := by
+  constructor
+  · rintro ⟨length, hlength⟩ index hindex
+    have hvalue := updated_length_max_spec mapInst previous updates index length
+      (by simpa only [hindex] using hmax) hlength
+    scalar_tac
+  · intro hbound
+    obtain ⟨length, hlength, _⟩ := updated_length_total_spec mapInst previous updates largest hmax hbound
+    exact ⟨length, hlength⟩
+
 /-- Recording an inserted key below the current logical end preserves merged
     length. The metadata law describes maximum-index insertion, independently
     of how the new map was produced (push, mutable access, or CoW write-back). -/
