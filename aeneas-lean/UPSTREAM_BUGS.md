@@ -985,8 +985,11 @@ their two caller roots, succeeds without templates or admissions and uses
 Aeneas's existing checked-multiplication primitive. Both generated modules
 compile. The entire saturation
 body is proved equal to the local model for every input in `5be93e6`, using
-only standard Lean axioms; 35 native boundary pairs also pass. The checked
-power loop's equality remains unproved. This does not establish the Rust
+only standard Lean axioms; 35 native boundary pairs also pass. Commit
+`3182fd0` additionally proves the entire checked-power loop equals its local
+model for every base and exponent, deriving termination and sound overflow
+detection without caller premises. Its 77 native reference pairs and eight
+large-exponent cases pass. This does not establish the Rust
 implementation of the underlying checked-multiplication primitive. No Aeneas,
 production Rust, or local model body was changed.
 

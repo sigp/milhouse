@@ -110,7 +110,7 @@ need their remaining review. No production model or Aeneas source changed.
 
 Run `python3 scripts/aeneas-audit-core-models.py` from the repository root.
 The [core source comparisons](reproducers/core_models/README.md) prove the local
-`mem::take`, `usize::div_ceil`, and `u128::saturating_mul` models equal fresh
+`mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` models equal fresh
 extraction of their actual standard-library bodies. `take` matches for arbitrary Default results without
 axioms. Ceiling division matches for every pair of machine-word inputs,
 including zero divisors, using only standard Lean axioms and no arithmetic
@@ -118,10 +118,15 @@ bound or positivity premise. Its rounding bound is derived internally.
 Saturation also matches for every input, including overflow, with only
 standard Lean axioms and no size premise. Its called checked multiplication
 remains an existing Aeneas foundation primitive.
+Checked power matches for every `u128` base and `u32` exponent. The proof
+derives loop termination, the accumulator invariant, and sound overflow
+detection, without imposing an arithmetic or termination premise on callers.
+It also uses only standard Lean axioms and the existing arithmetic foundation.
 
-Five native tests cover Default call order, movement without dropping the old
+Seven native tests cover Default call order, movement without dropping the old
 value, the tested default-panic state, ceiling-division word boundaries, and
-zero divisors, plus 35 saturation boundary pairs. Both this suite and the
+zero divisors, plus 35 saturation boundary pairs, 77 checked-power reference
+pairs, and eight large-exponent cases. Both this suite and the
 Option suite pass with the shared
 source/provenance checker and per-theorem axiom policy. Eleven malformed core
 inventory/report inputs and an injected axiom in an Option proof are rejected.
@@ -132,8 +137,8 @@ changed; the main library and dependency counts are unchanged. These results
 reduce the remaining model review without completing borrowed CoW or the
 other numeric/container boundaries.
 
-The remaining numeric probe fully extracts `u128::checked_pow`'s squaring
-loop, but its comparison is unproved. Trailing-zero counting, next-power-of-two
+The remaining numeric probe retains the now-verified checked-power and
+saturation bodies as controls. Trailing-zero counting, next-power-of-two
 rounding, and ordinary power still reach missing compiler intrinsics. Broader
 source inclusion exposes unsupported overflow-pair operations inside existing
 foundation primitives. The preserved callers, exact commands, and trust

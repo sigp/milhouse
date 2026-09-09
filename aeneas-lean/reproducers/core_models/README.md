@@ -1,7 +1,7 @@
 # Core model source comparisons
 
-This check compares the local `mem::take`, `usize::div_ceil`, and
-`u128::saturating_mul` models with fresh extraction of their actual pinned
+This check compares the local `mem::take`, `usize::div_ceil`,
+`u128::saturating_mul`, and `u128::checked_pow` models with fresh extraction of their actual pinned
 Rust standard-library bodies. The Rust file calls those methods and contains
 native protocol tests; it does not
 copy their implementations or replace a milhouse operation.
@@ -12,8 +12,8 @@ Run from the repository root:
 python3 scripts/aeneas-audit-core-models.py
 ```
 
-The runner builds `Tree.FunsExternal`, checks Rust formatting, runs five native
-tests, extracts the three standard-library bodies into `CoreSource`, checks their
+The runner builds `Tree.FunsExternal`, checks Rust formatting, runs seven native
+tests, extracts the four standard-library bodies into `CoreSource`, checks their
 source provenance and completeness, and compiles `CheckModels.lean`. Each run
 uses a fresh directory under `.lake/core-model-audit/`; `report.json` records
 the input hashes, versions, source spans, and exact proof axiom dependencies.
@@ -25,7 +25,7 @@ Charon 0.1.223, Aeneas `b59d5188`, and `nightly-2026-06-01` Rust commit
 `scripts/aeneas_source_model_audit.py`. Each suite declares its source paths
 and per-theorem axiom policy. The Option suite still requires every comparison
 to be axiom-free; this suite permits only standard Lean axioms for ceiling
-division and saturation and requires `take` to be axiom-free.
+division, saturation, and checked power and requires `take` to be axiom-free.
 
 ## Verified behavior
 
@@ -34,6 +34,7 @@ division and saturation and requires `take` to be axiom-free.
 | `mem::take` | Equal to the actual body from `core/src/mem/mod.rs:849`, for any value and Default dictionary, including default failure/divergence. Success returns the old value and installs the returned default in the modeled place. The proof is axiom-free. |
 | `usize::div_ceil` | Equal to the actual body from `core/src/num/uint_macros.rs:3755` for all machine-word inputs, including zero divisors. The proof uses only `propext`, `Classical.choice`, and `Quot.sound`; it assumes no positivity or size bound. |
 | `u128::saturating_mul` | Equal to the actual body from `core/src/num/uint_macros.rs:2516` for every pair of inputs, including overflow. The proof uses only the same three standard Lean axioms, with no bound premise. The called checked multiplication remains an existing Aeneas foundation primitive. |
+| `u128::checked_pow` | Equal to the actual body and squaring loop from `core/src/num/uint_macros.rs:2346` for every `u128` base and `u32` exponent. The proof covers zero, termination, and overflow without arithmetic or termination premises, using only the same three standard Lean axioms and the existing checked-multiplication foundation. |
 
 The ceiling-division proof follows Rust's quotient, remainder, and conditional
 increment. A nonzero remainder implies both a positive dividend and divisor
@@ -46,6 +47,15 @@ implies overflow and selects `u128::MAX`. Both branches equal the local minimum
 of the mathematical product and that maximum. This compares the entire
 `saturating_mul` body, without claiming direct extraction of `checked_mul`.
 
+The checked-power proof follows both parity branches of the extracted loop.
+The exponent is positive inside the loop and strictly decreases whenever the
+loop continues. The accumulator stays positive unless the base is zero, so
+overflow of a reached multiplication implies overflow of the final power.
+The loop's mathematical value is `accumulator * base ^ exponent`; parity and
+squaring preserve it. The initial accumulator of one establishes the invariant,
+and exponent zero returns one directly. These internal invariants add no
+assumption to the public comparison.
+
 The native tests check that successful `take` calls Default once, moves the
 old value without dropping it, and places the default value in its slot. A
 panicking Default leaves the tested original value intact and undropped.
@@ -54,6 +64,10 @@ three zero-divisor cases. These native checks supplement the universal Lean
 equalities; they are not universal panic-state or destructor proofs.
 Saturation is checked at 35 pairs covering zero, one, exact products, and
 overflow, using a division-based overflow check as the native reference.
+Checked power is compared with repeated multiplication at 77 pairs, including
+the power-of-two and power-of-three overflow boundaries and `0^0`. That
+reference guards multiplication using division. Eight additional checks cover
+zero, one, two, and `u128::MAX` at the two largest `u32` exponents.
 
 The checker rejects missing or opaque source bodies, incorrect source paths,
 partial extraction, and unexpected axiom dependencies. Eleven malformed
@@ -61,7 +75,7 @@ inventory/report inputs were rejected, including a null structured body and
 an injected axiom in the `take` theorem. The Option suite also rejected an
 injected `propext` dependency after moving to the shared runner.
 
-All three compared methods extract completely. The comparisons still trust
+All four compared methods extract completely. The comparisons still trust
 Aeneas's reference/value abstraction and its foundation models, including
 `mem::replace` and scalar arithmetic/checked multiplication. Destructor
 execution is omitted by extraction; the
@@ -73,13 +87,13 @@ increase its theorem count.
 ## Remaining numeric boundaries
 
 `remaining.rs` preserves independent diagnostic callers for the five numeric
-models inspected in this review, including saturation as a control.
+models inspected in this review, including saturation and checked power as controls.
 It is separate from the passing audit's proof roots.
 
 | Method | Pinned extraction result / remaining obligation |
 | --- | --- |
 | `u128::saturating_mul` | Complete body using built-in `U128.checked_mul`; the equality above is proved. |
-| `u128::checked_pow` | Complete exponentiation-by-squaring loop using built-in checked multiplication. Equality with the local mathematical power model remains unproved. |
+| `u128::checked_pow` | Complete exponentiation-by-squaring loop using built-in checked multiplication; equality with the local mathematical power model is proved in `3182fd0`. |
 | `usize::trailing_zeros` | The body delegates to `core::intrinsics::cttz`, emitted as an external axiom template. |
 | `usize::checked_next_power_of_two` | The private `one_less_than_next_power_of_two` helper calls `core::intrinsics::ctlz_nonzero`, emitted as an external axiom template. |
 | `usize::pow` | Both squaring loops extract, but their selector `core::intrinsics::is_val_statically_known` remains an external axiom template, even when explicitly included. Rust documents either Boolean result as permitted; a comparison must account for both branches. |

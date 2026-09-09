@@ -86,15 +86,17 @@ points and records the trusted boundaries that still need fidelity review.
 
 - The [core source comparisons](reproducers/core_models/README.md) validate
   `mem::take`, used for pending-map rebuilding, `usize::div_ceil`, used in
-  builder finalization, and `u128::saturating_mul`, used in capacity arithmetic,
+  builder finalization, and `u128::saturating_mul`/`u128::checked_pow`, used in capacity arithmetic,
   against their actual extracted standard-library bodies.
   Default results are unconstrained; zero-divisor failure and rounding safety
   are covered for every machine-word input without an arithmetic premise.
-  Saturation covers every input and overflow, retaining Aeneas's existing
-  checked-multiplication primitive. `take` is axiom-free; the two numeric
-  comparisons use only standard Lean axioms. The source audit and five native
+  Saturation and checked power cover every input and overflow, retaining
+  Aeneas's existing checked-multiplication primitive. Checked-power termination
+  and its accumulator invariant are derived from the actual loop and initial
+  state. `take` is axiom-free; the three numeric
+  comparisons use only standard Lean axioms. The source audit and seven native
   tests pass. Remaining intrinsic boundaries are recorded in UPSTREAM_BUGS
-  issue 24; the extracted checked-power loop still needs its comparison proof.
+  issue 24.
 - The [Option source comparison](reproducers/option_models/README.md) checks
   eleven local Option models against independent extraction of their actual
   pinned standard-library bodies. A twelfth theorem verifies `cloned` through
@@ -1067,7 +1069,18 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest core-model checkpoint (`5be93e6`): the source audit additionally proves
+Latest core-model checkpoint (`3182fd0`): the source audit also proves
+`u128::checked_pow` equals its actual extracted squaring loop for every base
+and exponent. Exponent-halving termination and sound intermediate-overflow
+detection are derived internally; the public equality has no arithmetic or
+termination premise. All four comparisons and seven native tests pass,
+including 77 checked-power reference pairs and eight large-exponent cases.
+Only standard Lean axioms and the existing arithmetic foundation are used.
+The three missing-intrinsic boundaries and borrowed CoW remain open. No
+production/model/library change was made; the main-library audit was not
+repeated and its totals remain 5,015 declarations across 314 modules.
+
+Previous core-model checkpoint (`5be93e6`): the source audit additionally proves
 `u128::saturating_mul` equals its actual extracted body for all inputs, using
 only standard Lean axioms and the existing checked-multiplication foundation.
 All three source comparisons and five native tests pass. The checked-power

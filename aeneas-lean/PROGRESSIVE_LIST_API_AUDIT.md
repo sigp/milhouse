@@ -143,11 +143,11 @@ function item. This reduces a trusted-model review obligation; it does not
 change API coverage or complete the borrowed CoW proofs.
 
 The [core source comparisons](reproducers/core_models/README.md) additionally
-validate `mem::take`, `usize::div_ceil`, and `u128::saturating_mul` against their
+validate `mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` against their
 actual extracted standard-library bodies, including arbitrary Default results,
-zero divisors, and saturation on overflow. Their shared audit and all five
-native tests pass. Checked multiplication remains an Aeneas foundation
-primitive. Checked power extracts but still needs a comparison proof; three
+zero divisors, saturation on overflow, and checked-power termination/overflow.
+Their shared audit and all seven native tests pass. Checked multiplication
+remains an Aeneas foundation primitive; three
 other numeric helpers retain missing intrinsic templates (UPSTREAM_BUGS issue
 24). No production model or public-operation specification changed.
 
