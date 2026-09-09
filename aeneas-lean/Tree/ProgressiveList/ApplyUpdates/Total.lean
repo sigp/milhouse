@@ -99,9 +99,9 @@ theorem ProgressiveList.apply_updates_nonempty_total_spec {T U : Type}
     hqueries hrange hrep hbacking.1 hfits
     hempty defaults hdefault
   refine ⟨result, happly, ProgressiveList.apply_updates_spec ValueInst mapInst self contents
-    hlayout (fun maximum hmax => (hclone maximum hmax).preserves)
-    hrange hmaximum ?_ hrep hbacking happly⟩
-  intro actual hactual
+    (fun _ => hlayout) (fun _ maximum hmax => (hclone maximum hmax).preserves)
+    (fun _ => hrange) (fun _ => hmaximum) ?_ hrep hbacking happly⟩
+  intro _ actual hactual
   rw [hdefault] at hactual
   cases hactual
   exact ⟨hdefaultGet, hdefaultMax, hdefaultEmpty⟩

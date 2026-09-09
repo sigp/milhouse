@@ -46,7 +46,7 @@ theorem ProgressiveList.length_fits_after_nonempty_apply_updates {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     ProgressiveTree.LengthFits factor contents.length := by
   have hafter := ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
-    hlayout hrange hmaximum hrep hbacking happly
+    (fun _ => hlayout) (fun _ => hrange) (fun _ => hmaximum) hrep hbacking happly
   have hfits := hafter.1.lengthFits hafter.2
   rwa [ProgressiveList.backing_length_after_nonempty_apply_updates ValueInst mapInst self contents
     hrep hempty happly] at hfits

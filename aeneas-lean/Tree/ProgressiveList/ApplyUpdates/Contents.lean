@@ -40,23 +40,31 @@ theorem ProgressiveList.Represents.extension_complete {T U : Type}
 /-- Successful application preserves the represented sequence at every index
     and preserves the structural spine invariants for the new backing length.
     Extension completeness follows from the old sequence representation; no
-    additional density, arithmetic, or backing-readability premise is required. -/
+    additional density, arithmetic, or backing-readability premise is required.
+    Packing, clone, range, maximum, and default-map laws are needed only on
+    the nonempty branch that rebuilds the backing. -/
 theorem ProgressiveList.apply_updates_represents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+    (hrange : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRangeOn (update_map.RangeExcludesValuesAt mapInst self.updates)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+    (hmaximum : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
-    (hdefaultGet : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+    (hdefaultGet : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
       ∀ query, mapInst.get defaults query = ok none)
-    (hdefaultMax : ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
+    (hdefaultMax : mapInst.is_empty self.updates = ok false →
+      ∀ defaults, mapInst.coredefaultDefaultInst.default = ok defaults →
       mapInst.max_index defaults = ok none)
     (hrep : self.Represents ValueInst mapInst contents)
     (hshape : self.tree.Shape factor 0) (hends : self.tree.EndsAfter factor 0 self.length.val)
@@ -66,7 +74,7 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
     result.Represents ValueInst mapInst contents ∧ result.tree.Shape factor 0 ∧
       result.tree.EndsAfter factor 0 result.length.val := by
   rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
-    ⟨_, rfl⟩ | ⟨defaults, length, newTree, _, hdefault, hlength, hupdate, rfl⟩
+    ⟨_, rfl⟩ | ⟨defaults, length, newTree, hempty, hdefault, hlength, hupdate, rfl⟩
   · exact ⟨hrep, hshape, hends⟩
   · have hlenBefore : ProgressiveList.len ValueInst mapInst self = ok length := by
       rw [ProgressiveList.len_eq_updated_length]
@@ -78,14 +86,14 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
       simpa only [hcontentsLength] using hrep.extension_complete
     obtain ⟨hnewShape, hnewEnds, hnewContents⟩ :=
       progressive_tree.ProgressiveTree.with_updated_leaves_shape_contents ValueInst mapInst self.updates
-        hlayout hclone
-        hrange hmaximum hcomplete hshape hends hupdate
+        (hlayout hempty) (hclone hempty)
+        (hrange hempty) (hmaximum hempty) hcomplete hshape hends hupdate
     refine ⟨⟨⟨length, ?_, hcontentsLength⟩, ?_⟩, hnewShape, hnewEnds⟩
-    · exact ProgressiveList.len_of_no_max_index ValueInst mapInst _ (hdefaultMax defaults hdefault)
+    · exact ProgressiveList.len_of_no_max_index ValueInst mapInst _ (hdefaultMax hempty defaults hdefault)
     · intro query
       by_cases hin : query.val < contents.length
       · rw [ProgressiveList.get_of_backing ValueInst mapInst _ query
-          (hdefaultGet defaults hdefault query) (by scalar_tac)]
+          (hdefaultGet hempty defaults hdefault query) (by scalar_tac)]
         have hread := hrep.2 query
         obtain ⟨pending, hpending⟩ := ProgressiveList.pending_get_of_get_success ValueInst mapInst self hread
         have hupdated := hnewContents query pending (by simp [progressive_tree.progressiveCapacity])
@@ -102,7 +110,7 @@ theorem ProgressiveList.apply_updates_represents {T U : Type}
             rw [hpending] at hvalue
             cases hvalue
       · rw [ProgressiveList.get_none_of_backing_bound ValueInst mapInst _ query
-          (hdefaultGet defaults hdefault query) (by scalar_tac),
+          (hdefaultGet hempty defaults hdefault query) (by scalar_tac),
           _root_.List.getElem?_eq_none (by omega)]
 
 end milhouse.progressive_list
