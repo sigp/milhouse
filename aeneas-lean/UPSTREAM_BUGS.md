@@ -723,6 +723,33 @@ for discussion; the existing iterator enumeration and exact-length proofs are
 available underneath. Deserialization still needs its own extraction/protocol
 work and is not claimed proved by this probe.
 
+### Ordinary deserialization: source dependency audit
+
+The current public `ProgressiveList::deserialize` in `src/progressive_list.rs`
+dispatches through `Deserializer::deserialize_seq` with the actual
+`ProgressiveListVisitor`. Its `visit_seq` in `src/serde.rs` calls
+`SeqAccess::next_element<T>` through `from_fn` and `itertools::process_results`,
+feeding the real `ProgressiveList::try_from_iter`. In pinned serde 1.0.217,
+`next_element<T>` takes a `Deserialize<T>` dictionary whose method in turn
+takes a `Deserializer` dictionary. Thus the ordinary visitor reaches the
+same recursive interface family demonstrated by the contextual extraction in
+issue 22. This is a source dependency finding, not a fresh extraction result;
+no equivalent failed probe or partial ordinary-deserialization model is added.
+
+A faithful model must retain the actual `next_element` dispatch, including
+possible overrides. Its default calls `next_element_seed(PhantomData)`, but
+replacing the public call with that default would bypass overrides. Pinned
+itertools 0.13.0 records a sequence error and presents it to the processor as
+end-of-iteration; `process_results` returns the recorded error only after the
+processor returns. Builder finalization and error formatting may therefore
+run before that error is returned. An immediate-error loop would need to
+preserve this order, in addition to the generic trait interface.
+
+The public default `Deserialize::deserialize_in_place` is also part of the
+required API coverage. ProgressiveList supplies no override; serde 1.0.217
+calls the actual `deserialize` and assigns its result to the destination only
+after success. This default remains unproved alongside ordinary deserialization.
+
 ## 21. Progressive hashing: parallel recursive groups, LazyLock, and shared cache writes
 
 **Stage:** Aeneas translation and the external lock model.
