@@ -436,6 +436,17 @@ derived public method and trait instance without adding a production call or
 changing comparison behavior. The proofs target that public method, not a
 replacement body or an assumed result for the caller.
 
+The inherited `Clone::clone_from` is also made reachable through a concrete
+proof-only caller. Aeneas emits the actual ProgressiveList `Clone` dictionary
+and selects its standard `clone_from` default. The existing Lean library
+supports that default directly; no new postprocessing is needed. The method
+clones the source list rather than calling the pending map's `clone_from`.
+`Tree/ProgressiveList/Clone/From.lean` connects the emitted caller to the
+trait method and proves source-sequence replacement, source backing/cache
+preservation, the pending observer, and total success under only the source
+map clone's relevant laws. No destination invariant is required. Production
+Rust behavior, the external models, and Aeneas are unchanged.
+
 ## 13. Aeneas: progressive traversal borrows and collection adapters
 
 **Stage:** symbolic execution and signature translation.
