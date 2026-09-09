@@ -1,4 +1,5 @@
 import Tree.Funs
+import Tree.Arbitrary.Generation
 import Tree.Formatting.Error
 import Tree.Invariants
 import Tree.Contents
