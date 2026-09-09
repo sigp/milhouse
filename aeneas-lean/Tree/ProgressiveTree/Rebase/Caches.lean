@@ -9,8 +9,9 @@ namespace milhouse.progressive_tree
 
 /-- Recursive progressive rebasing preserves contents and all cache
 predicates. Retaining a progressive node's hash is justified by preservation
-of both its binary layer and its complete right suffix. Base validity is
-required only at the matching layers entered after the pointer shortcut. -/
+of both its binary layer and its complete right suffix. Base validity covers
+only caches selected by binary action categories within the matching layers
+entered after the progressive pointer shortcut. -/
 theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
@@ -21,7 +22,7 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
     (hfit : orig.Fits factor depth.val)
     (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
-    (horigCache : orig.CachesOn P depth.val) (hbaseCache : orig.RebaseBaseCachesOn P base depth.val)
+    (horigCache : orig.CachesOn P depth.val) (hbaseCache : orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base depth.val)
     (hrebase : ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
       ok (core.result.Result.Ok after)) :
     after.elements = orig.elements ∧ after.CachesOn P depth.val := by
@@ -67,8 +68,8 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
 
 /-- Public progressive rebasing preserves the materialized sequence and
 every original cache invariant, including retained suffix caches. The base
-needs validity only for binary caches in the selected progressive layers;
-unused or pointer-shared suffixes require no separate base-cache premise.
+needs validity only for selected binary caches in reached progressive layers;
+binary no-ops and unused or shared suffixes require no base-cache premise.
 Base progressive caches are never imported, and logical lengths may differ. -/
 theorem ProgressiveTree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -79,7 +80,7 @@ theorem ProgressiveTree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     (hfit : orig.Fits factor 0)
     (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
-    (horigCache : orig.CachesOn P 0) (hbaseCache : orig.RebaseBaseCachesOn P base 0)
+    (horigCache : orig.CachesOn P 0) (hbaseCache : orig.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst P base 0)
     (hrebase : ProgressiveTree.rebase_on ValueInst orig base origLength baseLength =
       ok (core.result.Result.Ok after)) :
     after.elements = orig.elements ∧ after.CachesOn P 0 := by

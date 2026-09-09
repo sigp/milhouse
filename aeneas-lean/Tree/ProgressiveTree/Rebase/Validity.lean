@@ -48,12 +48,13 @@ theorem ProgressiveTree.cachedHashesAgree_of_cleared {T : Type}
 
 /-- Valid binary caches and the reference law on the finite corresponding
 input pairs establish all hash-shortcut obligations. Base validity is needed
-only in selected progressive layers. Neither tree's progressive cache
+only for selected binary caches in reached layers. Neither tree's progressive cache
 validity, shape, or packing layout is required by this bridge. -/
 theorem ProgressiveTree.cachedHashesAgree_of_valid_caches {T : Type}
-    (reference : CacheSubject T → CacheHash) (orig base : ProgressiveTree T) (depth : Nat)
+    (inst : core.cmp.PartialEq T T) (reference : CacheSubject T → CacheHash)
+    (orig base : ProgressiveTree T) (depth : Nat)
     (horig : orig.BinaryCachesOn (CacheValidFor reference) depth)
-    (hbase : orig.RebaseBaseCachesOn (CacheValidFor reference) base depth)
+    (hbase : orig.RebaseBaseCachesOn inst (CacheValidFor reference) base depth)
     (hcollisions : BinaryHashCollisionSoundOn reference (orig.rebaseHashInputs base depth)) :
     orig.CachedHashesAgree base := by
   induction orig generalizing base depth with
@@ -64,7 +65,7 @@ theorem ProgressiveTree.cachedHashesAgree_of_valid_caches {T : Type}
     | ProgressiveNode baseHash baseLeft baseRight =>
       intro hpointer
       simp only [ProgressiveTree.rebaseHashInputs, hpointer, ↓reduceIte] at hcollisions
-      exact ⟨tree.Tree.cachedHashesAgree_of_valid_caches reference left baseLeft (2 * depth)
+      exact ⟨tree.Tree.cachedHashesAgree_of_valid_caches inst reference left baseLeft (2 * depth)
           horig.1 (hbase hpointer).1 (hcollisions.mono (fun pair hpair => List.mem_append_left _ hpair)),
         ih baseRight (depth + 1) horig.2 (hbase hpointer).2
           (hcollisions.mono (fun pair hpair => List.mem_append_right _ hpair))⟩

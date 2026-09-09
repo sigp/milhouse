@@ -1,5 +1,6 @@
 import Tree.HashCache.Cleared
 import Tree.Rebase.ContentsAction
+import Tree.Rebase.CacheInputs
 
 open Aeneas Aeneas.Std Result
 
@@ -87,13 +88,15 @@ theorem Tree.cachedHashesAgree_of_cleared {T : Type}
     apply hshortcut.1
     simp [hclear.1, Array.repeat]
 
-/-- Valid caches and collision soundness on the corresponding finite hash
-inputs establish the operational shortcut law required by rebasing. Depths
-are tracked explicitly; no shape, element, packing, or execution law is used. -/
+/-- Original cache validity, validity of selected base caches, and collision
+soundness on the corresponding finite hash inputs establish the operational
+shortcut law. Depths are explicit; no shape, element soundness, packing, or
+execution law is used. -/
 theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
-    (reference : CacheSubject T → CacheHash) (orig base : Tree T) (depth : Nat)
+    (inst : core.cmp.PartialEq T T) (reference : CacheSubject T → CacheHash)
+    (orig base : Tree T) (depth : Nat)
     (horig : orig.CachesOn (CacheValidFor reference) depth)
-    (hbase : base.CachesOn (CacheValidFor reference) depth)
+    (hbase : orig.RebaseBaseCachesOn inst (CacheValidFor reference) base depth)
     (hcollisions : BinaryHashCollisionSoundOn reference (orig.rebaseHashInputs base depth)) :
     orig.CachedHashesAgree base := by
   induction orig generalizing base depth with
@@ -109,6 +112,8 @@ theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
       intro hpointer
       refine ⟨?_, ?_⟩
       · intro hshortcut
+        have hbaseCache := hbase.base_of_equal_replace
+          (Tree.rebaseKind_of_hash_shortcut inst _ _ _ _ _ _ hpointer hshortcut)
         have hguard := hshortcut
         obtain ⟨hnonzero, hequal, hlength⟩ := hshortcut
         have hnonzero' : hash ≠ Array.repeat 32#usize 0#u8 := by
@@ -117,7 +122,7 @@ theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
           simp [hzero, Array.repeat]
         have hhash : hash = baseHash := Subtype.ext hequal
         have horigRef := horig.1.eq_reference_of_nonzero hnonzero'
-        have hbaseRef := hbase.1.eq_reference_of_nonzero (by
+        have hbaseRef := hbaseCache.1.eq_reference_of_nonzero (by
           intro hzero
           exact hnonzero' (hhash.trans hzero))
         apply hcollisions (depth, left.elements ++ right.elements,
@@ -127,13 +132,14 @@ theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
         · simpa only [← horigRef] using hnonzero'
         · exact horigRef.symm.trans (hhash.trans hbaseRef)
       · intro hdescend
+        have hbaseChildren := hbase.children hpointer hdescend
         have hchildren : BinaryHashCollisionSoundOn reference
             (left.rebaseHashInputs baseLeft (depth - 1) ++
               right.rebaseHashInputs baseRight (depth - 1)) := by
           simpa only [Tree.rebaseHashInputs, hpointer, ↓reduceIte, if_neg hdescend] using hcollisions
-        exact ⟨ihleft baseLeft (depth - 1) horig.2.1 hbase.2.1
+        exact ⟨ihleft baseLeft (depth - 1) horig.2.1 hbaseChildren.1
             (hchildren.mono (fun pair hpair => List.mem_append_left _ hpair)),
-          ihright baseRight (depth - 1) horig.2.2 hbase.2.2
+          ihright baseRight (depth - 1) horig.2.2 hbaseChildren.2
             (hchildren.mono (fun pair hpair => List.mem_append_right _ hpair))⟩
 
 end tree

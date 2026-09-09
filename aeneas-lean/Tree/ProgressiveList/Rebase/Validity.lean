@@ -8,7 +8,7 @@ namespace milhouse.progressive_list
 
 /-- Successful in-place rebasing preserves the backing contents and reference
 cache validity. The operational shortcut premise is derived from original
-cache validity, base binary-cache validity in selected progressive layers,
+cache validity, validity of selected base caches in reached progressive layers,
 and collision soundness on the finite corresponding input pairs. -/
 theorem ProgressiveList.rebase_on_valid_cache_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
@@ -22,12 +22,12 @@ theorem ProgressiveList.rebase_on_valid_cache_spec {T U : Type}
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0))
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0)
+    (hbaseCache : self.tree.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst (CacheValidFor reference) base.tree 0)
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result)) :
     result.tree.elements = self.tree.elements ∧ result.tree.CachesOn (CacheValidFor reference) 0 := by
   have hhashes := progressive_tree.ProgressiveTree.cachedHashesAgree_of_valid_caches
-    reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
+    ValueInst.corecmpPartialEqInst reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
   exact ProgressiveList.rebase_on_cache_spec ValueInst mapInst hlayout
     (CacheValidFor reference) self base hself hbase hfit hequality hhashes hselfCache hbaseCache hrebase
 
@@ -45,12 +45,12 @@ theorem ProgressiveList.rebase_valid_cache_spec {T U : Type}
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0))
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0)
+    (hbaseCache : self.tree.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst (CacheValidFor reference) base.tree 0)
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result)) :
     result.tree.elements = self.tree.elements ∧ result.tree.CachesOn (CacheValidFor reference) 0 := by
   have hhashes := progressive_tree.ProgressiveTree.cachedHashesAgree_of_valid_caches
-    reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
+    ValueInst.corecmpPartialEqInst reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
   exact ProgressiveList.rebase_cache_spec ValueInst mapInst hlayout
     (CacheValidFor reference) self base hself hbase hfit hequality hhashes hselfCache hbaseCache hrebase
 
@@ -70,13 +70,13 @@ theorem ProgressiveList.rebase_on_total_valid_cache_spec {T U : Type}
     (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree factor
       packingDepth.val self.length.val base.length.val 0)
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0) :
+    (hbaseCache : self.tree.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst (CacheValidFor reference) base.tree 0) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ result.updates = self.updates ∧
       result.tree.CachesOn (CacheValidFor reference) 0 := by
   have hhashes := progressive_tree.ProgressiveTree.cachedHashesAgree_of_valid_caches
-    reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
+    ValueInst.corecmpPartialEqInst reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
   exact ProgressiveList.rebase_on_total_cache_spec ValueInst mapInst hlayout
     (CacheValidFor reference) self base contents hrep hbacking hbase hequality hhashes hcompare hselfCache hbaseCache
 
@@ -104,13 +104,13 @@ theorem ProgressiveList.rebase_total_valid_cache_spec {T U : Type}
         largest.elim self.length.val
           (fun index => max (index.val + 1) self.length.val) = contents.length)
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0) :
+    (hbaseCache : self.tree.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst (CacheValidFor reference) base.tree 0) :
     ∃ result, ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result) ∧
       result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates ∧
       result.tree.CachesOn (CacheValidFor reference) 0 := by
   have hhashes := progressive_tree.ProgressiveTree.cachedHashesAgree_of_valid_caches
-    reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
+    ValueInst.corecmpPartialEqInst reference self.tree base.tree 0 hselfCache.binary hbaseCache hcollisions
   exact ProgressiveList.rebase_total_cache_spec ValueInst mapInst hlayout
     (CacheValidFor reference) self base contents hrep hbacking hbase hequality hhashes hcompare hclone hmapGet hmapMax
     hselfCache hbaseCache
@@ -129,7 +129,7 @@ theorem ProgressiveList.rebase_on_preserves_valid_caches {T U : Type}
     (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hcollisions : BinaryHashCollisionSoundOn reference (self.tree.rebaseHashInputs base.tree 0))
     (hselfCache : self.tree.CachesOn (CacheValidFor reference) 0)
-    (hbaseCache : self.tree.RebaseBaseCachesOn (CacheValidFor reference) base.tree 0)
+    (hbaseCache : self.tree.RebaseBaseCachesOn ValueInst.corecmpPartialEqInst (CacheValidFor reference) base.tree 0)
     {status : core.result.Result Unit error.Error} {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase_on ValueInst mapInst self base = ok (status, result)) :
     result.tree.CachesOn (CacheValidFor reference) 0 := by
