@@ -180,6 +180,96 @@ theorem ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_layer_
       ProgressiveList.apply_updates_nonempty_backing_contents_of_layer_selection ValueInst mapInst self contents
         hlayout hclone hselected hrange hlayers hskipped hrep hbacking hempty happly⟩
 
+/-- Exact criterion for valid stored materialization after successful nonempty
+application. Positive progressive selection and agreement in skipped layers
+and suffixes are all necessary and sufficient under selected binary reflection
+and clone preservation. No progressive range law or agreement is assumed. -/
+theorem ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
+    (result.BackingValid factor ∧ result.tree.elements = contents) ↔
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+          ValueInst mapInst self.updates maximum 0#u32 ∧
+        self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 ∧
+        self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 := by
+  constructor
+  · intro hmaterialized
+    have hlength := ProgressiveList.backing_length_after_nonempty_apply_updates
+      ValueInst mapInst self contents hrep hempty happly
+    have hselected : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+          ValueInst mapInst self.updates maximum 0#u32 := by
+      simpa only [hlength] using ProgressiveList.apply_updates_nonempty_layer_selection_of_dense_backing
+        ValueInst mapInst self hlayout hempty happly hmaterialized.1.1
+    have hagreement := (ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_layer_agreement
+      ValueInst mapInst self contents hlayout hclone hselected hrange hrep hbacking hempty happly).mp hmaterialized
+    exact fun maximum hmax => ⟨hselected maximum hmax, hagreement maximum hmax⟩
+  · intro hconditions
+    exact (ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_layer_agreement
+      ValueInst mapInst self contents hlayout hclone (fun maximum hmax => (hconditions maximum hmax).1)
+      hrange hrep hbacking hempty happly).mpr (fun maximum hmax => (hconditions maximum hmax).2)
+
+/-- Exact valid-materialization criterion for both branches of successful
+application. A no-op already stores the contents; rebuilding requires precisely
+positive layer selection and agreement in skipped regions, under the selected
+binary/clone laws. Input representation is needed only for rebuilding. -/
+theorem ProgressiveList.apply_updates_backing_valid_contents_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrange : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : mapInst.is_empty self.updates = ok false → self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
+    (result.BackingValid factor ∧ result.tree.elements = contents) ↔
+      (mapInst.is_empty self.updates = ok true ∧ self.tree.elements = contents) ∨
+      (mapInst.is_empty self.updates = ok false ∧
+        ∀ maximum, mapInst.max_index self.updates = ok maximum →
+          self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+            ValueInst mapInst self.updates maximum 0#u32 ∧
+          self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 ∧
+          self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32) := by
+  rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
+    ⟨htrue, rfl⟩ | ⟨defaults, length, newTree, hfalse, _, _, _, rfl⟩
+  · constructor
+    · exact fun hmaterialized => Or.inl ⟨htrue, hmaterialized.2⟩
+    · rintro (⟨_, helements⟩ | ⟨hfalse, _⟩)
+      · exact ⟨hbacking, helements⟩
+      · rw [htrue] at hfalse
+        cases hfalse
+  · have hiff := ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff ValueInst mapInst self contents
+      (hlayout hfalse) (hclone hfalse) (hrange hfalse) (hrep hfalse) hbacking hfalse happly
+    constructor
+    · exact fun hmaterialized => Or.inr ⟨hfalse, hiff.mp hmaterialized⟩
+    · rintro (⟨htrue, _⟩ | ⟨_, hconditions⟩)
+      · rw [hfalse] at htrue
+        cases htrue
+      · exact hiff.mpr hconditions
+
 /-- Under numeric progressive-layer extents and selected binary reflection,
 exact stored materialization is equivalent to agreement in both kinds of
 skipped region. Successful application supplies output density and length;

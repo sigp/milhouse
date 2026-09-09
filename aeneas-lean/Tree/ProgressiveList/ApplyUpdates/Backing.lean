@@ -114,6 +114,28 @@ theorem ProgressiveList.apply_updates_preserves_backing_of_layer_agreement {T U 
     (by simpa [progressive_tree.progressiveCapacity] using hbacking.1)
     hbacking.2 hrep.dense_update_domain.length_mono hrep.extension_complete (hselected hempty maximum hmax)
 
+/-- A dense backing produced by actual nonempty application forces every
+selected progressive layer to begin inside its new prefix. No input sequence,
+input backing invariant, clone, range, or default-map law is required. -/
+theorem ProgressiveList.apply_updates_nonempty_layer_selection_of_dense_backing {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result))
+    (hdense : result.tree.Dense factor 0 result.length.val) :
+    ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates result.length.val)
+        ValueInst mapInst self.updates maximum 0#u32 := by
+  rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
+    ⟨htrue, _⟩ | ⟨defaults, length, newTree, _, _, _, hupdate, rfl⟩
+  · rw [hempty] at htrue
+    cases htrue
+  · exact progressive_tree.ProgressiveTree.with_updated_leaves_layer_selection
+      ValueInst mapInst self.updates hlayout hupdate hdense
+
 /-- Applying pending updates preserves the full backing traversal invariant.
     The dense update domain comes from the old representation. Density and
     capacity bounds need neither identity cloning nor default-map laws.
