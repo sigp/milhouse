@@ -67,6 +67,7 @@ import Tree.ProgressiveList.Decode.FixedRoundtrip
 import Tree.ProgressiveList.Decode.Variable
 import Tree.ProgressiveList.Decode.VariableErrors
 import Tree.ProgressiveList.Decode.VariablePrefixErrors
+import Tree.ProgressiveList.Decode.VariableElementErrors
 import Tree.ProgressiveList.Decode.VariableTotal
 import Tree.ProgressiveList.Decode.VariableRoundtrip
 import Tree.Ssz.Bytes
@@ -80,6 +81,7 @@ import Tree.Ssz.DecodedLength
 import Tree.Ssz.VariableCursor
 import Tree.Ssz.VariablePrefix
 import Tree.Ssz.VariablePrefixErrors
+import Tree.Ssz.VariableElementErrors
 import Tree.Ssz.PrefixRead
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
