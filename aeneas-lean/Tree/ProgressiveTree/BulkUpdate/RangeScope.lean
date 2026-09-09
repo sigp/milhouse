@@ -61,6 +61,17 @@ theorem ProgressiveTree.BulkRangeOn.mono {T U : Type} {P Q : Std.Usize → Std.U
   intro lo hi hquery
   exact hPQ lo hi (hself lo hi hquery)
 
+/-- Reflection supplies exclusion on exactly the same progressive and binary
+queries, without requiring either law for unrelated endpoint pairs. -/
+theorem ProgressiveTree.BulkRangeOn.excludesValues {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {factor maximum : Option Std.Usize} {self : ProgressiveTree T} {depth : Std.U32}
+    (hself : self.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      ValueInst mapInst updates factor maximum depth) :
+    self.BulkRangeOn (update_map.RangeExcludesValuesAt mapInst updates)
+      ValueInst mapInst updates factor maximum depth :=
+  hself.mono (fun _ _ h => h.excludesValues)
+
 theorem ProgressiveTree.BulkRangeOn.here {T U : Type} {Q : Std.Usize → Std.Usize → Prop}
     {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
     {factor maximum : Option Std.Usize} {self : ProgressiveTree T}

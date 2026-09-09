@@ -1,4 +1,5 @@
 import Tree.Shape
+import Tree.UpdateMap.Range
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -59,6 +60,16 @@ theorem BulkRangeOn.mono {T U : Type} {P Q : Std.Usize → Std.Usize → Prop}
     BulkRangeOn Q mapInst updates factor depth start := by
   intro lo hi hquery
   exact hPQ lo hi (hself lo hi hquery)
+
+/-- Reflection supplies exclusion at the same queried ranges. -/
+theorem BulkRangeOn.excludesValues {T U : Type}
+    {mapInst : update_map.UpdateMap U T} {updates : U} {factor : Option Std.Usize}
+    {depth start : Nat}
+    (hself : BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      mapInst updates factor depth start) :
+    BulkRangeOn (update_map.RangeExcludesValuesAt mapInst updates)
+      mapInst updates factor depth start :=
+  hself.mono (fun _ _ h => h.excludesValues)
 
 theorem BulkRangeOn.left_query {T U : Type} {Q : Std.Usize → Std.Usize → Prop}
     {mapInst : update_map.UpdateMap U T} {updates : U} {factor : Option Std.Usize}
