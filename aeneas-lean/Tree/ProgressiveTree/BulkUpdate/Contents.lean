@@ -4,6 +4,7 @@ import Tree.ProgressiveTree.BulkUpdate.RangeScope
 import Tree.ProgressiveTree.BulkUpdate.Range
 import Tree.ProgressiveTree.BulkUpdate.Steps
 import Tree.ProgressiveTree.BulkUpdate.Skipped
+import Tree.ProgressiveTree.BulkUpdate.LayerSkipped
 
 open Aeneas Aeneas.Std Result
 open milhouse
