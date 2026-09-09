@@ -1,6 +1,5 @@
-import Tree.ProgressiveList.Construction
+import Tree.ProgressiveList.Construction.Overlay
 import Tree.ProgressiveList.Spine
-import Tree.ProgressiveList.Overlay
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -42,14 +41,14 @@ theorem ProgressiveList.try_from_iter_spec {T U Input I : Type}
       ok (core.result.Result.Ok self)) :
     self.Represents ValueInst mapInst values ∧ self.SpineValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
-  obtain ⟨helements, _, hmap⟩ := ProgressiveList.try_from_iter_contents
+  obtain ⟨_, _, hmap⟩ := ProgressiveList.try_from_iter_contents
     ValueInst mapInst iterInst input values hyields hnew
   obtain ⟨hdense, hfits⟩ := ProgressiveList.try_from_iter_backing_valid
     ValueInst mapInst iterInst input hlayout hnew
   obtain ⟨hget, hmax, hempty⟩ := hdefault self.updates hmap
   refine ⟨?_, ⟨hdense.shape, ?_⟩, ?_⟩
-  · rw [← helements]
-    exact ProgressiveList.represents_of_dense_backing ValueInst mapInst hlayout self hdense hfits hget hmax
+  · apply (ProgressiveList.try_from_iter_represents_iff ValueInst mapInst iterInst input values hyields hlayout hnew).mpr
+    exact ⟨⟨none, hmax, rfl⟩, fun index => ⟨none, hget index, rfl⟩⟩
   · simpa using hdense.endsAfter
   · exact ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty
 
