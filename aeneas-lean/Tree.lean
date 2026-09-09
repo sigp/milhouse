@@ -45,6 +45,7 @@ import Tree.Rebase.CacheAction
 import Tree.Rebase.Caches
 import Tree.ProgressiveTree
 import Tree.ProgressiveTree.Rebase.Success
+import Tree.ProgressiveTree.Rebase.Caches
 import Tree.ProgressiveTree.Equality.Structure
 import Tree.ProgressiveTree.Equality.Correctness
 import Tree.ProgressiveTree.Equality.Soundness
