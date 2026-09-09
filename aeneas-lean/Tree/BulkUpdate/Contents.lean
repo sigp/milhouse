@@ -47,13 +47,16 @@ theorem Tree.bulkContents_of_leaf_value {T U : Type}
 
 /-- Lift packed-leaf bulk-update contents through the global offset used by
     binary-tree updates. Both starts are aligned to the packing factor. Clone
-    identity is scoped to this leaf's stored values and pending window. -/
+    identity is scoped to retained stored slots and the pending window. -/
 theorem Tree.bulkContents_of_packed_update {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {updates : U} {before after : packed_leaf.PackedLeaf T}
     {factor prefix1 offset start : Std.Usize}
     {hash : alloy_primitives.bits.fixed.FixedBytes 32#usize}
-    (hcloneStored : ∀ value ∈ before.values.val, ValueInst.corecloneCloneInst.clone value = ok value)
+    (hcloneStored : ∀ (query : Std.Usize) value, start.val ≤ query.val →
+      query.val < start.val + factor.val → mapInst.get updates query = ok none →
+      before.values.val[query.val - start.val]? = some value →
+      ValueInst.corecloneCloneInst.clone value = ok value)
     (hclonePending : ∀ (query : Std.Usize) value, start.val ≤ query.val →
       query.val < start.val + factor.val → mapInst.get updates query = ok (some value) →
       ValueInst.corecloneCloneInst.clone value = ok value)
@@ -130,7 +133,8 @@ private theorem bulk_shape_contents_aux {T U : Type}
         subst after
         exact ⟨by simpa [subtreeCapacity, leafCapacity] using factor.hBounds, .packed factor result,
           Tree.bulkContents_of_packed_update ValueInst mapInst
-            hclone.1 (fun query value hlo hhi hget =>
+            (fun _ value _ _ _ hv => hclone.1 value (_root_.List.mem_of_getElem? hv))
+            (fun query value hlo hhi hget =>
               hclone.2 query value (by have := usize_add_val hstart; omega)
                 (by have := usize_add_val hstart; simpa only [leafCapacity] using (show query.val < prefix1.val + offset.val + factor.val by omega)) hget)
             hlayout.tree_hash_packing_factor_eq
@@ -260,7 +264,7 @@ private theorem bulk_shape_contents_aux {T U : Type}
             refine ⟨by simpa [subtreeCapacity, leafCapacity] using factor.hBounds,
               .packed factor result, ?_⟩
             have hcontents := Tree.bulkContents_of_packed_update ValueInst mapInst
-              (by intro value hv; simp [alloc.vec.Vec.with_capacity, alloc.vec.Vec.new] at hv)
+              (by intro query value _ _ _ hv; simp [alloc.vec.Vec.with_capacity, alloc.vec.Vec.new] at hv)
               (fun query value hlo hhi hget => hclone.2 query value
                 (by have := usize_add_val hstart; omega)
                 (by have := usize_add_val hstart; simpa only [leafCapacity] using (show query.val < prefix1.val + offset.val + factor.val by omega)) hget) hfactor

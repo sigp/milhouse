@@ -165,8 +165,9 @@ theorem PackedLeaf.update_success {T U : Type}
     bind_tc_ok, hresult]
 
 /-- Total packed bulk update preserves the merged value at every position
-and has exactly the dense target length. Clone identity is scoped to values
-actually copied, and no range-query or maximum-index laws are required. -/
+and has exactly the dense target length. Copied storage needs terminating
+clones; identity is required only for retained slots and pending values in
+the window. No range-query or maximum-index laws are required. -/
 theorem PackedLeaf.update_total_spec {T U : Type}
     (hashInst : tree_hash.TreeHash T) (cloneInst : core.clone.Clone T)
     (mapInst : update_map.UpdateMap U T) (self : PackedLeaf T)
@@ -180,7 +181,12 @@ theorem PackedLeaf.update_total_spec {T U : Type}
     (hcapacity : newLength ≤ factor.val)
     (hget : ∀ query : Std.Usize, start.val ≤ query.val → query.val < start.val + factor.val →
       ∃ found, mapInst.get updates query = ok found)
-    (hcloneStored : ∀ value ∈ self.values.val, cloneInst.clone value = ok value)
+    (hcloneStored : ∀ value ∈ self.values.val, ∃ cloned, cloneInst.clone value = ok cloned)
+    (hcloneRetained : ∀ (query : Std.Usize) value,
+      start.val ≤ query.val → query.val < start.val + factor.val →
+      mapInst.get updates query = ok none →
+      self.values.val[query.val - start.val]? = some value →
+      cloneInst.clone value = ok value)
     (hclonePending : ∀ (query : Std.Usize) value,
       start.val ≤ query.val → query.val < start.val + factor.val →
       mapInst.get updates query = ok (some value) → cloneInst.clone value = ok value) :
@@ -192,12 +198,12 @@ theorem PackedLeaf.update_total_spec {T U : Type}
             pending.or self.values.val[query.val - start.val]? := by
   obtain ⟨result, hupdate, hlength⟩ := PackedLeaf.update_success hashInst cloneInst mapInst
     self start factor hash updates newLength hfactor halign hend hwindow hcapacity hget
-    (fun value hv => ⟨value, hcloneStored value hv⟩)
+    hcloneStored
     (fun query value hlo hhi hget => ⟨value, hclonePending query value hlo hhi hget⟩)
   refine ⟨result, hupdate, hlength, ?_⟩
   intro query hlo hhi
   obtain ⟨pending, hpending⟩ := hget query hlo hhi
   exact ⟨pending, hpending, PackedLeaf.get_after_update_of_clone_on_window
-    hcloneStored hclonePending hfactor halign hlo hhi hpending hupdate⟩
+    hcloneRetained hclonePending hfactor halign hlo hhi hpending hupdate⟩
 
 end milhouse.packed_leaf

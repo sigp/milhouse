@@ -248,13 +248,18 @@ theorem PackedLeaf.get_after_update_of_clone_at_query {T U : Type}
 
 /-- A successful packed-leaf bulk update reads the pending value at each slot
     in its aligned packing window, or the previous value if no update exists.
-    Initial cloning and the complete update loop are included in this theorem. -/
+    Only retained stored values and pending values in that window need clone
+    identity. Initial cloning and the complete update loop are included. -/
 theorem PackedLeaf.get_after_update_of_clone_on_window {T U : Type}
     {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
     {mapInst : update_map.UpdateMap U T} {updates : U}
     {self result : PackedLeaf T} {prefix1 factor query : Std.Usize}
     {hash : alloy_primitives.bits.fixed.FixedBytes 32#usize} {pending : Option T}
-    (hcloneStored : ∀ value ∈ self.values.val, cloneInst.clone value = ok value)
+    (hcloneStored : ∀ (index : Std.Usize) value,
+      prefix1.val ≤ index.val → index.val < prefix1.val + factor.val →
+      mapInst.get updates index = ok none →
+      self.values.val[index.val - prefix1.val]? = some value →
+      cloneInst.clone value = ok value)
     (hclonePending : ∀ (index : Std.Usize) value,
       prefix1.val ≤ index.val → index.val < prefix1.val + factor.val →
       mapInst.get updates index = ok (some value) → cloneInst.clone value = ok value)
@@ -267,26 +272,12 @@ theorem PackedLeaf.get_after_update_of_clone_on_window {T U : Type}
       ok (core.result.Result.Ok result)) :
     result.values.val[query.val - prefix1.val]? =
       pending.or self.values.val[query.val - prefix1.val]? := by
-  have hclone_values : alloc.vec.CloneVec.clone cloneInst self.values = ok self.values := by
-    obtain ⟨values, hvalues, heq⟩ :=
-      Aeneas.Std.WP.spec_imp_exists (Aeneas.Std.Slice.clone_spec (s := self.values)
-        hcloneStored)
-    simpa only [alloc.vec.CloneVec.clone, alloc.vec.Vec, Slice, ← heq] using hvalues
-  unfold PackedLeaf.update at hupdate
-  simp only [lock_api.rwlock.RwLock.new, bind_tc_ok, hclone_values, hfactor] at hupdate
-  rw [bind_eq_ok_iff] at hupdate
-  obtain ⟨stop, hstop, hupdate⟩ := hupdate
-  have hstop_val : stop.val = prefix1.val + factor.val := by
-    have hs := UScalar.add_equiv prefix1 factor
-    rw [hstop] at hs
-    simp at hs
-    omega
-  have hread := PackedLeaf.update_loop_get_of_clone_on_window hstop_val
-    (fun index value hlo hhi hget => hclonePending index value hlo (by omega) hget) halign
-    hquery_lo (by omega) hquery (stop.val - prefix1.val)
-    { hash, values := self.values } prefix1 result (Nat.le_refl _) (Nat.le_refl _)
-    (by omega) hupdate
-  simpa [if_pos hquery_lo] using hread
+  exact PackedLeaf.get_after_update_of_clone_at_query
+    (fun hnone value hv => hcloneStored query value hquery_lo hquery_hi
+      (by rw [hquery, hnone]) hv)
+    (fun value hpending => hclonePending query value hquery_lo hquery_hi
+      (by rw [hquery, hpending]))
+    hfactor halign hquery_lo hquery_hi hquery hupdate
 
 /-- Global clone identity specializes the content theorem whose actual clone
 requirements are confined to the stored values and the updated window. -/
@@ -306,7 +297,7 @@ theorem PackedLeaf.get_after_update {T U : Type}
     result.values.val[query.val - prefix1.val]? =
       pending.or self.values.val[query.val - prefix1.val]? := by
   exact PackedLeaf.get_after_update_of_clone_on_window
-    (fun value _ => hclone value) (fun _ value _ _ _ => hclone value)
+    (fun _ value _ _ _ _ => hclone value) (fun _ value _ _ _ => hclone value)
     hfactor halign hquery_lo hquery_hi hquery hupdate
 
 end milhouse.packed_leaf
