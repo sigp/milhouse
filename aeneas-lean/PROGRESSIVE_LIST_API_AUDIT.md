@@ -151,6 +151,15 @@ remains an Aeneas foundation primitive; three
 other numeric helpers retain missing intrinsic templates (UPSTREAM_BUGS issue
 24). No production model or public-operation specification changed.
 
+The [fixed-byte source comparisons](reproducers/fixed_bytes_models/README.md)
+also validate the actual pinned clone, equality, ZERO, default, and `is_zero`
+bodies used by cache initialization and rebasing. All five match the local
+models for every length and byte array without additional premises, retaining
+the existing array/byte foundation. Their source audit and four native tests
+pass, alongside the core and Option suites after extending the shared runner
+for locked dependencies and constant-initializer provenance. Public API
+coverage and the scope exclusions are unchanged.
+
 Clone and clone_from sequence contracts, and the rebase contracts that depend
 on them, no longer require cloned maximum-index identity. Under unchanged map
 reads, `Clone/Maximum.lean` proves the new metadata condition necessary and

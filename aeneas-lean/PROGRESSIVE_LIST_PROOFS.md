@@ -84,6 +84,14 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [fixed-byte source comparisons](reproducers/fixed_bytes_models/README.md)
+  validate clone, equality, ZERO, default, and `is_zero` against the actual
+  pinned `alloy-primitives` bodies used by cache initialization and rebasing.
+  All five comparisons hold for every length and byte array without additional
+  premises, retaining the existing Aeneas array/byte foundation. Clone is
+  axiom-free; the others use only standard Lean axioms. Their source audit and
+  four native tests pass, as do the core and Option suites after extending the
+  shared runner for locked Cargo dependencies and constant initializers.
 - The [core source comparisons](reproducers/core_models/README.md) validate
   `mem::take`, used for pending-map rebuilding, `usize::div_ceil`, used in
   builder finalization, and `u128::saturating_mul`/`u128::checked_pow`, used in capacity arithmetic,
@@ -1068,6 +1076,17 @@ absence of selected incompatible local models. Its conservative dependency
 closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
+
+Latest fixed-byte checkpoint (`c3e0616`): five direct comparisons and four
+native tests pass for the pinned dependency's clone, equality, ZERO, default,
+and `is_zero`, at every array length and byte input. The runner verifies
+constant-initializer links and dependency provenance; eleven malformed
+inventories and four malformed axiom reports are rejected. All three source
+suites pass: 20 direct comparisons plus the separate Option cloned
+composition, for 21 proofs (14 axiom-free, seven standard-only). No production
+Rust, local model, main library proof, or Aeneas source changed. The main
+library gate was not repeated; its counts remain 5,015 declarations across
+314 modules. Borrowed CoW and the remaining model/assumption review are open.
 
 Latest core-model checkpoint (`3182fd0`): the source audit also proves
 `u128::checked_pow` equals its actual extracted squaring loop for every base

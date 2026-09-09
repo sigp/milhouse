@@ -145,6 +145,27 @@ foundation primitives. The preserved callers, exact commands, and trust
 boundary are in the core comparison README and UPSTREAM_BUGS issue 24.
 Incomplete/template output is never imported as verified code.
 
+## Fixed-byte cache source comparisons
+
+Run `python3 scripts/aeneas-audit-fixed-bytes-models.py` from the repository root.
+The [fixed-byte comparisons](reproducers/fixed_bytes_models/README.md) validate
+all five reached `FixedBytes` models against fresh extraction of
+`alloy-primitives` 1.0.0: clone, equality, the zero constant, default, and
+`is_zero`. Each equality holds for all array lengths and byte contents,
+including empty arrays, without additional premises. Clone is axiom-free;
+the other four use only standard Lean axioms. The existing Aeneas array/byte
+foundation is retained.
+
+The shared runner now supports locked Cargo dependencies and verifies global
+constant/initializer links as well as function provenance. The fixed-byte
+audit, its four native tests, and the existing core and Option audits pass.
+Eleven malformed source inventories and four malformed axiom reports are
+rejected. The source, manifest, lockfile, and dependency source hashes are
+recorded in the report. These results support included cache initialization
+and rebasing; they do not change the scope exclusions or complete the goal.
+No production/model/Aeneas changes were made, and the main library and
+dependency counts are unchanged.
+
 ## Tuple inequality correction
 
 Review of the referenced tuple dictionary found a local model defect: its
