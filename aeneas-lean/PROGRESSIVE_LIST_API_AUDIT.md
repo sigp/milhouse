@@ -7,6 +7,7 @@ it is not a claim of complete correctness, model fidelity, or minimal theorem
 hypotheses.
 
 The SSZ reflection and success-criterion proof checkpoint is `029fdc4`.
+The subsequent empty-input premise audit is through `b41b66a`.
 
 Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
@@ -136,6 +137,15 @@ map follow without codec or packing laws; indexed representation adds the
 default map's empty behavior and packing layout only for nonempty input.
 The complete success criterion also proves the occupied-layer capacity and
 default-map termination conditions necessary, as well as sufficient.
+
+The canonical fixed and variable content, representation, and total decoder
+contracts now also omit metadata and packing assumptions for empty input.
+Fixed positivity and reconstruction capacity are conditional on nonempty
+contents. Both roundtrip contracts omit decoder metadata for empty contents;
+the fixed roundtrip also omits decoder positivity and reconstruction capacity
+there. Theorem names are retained with weaker premise types, and dependent
+callers were updated. The canonical representation proofs reuse
+`ProgressiveList.from_ssz_bytes_represents` from the general decoder trace work.
 
 The revised goal is still incomplete. Borrowed-CoW obligations require faithful
 extraction and models; existing counterexamples
