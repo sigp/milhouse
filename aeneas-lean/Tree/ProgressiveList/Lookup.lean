@@ -37,6 +37,20 @@ private theorem get_eq_lookup_with_fallback {T U : Type}
   funext value
   cases value <;> rfl
 
+/-- A public read returns a particular element exactly when the raw map
+answer agrees with that element after the actual backing fallback. -/
+theorem ProgressiveList.get_eq_some_iff_lookup {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (query : Std.Usize) (value : T) :
+    ProgressiveList.get ValueInst mapInst self query = ok (some value) ↔
+      update_map.LookupResultsAgree (ProgressiveList.backing_get ValueInst mapInst self query)
+        (mapInst.get self.updates query) (ok (some value)) := by
+  rw [get_eq_lookup_with_fallback]
+  simpa only [bind_tc_ok, Option.elim_some] using
+    update_map.lookup_with_fallback_eq_iff
+      (ProgressiveList.backing_get ValueInst mapInst self query)
+      (mapInst.get self.updates query) (ok (some value))
+
 /-- At or beyond the backing length, the public read equals the raw map
 answer, including failure and divergence. No tree traversal can supply a value. -/
 theorem ProgressiveList.get_eq_map_get_of_backing_bound {T U : Type}
@@ -66,6 +80,24 @@ theorem ProgressiveList.get_with_updates_eq_iff {T U : Type}
     update_map.lookup_with_fallback_eq_iff
       (ProgressiveList.backing_get ValueInst mapInst self query)
       (mapInst.get updates query) (mapInst.get self.updates query)
+
+/-- Exact read criterion for replacing one selected element while leaving
+other reads unchanged. The replacement may be supplied by the backing tree;
+no index bound, map law, or successful lookup is assumed. -/
+theorem ProgressiveList.get_with_updates_set_eq_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (updates : U) (index query : Std.Usize) (replacement : T) :
+    ProgressiveList.get ValueInst mapInst { self with updates } query =
+      (if query = index then ok (some replacement) else ProgressiveList.get ValueInst mapInst self query) ↔
+      update_map.LookupResultsAgree (ProgressiveList.backing_get ValueInst mapInst self query)
+        (mapInst.get updates query)
+        (if query = index then ok (some replacement) else mapInst.get self.updates query) := by
+  by_cases heq : query = index
+  · simp only [if_pos heq]
+    simpa only [ProgressiveList.backing_get, ProgressiveList.backing_len] using
+      ProgressiveList.get_eq_some_iff_lookup ValueInst mapInst { self with updates } query replacement
+  · simp only [if_neg heq]
+    exact ProgressiveList.get_with_updates_eq_iff ValueInst mapInst self updates query
 
 /-- The map agreement contract is necessary and sufficient for all public
 lookup results to agree, without representation or structural assumptions. -/

@@ -1,4 +1,5 @@
 import Tree.UpdateMap.Length.Equivalence
+import Tree.UpdateMap.Lookup
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -29,6 +30,27 @@ def GetMutWithWrites {T U : Type} (mapInst : UpdateMap U T)
     mapInst.get_mut_with fnInst updates index fallback = ok (some value, back) →
     ∀ replacement query, mapInst.get (back (some replacement)) query =
       if query = index then ok (some replacement) else mapInst.get updates query
+
+/-- Mutable write-back gives the selected replacement and preserves other
+lookup outcomes after the supplied backing fallback. The raw map answers need
+not equal those of exact insertion. This law is independent of any list call. -/
+def GetMutWithWriteReads {T U : Type} (mapInst : UpdateMap U T)
+    (updates : U) (index : Std.Usize) (backing : Std.Usize → Result (Option T)) : Prop :=
+  ∀ {F : Type} (fnInst : core.ops.function.FnOnce F Std.Usize (Option T))
+    (fallback : F) (value : T) (back : Option T → U),
+    mapInst.get_mut_with fnInst updates index fallback = ok (some value, back) →
+    ∀ replacement query, LookupResultsAgree (backing query)
+      (mapInst.get (back (some replacement)) query)
+      (if query = index then ok (some replacement) else mapInst.get updates query)
+
+/-- Exact insertion/lookup behavior supplies the weaker write-read contract
+for any backing fallback, without bounds or representation assumptions. -/
+theorem GetMutWithWrites.read_agreement {T U : Type} (mapInst : UpdateMap U T)
+    (updates : U) (index : Std.Usize) (backing : Std.Usize → Result (Option T))
+    (hwrites : GetMutWithWrites mapInst updates index) :
+    GetMutWithWriteReads mapInst updates index backing := by
+  intro F fnInst fallback value back hcall replacement query
+  exact LookupResultsAgree.of_eq _ (hwrites fnInst fallback value back hcall replacement query)
 
 /-- Mutable access records the borrowed key in maximum-index metadata. This
     also covers materializing a previously absent entry from the fallback. -/

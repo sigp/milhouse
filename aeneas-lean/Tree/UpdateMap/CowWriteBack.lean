@@ -1,5 +1,6 @@
 import Tree.Cow.Consuming
 import Tree.UpdateMap.Length.Equivalence
+import Tree.UpdateMap.Lookup
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -32,6 +33,30 @@ def GetCowWithValueWrites {T U : Type} (mapInst : UpdateMap U T)
     ∀ replacement changed, handle.Written replacement changed →
     ∀ query, mapInst.get (back (some changed)) query =
       if query = index then ok (some replacement) else mapInst.get updates query
+
+/-- A filled CoW footprint gives the replacement and frames other reads
+after the supplied backing fallback. The actual entry and callback effects
+remain described by `Written`; exact pending-map answers are unnecessary. -/
+def GetCowWithValueWriteReads {T U : Type} (mapInst : UpdateMap U T)
+    (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
+    (backing : Std.Usize → Result (Option T)) : Prop :=
+  ∀ fallback handle back,
+    mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
+    ∀ replacement changed, handle.Written replacement changed →
+    ∀ query, LookupResultsAgree (backing query)
+      (mapInst.get (back (some changed)) query)
+      (if query = index then ok (some replacement) else mapInst.get updates query)
+
+/-- The exact CoW insertion/lookup law implies agreement after any backing
+fallback, retaining the same actual filled-entry footprint. -/
+theorem GetCowWithValueWrites.read_agreement {T U : Type} (mapInst : UpdateMap U T)
+    (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
+    (backing : Std.Usize → Result (Option T))
+    (hwrites : GetCowWithValueWrites mapInst cloneInst updates index) :
+    GetCowWithValueWriteReads mapInst cloneInst updates index backing := by
+  intro fallback handle back hcall replacement changed hwritten query
+  exact LookupResultsAgree.of_eq _
+    (hwrites fallback handle back hcall replacement changed hwritten query)
 
 /-- The map interprets a returned filled slot and recorded callback as an
 insertion at the borrowed key, including first materialization of a fallback. -/
