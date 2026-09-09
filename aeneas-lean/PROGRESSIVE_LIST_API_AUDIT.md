@@ -6,6 +6,8 @@ It complements the [coverage and validation record](PROGRESSIVE_LIST_PROOFS.md);
 it is not a claim of complete correctness, model fidelity, or minimal theorem
 hypotheses.
 
+The SSZ reflection and success-criterion proof checkpoint is `029fdc4`.
+
 Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
 deserialization, and Serde-based context deserialization with its visitor/seed
@@ -79,7 +81,7 @@ trait has no additional in-place default. Ordinary Serde does.
 | `Encode::as_ssz_bytes` | `ProgressiveList.as_ssz_bytes_fixed_spec`, `ProgressiveList.as_ssz_bytes_variable_spec` |
 | `Decode::is_ssz_fixed_len` | `ProgressiveList.decode_is_fixed_len_eq` |
 | `Decode::ssz_fixed_len` | `ProgressiveList.decode_fixed_len_eq` |
-| `Decode::from_ssz_bytes` | `ProgressiveList.from_ssz_bytes_fixed_payloads_total_spec`, `ProgressiveList.from_ssz_bytes_fixed_final_payload_total_spec`, `ProgressiveList.from_ssz_bytes_variable_payloads_total_spec`; empty, zero-width, malformed-offset, and prefix-error results in the coverage record |
+| `Decode::from_ssz_bytes` | `ProgressiveList.from_ssz_bytes_trace`, `ProgressiveList.from_ssz_bytes_trace_spec`, and `ProgressiveList.from_ssz_bytes_success_iff`: every successful input determines its actual payload trace; success is equivalent to a complete trace, occupied-layer capacity, and a successful default-map call. Constructive payload contracts remain `ProgressiveList.from_ssz_bytes_fixed_payloads_total_spec`, `ProgressiveList.from_ssz_bytes_fixed_final_payload_total_spec`, and `ProgressiveList.from_ssz_bytes_variable_payloads_total_spec`; empty, zero-width, malformed-offset, and prefix-error results are in the coverage record |
 | `Serialize::serialize` | Out of scope. Historical Serde protocol findings: issue 20 |
 | `Deserialize::deserialize` | Out of scope. Historical visitor/sequence and error-order findings: issues 20 and 22 |
 | `Deserialize::deserialize_in_place` | Out of scope, including the inherited default. Historical source audit: issue 20 |
@@ -125,6 +127,15 @@ the earlier public contracts used a single encoding function for decoded
 values. Per-occurrence payload contracts now cover distinct accepted encodings
 of equal values in both formats and an accepted short final fixed chunk.
 Empty input in the new contracts requires no element metadata or packing law.
+
+The subsequent reflection proofs cover every successful public input without
+assuming a payload encoding or parser trace. `SszItems.DecodesBytes` retains
+the actual input branch, metadata and cursor initialization, and successful
+per-occurrence payload calls. The exact stored values/count and actual default
+map follow without codec or packing laws; indexed representation adds the
+default map's empty behavior and packing layout only for nonempty input.
+The complete success criterion also proves the occupied-layer capacity and
+default-map termination conditions necessary, as well as sufficient.
 
 The revised goal is still incomplete. Borrowed-CoW obligations require faithful
 extraction and models; existing counterexamples
