@@ -135,12 +135,27 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+Binary action categories now select the base caches required by all eleven
+public rebase cache/validity contracts. No-ops need no base validity;
+whole-base replacement needs full base validity; rebuilding uses selected
+child-cache laws. `KindReflection.lean` proves that the input classifier matches
+every successful extracted rebase at accurate dense metadata, without element
+or cache soundness or comparison-termination assumptions. The source's ordered
+mixed-equality cases are retained. Binary/progressive preservation and both
+finite-collision bridges use this scope, with full-base adapters retained.
+At `99fad96` (foundation `b7e16e2`), focused and full builds pass (2,041 jobs),
+and the axiom/import audit covers 5,235 declarations across 325 modules. There
+are no new axioms or admissions; the reflection lemma adds one use of the
+existing pointer contract, for 63 total. Original-cache assumptions and
+remaining model-fidelity/borrowed CoW work stay open.
+
 The base-cache premise of all eleven public rebase cache/validity contracts is
-now `RebaseBaseCachesOn`: validity is required only in matching progressive
+`RebaseBaseCachesOn`. At the earlier progressive-layer checkpoint, validity
+was required only in matching progressive
 layers entered after pointer checks. Missing and shared suffixes are omitted;
 adapters recover the new law from the earlier full-base invariants. The
 progressive preservation and finite-collision proofs use the same scope.
-Validity within each selected binary layer is still required. At `1547078`
+That checkpoint still required full validity within each selected binary layer. At `1547078`
 (foundation `e512df3`), focused and full builds pass (2,038 jobs), and the
 axiom/import audit covers 5,141 declarations across 322 modules with no new
 axioms or admissions and the same 62 pointer-contract dependencies.

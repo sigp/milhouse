@@ -376,18 +376,23 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
-- `RebaseBaseCachesOn` now limits base validity to binary caches in matching
-  progressive layers entered after pointer checks. It omits missing and
-  shared suffixes and is implied by the previous full-base invariants.
-  Progressive preservation, the finite-collision bridge, and all eleven
-  public rebase cache/validity contracts use the weaker law. Binary-cache
-  validity inside each selected layer still needs assumption review.
-  At `1547078` (foundation `e512df3`), the full build passes (2,038 jobs), and
-  the axiom/import audit covers 5,141 declarations across 322 modules with
-  no new axioms or admissions. The 62 pointer-contract dependencies are
-  unchanged. This proof-only change does not establish additional model
-  fidelity; Rust/extraction/models are unchanged, and neither source suites
-  nor the 42-root/151-declaration dependency gate were repeated.
+- `RebaseBaseCachesOn` now selects base caches by the binary action category
+  inside each reached progressive layer. No-ops require no base validity;
+  whole-base replacement requires full base validity; rebuilding requires
+  selected child-cache laws. Missing and shared progressive suffixes remain
+  omitted, and full-base validity still supplies the scope. `KindReflection`
+  proves the input classifier matches every successful extracted action at
+  accurate dense metadata without element/cache soundness or termination
+  laws. It retains the source's exact mixed-equality dispatch and is a proof
+  artifact, not a replacement implementation. Binary/progressive preservation,
+  both collision bridges, and all eleven public cache/validity contracts use
+  the scope. At `99fad96` (foundation `b7e16e2`), the full build passes (2,041
+  jobs), and the axiom/import audit covers 5,235 declarations across 325
+  modules, with no new axioms or admissions. The reflection adds one use of
+  the existing pointer contract, for 63 total. Rust/extraction/models are
+  unchanged; neither source suites nor the 42-root/151-declaration dependency
+  gate were repeated. Original-cache assumptions and remaining fidelity work
+  stay open.
 - Packed rebase equality now uses `NeSoundIfAllFalse`: element agreement is
   needed only when every paired `ne` returns false. The guarded law is proved
   necessary and sufficient for sound positive vector equality, conditional
