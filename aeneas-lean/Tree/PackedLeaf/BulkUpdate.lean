@@ -1,4 +1,5 @@
 import Tree.PackedLeaf.Contents
+import Tree.Vec.Clone
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -199,6 +200,51 @@ theorem PackedLeaf.update_loop_get {T U : Type}
         else updated.values.val[query.val - window]? := by
   exact PackedLeaf.update_loop_get_of_clone_on_window hend
     (fun _ value _ _ _ => hclone value) halign hquery_lo hquery_hi hquery
+
+/-- A complete packed update preserves a queried value using identity only
+for the clone that survives there. A pending value overwrites its copied slot,
+so no stored clone identity is needed in that case. Successful execution
+supplies termination of the vector clone and all other pending clones. -/
+theorem PackedLeaf.get_after_update_of_clone_at_query {T U : Type}
+    {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
+    {mapInst : update_map.UpdateMap U T} {updates : U}
+    {self result : PackedLeaf T} {prefix1 factor query : Std.Usize}
+    {hash : alloy_primitives.bits.fixed.FixedBytes 32#usize} {pending : Option T}
+    (hcloneStored : pending = none → ∀ value,
+      self.values.val[query.val - prefix1.val]? = some value → cloneInst.clone value = ok value)
+    (hclonePending : ∀ value, pending = some value → cloneInst.clone value = ok value)
+    (hfactor : thi.tree_hash_packing_factor = ok factor)
+    (halign : prefix1.val % factor.val = 0)
+    (hquery_lo : prefix1.val ≤ query.val)
+    (hquery_hi : query.val < prefix1.val + factor.val)
+    (hquery : mapInst.get updates query = ok pending)
+    (hupdate : PackedLeaf.update thi cloneInst mapInst self prefix1 hash updates =
+      ok (core.result.Result.Ok result)) :
+    result.values.val[query.val - prefix1.val]? =
+      pending.or self.values.val[query.val - prefix1.val]? := by
+  unfold PackedLeaf.update at hupdate
+  simp only [lock_api.rwlock.RwLock.new, bind_tc_ok] at hupdate
+  rw [bind_eq_ok_iff] at hupdate
+  obtain ⟨copied, hcopied, hupdate⟩ := hupdate
+  simp only [hfactor, bind_tc_ok] at hupdate
+  rw [bind_eq_ok_iff] at hupdate
+  obtain ⟨stop, hstop, hupdate⟩ := hupdate
+  have hstop_val : stop.val = prefix1.val + factor.val := by
+    have hs := UScalar.add_equiv prefix1 factor
+    rw [hstop] at hs
+    simp at hs
+    omega
+  have hread := PackedLeaf.update_loop_get_of_clone_at_query hstop_val halign
+    hquery_lo (by omega) hquery (stop.val - prefix1.val)
+    { hash, values := copied } prefix1 result (Nat.le_refl _) (Nat.le_refl _)
+    (by omega) (fun _ => hclonePending) hupdate
+  cases pending with
+  | none =>
+    have hstored := milhouse_models.vec_clone_get_of_clone_at cloneInst
+      (query.val - prefix1.val) hcopied (hcloneStored rfl)
+    simpa only [if_pos hquery_lo, Option.none_or, hstored] using hread
+  | some value =>
+    simpa only [if_pos hquery_lo, Option.some_or] using hread
 
 /-- A successful packed-leaf bulk update reads the pending value at each slot
     in its aligned packing window, or the previous value if no update exists.
