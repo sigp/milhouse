@@ -229,21 +229,24 @@ check also pass.
   only standard Lean axioms. No Rust, extraction, external model, or Aeneas
   source changed; the 42-root/151-local-declaration dependency gate was not
   repeated for these proof-only changes.
-- Mutable and consuming CoW write-back now require only maximum-result
-  agreement at the original backing length. Their new generic map laws do
-  not prescribe an exact insertion maximum or assume a public length result;
-  the raw-query relation describes precisely the relevant extent and
-  failure/divergence/overflow behavior. The public length equivalences prove
-  necessity and sufficiency, and the old insertion laws imply the new ones
-  for writes below an existing successful logical length. Exact replacement
-  and all-other-key read preservation remain separate map obligations.
-  These are proof-contract changes; no extraction or external model changed.
-  At checkpoint `70a420e` (generic laws `242e0f1`), focused builds and the full
-  build pass (2,031 jobs), and the axiom/import audit validates 5,073
-  declarations across 315 modules. All new and revised write-back results
-  use only standard Lean axioms. The model dependency inventory remains
-  42 roots/151 local declarations; that gate was not repeated for these
-  proof-only changes.
+- Mutable and consuming CoW write-back now require lookup agreement after the
+  original backing fallback, together with maximum-result agreement. The new
+  generic map laws describe raw lookup outcomes and are implied by the retained
+  exact insertion/lookup laws for any backing function. `WriteBack.lean` proves
+  these lookup and maximum conditions jointly necessary and sufficient for
+  in-bounds sequence replacement, and both public continuation equivalences
+  specialize it to actual calls. Existing sequence and total contracts use the
+  weaker laws. The read criteria retain failure/divergence without assuming
+  lookup success or backing validity. Initial reads, clone execution, and the
+  actual consuming CoW entry/metadata footprint are unchanged; the map's CoW
+  write law still applies to `Written` footprints. At checkpoint `7d329d7`
+  (foundations `a027551`, `ac16012`), focused and full builds pass (2,036 jobs),
+  and the axiom/import audit validates 5,117 declarations across 320 modules.
+  All new and revised write-back results use only standard Lean axioms. No
+  Rust, extraction, external model, or Aeneas source changed; the dependency
+  inventory remains 42 roots/151 local declarations and its gate was not
+  repeated for these proof-only changes. Concrete map fidelity and borrowed
+  CoW extraction remain separate obligations.
 - The separate nonmutating rebase observer law now also drops exact maximum
   identity. `UpdateMap/Length/Equivalence.lean` proves a necessary-and-sufficient
   relation on the raw maximum-query results, including mathematical extent,

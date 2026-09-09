@@ -48,8 +48,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `new` | `ProgressiveList.new_total_spec`, `ProgressiveList.new_success_iff` |
 | `try_from_iter` | `ProgressiveList.try_from_iter_total_spec`, `ProgressiveList.try_from_iter_trace`, `ProgressiveList.try_from_iter_trace_spec`, `ProgressiveList.try_from_iter_success_iff` |
 | `get` | `ProgressiveList.get_of_pending_update`, `ProgressiveList.get_of_backing`, `ProgressiveList.represents_of_dense_backing`; constructors and mutations establish/preserve indexed representation |
-| `get_mut` | `ProgressiveList.get_mut_total_spec` |
-| `get_cow` | `ProgressiveList.get_cow_represents_read`, `ProgressiveList.get_cow_into_mut_spec`; borrowed handle methods remain pending below |
+| `get_mut` | `ProgressiveList.get_mut_total_spec`, `ProgressiveList.get_mut_represents_set_iff` |
+| `get_cow` | `ProgressiveList.get_cow_represents_read`, `ProgressiveList.get_cow_into_mut_spec`, `ProgressiveList.cow_writeback_represents_set_iff`; borrowed handle methods remain pending below |
 | `push` | `ProgressiveList.push_total_spec`, `ProgressiveList.push_represents_append_iff`, `ProgressiveList.len_after_push_iff_max_index`, `ProgressiveList.push_represents_append_iff_max_index` |
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
@@ -181,21 +181,28 @@ across 319 modules. All new and revised append results use only standard Lean
 axioms; no new axioms or admissions were added. Rust and external models are
 unchanged.
 
-Mutable-access and consuming CoW contracts now use maximum-result agreement
-at the original backing length instead of exact insertion maxima.
-`GetMutWithMaxIndexAgrees` and `GetCowWithValueMaxIndexAgrees` constrain the raw
-map queries; separate write laws still require the exact replacement and
-unchanged reads at every other key. Both public write-back length equivalences
-prove this metadata criterion necessary and sufficient, including failure,
-divergence, and checked overflow, without representation or bounds premises.
-The existing length-preservation lemmas drop their separate index bounds, and
-the total sequence specifications use the new contracts. The old insertion
-laws imply them for writes below an existing successful logical length.
-At checkpoint `70a420e` (generic laws `242e0f1`), focused builds and the full
-build pass (2,031 jobs). The axiom/import audit validates 5,073 declarations
-across 315 modules; all new and revised write-back results use only standard
-Lean axioms. No new axioms, admissions, Rust changes, or model changes were added.
-Borrowed CoW methods and iterator stepping remain separate open obligations.
+Mutable and consuming CoW write-back now use `GetMutWithWriteReads` and
+`GetCowWithValueWriteReads`: raw map answers must agree with the replacement
+and unchanged other reads after the actual backing fallback. Even the selected
+replacement may come from that fallback. Adapters derive these contracts from
+the old exact insertion/lookup laws for any backing function. The initial
+read/clone contracts and actual CoW `Written` entry/metadata effects are retained.
+
+`WriteBack.lean` proves raw lookup agreement and maximum-result agreement
+jointly necessary and sufficient for an in-bounds `List.set` result.
+`get_mut_represents_set_iff` and `cow_writeback_represents_set_iff` specialize
+that criterion to actual returned continuations; existing sequence and total
+specifications use the weaker laws. The pointwise read equivalences preserve
+errors/divergence without bounds, representation, or write-law assumptions.
+The CoW equivalences need no filled-entry footprint; the consuming proof still
+derives the actual footprint and applies its conditional map law. The earlier
+maximum-result laws and full length equivalences remain in use. At checkpoint
+`7d329d7` (foundations `a027551`, `ac16012`), focused and full builds pass
+(2,036 jobs), and the axiom/import audit validates 5,117 declarations across
+320 modules. All new and revised write-back results use only standard Lean
+axioms; no new axiom or admission was added. Rust and external models are
+unchanged. Borrowed CoW methods and iterator stepping remain separate open
+obligations.
 
 The rebase observer contract drops maximum-index identity as well.
 `UpdateMap/Length/Equivalence.lean` proves an exact criterion on raw maximum
