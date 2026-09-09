@@ -354,6 +354,25 @@ The variants and `deref-diagnostic.log`/`make-diagnostic.log` are preserved in
 the probe directory. No trial rewrite or partial generated body was retained
 in production, and no Aeneas source was changed.
 
+A later dependency-free [reference-layout reproducer](reproducers/cow_regions/README.md)
+tests a distinct lifetime-separation approach. One-region and two-region enums
+both fail while returning their shared-reference variant, even with no map or
+entry field. Adding an optional mutable slot, calling a separately translated
+nested-reference helper, and copying the shared reference directly in the
+pattern also fail. All eight enum readers reach `InterpBorrowsCore.ml:629`;
+Charon succeeds, but Aeneas exits 1 and emits partial bodies. This rules out
+these approaches without changing the public CoW representation or methods.
+
+Four controls (plain reference, nested reference, shared-reference struct
+field, and mutable-reference struct field) translate successfully. Their
+separately generated Lean bodies compile, and four exact-value lemmas validate
+without axioms. Native Rust checks pass for every tested layout and branch.
+The reproducer pins the tool versions and preserves reproduction commands;
+the recorded logs are in `/tmp/milhouse-cow-regions-fv7auM/`. No partial file
+is imported into the proof library. This is evidence about the extraction
+boundary, not a proof of a borrowed CoW operation or an impossibility claim
+about every potential refactor.
+
 ## 10. Aeneas Lean backend: borrowed `Option::take` and `Ord::max` model mismatch
 
 **Stage:** Lean elaboration of generated code.
