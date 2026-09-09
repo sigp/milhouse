@@ -4,10 +4,13 @@ pub fn take<T: Default>(place: &mut T) -> T {
 pub fn div_ceil(value: usize, divisor: usize) -> usize {
     value.div_ceil(divisor)
 }
+pub fn saturating_mul(value: u128, other: u128) -> u128 {
+    value.saturating_mul(other)
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{div_ceil, take};
+    use super::{div_ceil, saturating_mul, take};
     use std::cell::{Cell, RefCell};
     use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -72,6 +75,20 @@ mod tests {
     fn ceiling_division_rejects_zero_divisors() {
         for value in [0, 1, usize::MAX] {
             assert!(catch_unwind(|| div_ceil(value, 0)).is_err());
+        }
+    }
+
+    #[test]
+    fn saturating_multiplication_at_exact_and_overflow_boundaries() {
+        for value in [0, 1, 2, 3, u128::MAX / 2, u128::MAX - 1, u128::MAX] {
+            for other in [0, 1, 2, 3, u128::MAX] {
+                let expected = if other != 0 && value > u128::MAX / other {
+                    u128::MAX
+                } else {
+                    value * other
+                };
+                assert_eq!(saturating_mul(value, other), expected);
+            }
         }
     }
 }

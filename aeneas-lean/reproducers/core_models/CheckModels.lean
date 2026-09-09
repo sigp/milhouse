@@ -54,5 +54,31 @@ theorem core_div_ceil_agrees (value divisor : Std.Usize) :
       rw [if_pos hpositiveRem, if_neg hmod, hadd, ← hroundedValue]
       exact (tryMk_value rounded).symm
 
+/-- The standard library selects either the checked product or the maximum.
+This equals the local clamping model for every pair of u128 values, including
+overflow. Checked multiplication remains an Aeneas foundation primitive. -/
+theorem core_saturating_mul_agrees (value other : Std.U128) :
+    CoreSource.core.num.U128.saturating_mul value other =
+      core.num.U128.saturating_mul value other := by
+  have h := U128.checked_mul_bv_spec value other
+  cases hm : U128.checked_mul value other with
+  | none =>
+    simp only [hm] at h
+    simp only [CoreSource.core.num.U128.saturating_mul, hm, lift, bind_tc_ok,
+      core.num.U128.saturating_mul, Nat.min_eq_left (Nat.le_of_lt h)]
+    congr 1
+    apply UScalar.eq_of_val_eq
+    change core.num.U128.MAX.val = (BitVec.ofNat 128 U128.max).toNat
+    simp [core.num.U128.MAX, U128.max, U128.numBits, U128.rMax]
+  | some product =>
+    simp only [hm] at h
+    simp only [CoreSource.core.num.U128.saturating_mul, hm, lift, bind_tc_ok,
+      core.num.U128.saturating_mul]
+    rw [Nat.min_eq_right h.1, ← h.2.1]
+    congr 1
+    apply U128.bv_eq_imp_eq
+    exact (UScalar.BitVec_ofNat_val product).symm
+
 #print axioms core_take_agrees
 #print axioms core_div_ceil_agrees
+#print axioms core_saturating_mul_agrees
