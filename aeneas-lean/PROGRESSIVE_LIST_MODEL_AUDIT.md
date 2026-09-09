@@ -376,6 +376,28 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The layer-range review (`3780516`, density `2416785`, empty-layer bounds
+  `01415b8`, scope `78cacde`) separates numeric occupied-length conditions at
+  progressive layers from pending-value reflection within selected binary
+  subtrees. A false layer answer need only preserve its occupied length;
+  a true answer starts inside the final prefix. These scopes use actual input
+  geometry and range/maximum observations, without a rebuilding result.
+  Density, public backing preservation, occupied-capacity certification, and
+  both actual-rebuilt-value representation criteria use the weaker conditions.
+  Existing reflection contracts are adapters using the input representation.
+  Content/materialization and termination contracts retain stronger range
+  laws; those and the cache contracts validate. The full build passes
+  (2,093 jobs), and the axiom/import audit covers 5,630 declarations across
+  377 modules: 5,511 use only standard Lean axioms or none, and 119 use the
+  existing pointer contract. All 21 new named lemmas use only standard Lean
+  axioms; private/generated helpers are included in the inventory. External
+  axiom use is unchanged. No new axiom or admission was introduced, and
+  `size_of` remains unused. No Rust, extraction, external model, or Aeneas
+  source changed. The seven source suites and 42-root/151-declaration
+  dependency gate were not repeated for this proof-only work. Necessity of
+  the numeric layer conditions, binary range/clone/geometry minimality,
+  borrowed CoW, and model fidelity stay open. Debug and Serde remain excluded;
+  TreeHash remains deferred.
 - The materialization review (`dda608d`, equivalence `034d26b`, suffix reads
   `19dee5c`) proves skipped-value agreement necessary for exact materialization.
   Actual successful traversal preserves complete read results on selected

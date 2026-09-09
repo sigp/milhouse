@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_skipped`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_skipped`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,32 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The layer-range review (`3780516`, density `2416785`, empty-layer bounds
+`01415b8`, scope `78cacde`) weakens four public contracts for backing
+preservation, occupied-capacity certification, and representation from actual
+rebuilt values. Progressive layers need only numeric occupied-length
+conditions: skipped intervals retain their length, and selected intervals
+start inside the final prefix. Reflection is confined to binary queries in
+selected subtrees. The scopes follow actual input geometry and range/maximum
+guards, with no assumed rebuilding result. Existing reflection contracts are
+adapters using the represented input's dense update domain. Content,
+materialization, and termination contracts still use stronger range laws;
+those contracts and the cache contracts validate.
+
+Focused and full builds pass (2,093 jobs). The axiom/import audit covers
+5,630 declarations across 377 modules: 5,511 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All 21 new named lemmas use
+only standard Lean axioms; private/generated helpers are included in the
+inventory. External axiom use is unchanged. No new axiom or admission was
+introduced, and `size_of` remains unused. No Rust, extraction, external model,
+or Aeneas source changed; the seven source suites and 42-root/151-declaration
+dependency gate were not repeated for this proof-only work. Necessity of the
+numeric layer conditions, binary range/clone/geometry minimality, borrowed
+CoW, and model fidelity remain unfinished. Debug and Serde remain excluded;
+TreeHash remains deferred.
+
+Previous apply-updates materialization checkpoint:
 
 The materialization review (`dda608d`, equivalence `034d26b`, suffix reads
 `19dee5c`) proves skipped-value agreement necessary for exact materialization.
