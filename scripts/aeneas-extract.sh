@@ -39,8 +39,9 @@
 # - Progressive pop_front uses a concrete iterator-to-builder helper to avoid
 #   cloned adapters, early loop returns, and unsupported trait dictionary fields
 #   (UPSTREAM_BUGS.md issue 15).
-# - Cow metadata helpers are included. Deref and mutation of Cow handles still
-#   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
+# - Cow metadata helpers and consuming into_mut are included. Concrete helpers
+#   and explicit Result matches avoid borrowed trait/adapter failures. Deref
+#   and make_mut still hit borrowed-field failures; see UPSTREAM_BUGS.md.
 # - Progressive CoW constructors are included; next_cow still loses borrowed
 #   symbolic values during translation (UPSTREAM_BUGS.md issue 16).
 # - ProgressiveList TreeHash classification and packing rejection are included.

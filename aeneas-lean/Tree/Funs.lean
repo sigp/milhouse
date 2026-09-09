@@ -1190,8 +1190,125 @@ def cow.CowOnMut.run
       fun self1 => ({ max_index := (some (max_index1, index)) } : cow.CowOnMut)
     ok ({ max_index := none }, back)
 
+/-- [milhouse::cow::{milhouse::cow::VecCow<'a, T>}::into_mut_inner]:
+    Source: 'src/cow.rs', lines 166:4-174:5 -/
+def cow.VecCow.into_mut_inner
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.VecCow T) :
+  Result ((core.result.Result T error.Error) × (core.result.Result T
+    error.Error → cow.VecCow T))
+  := do
+  match self with
+  | cow.VecCow.Immutable value entry =>
+    match entry with
+    | none =>
+      let back := fun r => self
+      ok (core.result.Result.Err error.Error.CowMissingEntry, back)
+    | some entry1 =>
+      let t ← corecloneCloneInst.clone value
+      let (t1, insert_back) ← vec_map.VacantEntry.insert entry1 t
+      let back :=
+        fun r =>
+          let t2 := match r with
+                    | core.result.Result.Ok t3 => t3
+                    | _ => t1
+          let entry2 := insert_back t2
+          cow.VecCow.Immutable value (some entry2)
+      ok (core.result.Result.Ok t1, back)
+  | cow.VecCow.Mutable value =>
+    let back :=
+      fun r =>
+        let t := match r with
+                 | core.result.Result.Ok t1 => t1
+                 | _ => value
+        cow.VecCow.Mutable t
+    ok (core.result.Result.Ok value, back)
+
+/-- [milhouse::cow::{milhouse::cow::BTreeCow<'a, T>}::into_mut_inner]:
+    Source: 'src/cow.rs', lines 109:4-117:5 -/
+def cow.BTreeCow.into_mut_inner
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.BTreeCow T)
+  :
+  Result ((core.result.Result T error.Error) × (core.result.Result T
+    error.Error → cow.BTreeCow T))
+  := do
+  match self with
+  | cow.BTreeCow.Immutable value entry =>
+    match entry with
+    | none =>
+      let back := fun r => self
+      ok (core.result.Result.Err error.Error.CowMissingEntry, back)
+    | some entry1 =>
+      let t ← corecloneCloneInst.clone value
+      let (t1, insert_back) ←
+        alloc.collections.btree.map.entry.VacantEntry.insert core.cmp.OrdUsize
+          core.core.clone.CloneGlobal entry1 t
+      let back :=
+        fun r =>
+          let t2 := match r with
+                    | core.result.Result.Ok t3 => t3
+                    | _ => t1
+          let entry2 := insert_back t2
+          cow.BTreeCow.Immutable value (some entry2)
+      ok (core.result.Result.Ok t1, back)
+  | cow.BTreeCow.Mutable value =>
+    let back :=
+      fun r =>
+        let t := match r with
+                 | core.result.Result.Ok t1 => t1
+                 | _ => value
+        cow.BTreeCow.Mutable t
+    ok (core.result.Result.Ok value, back)
+
+/-- [milhouse::cow::{milhouse::cow::Cow<'a, T>}::into_mut]:
+    Source: 'src/cow.rs', lines 44:4-63:5
+    Visibility: public -/
+def cow.Cow.into_mut
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.Cow T) :
+  Result ((core.result.Result T error.Error) × (core.result.Result T
+    error.Error → cow.Cow T))
+  := do
+  match self with
+  | cow.Cow.BTree inner com =>
+    let (r, into_mut_inner_back) ←
+      cow.BTreeCow.into_mut_inner corecloneCloneInst inner
+    match r with
+    | core.result.Result.Ok value =>
+      let (on_mut, run_back) ← cow.CowOnMut.run com
+      let back :=
+        fun r1 =>
+          let t := match r1 with
+                   | core.result.Result.Ok t1 => t1
+                   | _ => value
+          let inner1 := into_mut_inner_back (core.result.Result.Ok t)
+          cow.Cow.BTree inner1 (run_back on_mut)
+      ok (r, back)
+    | core.result.Result.Err _ =>
+      let back :=
+        fun r1 => let inner1 := into_mut_inner_back r
+                  cow.Cow.BTree inner1 com
+      ok (r, back)
+  | cow.Cow.Vec inner com =>
+    let (r, into_mut_inner_back) ←
+      cow.VecCow.into_mut_inner corecloneCloneInst inner
+    match r with
+    | core.result.Result.Ok value =>
+      let (on_mut, run_back) ← cow.CowOnMut.run com
+      let back :=
+        fun r1 =>
+          let t := match r1 with
+                   | core.result.Result.Ok t1 => t1
+                   | _ => value
+          let inner1 := into_mut_inner_back (core.result.Result.Ok t)
+          cow.Cow.Vec inner1 (run_back on_mut)
+      ok (r, back)
+    | core.result.Result.Err _ =>
+      let back :=
+        fun r1 => let inner1 := into_mut_inner_back r
+                  cow.Cow.Vec inner1 com
+      ok (r, back)
+
 /-- [milhouse::cow::{milhouse::cow::Cow<'a, T>}::with_max_index]:
-    Source: 'src/cow.rs', lines 74:4-81:5 -/
+    Source: 'src/cow.rs', lines 80:4-87:5 -/
 def cow.Cow.with_max_index
   {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.Cow T)
   (max_index : update_map.MaxIndexState) (index : Std.Usize) :
@@ -7613,8 +7730,18 @@ def progressive_tree.ProgressiveTree.build_from_iter
       (progressive_tree.ProgressiveTree T) (core.convert.FromSame error.Error)
       residual
 
+/-- [milhouse::proof_roots::cow_into_mut]:
+    Source: 'src/proof_roots.rs', lines 8:0-10:1
+    Visibility: public -/
+def proof_roots.cow_into_mut
+  {T : Type} (corecloneCloneInst : core.clone.Clone T) (handle : cow.Cow T) :
+  Result ((core.result.Result T error.Error) × (core.result.Result T
+    error.Error → cow.Cow T))
+  := do
+  cow.Cow.into_mut corecloneCloneInst handle
+
 /-- [milhouse::proof_roots::progressive_list_eq]:
-    Source: 'src/proof_roots.rs', lines 8:0-13:1
+    Source: 'src/proof_roots.rs', lines 12:0-17:1
     Visibility: public -/
 def proof_roots.progressive_list_eq
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7628,7 +7755,7 @@ def proof_roots.progressive_list_eq
     corecmpPartialEqInst left right
 
 /-- [milhouse::proof_roots::progressive_list_ssz_bytes_len]:
-    Source: 'src/proof_roots.rs', lines 15:0-19:1
+    Source: 'src/proof_roots.rs', lines 19:0-23:1
     Visibility: public -/
 def proof_roots.progressive_list_ssz_bytes_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7639,7 +7766,7 @@ def proof_roots.progressive_list_ssz_bytes_len
     ValueInst update_mapUpdateMapInst list
 
 /-- [milhouse::proof_roots::progressive_list_ssz_append]:
-    Source: 'src/proof_roots.rs', lines 21:0-26:1
+    Source: 'src/proof_roots.rs', lines 25:0-30:1
     Visibility: public -/
 def proof_roots.progressive_list_ssz_append
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7651,7 +7778,7 @@ def proof_roots.progressive_list_ssz_append
     update_mapUpdateMapInst list buf
 
 /-- [milhouse::proof_roots::progressive_list_ssz_fixed_len]:
-    Source: 'src/proof_roots.rs', lines 28:0-33:1
+    Source: 'src/proof_roots.rs', lines 32:0-37:1
     Visibility: public -/
 def proof_roots.progressive_list_ssz_fixed_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7667,7 +7794,7 @@ def proof_roots.progressive_list_ssz_fixed_len
   ok (b, i)
 
 /-- [milhouse::proof_roots::progressive_list_as_ssz_bytes]:
-    Source: 'src/proof_roots.rs', lines 35:0-39:1
+    Source: 'src/proof_roots.rs', lines 39:0-43:1
     Visibility: public -/
 def proof_roots.progressive_list_as_ssz_bytes
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7678,7 +7805,7 @@ def proof_roots.progressive_list_as_ssz_bytes
     update_mapUpdateMapInst list
 
 /-- [milhouse::proof_roots::progressive_list_from_ssz_bytes]:
-    Source: 'src/proof_roots.rs', lines 41:0-45:1
+    Source: 'src/proof_roots.rs', lines 45:0-49:1
     Visibility: public -/
 def proof_roots.progressive_list_from_ssz_bytes
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7690,7 +7817,7 @@ def proof_roots.progressive_list_from_ssz_bytes
     ValueInst update_mapUpdateMapInst bytes
 
 /-- [milhouse::proof_roots::progressive_list_decode_metadata]:
-    Source: 'src/proof_roots.rs', lines 47:0-52:1
+    Source: 'src/proof_roots.rs', lines 51:0-56:1
     Visibility: public -/
 def proof_roots.progressive_list_decode_metadata
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7706,7 +7833,7 @@ def proof_roots.progressive_list_decode_metadata
   ok (b, i)
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary]:
-    Source: 'src/proof_roots.rs', lines 55:0-63:1
+    Source: 'src/proof_roots.rs', lines 59:0-67:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -7719,7 +7846,7 @@ def proof_roots.progressive_list_arbitrary
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst input
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary_take_rest]:
-    Source: 'src/proof_roots.rs', lines 66:0-74:1
+    Source: 'src/proof_roots.rs', lines 70:0-78:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary_take_rest
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -7733,7 +7860,7 @@ def proof_roots.progressive_list_arbitrary_take_rest
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) input
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary_size_hint]:
-    Source: 'src/proof_roots.rs', lines 77:0-83:1
+    Source: 'src/proof_roots.rs', lines 81:0-87:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary_size_hint
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -7746,7 +7873,7 @@ def proof_roots.progressive_list_arbitrary_size_hint
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) depth
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary_try_size_hint]:
-    Source: 'src/proof_roots.rs', lines 86:0-94:1
+    Source: 'src/proof_roots.rs', lines 90:0-98:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary_try_size_hint
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -7760,7 +7887,7 @@ def proof_roots.progressive_list_arbitrary_try_size_hint
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) depth
 
 /-- [milhouse::proof_roots::progressive_list_tree_hash_type]:
-    Source: 'src/proof_roots.rs', lines 96:0-99:1
+    Source: 'src/proof_roots.rs', lines 100:0-103:1
     Visibility: public -/
 def proof_roots.progressive_list_tree_hash_type
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7771,7 +7898,7 @@ def proof_roots.progressive_list_tree_hash_type
     ValueInst update_mapUpdateMapInst
 
 /-- [milhouse::proof_roots::progressive_list_tree_hash_packed_encoding]:
-    Source: 'src/proof_roots.rs', lines 101:0-105:1
+    Source: 'src/proof_roots.rs', lines 105:0-109:1
     Visibility: public -/
 def proof_roots.progressive_list_tree_hash_packed_encoding
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7782,7 +7909,7 @@ def proof_roots.progressive_list_tree_hash_packed_encoding
     ValueInst update_mapUpdateMapInst list
 
 /-- [milhouse::proof_roots::progressive_list_tree_hash_packing_factor]:
-    Source: 'src/proof_roots.rs', lines 107:0-110:1
+    Source: 'src/proof_roots.rs', lines 111:0-114:1
     Visibility: public -/
 def proof_roots.progressive_list_tree_hash_packing_factor
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :

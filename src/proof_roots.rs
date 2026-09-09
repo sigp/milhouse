@@ -5,6 +5,10 @@
 
 use crate::{ProgressiveList, UpdateMap, Value};
 
+pub fn cow_into_mut<'a, T: Clone>(handle: crate::Cow<'a, T>) -> Result<&'a mut T, crate::Error> {
+    handle.into_mut()
+}
+
 pub fn progressive_list_eq<T: Value, U: UpdateMap<T> + PartialEq>(
     left: &ProgressiveList<T, U>,
     right: &ProgressiveList<T, U>,

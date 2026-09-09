@@ -317,7 +317,7 @@ structure cow.CowOnMut where
   max_index : Option (update_map.MaxIndexState × Std.Usize)
 
 /-- [milhouse::cow::VecCow]
-    Source: 'src/cow.rs', lines 138:0-146:1
+    Source: 'src/cow.rs', lines 153:0-161:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.VecCow (T : Type) where
@@ -325,7 +325,7 @@ inductive cow.VecCow (T : Type) where
 | Mutable : T → cow.VecCow T
 
 /-- [milhouse::cow::BTreeCow]
-    Source: 'src/cow.rs', lines 90:0-98:1
+    Source: 'src/cow.rs', lines 96:0-104:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.BTreeCow (T : Type) where

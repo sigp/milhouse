@@ -353,6 +353,18 @@ axiom
   std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher.build_hasher
   : std.hash.random.RandomState → Result std.hash.random.DefaultHasher
 
+/-- [alloc::collections::btree::map::entry::{alloc::collections::btree::map::entry::VacantEntry<'a, K, V, A>}::insert]:
+    Source: '/rustc/library/alloc/src/collections/btree/map/entry.rs', lines 359:4-359:46
+    Name pattern: [alloc::collections::btree::map::entry::{alloc::collections::btree::map::entry::VacantEntry<'a, @K, @V, @A>}::insert]
+    Visibility: public -/
+@[rust_fun
+  "alloc::collections::btree::map::entry::{alloc::collections::btree::map::entry::VacantEntry<'a, @K, @V, @A>}::insert"]
+axiom alloc.collections.btree.map.entry.VacantEntry.insert
+  {K : Type} {V : Type} {A : Type} (corecmpOrdInst : core.cmp.Ord K)
+  (corecloneCloneInst : core.clone.Clone A) :
+  alloc.collections.btree.map.entry.VacantEntry K V A → V → Result (V × (V
+    → alloc.collections.btree.map.entry.VacantEntry K V A))
+
 /-- [alloc::collections::btree::map::{alloc::collections::btree::map::BTreeMap<K, V, A>}::get]:
     Source: '/rustc/library/alloc/src/collections/btree/map.rs', lines 717:4-720:15
     Name pattern: [alloc::collections::btree::map::{alloc::collections::btree::map::BTreeMap<@K, @V, @A>}::get]
@@ -848,6 +860,15 @@ axiom triomphe.arc.Arc.Insts.CoreCmpPartialEqArc.eq
   "triomphe::arc::{core::convert::AsRef<triomphe::arc::Arc<@T>, @T>}::as_ref"]
 axiom triomphe.arc.Arc.Insts.CoreConvertAsRef.as_ref
   {T : Type} : triomphe.arc.Arc T → Result T
+
+/-- [vec_map::{vec_map::VacantEntry<'a, V>}::insert]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vec_map-0.8.2/src/lib.rs', lines 661:4-661:46
+    Name pattern: [vec_map::{vec_map::VacantEntry<'a, @V>}::insert]
+    Visibility: public -/
+@[rust_fun "vec_map::{vec_map::VacantEntry<'a, @V>}::insert"]
+axiom vec_map.VacantEntry.insert
+  {V : Type} :
+  vec_map.VacantEntry V → V → Result (V × (V → vec_map.VacantEntry V))
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::intra_rebase]:
     Source: 'src/list.rs', lines 407:4-424:5

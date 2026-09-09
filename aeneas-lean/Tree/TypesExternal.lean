@@ -42,13 +42,26 @@ def std.hash.random.RandomState : Type := Unit
 @[reducible, rust_type "std::hash::random::DefaultHasher"]
 def std.hash.random.DefaultHasher : Type := Unit
 
+/-- The local footprint of an exclusively borrowed map entry. `none` records
+    a vacant slot; the insertion continuation returns its final stored value.
+    The enclosing map and its other keys are restored by the map continuation. -/
+structure milhouse_models.BTreeEntrySlot (K V : Type) where
+  key : K
+  value : Option V
+
+/-- Vector-map entry footprint. The original backing length determines the
+    checked growth arithmetic in vec_map 0.8.2; it is not the occupied count. -/
+structure milhouse_models.VecEntrySlot (V : Type) where
+  index : Std.Usize
+  backingLength : Std.Usize
+  value : Option V
+
 /-- [alloc::collections::btree::map::entry::VacantEntry]
-    No operation on this type is reachable in the extracted subset, so it
-    carries no information. -/
+    The reached BTreeCow uses usize keys and the Global allocator. -/
 @[reducible, rust_type "alloc::collections::btree::map::entry::VacantEntry"
   (mutRegions := #[0])]
 def alloc.collections.btree.map.entry.VacantEntry (K : Type) (V : Type) (A :
-  Type) : Type := Unit
+  Type) : Type := milhouse_models.BTreeEntrySlot K V
 
 /-- [alloc::collections::btree::map::BTreeMap]
     Modelled as an association list, like `HashMap`. -/
@@ -110,7 +123,6 @@ structure ssz.encode.SszEncoder where
 @[reducible, rust_type "triomphe::arc::Arc"]
 def triomphe.arc.Arc (T : Type) : Type := T
 
-/-- [vec_map::VacantEntry]
-    No operation on this type is reachable in the extracted subset. -/
+/-- [vec_map::VacantEntry] Local entry state returned to the enclosing map. -/
 @[reducible, rust_type "vec_map::VacantEntry" (mutRegions := #[0])]
-def vec_map.VacantEntry (V : Type) : Type := Unit
+def vec_map.VacantEntry (V : Type) : Type := milhouse_models.VecEntrySlot V

@@ -233,8 +233,9 @@ the existing copy-on-write maximum-index tracking.
 ## 9. Aeneas: copy-on-write handle methods fail on borrowed fields
 
 **Stage:** Aeneas symbolic execution.
-**Status:** unresolved for handle dereferencing and materializing mutation;
-the extraction includes `get_cow`, `Cow::with_max_index`, and `CowOnMut::run`.
+**Status:** consuming `Cow::into_mut` now extracts through concrete helpers;
+handle dereferencing and borrowed `make_mut` remain unresolved. The extraction
+also includes `get_cow`, `Cow::with_max_index`, and `CowOnMut::run`.
 
 Expanding the extraction roots to `milhouse::cow` fails when translating the
 `Deref::deref` implementations for `BTreeCow` and `VecCow`. Returning the
@@ -246,16 +247,42 @@ errors while handling the borrowed fields and returned mutable reference.
 The `into_mut` closures fail with `Can't end abstraction 17 as it is set as
 non-endable`. An explicit match/early-return formulation avoids that particular
 closure failure, but does not resolve the other handle-method failures; that
-trial rewrite was not retained. Excluding individual methods from the full
+trial rewrite was not retained at that checkpoint. Excluding individual methods from the full
 module root also leaves generated trait implementations referencing missing
 translated methods. The script instead selects just the supported helpers.
 
 `Tree/Cow/Value.lean` observes the carried value in the already-extracted data
 type. `Tree/ProgressiveList/CopyOnWrite.lean` proves lookup and unchanged-release
 behavior under generic map laws using that observer. This is not a replacement
-model or a proof of Rust `Deref`, `make_mut`, or `into_mut`. Those translation
-bridges and the resulting end-to-end mutation proof remain outstanding. No
-Aeneas source changes or axioms for the missing methods have been introduced.
+model or a proof of Rust `Deref`, `make_mut`, or `into_mut`. Handle data alone
+does not discharge these method specifications. No Aeneas source changes or
+axioms for the missing methods have been introduced.
+
+A later isolated consuming-path probe succeeds by moving each concrete
+`into_mut` body into an inline inherent helper. `Cow::into_mut` calls those
+helpers directly, while `CowTrait::into_mut` delegates to the same bodies.
+This keeps the untranslatable `make_mut`/`Deref` dictionaries out of the
+consuming call graph. Explicit entry matches avoid the original closure
+failure. Explicit outer result matches also avoid a separate borrowed-`Try`
+interface mismatch: Aeneas emits a `(ControlFlow, backward)` result while its
+standard `Result::branch` model returns only `ControlFlow`. Namespace-safe
+`inner`/`handle` bindings avoid issue 7. The public API, successful/error
+mutation order, and number of clones are unchanged.
+
+The complete extraction now includes the actual public `Cow::into_mut` and
+its write-back continuation. `Tree/Cow/EntryModels.lean` supplies the reached
+external vacant-entry insertion models; the former `Unit` placeholders now
+retain the keyed exclusive slot and final stored value. Vector slots also
+retain backing length, so the pinned `index - len + 1` growth checks and vector
+size bound are preserved. The enclosing generic map continuation frames other
+keys and accounts for occupancy. This is an external entry model, not an
+opaque model of a milhouse operation. The isolated successful extraction and
+Lean-elaboration probe is `/tmp/milhouse-cow-consuming-probe-iegnawzx/`.
+The regenerated full Lean build passes (1,937 jobs), and all 329 release tests
+with `arbitrary` pass, including explicit clone-count/nonidentity-clone,
+occupied-handle, missing-entry, and maximum-index checks. Consuming mutation
+proofs can now be built from the extracted body; borrowed mutation and CoW
+iterator stepping retain their separate limitations.
 
 ## 10. Aeneas Lean backend: borrowed `Option::take` and `Ord::max` model mismatch
 

@@ -19,6 +19,7 @@ import Tree.Ssz.Models
 import Tree.Ssz.DecodeModels
 import Tree.Formatting.Models
 import Tree.Arbitrary.Models
+import Tree.Cow.EntryModels
 open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
