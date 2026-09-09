@@ -18,21 +18,20 @@ cache write, or assumed intermediate successful call is needed. -/
 theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
-    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     (P : CacheSubject T → CacheHash → Prop)
     {orig base : Tree T} {depth : Nat} {origLength baseLength fullDepth : Std.Usize}
     {action : RebaseAction (Tree T)}
     (hdepth : fullDepth.val = depth + packingDepth.val)
     (horig : DenseTree factor orig depth origLength.val)
     (hbase : DenseTree factor base depth baseLength.val)
+    (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
     (horigCache : orig.CachesOn P depth) (hbaseCache : base.CachesOn P depth)
     (hrebase : Tree.rebase_on ValueInst orig base (some (origLength, baseLength)) fullDepth =
       ok (core.result.Result.Ok action)) :
     action.ContentsCorrect orig base ∧ (applyRebaseAction orig action).CachesOn P depth := by
-  refine ⟨Tree.rebase_on_contents_correct ValueInst hlayout hsound hneSound
-    hdepth horig hbase hhashes hrebase, ?_⟩
+  refine ⟨Tree.rebase_on_contents_correct ValueInst hlayout
+    hdepth horig hbase hequality hhashes hrebase, ?_⟩
   induction orig generalizing base depth origLength baseLength fullDepth action with
   | Node origHash origLeft origRight ihleft ihright =>
     unfold Tree.rebase_on at hrebase
@@ -91,15 +90,15 @@ theorem Tree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
           have hbr : DenseTree factor baseRight child br.val := by
             simpa only [hlengths.2.2.2] using baseRightDense
           simp only [Tree.CachesOn, Nat.add_sub_cancel] at horigCache hbaseCache
-          have hleftContents := Tree.rebase_on_contents_correct ValueInst hlayout hsound hneSound
-            hnewFull hol hbl hhashes.2.1 hleft
-          have hrightContents := Tree.rebase_on_contents_correct ValueInst hlayout hsound hneSound
-            hnewFull hor hbr hhashes.2.2 hright
+          have hleftContents := Tree.rebase_on_contents_correct ValueInst hlayout
+            hnewFull hol hbl hequality.1 hhashes.2.1 hleft
+          have hrightContents := Tree.rebase_on_contents_correct ValueInst hlayout
+            hnewFull hor hbr hequality.2 hhashes.2.2 hright
           exact combineRebaseActions_preserves_caches P origHash baseHash origLeft origRight
             baseLeft baseRight leftAction rightAction child horigCache.1 hbaseCache
             hleftContents.1 hrightContents.1
-            (ihleft hnewFull hol hbl hhashes.2.1 horigCache.2.1 hbaseCache.2.1 hleft)
-            (ihright hnewFull hor hbr hhashes.2.2 horigCache.2.2 hbaseCache.2.2 hright)
+            (ihleft hnewFull hol hbl hequality.1 hhashes.2.1 horigCache.2.1 hbaseCache.2.1 hleft)
+            (ihright hnewFull hor hbr hequality.2 hhashes.2.2 horigCache.2.2 hbaseCache.2.2 hright)
         by_cases hpositive : fullDepth > 0#usize
         · rw [if_pos hpositive] at hrebase
           simp [lock_api.rwlock.RwLock.read,

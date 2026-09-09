@@ -54,11 +54,10 @@ theorem ProgressiveList.rebase_on_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
-    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     (self base : ProgressiveList T U) (contents : _root_.List T)
     (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
     (hbase : base.tree.Dense factor 0 base.length.val)
+    (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
     (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree) :
     ∃ result, ProgressiveList.rebase_on ValueInst mapInst self base = ok (.Ok (), result) ∧
@@ -66,8 +65,8 @@ theorem ProgressiveList.rebase_on_total_spec {T U : Type}
       result.length = self.length ∧ result.updates = self.updates := by
   obtain ⟨result, hrebase, _⟩ := ProgressiveList.rebase_on_success ValueInst mapInst hlayout self base
     hbacking.1.shape hbase.shape hbacking.2 hcompare
-  exact ⟨result, hrebase, ProgressiveList.rebase_on_spec ValueInst mapInst hlayout hsound hneSound
-    self base contents hrep hbacking hbase hhashes hrebase⟩
+  exact ⟨result, hrebase, ProgressiveList.rebase_on_spec ValueInst mapInst hlayout
+    self base contents hrep hbacking hbase hequality hhashes hrebase⟩
 
 /-- Total nonmutating rebasing preserves the represented sequence and backing
 validity. Only the pending-map clone needs to succeed and preserve reads and
@@ -76,11 +75,10 @@ theorem ProgressiveList.rebase_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : tree.PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
-    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     (self base : ProgressiveList T U) (contents : _root_.List T)
     (hrep : self.Represents ValueInst mapInst contents) (hbacking : self.BackingValid factor)
     (hbase : base.tree.Dense factor 0 base.length.val)
+    (hequality : self.tree.RebaseEqualitySound ValueInst.corecmpPartialEqInst base.tree)
     (hhashes : self.tree.CachedHashesAgree base.tree)
     (hcompare : self.tree.RebaseComparisons ValueInst.corecmpPartialEqInst base.tree)
     (hclone : ∃ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates)
@@ -93,8 +91,8 @@ theorem ProgressiveList.rebase_total_spec {T U : Type}
       result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates := by
   obtain ⟨result, hrebase, hlength, hupdates⟩ := ProgressiveList.rebase_success ValueInst mapInst
     hlayout self base hbacking.1.shape hbase.shape hbacking.2 hcompare hclone
-  obtain ⟨hresult, hvalid⟩ := ProgressiveList.rebase_spec ValueInst mapInst hlayout hsound hneSound
-    self base contents hrep hbacking hbase hhashes hmapGet hmapMax hrebase
+  obtain ⟨hresult, hvalid⟩ := ProgressiveList.rebase_spec ValueInst mapInst hlayout
+    self base contents hrep hbacking hbase hequality hhashes hmapGet hmapMax hrebase
   exact ⟨result, hrebase, hresult, hvalid, hlength, hupdates⟩
 
 end milhouse.progressive_list

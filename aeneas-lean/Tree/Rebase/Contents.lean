@@ -1,4 +1,4 @@
-import Tree.Rebase.ContentsAction
+import Tree.Rebase.Soundness
 import Tree.Arc.Equality
 
 open Aeneas Aeneas.Std Result
@@ -13,20 +13,19 @@ private theorem bind_eq_ok_iff {A B : Type} {x : Result A}
 
 private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
-    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y) :
+    (hlayout : PackingLayout ValueInst factor packingDepth) :
     ∀ (n : Nat) (orig base : Tree T) (depth : Nat) (origLength baseLength fullDepth : Std.Usize)
       (action : RebaseAction (Tree T)),
       fullDepth.val ≤ n → fullDepth.val = depth + packingDepth.val →
       DenseTree factor orig depth origLength.val → DenseTree factor base depth baseLength.val →
+      orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base →
       orig.CachedHashesAgree base →
       Tree.rebase_on ValueInst orig base (some (origLength, baseLength)) fullDepth =
         ok (core.result.Result.Ok action) → action.ContentsCorrect orig base := by
   intro n
   induction n using Nat.strong_induction_on with
   | h n ih =>
-    intro orig base depth origLength baseLength fullDepth action hmeasure hdepth horig hbase hhashes hrebase
+    intro orig base depth origLength baseLength fullDepth action hmeasure hdepth horig hbase hequality hhashes hrebase
     unfold Tree.rebase_on at hrebase
     obtain ⟨pointerEqual, hpointer, hpointerTrue⟩ := triomphe.arc.Arc.ptr_eq_spec orig base
     rw [hpointer] at hrebase
@@ -53,7 +52,8 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction]
           | true =>
-            have helements := triomphe.arc.Arc.eq_true_imp_eq ValueInst.corecmpPartialEqInst hsound heq
+            have helements := triomphe.arc.Arc.eq_true_imp_eq_on ValueInst.corecmpPartialEqInst
+              (hequality hpointer) heq
             simp at hrebase
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction,
@@ -71,7 +71,7 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction]
           | true =>
-            have hvalues := vec_eq_contents ValueInst.corecmpPartialEqInst hneSound heq
+            have hvalues := vec_eq_contents_on ValueInst.corecmpPartialEqInst (hequality hpointer) heq
             simp at hrebase
             subst action
             simp [RebaseAction.ContentsCorrect, RebaseAction.IsEqual, applyRebaseAction, Tree.elements, hvalues]
@@ -109,10 +109,10 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
           obtain ⟨baseLeftDense, baseRightDense⟩ := hbase.split_node
           have hleftCorrect := ih newDepth.val hsmall origLeft baseLeft child ol bl newDepth leftAction
             (Nat.le_refl _) hnewFull (by simpa only [hlengths.1] using origLeftDense)
-            (by simpa only [hlengths.2.1] using baseLeftDense) hhashes.2.1 hleft
+            (by simpa only [hlengths.2.1] using baseLeftDense) hequality.1 hhashes.2.1 hleft
           have hrightCorrect := ih newDepth.val hsmall origRight baseRight child or br newDepth rightAction
             (Nat.le_refl _) hnewFull (by simpa only [hlengths.2.2.1] using origRightDense)
-            (by simpa only [hlengths.2.2.2] using baseRightDense) hhashes.2.2 hright
+            (by simpa only [hlengths.2.2.2] using baseRightDense) hequality.2 hhashes.2.2 hright
           exact combineRebaseActions_contents_correct origHash baseHash origLeft origRight baseLeft baseRight
             leftAction rightAction hleftCorrect hrightCorrect
         by_cases hpositive : fullDepth > 0#usize
@@ -158,17 +158,16 @@ private theorem rebase_contents_aux {T : Type} (ValueInst : Value T)
 theorem Tree.rebase_on_contents_correct {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
-    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     {orig base : Tree T} {depth : Nat} {origLength baseLength fullDepth : Std.Usize}
     {action : RebaseAction (Tree T)}
     (hdepth : fullDepth.val = depth + packingDepth.val)
     (horig : DenseTree factor orig depth origLength.val)
     (hbase : DenseTree factor base depth baseLength.val)
+    (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
     (hrebase : Tree.rebase_on ValueInst orig base (some (origLength, baseLength)) fullDepth =
       ok (core.result.Result.Ok action)) : action.ContentsCorrect orig base := by
-  exact rebase_contents_aux ValueInst hlayout hsound hneSound fullDepth.val orig base depth origLength baseLength fullDepth action
-    (Nat.le_refl _) hdepth horig hbase hhashes hrebase
+  exact rebase_contents_aux ValueInst hlayout fullDepth.val orig base depth origLength baseLength fullDepth action
+    (Nat.le_refl _) hdepth horig hbase hequality hhashes hrebase
 
 end milhouse.tree

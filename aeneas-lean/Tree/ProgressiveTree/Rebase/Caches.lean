@@ -13,13 +13,12 @@ by preservation of both its binary layer and its complete right suffix. -/
 theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
-    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     (P : CacheSubject T → CacheHash → Prop)
     {orig base after : ProgressiveTree T} {origLength baseLength : Std.Usize} {depth : Std.U32}
     (horig : orig.Dense factor depth.val (origLength.val - progressiveCapacity factor depth.val))
     (hbase : base.Dense factor depth.val (baseLength.val - progressiveCapacity factor depth.val))
     (hfit : orig.Fits factor depth.val)
+    (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
     (horigCache : orig.CachesOn P depth.val) (hbaseCache : base.BinaryCachesOn P depth.val)
     (hrebase : ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth =
@@ -45,8 +44,8 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
         simpa only [horigLengthVal] using horig.split_layer.1
       have hbaseLeft : DenseTree factor baseLeft (2 * depth.val) baseLeftLength.val := by
         simpa only [hbaseLengthVal] using hbase.split_layer.1
-      have hnewLeft := tree.Tree.rebase_on_cache_spec ValueInst hlayout hsound hneSound P
-        (by omega) horigLeft hbaseLeft hhashes.1 horigCache.2.1 hbaseCache.1 hleft
+      have hnewLeft := tree.Tree.rebase_on_cache_spec ValueInst hlayout P
+        (by omega) horigLeft hbaseLeft hequality.1 hhashes.1 horigCache.2.1 hbaseCache.1 hleft
       have hadd := UScalar.add_equiv depth 1#u32
       rw [hnext] at hadd
       simp at hadd
@@ -56,7 +55,7 @@ theorem ProgressiveTree.rebase_on_recursive_cache_spec {T : Type} (ValueInst : V
       have hbaseRight : baseRight.Dense factor next.val (baseLength.val - progressiveCapacity factor next.val) := by
         simpa only [hnextVal] using hbase.right_remainder
       have hnewRight := ih horigRight hbaseRight
-        (by simpa only [hnextVal] using hrightFit) hhashes.2
+        (by simpa only [hnextVal] using hrightFit) hequality.2 hhashes.2
         (by simpa only [hnextVal] using horigCache.2.2)
         (by simpa only [hnextVal] using hbaseCache.2) hright
       refine ⟨?_, ?_, hnewLeft.2, ?_⟩
@@ -71,12 +70,11 @@ imported. The base can have a different logical length. -/
 theorem ProgressiveTree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
-    (hsound : ∀ x y, ValueInst.corecmpPartialEqInst.eq x y = ok true → x = y)
-    (hneSound : ∀ x y, ValueInst.corecmpPartialEqInst.ne x y = ok false → x = y)
     (P : CacheSubject T → CacheHash → Prop)
     {orig base after : ProgressiveTree T} {origLength baseLength : Std.Usize}
     (horig : orig.Dense factor 0 origLength.val) (hbase : base.Dense factor 0 baseLength.val)
     (hfit : orig.Fits factor 0)
+    (hequality : orig.RebaseEqualitySound ValueInst.corecmpPartialEqInst base)
     (hhashes : orig.CachedHashesAgree base)
     (horigCache : orig.CachesOn P 0) (hbaseCache : base.BinaryCachesOn P 0)
     (hrebase : ProgressiveTree.rebase_on ValueInst orig base origLength baseLength =
@@ -86,7 +84,7 @@ theorem ProgressiveTree.rebase_on_cache_spec {T : Type} (ValueInst : Value T)
     simpa [progressiveCapacity] using horig
   have hbase' : base.Dense factor (0#u32).val (baseLength.val - progressiveCapacity factor (0#u32).val) := by
     simpa [progressiveCapacity] using hbase
-  exact ProgressiveTree.rebase_on_recursive_cache_spec ValueInst hlayout hsound hneSound P
-    horig' hbase' hfit hhashes horigCache hbaseCache hrebase
+  exact ProgressiveTree.rebase_on_recursive_cache_spec ValueInst hlayout P
+    horig' hbase' hfit hequality hhashes horigCache hbaseCache hrebase
 
 end milhouse.progressive_tree
