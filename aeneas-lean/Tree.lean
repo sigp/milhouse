@@ -135,6 +135,7 @@ import Tree.ProgressiveList.Decode.Trace
 import Tree.ProgressiveList.Decode.PublicTrace
 import Tree.ProgressiveList.Decode.Overlay
 import Tree.ProgressiveList.Decode.Conditions
+import Tree.ProgressiveList.Decode.OverlayTotal
 import Tree.ProgressiveList.Decode.Success
 import Tree.ProgressiveList.Decode.Backing
 import Tree.ProgressiveList.Decode.Caches

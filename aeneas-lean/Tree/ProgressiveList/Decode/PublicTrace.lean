@@ -1,5 +1,6 @@
 import Tree.ProgressiveList.Decode.Trace
 import Tree.ProgressiveList.Decode.Backing
+import Tree.ProgressiveList.Decode.Overlay
 import Tree.Ssz.DecodedBytes
 
 open Aeneas Aeneas.Std Result
@@ -37,6 +38,42 @@ theorem ProgressiveList.from_ssz_bytes_trace {T U : Type}
       exact ⟨entries, .variable hnonempty hvariable hitems htrace,
         helements, hlength, hdefault⟩
 
+/-- A supplied complete payload trace agrees with every successful public
+result's stored values, length, and actual default map. The trace records
+actual parser and element calls, so no packing, codec, or map law is needed. -/
+theorem ProgressiveList.from_ssz_bytes_trace_contents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (bytes : Slice Std.U8) (entries : _root_.List (T × _root_.List Std.U8))
+    (htrace : SszItems.DecodesBytes ValueInst.sszdecodeDecodeInst bytes entries)
+    {self : ProgressiveList T U}
+    (hdecode : ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
+      ok (.Ok self)) :
+    self.tree.elements = entries.map Prod.fst ∧ self.length.val = entries.length ∧
+      mapInst.coredefaultDefaultInst.default = ok self.updates := by
+  cases htrace with
+  | empty hbytes =>
+    rw [ProgressiveList.from_ssz_bytes_empty_eq ValueInst mapInst bytes hbytes,
+      bind_eq_ok_iff] at hdecode
+    obtain ⟨result, hempty, heq⟩ := hdecode
+    simp only [ok.injEq, core.result.Result.Ok.injEq] at heq
+    cases heq
+    obtain ⟨htree, hlength, hdefault⟩ := ProgressiveList.empty_success_state ValueInst mapInst hempty
+    exact ⟨by simp [htree, ProgressiveTree.elements], by simp [hlength], hdefault⟩
+  | @fixed width entries hnonempty hfixed hwidth _ hitems =>
+    have hbuild := ProgressiveList.from_ssz_bytes_fixed_success
+      ValueInst mapInst bytes width hnonempty hfixed hwidth hdecode
+    obtain ⟨helements, hlength, hdefault, _⟩ := ProgressiveList.decode_ssz_items_contents
+      ValueInst mapInst (.Fixed bytes width) (entries.map Prod.fst) none
+      (hitems.forget_payload _ _ _ _) hbuild
+    exact ⟨helements, by simpa using hlength, hdefault⟩
+  | @«variable» items entries hnonempty hvariable hitems htrace =>
+    have hbuild := ProgressiveList.from_ssz_bytes_variable_success
+      ValueInst mapInst bytes items hnonempty hvariable hitems hdecode
+    obtain ⟨helements, hlength, hdefault, _⟩ := ProgressiveList.decode_ssz_items_contents
+      ValueInst mapInst items (entries.map Prod.fst) none
+      (htrace.forget_payload _ _ _ _) hbuild
+    exact ⟨helements, by simpa using hlength, hdefault⟩
+
 /-- Every successful decoder result represents its materialized backing
 sequence and has no pending updates. This common state contract needs only
 empty-default-map laws and packing layout for nonempty input, independently
@@ -57,19 +94,16 @@ theorem ProgressiveList.from_ssz_bytes_represents {T U : Type}
     ProgressiveList.from_ssz_bytes_trace ValueInst mapInst bytes hdecode
   obtain ⟨hget, hmax, hempty⟩ := hdefault self.updates hmap
   have hpending := ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty
+  have hrep := (ProgressiveList.from_ssz_bytes_represents_iff
+    ValueInst mapInst bytes hlayout hdecode).mpr
+      ⟨⟨none, hmax, rfl⟩, fun index => ⟨none, hget index, rfl⟩⟩
   rcases ProgressiveList.from_ssz_bytes_success_input ValueInst mapInst bytes hdecode with
     ⟨_, hconstructed⟩ | ⟨hnonempty, _⟩
-  · have htree := (ProgressiveList.empty_success_state ValueInst mapInst hconstructed).1
-    obtain ⟨result, hresult, hrep⟩ := ProgressiveList.empty_represents
-      ValueInst mapInst self.updates hmap hget hmax
-    rw [hconstructed] at hresult
-    cases Result.ok.inj hresult
-    exact ⟨by simpa [htree, ProgressiveTree.elements] using hrep,
+  · exact ⟨hrep,
       ProgressiveList.empty_backing_valid ValueInst mapInst factor hconstructed, hpending⟩
   · obtain ⟨hbacking, _⟩ := ProgressiveList.from_ssz_bytes_backing
       ValueInst mapInst bytes (hlayout hnonempty) hdecode
-    exact ⟨ProgressiveList.represents_of_dense_backing ValueInst mapInst (hlayout hnonempty) self
-      hbacking.1 hbacking.2 hget hmax, hbacking, hpending⟩
+    exact ⟨hrep, hbacking, hpending⟩
 
 /-- Successful decoding represents the actual payload trace at every index,
 with valid backing and no pending updates. Only the actual default map's empty
