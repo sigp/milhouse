@@ -77,6 +77,8 @@ import Tree.Ssz.VariableStep
 import Tree.Ssz.VariableErrors
 import Tree.Ssz.DecodedLength
 import Tree.Ssz.VariableCursor
+import Tree.Ssz.VariablePrefix
+import Tree.Ssz.PrefixRead
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
