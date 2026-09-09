@@ -1,5 +1,5 @@
 import Tree.ProgressiveList.CopyOnWrite
-import Tree.ProgressiveList.Contents
+import Tree.ProgressiveList.WriteBack
 import Tree.UpdateMap.CowWriteBack
 
 open Aeneas Aeneas.Std Result
@@ -7,24 +7,37 @@ open milhouse
 
 namespace milhouse.progressive_list
 
+/-- Exact public read criterion after returning a CoW handle. It needs no
+filled-entry footprint or write law because every continuation preserves the
+backing fields; its returned map alone determines the lookup condition. -/
+theorem ProgressiveList.get_after_cow_writeback_eq_iff_lookup {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index query : Std.Usize) (replacement : T)
+    {handle changed : cow.Cow T} {back : Option (cow.Cow T) → ProgressiveList T U}
+    (hcow : ProgressiveList.get_cow ValueInst mapInst self index = ok (some handle, back)) :
+    ProgressiveList.get ValueInst mapInst (back (some changed)) query =
+      (if query = index then ok (some replacement) else ProgressiveList.get ValueInst mapInst self query) ↔
+      update_map.LookupResultsAgree (ProgressiveList.backing_get ValueInst mapInst self query)
+        (mapInst.get (back (some changed)).updates query)
+        (if query = index then ok (some replacement) else mapInst.get self.updates query) := by
+  obtain ⟨_, mapBack, _, rfl⟩ := ProgressiveList.get_cow_success ValueInst mapInst self index hcow
+  exact ProgressiveList.get_with_updates_set_eq_iff ValueInst mapInst self _ index query replacement
+
 /-- A returned filled CoW entry changes only the borrowed list index. This
 frame result needs neither cloning laws nor structural invariants. -/
 theorem ProgressiveList.get_after_cow_writeback {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (index query : Std.Usize) (replacement : T)
-    (hwrites : update_map.GetCowWithValueWrites mapInst ValueInst.corecloneCloneInst self.updates index)
+    (hwrites : update_map.GetCowWithValueWriteReads mapInst ValueInst.corecloneCloneInst self.updates index
+      (ProgressiveList.backing_get ValueInst mapInst self))
     {handle changed : cow.Cow T} {back : Option (cow.Cow T) → ProgressiveList T U}
     (hcow : ProgressiveList.get_cow ValueInst mapInst self index = ok (some handle, back))
     (hwritten : handle.Written replacement changed) :
     ProgressiveList.get ValueInst mapInst (back (some changed)) query =
       if query = index then ok (some replacement) else ProgressiveList.get ValueInst mapInst self query := by
   obtain ⟨fallback, mapBack, hmap, rfl⟩ := ProgressiveList.get_cow_success ValueInst mapInst self index hcow
-  have hget := hwrites fallback handle mapBack hmap replacement changed hwritten query
-  by_cases hquery : query = index
-  · simp only [if_pos hquery] at hget ⊢
-    exact ProgressiveList.get_of_pending_update ValueInst mapInst _ query replacement hget
-  · simp only [if_neg hquery] at hget ⊢
-    simp only [ProgressiveList.get, hget, ProgressiveList.backing_get, ProgressiveList.backing_len]
+  exact (ProgressiveList.get_with_updates_set_eq_iff ValueInst mapInst self _ index query replacement).mpr
+    (hwrites fallback handle mapBack hmap replacement changed hwritten query)
 
 /-- Exact metadata criterion for the full length result after returning a CoW
 handle. The backing length is preserved through every continuation, so this
@@ -57,6 +70,22 @@ theorem ProgressiveList.len_after_cow_writeback {T U : Type}
   exact ((ProgressiveList.len_with_updates_eq_iff_max_index ValueInst mapInst self _).mpr
     (hmax fallback handle mapBack hmap replacement changed hwritten)).trans hlen
 
+/-- Exact sequence criterion for a returned CoW continuation. Lookup and
+maximum agreement are jointly necessary and sufficient without a write law
+or an assumed filled-entry footprint. -/
+theorem ProgressiveList.cow_writeback_represents_set_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize) (replacement : T)
+    (hrep : self.Represents ValueInst mapInst contents) (hindex : index.val < contents.length)
+    {handle changed : cow.Cow T} {back : Option (cow.Cow T) → ProgressiveList T U}
+    (hcow : ProgressiveList.get_cow ValueInst mapInst self index = ok (some handle, back)) :
+    (back (some changed)).Represents ValueInst mapInst (contents.set index.val replacement) ↔
+      utils.MaxIndexResultsAgree self.length
+        (mapInst.max_index (back (some changed)).updates) (mapInst.max_index self.updates) ∧
+      self.SetReadsAgree ValueInst mapInst (back (some changed)).updates index replacement := by
+  obtain ⟨_, mapBack, _, rfl⟩ := ProgressiveList.get_cow_success ValueInst mapInst self index hcow
+  exact ProgressiveList.represents_set_with_updates_iff ValueInst mapInst self contents _ index replacement hrep hindex
+
 /-- Returning a filled CoW entry replaces exactly one represented element
 and preserves logical length. The input bound is the only sequence premise
 beyond representation, and no element-clone identity is needed. -/
@@ -64,31 +93,27 @@ theorem ProgressiveList.cow_writeback_represents_set {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize) (replacement : T)
     (hrep : self.Represents ValueInst mapInst contents) (hindex : index.val < contents.length)
-    (hwrites : update_map.GetCowWithValueWrites mapInst ValueInst.corecloneCloneInst self.updates index)
+    (hwrites : update_map.GetCowWithValueWriteReads mapInst ValueInst.corecloneCloneInst self.updates index
+      (ProgressiveList.backing_get ValueInst mapInst self))
     (hmax : update_map.GetCowWithValueMaxIndexAgrees mapInst ValueInst.corecloneCloneInst
       self.updates index self.length)
     {handle changed : cow.Cow T} {back : Option (cow.Cow T) → ProgressiveList T U}
     (hcow : ProgressiveList.get_cow ValueInst mapInst self index = ok (some handle, back))
     (hwritten : handle.Written replacement changed) :
     (back (some changed)).Represents ValueInst mapInst (contents.set index.val replacement) := by
-  obtain ⟨⟨length, hlen, hlength⟩, hget⟩ := hrep
-  refine ⟨⟨length, ProgressiveList.len_after_cow_writeback ValueInst mapInst self index length
-    replacement hlen hmax hcow hwritten, by simp [hlength]⟩, ?_⟩
-  intro query
-  rw [ProgressiveList.get_after_cow_writeback ValueInst mapInst self index query replacement hwrites hcow hwritten]
-  by_cases heq : query = index
-  · subst query
-    simp [hindex]
-  · rw [if_neg heq, hget query]
-    have hne : index.val ≠ query.val := by intro h; apply heq; scalar_tac
-    simp [hne]
+  apply (ProgressiveList.cow_writeback_represents_set_iff
+    ValueInst mapInst self contents index replacement hrep hindex hcow).mpr
+  obtain ⟨fallback, mapBack, hmap, rfl⟩ := ProgressiveList.get_cow_success ValueInst mapInst self index hcow
+  exact ⟨hmax fallback handle mapBack hmap replacement changed hwritten,
+    hwrites fallback handle mapBack hmap replacement changed hwritten⟩
 
 /-- Accessing and consuming any in-bounds CoW handle succeeds, and writing
 through the returned reference replaces precisely that element. All handle,
 clone, entry-growth, and metadata continuations are composed from actual
 calls. Cloning is required only when no pending value already exists; its
 result need not equal the old element. Maximum metadata needs only matching
-logical extent. No backing or packing invariant is needed beyond the original
+logical extent, and write-back reads need only agreement after the actual
+backing fallback. No backing or packing invariant is needed beyond the original
 list representation. -/
 theorem ProgressiveList.get_cow_into_mut_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
@@ -97,7 +122,8 @@ theorem ProgressiveList.get_cow_into_mut_spec {T U : Type}
     (hreads : update_map.GetCowWithValueReads mapInst ValueInst.corecloneCloneInst self.updates index)
     (hentry : update_map.GetCowWithValueEntryAt mapInst ValueInst.corecloneCloneInst self.updates index)
     (hexisting : update_map.GetCowWithValueExistingMutable mapInst ValueInst.corecloneCloneInst self.updates index)
-    (hwrites : update_map.GetCowWithValueWrites mapInst ValueInst.corecloneCloneInst self.updates index)
+    (hwrites : update_map.GetCowWithValueWriteReads mapInst ValueInst.corecloneCloneInst self.updates index
+      (ProgressiveList.backing_get ValueInst mapInst self))
     (hmax : update_map.GetCowWithValueMaxIndexAgrees mapInst ValueInst.corecloneCloneInst
       self.updates index self.length)
     (hclone : mapInst.get self.updates index = ok none →

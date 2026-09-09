@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Contents
+import Tree.ProgressiveList.WriteBack
 import Tree.UpdateMap.Mutable
 
 open Aeneas Aeneas.Std Result
@@ -195,12 +195,29 @@ theorem ProgressiveList.get_mut_none_of_get_none {T U : Type}
         exact ⟨fun replacement => { self with updates := mapBack replacement },
           by simp [ProgressiveList.get_mut, hmap]⟩
 
+/-- Exact read criterion after releasing a present mutable handle. The
+returned map may supply the replacement directly or through the unchanged
+backing fallback; no write law, index bound, or representation is assumed. -/
+theorem ProgressiveList.get_after_get_mut_eq_iff_lookup {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index query : Std.Usize) (replacement : T)
+    {value : T} {back : Option T → ProgressiveList T U}
+    (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (some value, back)) :
+    ProgressiveList.get ValueInst mapInst (back (some replacement)) query =
+      (if query = index then ok (some replacement) else ProgressiveList.get ValueInst mapInst self query) ↔
+      update_map.LookupResultsAgree (ProgressiveList.backing_get ValueInst mapInst self query)
+        (mapInst.get (back (some replacement)).updates query)
+        (if query = index then ok (some replacement) else mapInst.get self.updates query) := by
+  obtain ⟨mapBack, _, rfl⟩ := ProgressiveList.get_mut_success ValueInst mapInst self index hmut
+  exact ProgressiveList.get_with_updates_set_eq_iff ValueInst mapInst self _ index query replacement
+
 /-- Writing through a present mutable handle changes only the selected list
     element, including all pending and backing lookups at other indices. -/
 theorem ProgressiveList.get_after_get_mut_at {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (index query : Std.Usize) (replacement : T)
-    (hwrites : update_map.GetMutWithWrites mapInst self.updates index)
+    (hwrites : update_map.GetMutWithWriteReads mapInst self.updates index
+      (ProgressiveList.backing_get ValueInst mapInst self))
     {value : T} {back : Option T → ProgressiveList T U}
     (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (some value, back)) :
     ProgressiveList.get ValueInst mapInst (back (some replacement)) query =
@@ -208,13 +225,8 @@ theorem ProgressiveList.get_after_get_mut_at {T U : Type}
       else ProgressiveList.get ValueInst mapInst self query := by
   obtain ⟨mapBack, hmap, rfl⟩ :=
     ProgressiveList.get_mut_success ValueInst mapInst self index hmut
-  have hget := hwrites _ _ _ _ hmap replacement query
-  by_cases hquery : query = index
-  · simp only [if_pos hquery] at hget ⊢
-    exact ProgressiveList.get_of_pending_update ValueInst mapInst _ query replacement hget
-  · simp only [if_neg hquery] at hget ⊢
-    simp only [ProgressiveList.get, hget, ProgressiveList.backing_get,
-      ProgressiveList.backing_len]
+  exact (ProgressiveList.get_with_updates_set_eq_iff ValueInst mapInst self _ index query replacement).mpr
+    (hwrites _ _ _ _ hmap replacement query)
 
 /-- Exact metadata criterion for preserving the complete length result after
 mutable write-back. No bounds, representation, or successful length-query
@@ -247,6 +259,23 @@ theorem ProgressiveList.len_after_get_mut {T U : Type}
   exact ((ProgressiveList.len_with_updates_eq_iff_max_index ValueInst mapInst self _).mpr
     (hmax _ _ _ _ hmap replacement)).trans hlen
 
+/-- A returned mutable continuation represents the selected sequence
+replacement exactly under lookup and maximum-result agreement. No map read,
+write, or metadata law is assumed in this equivalence. -/
+theorem ProgressiveList.get_mut_represents_set_iff {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    (index : Std.Usize) (replacement : T)
+    (hrep : self.Represents ValueInst mapInst contents) (hindex : index.val < contents.length)
+    {value : T} {back : Option T → ProgressiveList T U}
+    (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (some value, back)) :
+    (back (some replacement)).Represents ValueInst mapInst (contents.set index.val replacement) ↔
+      utils.MaxIndexResultsAgree self.length
+        (mapInst.max_index (back (some replacement)).updates) (mapInst.max_index self.updates) ∧
+      self.SetReadsAgree ValueInst mapInst (back (some replacement)).updates index replacement := by
+  obtain ⟨mapBack, _, rfl⟩ := ProgressiveList.get_mut_success ValueInst mapInst self index hmut
+  exact ProgressiveList.represents_set_with_updates_iff ValueInst mapInst self contents _ index replacement hrep hindex
+
 /-- **Sequence replacement correctness.** Writing a new value through a
     returned mutable element handle preserves length and every other element.
     The old representation and successful read supply the index bound, so
@@ -257,13 +286,14 @@ theorem ProgressiveList.get_mut_represents_set {T U : Type}
     (index : Std.Usize) (replacement : T)
     (hrep : self.Represents ValueInst mapInst contents)
     (hreads : update_map.GetMutWithReads mapInst self.updates index)
-    (hwrites : update_map.GetMutWithWrites mapInst self.updates index)
+    (hwrites : update_map.GetMutWithWriteReads mapInst self.updates index
+      (ProgressiveList.backing_get ValueInst mapInst self))
     (hmax : update_map.GetMutWithMaxIndexAgrees mapInst self.updates index self.length)
     {value : T} {back : Option T → ProgressiveList T U}
     (hmut : ProgressiveList.get_mut ValueInst mapInst self index = ok (some value, back)) :
     (back (some replacement)).Represents ValueInst mapInst
       (contents.set index.val replacement) := by
-  obtain ⟨⟨length, hlen, hlength⟩, hget⟩ := hrep
+  have hget := hrep.2
   have hindex : index.val < contents.length := by
     by_contra hout
     have hnone : contents[index.val]? = none :=
@@ -274,20 +304,10 @@ theorem ProgressiveList.get_mut_represents_set {T U : Type}
       ProgressiveList.get_mut_none_of_get_none ValueInst mapInst self index hreads hgetnone
     rw [hmut] at hnoneMut
     cases hnoneMut
-  refine ⟨⟨length, ProgressiveList.len_after_get_mut ValueInst mapInst self index length
-    replacement hlen hmax hmut, by simp [hlength]⟩, ?_⟩
-  intro query
-  rw [ProgressiveList.get_after_get_mut_at ValueInst mapInst self index query replacement
-    hwrites hmut]
-  by_cases heq : query = index
-  · subst query
-    simp [hindex]
-  · rw [if_neg heq, hget query]
-    have hne : index.val ≠ query.val := by
-      intro heqval
-      apply heq
-      scalar_tac
-    simp [hne]
+  apply (ProgressiveList.get_mut_represents_set_iff
+    ValueInst mapInst self contents index replacement hrep hindex hmut).mpr
+  obtain ⟨mapBack, hmap, rfl⟩ := ProgressiveList.get_mut_success ValueInst mapInst self index hmut
+  exact ⟨hmax _ _ _ _ hmap replacement, hwrites _ _ _ _ hmap replacement⟩
 
 /-- Releasing a missing mutable handle preserves the complete list, under the
     generic map's missing-lookup law. -/
