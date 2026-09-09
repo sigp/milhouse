@@ -22,6 +22,31 @@ def ProgressiveTree.RebaseReady {T : Type} (ValueInst : Value T)
     orig.RebaseRequirements ValueInst.corecmpPartialEqInst base factor
       packingDepth.val origLength baseLength depth
 
+/-- An immediate missing/shared-input stop returns the original tree exactly.
+This needs no packing query, shape invariant, or semantic comparison law. -/
+theorem ProgressiveTree.rebase_on_recursive_stop_state {T : Type} (ValueInst : Value T)
+    {orig base after : ProgressiveTree T} {origLength baseLength : Std.Usize} {depth : Std.U32}
+    (hstop : orig = .ProgressiveZero ∨ base = .ProgressiveZero ∨
+      triomphe.arc.Arc.ptr_eq orig base = ok true)
+    (hrebase : ProgressiveTree.rebase_on_recursive ValueInst orig base origLength baseLength depth = ok (.Ok after)) :
+    after = orig := by
+  unfold ProgressiveTree.rebase_on_recursive at hrebase
+  obtain ⟨same, hpointer, hpointerTrue⟩ := triomphe.arc.Arc.ptr_eq_spec orig base
+  rw [hpointer] at hrebase
+  cases same with
+  | true =>
+    simp [triomphe.arc.Arc.Insts.CoreCloneClone.clone] at hrebase
+    subst after
+    exact (hpointerTrue rfl).symm
+  | false =>
+    simp only [bind_tc_ok, Bool.false_eq_true, ↓reduceIte,
+      triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref] at hrebase
+    rcases hstop with rfl | rfl | htrue
+    · simpa [triomphe.arc.Arc.Insts.CoreCloneClone.clone] using hrebase.symm
+    · cases orig <;> simpa [triomphe.arc.Arc.Insts.CoreCloneClone.clone] using hrebase.symm
+    · rw [hpointer] at htrue
+      cases htrue
+
 /-- Entering a node pair and returning successfully exposes the actual
 packing queries. The successful depth query also supplies the factor result;
 no layout law, metadata-success hypothesis, or query totality is assumed. -/

@@ -21,6 +21,21 @@ theorem RebasePackingQueries.of_layout {T : Type} {ValueInst : Value T}
   ⟨hlayout.opt_packing_factor_eq,
     ⟨_, hlayout.opt_packing_depth_eq, hlayout.unwrap_opt_packing_depth_eq⟩⟩
 
+/-- Actual query results determine both metadata values uniquely, without a
+factor/depth coherence law. -/
+theorem RebasePackingQueries.unique {T : Type} {inst : tree_hash.TreeHash T}
+    {factor₁ factor₂ : Option Std.Usize} {depth₁ depth₂ : Std.Usize}
+    (left : RebasePackingQueries inst factor₁ depth₁)
+    (right : RebasePackingQueries inst factor₂ depth₂) :
+    factor₁ = factor₂ ∧ depth₁ = depth₂ := by
+  constructor
+  · exact Result.ok.inj (left.factor_eq.symm.trans right.factor_eq)
+  · obtain ⟨optionalLeft, hleft, hdefaultLeft⟩ := left.depth_eq
+    obtain ⟨optionalRight, hright, hdefaultRight⟩ := right.depth_eq
+    have heq := Result.ok.inj (hleft.symm.trans hright)
+    subst optionalRight
+    exact hdefaultLeft.symm.trans hdefaultRight
+
 /-- A successful depth query necessarily completed the actual factor query.
 This is derived from the extracted body, without a factor/depth law. -/
 theorem rebase_factor_query_of_depth {T : Type} (inst : tree_hash.TreeHash T)

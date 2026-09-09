@@ -23,6 +23,7 @@ theorem Tree.rebase_on_contents_correct {T : Type} (ValueInst : Value T)
     (hrebase : Tree.rebase_on ValueInst orig base (some (origLength, baseLength)) fullDepth =
       ok (core.result.Result.Ok action)) : action.ContentsCorrect orig base := by
   exact Tree.rebase_on_contents_correct_of_inputs ValueInst
+    (lengths := some (origLength, baseLength)) (fullDepth := fullDepth)
     (Tree.rebaseContentInputs_of_dense ValueInst hlayout hdepth horig hbase hequality hhashes) hrebase
 
 end milhouse.tree
