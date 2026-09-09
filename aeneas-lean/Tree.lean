@@ -93,6 +93,7 @@ import Tree.ProgressiveTree.Equality.Correctness
 import Tree.ProgressiveTree.Equality.Soundness
 import Tree.ProgressiveTree.Equality.Lookup
 import Tree.ProgressiveTree.Iter.Construction
+import Tree.ProgressiveList.Overlay
 import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Construction.Total
 import Tree.ProgressiveList.Construction.Trace
@@ -173,6 +174,7 @@ import Tree.ProgressiveList.Rebase.Total
 import Tree.ProgressiveList.Rebase.Conditions
 import Tree.ProgressiveList.Rebase.SelectedConditions
 import Tree.ProgressiveList.Rebase.Ready
+import Tree.ProgressiveList.PopFront.Overlay
 import Tree.ProgressiveList.PopFront.Contents
 import Tree.ProgressiveList.PopFront.Caches
 import Tree.ProgressiveList.PopFront.BuilderTotal

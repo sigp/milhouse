@@ -1,6 +1,6 @@
 import Tree.ProgressiveList.Construction
 import Tree.ProgressiveList.Spine
-import Tree.ProgressiveTree.Lookup
+import Tree.ProgressiveList.Overlay
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -19,19 +19,9 @@ theorem ProgressiveList.represents_of_dense_backing {T U : Type}
     (hget : ∀ i, mapInst.get self.updates i = ok none)
     (hmax : mapInst.max_index self.updates = ok none) :
     self.Represents ValueInst mapInst self.tree.elements := by
-  have hlength := hdense.elements_length
-  refine ⟨⟨self.length, ProgressiveList.len_of_no_max_index ValueInst mapInst self hmax,
-    hlength.symm⟩, ?_⟩
-  intro index
-  by_cases hinside : index < self.length
-  · rw [ProgressiveList.get_of_backing ValueInst mapInst self index (hget index) hinside]
-    simpa using ProgressiveTree.Dense.get_recursive_eq_elements ValueInst hlayout
-      (depth := 0#u32) hdense hfits index
-  · rw [ProgressiveList.get_none_of_backing_bound ValueInst mapInst self index (hget index) hinside]
-    have hbound : self.tree.elements.length ≤ index.val := by
-      have : ¬ index.val < self.length.val := by simpa only [UScalar.lt_equiv] using hinside
-      omega
-    rw [_root_.List.getElem?_eq_none_iff.mpr hbound]
+  apply (ProgressiveList.represents_iff_overlay_of_length ValueInst mapInst hlayout
+    self self.tree.elements hdense hfits hdense.elements_length.symm).mpr
+  exact ⟨⟨none, hmax, hdense.elements_length.symm⟩, fun index => ⟨none, hget index, rfl⟩⟩
 
 /-- Successful iterator construction represents exactly its input sequence,
     establishes the backing-spine invariant, and has no pending updates.

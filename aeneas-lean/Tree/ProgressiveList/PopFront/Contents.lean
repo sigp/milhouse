@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.PopFront.Clones
+import Tree.ProgressiveList.PopFront.Overlay
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -61,8 +61,8 @@ theorem ProgressiveList.pop_front_spec {T U : Type}
     obtain ⟨hget, hmax, hempty⟩ := hdefault hzero result.updates hmap
     refine ⟨?_, hvalid, fun _ => ProgressiveList.has_pending_updates_spec
       ValueInst mapInst result true hempty⟩
-    rw [← helements]
-    exact ProgressiveList.represents_of_dense_backing ValueInst mapInst (hlayout hzero)
-      result hvalid.1 hvalid.2 hget hmax
+    apply (ProgressiveList.pop_front_nonzero_represents_iff ValueInst mapInst (hlayout hzero)
+      self contents n hrep hbacking hzero hpop).mpr
+    exact ⟨⟨none, hmax, rfl⟩, fun index => ⟨none, hget index, by simp only [Option.or, helements]⟩⟩
 
 end milhouse.progressive_list
