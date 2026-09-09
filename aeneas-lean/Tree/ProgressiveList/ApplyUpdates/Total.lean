@@ -40,10 +40,12 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
       (by simpa only [hlast] using hmax) hlength
     omega
   obtain ⟨tree, htree⟩ := ProgressiveTree.with_updated_leaves_success ValueInst mapInst self.updates
-    hlayout hclone
+    hlayout
     (fun query => ProgressiveList.pending_get_of_get_success ValueInst mapInst self (hrep.2 query))
     hqueries hrange maximum hmax self.length.val contents.length hmaximum hrep.dense_update_domain
-    hfits self.tree hdense
+    hfits self.tree
+    (ProgressiveTree.BulkCloneOn.of_all ValueInst mapInst self.updates factor maximum hclone self.tree 0#u32)
+    hdense
   refine ⟨{ tree, length, updates := defaults }, ?_, hcontentsLength, rfl⟩
   simp! only [ProgressiveList.apply_updates, hempty, Bool.false_eq_true, ↓reduceIte,
     core.mem.take, hdefault, bind_tc_ok, hlength, triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref,
