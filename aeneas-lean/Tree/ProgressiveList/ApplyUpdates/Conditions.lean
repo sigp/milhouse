@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.ApplyUpdates.MaterializedConditions
+import Tree.ProgressiveList.ApplyUpdates.EnabledConditions
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
