@@ -144,6 +144,7 @@ import Tree.ProgressiveTree.Builder.Push
 import Tree.ProgressiveTree.LengthFits
 import Tree.ProgressiveTree.Builder.PushLength
 import Tree.ProgressiveTree.Builder.ExtendSuccess
+import Tree.ProgressiveTree.Builder.Trace
 import Tree.ProgressiveTree.ConstructionTotal
 import Tree.ProgressiveTree.Construction.Caches
 import Tree.ProgressiveTree.Builder.SpineSuccess
