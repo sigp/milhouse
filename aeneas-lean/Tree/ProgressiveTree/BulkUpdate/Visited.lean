@@ -7,7 +7,9 @@ open milhouse
 
 namespace milhouse.progressive_tree
 
-private theorem step_of_geometry {T U : Type}
+/-- Align an actual successful progressive step with the input geometry.
+No external or input-invariant law is assumed. -/
+theorem ProgressiveTree.BulkLayerGeometry.step_of_update {T U : Type}
     {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
     {maximum : Option Std.Usize} {before after : ProgressiveTree T}
     {depth next : Std.U32} {start stop binary : Std.Usize}
@@ -41,19 +43,19 @@ theorem ProgressiveTree.BulkLayerVisited.update_success {T U : Type}
       ok (.Ok result) := by
   induction hvisit generalizing after with
   | zero_here hgeometry hhas =>
-    have hstep := step_of_geometry hgeometry hupdate
+    have hstep := hgeometry.step_of_update hupdate
     cases hstep with
     | zero hempty => rw [hhas] at hempty; cases hempty
     | expand _ _ hleft _ => exact ⟨_, hleft⟩
   | node_here hgeometry hhas =>
-    have hstep := step_of_geometry hgeometry hupdate
+    have hstep := hgeometry.step_of_update hupdate
     cases hstep with
     | node _ _ hleft _ =>
       rcases hleft with ⟨hempty, _⟩ | ⟨_, hleft⟩
       · rw [hhas] at hempty; cases hempty
       · exact ⟨_, hleft⟩
   | zero_tail hgeometry hhas hselected _ ih =>
-    have hstep := step_of_geometry hgeometry hupdate
+    have hstep := hgeometry.step_of_update hupdate
     cases hstep with
     | zero hempty => rw [hhas] at hempty; cases hempty
     | expand _ _ _ hright =>
@@ -63,7 +65,7 @@ theorem ProgressiveTree.BulkLayerVisited.update_success {T U : Type}
         omega
       · exact ih hrecursive
   | node_tail hgeometry _ hselected _ ih =>
-    have hstep := step_of_geometry hgeometry hupdate
+    have hstep := hgeometry.step_of_update hupdate
     cases hstep with
     | node _ _ _ hright =>
       rcases hright with ⟨hbefore, _⟩ | ⟨_, hrecursive⟩
