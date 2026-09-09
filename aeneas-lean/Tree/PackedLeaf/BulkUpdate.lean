@@ -41,19 +41,20 @@ theorem PackedLeaf.update_loop_step {T U : Type}
 /-- During a packed-window scan, each query already passed is preserved, and
     each query still to be visited is replaced exactly when the map contains
     a value there. No map range/maximum laws or density assumptions are needed
-    for this content theorem; it is conditional on successful loop execution. -/
-theorem PackedLeaf.update_loop_get_of_clone_on_window {T U : Type}
+    for this content theorem. Clone identity is needed only at the queried
+    pending value, and only if the loop has not passed it. Successful execution
+    supplies termination of all other clones, whose values may differ. -/
+theorem PackedLeaf.update_loop_get_of_clone_at_query {T U : Type}
     {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
     {mapInst : update_map.UpdateMap U T} {updates : U}
     {factor stop query : Std.Usize} {window : Nat} {pending : Option T}
     (hend : stop.val = window + factor.val)
-    (hclone : ∀ (index : Std.Usize) value, window ≤ index.val → index.val < stop.val →
-      mapInst.get updates index = ok (some value) → cloneInst.clone value = ok value)
     (halign : window % factor.val = 0)
     (hquery_lo : window ≤ query.val) (hquery_hi : query.val < stop.val)
     (hquery : mapInst.get updates query = ok pending) :
     ∀ (fuel : Nat) (updated : PackedLeaf T) (index : Std.Usize) (result : PackedLeaf T),
       stop.val - index.val ≤ fuel → window ≤ index.val → index.val ≤ stop.val →
+      (index.val ≤ query.val → ∀ value, pending = some value → cloneInst.clone value = ok value) →
       PackedLeaf.update_loop thi cloneInst mapInst updates updated factor stop index =
         ok (core.result.Result.Ok result) →
       result.values.val[query.val - window]? =
@@ -63,7 +64,7 @@ theorem PackedLeaf.update_loop_get_of_clone_on_window {T U : Type}
   intro fuel
   induction fuel with
   | zero =>
-    intro updated index result hfuel hlo hhi hloop
+    intro updated index result hfuel hlo hhi hclone hloop
     have hstop : ¬ index < stop := by scalar_tac
     rw [PackedLeaf.update_loop_step] at hloop
     unfold PackedLeaf.update_loop.body at hloop
@@ -72,7 +73,7 @@ theorem PackedLeaf.update_loop_get_of_clone_on_window {T U : Type}
     subst hloop
     rw [if_neg (by omega)]
   | succ fuel ih =>
-    intro updated index result hfuel hlo hhi hloop
+    intro updated index result hfuel hlo hhi hclone hloop
     rw [PackedLeaf.update_loop_step] at hloop
     by_cases hlt : index < stop
     case neg =>
@@ -98,7 +99,8 @@ theorem PackedLeaf.update_loop_get_of_clone_on_window {T U : Type}
       simp at hb
       subst hb
       simp at hloop
-      rw [ih updated next result (by scalar_tac) (by omega) (by scalar_tac) hloop]
+      rw [ih updated next result (by scalar_tac) (by omega) (by scalar_tac)
+        (fun hnext value hpending => hclone (by omega) value hpending) hloop]
       by_cases heq : query = index
       · subst query
         rw [hfound] at hquery
@@ -119,8 +121,8 @@ theorem PackedLeaf.update_loop_get_of_clone_on_window {T U : Type}
           rw [hidx, Nat.add_mod, halign]
           simp [Nat.mod_eq_of_lt hklt]
         exact hs.1.trans hm
-      simp only [hclone index value hlo (show index.val < stop.val from hlt) hfound,
-        bind_tc_ok] at hb
+      rw [bind_eq_ok_iff] at hb
+      obtain ⟨cloned, hcloned, hb⟩ := hb
       rw [bind_eq_ok_iff] at hb
       obtain ⟨⟨r, updated1⟩, hins, hb⟩ := hb
       cases r with
@@ -139,17 +141,43 @@ theorem PackedLeaf.update_loop_get_of_clone_on_window {T U : Type}
         simp at hb
         subst hb
         simp at hloop
-        rw [ih updated1 next result (by scalar_tac) (by omega) (by scalar_tac) hloop]
+        rw [ih updated1 next result (by scalar_tac) (by omega) (by scalar_tac)
+          (fun hnext value hpending => hclone (by omega) value hpending) hloop]
         rw [PackedLeaf.get_after_insert_mut hins, hsub]
         by_cases heq : query = index
         · subst query
           rw [hfound] at hquery
           cases hquery
-          simp
+          have hvalue := Result.ok.inj (hcloned.symm.trans (hclone (by omega) value rfl))
+          simp [hvalue]
         · have hne : query.val ≠ index.val := by intro h; apply heq; scalar_tac
           have hsub_ne : query.val - window ≠ index.val - window := by omega
           have hguard : (next.val ≤ query.val) ↔ (index.val ≤ query.val) := by omega
           simp only [if_neg hsub_ne, hguard]
+
+/-- A pending-clone law on the whole window specializes the query-local
+    theorem. No identity law for copied storage is needed by the scan itself. -/
+theorem PackedLeaf.update_loop_get_of_clone_on_window {T U : Type}
+    {thi : tree_hash.TreeHash T} {cloneInst : core.clone.Clone T}
+    {mapInst : update_map.UpdateMap U T} {updates : U}
+    {factor stop query : Std.Usize} {window : Nat} {pending : Option T}
+    (hend : stop.val = window + factor.val)
+    (hclone : ∀ (index : Std.Usize) value, window ≤ index.val → index.val < stop.val →
+      mapInst.get updates index = ok (some value) → cloneInst.clone value = ok value)
+    (halign : window % factor.val = 0)
+    (hquery_lo : window ≤ query.val) (hquery_hi : query.val < stop.val)
+    (hquery : mapInst.get updates query = ok pending) :
+    ∀ (fuel : Nat) (updated : PackedLeaf T) (index : Std.Usize) (result : PackedLeaf T),
+      stop.val - index.val ≤ fuel → window ≤ index.val → index.val ≤ stop.val →
+      PackedLeaf.update_loop thi cloneInst mapInst updates updated factor stop index =
+        ok (core.result.Result.Ok result) →
+      result.values.val[query.val - window]? =
+        if index.val ≤ query.val then pending.or updated.values.val[query.val - window]?
+        else updated.values.val[query.val - window]? := by
+  intro fuel updated index result hfuel hlo hhi hloop
+  exact PackedLeaf.update_loop_get_of_clone_at_query hend halign hquery_lo hquery_hi hquery
+    fuel updated index result hfuel hlo hhi
+    (fun _ value hpending => hclone query value hquery_lo hquery_hi (by rw [hquery, hpending])) hloop
 
 /-- Compatibility form using a clone law for every value. The stronger
 window-scoped theorem requires that law only for actual pending reads. -/
