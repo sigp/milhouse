@@ -37,6 +37,40 @@ theorem ProgressiveList.from_ssz_bytes_trace {T U : Type}
       exact ⟨entries, .variable hnonempty hvariable hitems htrace,
         helements, hlength, hdefault⟩
 
+/-- Every successful decoder result represents its materialized backing
+sequence and has no pending updates. This common state contract needs only
+empty-default-map laws and packing layout for nonempty input, independently
+of the input format or any particular payload trace. -/
+theorem ProgressiveList.from_ssz_bytes_represents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (bytes : Slice Std.U8) {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : bytes.val ≠ [] → tree.PackingLayout ValueInst factor packingDepth)
+    (hdefault : ∀ updates, mapInst.coredefaultDefaultInst.default = ok updates →
+      (∀ index, mapInst.get updates index = ok none) ∧
+        mapInst.max_index updates = ok none ∧ mapInst.is_empty updates = ok true)
+    {self : ProgressiveList T U}
+    (hdecode : ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
+      ok (core.result.Result.Ok self)) :
+    self.Represents ValueInst mapInst self.tree.elements ∧ self.BackingValid factor ∧
+      ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
+  obtain ⟨_, _, _, _, hmap⟩ :=
+    ProgressiveList.from_ssz_bytes_trace ValueInst mapInst bytes hdecode
+  obtain ⟨hget, hmax, hempty⟩ := hdefault self.updates hmap
+  have hpending := ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty
+  rcases ProgressiveList.from_ssz_bytes_success_input ValueInst mapInst bytes hdecode with
+    ⟨_, hconstructed⟩ | ⟨hnonempty, _⟩
+  · have htree := (ProgressiveList.empty_success_state ValueInst mapInst hconstructed).1
+    obtain ⟨result, hresult, hrep⟩ := ProgressiveList.empty_represents
+      ValueInst mapInst self.updates hmap hget hmax
+    rw [hconstructed] at hresult
+    cases Result.ok.inj hresult
+    exact ⟨by simpa [htree, ProgressiveTree.elements] using hrep,
+      ProgressiveList.empty_backing_valid ValueInst mapInst factor hconstructed, hpending⟩
+  · obtain ⟨hbacking, _⟩ := ProgressiveList.from_ssz_bytes_backing
+      ValueInst mapInst bytes (hlayout hnonempty) hdecode
+    exact ⟨ProgressiveList.represents_of_dense_backing ValueInst mapInst (hlayout hnonempty) self
+      hbacking.1 hbacking.2 hget hmax, hbacking, hpending⟩
+
 /-- Successful decoding represents the actual payload trace at every index,
 with valid backing and no pending updates. Only the actual default map's empty
 behavior is needed in addition to packing layout for nonempty input. The
@@ -59,34 +93,9 @@ theorem ProgressiveList.from_ssz_bytes_trace_spec {T U : Type}
       ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
   obtain ⟨entries, htrace, helements, hlength, hmap⟩ :=
     ProgressiveList.from_ssz_bytes_trace ValueInst mapInst bytes hdecode
-  obtain ⟨hget, hmax, hempty⟩ := hdefault self.updates hmap
-  refine ⟨entries, htrace, ?_, ?_, hlength, hmap,
-    ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty⟩
-  · by_cases hbytes : bytes.val = []
-    · have hsource := ProgressiveList.from_ssz_bytes_success_input ValueInst mapInst bytes hdecode
-      have hconstructed : ProgressiveList.empty ValueInst mapInst = ok self := by
-        rcases hsource with ⟨_, hconstructed⟩ | ⟨hnonempty, _⟩
-        · exact hconstructed
-        · exact False.elim (hnonempty hbytes)
-      obtain ⟨htree, hlength, _⟩ := ProgressiveList.empty_success_state
-        ValueInst mapInst hconstructed
-      have hvalues : entries.map Prod.fst = [] := by
-        simpa [htree, ProgressiveTree.elements] using helements.symm
-      rw [hvalues]
-      obtain ⟨result, hresult, hrep⟩ := ProgressiveList.empty_represents
-        ValueInst mapInst self.updates hmap hget hmax
-      rw [hconstructed] at hresult
-      cases Result.ok.inj hresult
-      exact hrep
-    · obtain ⟨hbacking, _⟩ := ProgressiveList.from_ssz_bytes_backing
-        ValueInst mapInst bytes (hlayout hbytes) hdecode
-      rw [← helements]
-      exact ProgressiveList.represents_of_dense_backing ValueInst mapInst (hlayout hbytes) self
-        hbacking.1 hbacking.2 hget hmax
-  · rcases ProgressiveList.from_ssz_bytes_success_input ValueInst mapInst bytes hdecode with
-      ⟨_, hconstructed⟩ | ⟨hnonempty, _⟩
-    · exact ProgressiveList.empty_backing_valid ValueInst mapInst factor hconstructed
-    · exact (ProgressiveList.from_ssz_bytes_backing
-        ValueInst mapInst bytes (hlayout hnonempty) hdecode).1
+  obtain ⟨hrep, hbacking, hpending⟩ := ProgressiveList.from_ssz_bytes_represents
+    ValueInst mapInst bytes hlayout hdefault hdecode
+  exact ⟨entries, htrace, by simpa only [helements] using hrep,
+    hbacking, hlength, hmap, hpending⟩
 
 end milhouse.progressive_list
