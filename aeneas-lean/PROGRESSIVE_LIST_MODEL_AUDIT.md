@@ -125,6 +125,15 @@ check also pass.
 - Generic update-map, element clone/equality, codec, and generator calls use
   the operation-specific laws recorded in the proof coverage document. The
   dependency inventory does not verify concrete implementations of those laws.
+  Fixed-encoder call equations in `Encode/FixedCalls.lean` now preserve the
+  actual buffer fold, reservation checks, failure, and divergence without
+  codec laws. Exact fixed-byte contracts separately bound reservation and
+  payload size and restrict append laws to reached prefix buffers; they do
+  not assume payload widths agree with metadata. The fixed decoder roundtrip
+  still needs that agreement for chunk boundaries. These proof changes leave
+  external models and API roots unchanged. Their full axiom/import audit
+  passes for 4,993 declarations across 311 modules (2,027 build jobs); the
+  separate dependency gate was not rerun for these proof-only changes.
 - Collection models preserve values and modeled logical size checks while
   abstracting allocation strategy and allocation failure. Their totality
   results are about the extracted model, not resource-exhaustion guarantees.

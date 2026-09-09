@@ -90,8 +90,8 @@ trait has no additional in-place default. Ordinary Serde does.
 | `Encode::is_ssz_fixed_len` | `ProgressiveList.ssz_is_fixed_len_eq` |
 | `Encode::ssz_fixed_len` | `ProgressiveList.ssz_fixed_len_eq` |
 | `Encode::ssz_bytes_len` | `ProgressiveList.ssz_bytes_len_fixed_total_spec`, `ProgressiveList.ssz_bytes_len_variable_spec` |
-| `Encode::ssz_append` | `ProgressiveList.ssz_append_fixed_spec`, `ProgressiveList.ssz_append_variable_spec` |
-| `Encode::as_ssz_bytes` | `ProgressiveList.as_ssz_bytes_fixed_spec`, `ProgressiveList.as_ssz_bytes_variable_spec` |
+| `Encode::ssz_append` | `ProgressiveList.ssz_append_fixed_calls` preserves actual fixed-element calls and failures without codec laws; `ProgressiveList.ssz_append_fixed_spec` and `ProgressiveList.ssz_append_variable_spec` give exact bytes |
+| `Encode::as_ssz_bytes` | `ProgressiveList.as_ssz_bytes_fixed_calls` gives actual fixed-element call behavior; `ProgressiveList.as_ssz_bytes_fixed_spec` and `ProgressiveList.as_ssz_bytes_variable_spec` give exact bytes |
 | `Decode::is_ssz_fixed_len` | `ProgressiveList.decode_is_fixed_len_eq` |
 | `Decode::ssz_fixed_len` | `ProgressiveList.decode_fixed_len_eq` |
 | `Decode::from_ssz_bytes` | `ProgressiveList.from_ssz_bytes_trace`, `ProgressiveList.from_ssz_bytes_trace_spec`, and `ProgressiveList.from_ssz_bytes_success_iff`: every successful input determines its actual payload trace; success is equivalent to a complete trace, occupied-layer capacity, and a successful default-map call. Constructive payload contracts remain `ProgressiveList.from_ssz_bytes_fixed_payloads_total_spec`, `ProgressiveList.from_ssz_bytes_fixed_final_payload_total_spec`, and `ProgressiveList.from_ssz_bytes_variable_payloads_total_spec`; empty, zero-width, malformed-offset, and prefix-error results are in the coverage record |
@@ -186,6 +186,17 @@ the fixed roundtrip also omits decoder positivity and reconstruction capacity
 there. Theorem names are retained with weaker premise types, and dependent
 callers were updated. The canonical representation proofs reuse
 `ProgressiveList.from_ssz_bytes_represents` from the general decoder trace work.
+
+Fixed-encoder call equations now retain the actual reservation checks and
+ordered element append calls, including each returned buffer, failure, or
+divergence. They need no element codec law or byte bound. The exact fixed-byte
+contracts use independent reservation and payload bounds, with no requirement
+that payload lengths match declared width. Their append laws concern only
+sequence positions and buffers containing the initial prefix and preceding
+payloads. The owning encoder uses an empty initial prefix. The fixed roundtrip
+uses the same restricted append law but retains width coherence for decoder
+chunk boundaries and derives the encoder payload bound from it. These changes
+pass the full build and axiom/import audit; they do not change external models.
 
 The revised goal is still incomplete. Borrowed-CoW obligations require faithful
 extraction and models; existing counterexamples
