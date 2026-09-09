@@ -26,21 +26,36 @@ theorem ProgressiveList.get_after_cow_writeback {T U : Type}
   · simp only [if_neg hquery] at hget ⊢
     simp only [ProgressiveList.get, hget, ProgressiveList.backing_get, ProgressiveList.backing_len]
 
-/-- Materializing a CoW entry within logical bounds records its key without
-changing length. Only the relevant maximum-index law is required. -/
+/-- Exact metadata criterion for the full length result after returning a CoW
+handle. The backing length is preserved through every continuation, so this
+needs no write-footprint, bounds, representation, or successful query law. -/
+theorem ProgressiveList.len_after_cow_writeback_eq_iff_max_index {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index : Std.Usize)
+    {handle changed : cow.Cow T} {back : Option (cow.Cow T) → ProgressiveList T U}
+    (hcow : ProgressiveList.get_cow ValueInst mapInst self index = ok (some handle, back)) :
+    ProgressiveList.len ValueInst mapInst (back (some changed)) =
+        ProgressiveList.len ValueInst mapInst self ↔
+      utils.MaxIndexResultsAgree self.length
+        (mapInst.max_index (back (some changed)).updates) (mapInst.max_index self.updates) := by
+  obtain ⟨_, mapBack, _, rfl⟩ := ProgressiveList.get_cow_success ValueInst mapInst self index hcow
+  exact ProgressiveList.len_with_updates_eq_iff_max_index ValueInst mapInst self _
+
+/-- A filled CoW entry preserves logical length when the relevant maximum
+outcomes agree. No exact insertion maximum or separate index bound is needed. -/
 theorem ProgressiveList.len_after_cow_writeback {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (index length : Std.Usize) (replacement : T)
-    (hlen : ProgressiveList.len ValueInst mapInst self = ok length) (hindex : index.val < length.val)
-    (hmax : update_map.GetCowWithValueMaxIndex mapInst ValueInst.corecloneCloneInst self.updates index)
+    (hlen : ProgressiveList.len ValueInst mapInst self = ok length)
+    (hmax : update_map.GetCowWithValueMaxIndexAgrees mapInst ValueInst.corecloneCloneInst
+      self.updates index self.length)
     {handle changed : cow.Cow T} {back : Option (cow.Cow T) → ProgressiveList T U}
     (hcow : ProgressiveList.get_cow ValueInst mapInst self index = ok (some handle, back))
     (hwritten : handle.Written replacement changed) :
     ProgressiveList.len ValueInst mapInst (back (some changed)) = ok length := by
   obtain ⟨fallback, mapBack, hmap, rfl⟩ := ProgressiveList.get_cow_success ValueInst mapInst self index hcow
-  rw [ProgressiveList.len_eq_updated_length] at hlen ⊢
-  exact utils.updated_length_insert_below mapInst self.length self.updates (mapBack (some changed))
-    index length hlen hindex (hmax fallback handle mapBack hmap replacement changed hwritten)
+  exact ((ProgressiveList.len_with_updates_eq_iff_max_index ValueInst mapInst self _).mpr
+    (hmax fallback handle mapBack hmap replacement changed hwritten)).trans hlen
 
 /-- Returning a filled CoW entry replaces exactly one represented element
 and preserves logical length. The input bound is the only sequence premise
@@ -50,14 +65,15 @@ theorem ProgressiveList.cow_writeback_represents_set {T U : Type}
     (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize) (replacement : T)
     (hrep : self.Represents ValueInst mapInst contents) (hindex : index.val < contents.length)
     (hwrites : update_map.GetCowWithValueWrites mapInst ValueInst.corecloneCloneInst self.updates index)
-    (hmax : update_map.GetCowWithValueMaxIndex mapInst ValueInst.corecloneCloneInst self.updates index)
+    (hmax : update_map.GetCowWithValueMaxIndexAgrees mapInst ValueInst.corecloneCloneInst
+      self.updates index self.length)
     {handle changed : cow.Cow T} {back : Option (cow.Cow T) → ProgressiveList T U}
     (hcow : ProgressiveList.get_cow ValueInst mapInst self index = ok (some handle, back))
     (hwritten : handle.Written replacement changed) :
     (back (some changed)).Represents ValueInst mapInst (contents.set index.val replacement) := by
   obtain ⟨⟨length, hlen, hlength⟩, hget⟩ := hrep
   refine ⟨⟨length, ProgressiveList.len_after_cow_writeback ValueInst mapInst self index length
-    replacement hlen (by omega) hmax hcow hwritten, by simp [hlength]⟩, ?_⟩
+    replacement hlen hmax hcow hwritten, by simp [hlength]⟩, ?_⟩
   intro query
   rw [ProgressiveList.get_after_cow_writeback ValueInst mapInst self index query replacement hwrites hcow hwritten]
   by_cases heq : query = index
@@ -71,8 +87,9 @@ theorem ProgressiveList.cow_writeback_represents_set {T U : Type}
 through the returned reference replaces precisely that element. All handle,
 clone, entry-growth, and metadata continuations are composed from actual
 calls. Cloning is required only when no pending value already exists; its
-result need not equal the old element. No backing or packing invariant is
-needed beyond the original list representation. -/
+result need not equal the old element. Maximum metadata needs only matching
+logical extent. No backing or packing invariant is needed beyond the original
+list representation. -/
 theorem ProgressiveList.get_cow_into_mut_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize)
@@ -81,7 +98,8 @@ theorem ProgressiveList.get_cow_into_mut_spec {T U : Type}
     (hentry : update_map.GetCowWithValueEntryAt mapInst ValueInst.corecloneCloneInst self.updates index)
     (hexisting : update_map.GetCowWithValueExistingMutable mapInst ValueInst.corecloneCloneInst self.updates index)
     (hwrites : update_map.GetCowWithValueWrites mapInst ValueInst.corecloneCloneInst self.updates index)
-    (hmax : update_map.GetCowWithValueMaxIndex mapInst ValueInst.corecloneCloneInst self.updates index)
+    (hmax : update_map.GetCowWithValueMaxIndexAgrees mapInst ValueInst.corecloneCloneInst
+      self.updates index self.length)
     (hclone : mapInst.get self.updates index = ok none →
       ∃ value, ValueInst.corecloneCloneInst.clone contents[index.val] = ok value) :
     ∃ handle listBack value valueBack,

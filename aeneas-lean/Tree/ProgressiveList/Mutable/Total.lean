@@ -59,14 +59,15 @@ theorem ProgressiveList.get_mut_present_succeeds {T U : Type}
 the returned reference replaces exactly that element while preserving the
 backing tree and its recorded length. The initial value is either the pending
 element or the actual fallback clone. Only that clone must terminate, and it
-need not preserve the old element. No structural backing invariant is needed. -/
+need not preserve the old element. Maximum metadata needs only matching
+logical extent, and no structural backing invariant is needed. -/
 theorem ProgressiveList.get_mut_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize)
     (hrep : self.Represents ValueInst mapInst contents) (hindex : index.val < contents.length)
     (hreads : update_map.GetMutWithReads mapInst self.updates index)
     (hwrites : update_map.GetMutWithWrites mapInst self.updates index)
-    (hmax : update_map.GetMutWithMaxIndex mapInst self.updates index)
+    (hmax : update_map.GetMutWithMaxIndexAgrees mapInst self.updates index self.length)
     (hclone : mapInst.get self.updates index = ok none →
       ∃ value, ValueInst.corecloneCloneInst.clone contents[index.val] = ok value) :
     ∃ value back,
@@ -94,15 +95,16 @@ theorem ProgressiveList.get_mut_spec {T U : Type}
 /-- Complete mutable access for every machine index. A missing index returns
 no element and leaves the list unchanged. A present index returns the pending
 value or its actual backing clone, and subsequent write-back replaces exactly
-that element. Cloning, write, and maximum-index laws are required only for
-present elements; the missing-handle law is required only out of bounds. -/
+that element. Cloning, write, and maximum-result agreement laws are required
+only for present elements; the missing-handle law is required only out of bounds. -/
 theorem ProgressiveList.get_mut_total_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T) (index : Std.Usize)
     (hrep : self.Represents ValueInst mapInst contents)
     (hreads : update_map.GetMutWithReads mapInst self.updates index)
     (hwrites : index.val < contents.length → update_map.GetMutWithWrites mapInst self.updates index)
-    (hmax : index.val < contents.length → update_map.GetMutWithMaxIndex mapInst self.updates index)
+    (hmax : index.val < contents.length →
+      update_map.GetMutWithMaxIndexAgrees mapInst self.updates index self.length)
     (hmissing : contents.length ≤ index.val → update_map.GetMutWithMissing mapInst self.updates index)
     (hclone : ∀ old, contents[index.val]? = some old → mapInst.get self.updates index = ok none →
       ∃ value, ValueInst.corecloneCloneInst.clone old = ok value) :
