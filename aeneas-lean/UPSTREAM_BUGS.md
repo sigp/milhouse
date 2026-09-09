@@ -173,6 +173,14 @@ needs faithful formatter and lock-observation models as well as a solution
 to recursive dictionary emission. This is an extraction/model limitation,
 not evidence of a bug in milhouse's derived Rust implementation.
 
+The source inventory through `0ed21ba` also explicitly accounts for
+`ProgressiveListIter` and `ProgressiveListIterCow`, which each derive Debug in
+`src/progressive_list.rs`. Their formatters remain unextracted and unproved;
+the list probe above does not establish an extraction result for either one.
+Their actual backing-iterator and map dictionaries, index fields, and the
+read-only iterator's length field must be retained. These derives are not gated
+by the `debug` feature, which only changes the bounds on `Value`.
+
 ## 6. Aeneas Lean backend: `impl_def` fails on self-referential default method
 
 **Stage:** Lean elaboration of generated code.
