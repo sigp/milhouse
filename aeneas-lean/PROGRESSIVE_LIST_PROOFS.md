@@ -85,13 +85,16 @@ points and records the trusted boundaries that still need fidelity review.
 ## Existing foundations
 
 - The [core source comparisons](reproducers/core_models/README.md) validate
-  `mem::take`, used for pending-map rebuilding, and `usize::div_ceil`, used in
-  builder finalization, against their actual extracted standard-library bodies.
+  `mem::take`, used for pending-map rebuilding, `usize::div_ceil`, used in
+  builder finalization, and `u128::saturating_mul`, used in capacity arithmetic,
+  against their actual extracted standard-library bodies.
   Default results are unconstrained; zero-divisor failure and rounding safety
   are covered for every machine-word input without an arithmetic premise.
-  `take` is axiom-free and ceiling division uses only standard Lean axioms.
-  The source audit and four native protocol/boundary tests pass, alongside
-  the existing Option suite after sharing their provenance/axiom runner.
+  Saturation covers every input and overflow, retaining Aeneas's existing
+  checked-multiplication primitive. `take` is axiom-free; the two numeric
+  comparisons use only standard Lean axioms. The source audit and five native
+  tests pass. Remaining intrinsic boundaries are recorded in UPSTREAM_BUGS
+  issue 24; the extracted checked-power loop still needs its comparison proof.
 - The [Option source comparison](reproducers/option_models/README.md) checks
   eleven local Option models against independent extraction of their actual
   pinned standard-library bodies. A twelfth theorem verifies `cloned` through
@@ -1064,7 +1067,19 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest core-model checkpoint (through `06f8825`, with comparisons `5541c30`):
+Latest core-model checkpoint (`5be93e6`): the source audit additionally proves
+`u128::saturating_mul` equals its actual extracted body for all inputs, using
+only standard Lean axioms and the existing checked-multiplication foundation.
+All three source comparisons and five native tests pass. The checked-power
+loop extracts but its equality remains unproved. Three other numeric helpers
+retain missing intrinsic templates; broader inclusion also exposes unsupported
+overflow-pair operations (UPSTREAM_BUGS issue 24). No production/model/library
+change or new axiom was made. These standalone checks leave the previous
+main-library totals unchanged at 5,015 theorem declarations across 314 modules;
+the full library audit was not repeated for this addition. The goal remains
+incomplete, including borrowed CoW and the remaining model/assumption review.
+
+Previous core-model checkpoint (through `06f8825`, with comparisons `5541c30`):
 `python3 scripts/aeneas-audit-core-models.py` passes after fresh extraction of
 `mem::take` and `usize::div_ceil`. The former comparison is axiom-free; the
 latter uses only standard Lean axioms and requires no positivity or size

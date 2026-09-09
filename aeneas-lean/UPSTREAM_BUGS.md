@@ -948,6 +948,48 @@ count, and panic propagation. This is a composition check, not a successful
 direct `cloned` extraction. The local model remains unchanged, and no Aeneas
 source change or missing-method axiom is introduced.
 
+## 24. Aeneas: numeric intrinsics and overflow-pair operations
+
+**Stage:** external-function modeling and symbolic evaluation.
+**Status:** three numeric helpers retain missing intrinsic templates; direct
+source extraction of overflow-pair primitives is unsupported. This is a
+retained foundation boundary, not a discovered milhouse Rust bug.
+
+The [core source comparison](reproducers/core_models/README.md#remaining-numeric-boundaries)
+preserves five small callers in `remaining.rs` and the exact narrow include
+commands. With Charon 0.1.223, Aeneas `b59d5188`, and Rust
+`nightly-2026-06-01`, both tools exit zero, but the generated external template
+contains these missing intrinsic declarations:
+
+| Standard-library method | Missing intrinsic / source |
+| --- | --- |
+| `usize::trailing_zeros` | `cttz`, `core/src/intrinsics/mod.rs:1773` |
+| `usize::checked_next_power_of_two` | `ctlz_nonzero`, line 1732, through the explicitly included private rounding helper |
+| `usize::pow` | `is_val_statically_known`, line 2541; both selected squaring loops otherwise extract |
+
+Explicitly including `is_val_statically_known` in a separate fresh run still
+emits its template. Rust documents either Boolean result as permitted, so its
+apparent `false` fallback body cannot justify proving only that branch. No
+missing-intrinsic axiom or local replacement is added to the proof library.
+
+A broader `--include core::num` probe makes Charon expose the bodies of
+existing arithmetic primitives. Aeneas then exits 1 with `Unimplemented binary
+operation` at `interp/InterpExpressions.ml:1153`: `AddChecked` in
+`usize::checked_add` (`core/src/num/uint_macros.rs:896`) and `MulChecked` in
+`u128::overflowing_mul` (line 3178). `Interp.ml:609` reports the enclosing
+failures. The generated partial output is not imported into any verified
+comparison or the main library.
+
+Narrow inclusion of only `u128::checked_pow` and `u128::saturating_mul`, with
+their two caller roots, succeeds without templates or admissions and uses
+Aeneas's existing checked-multiplication primitive. Both generated modules
+compile. The entire saturation
+body is proved equal to the local model for every input in `5be93e6`, using
+only standard Lean axioms; 35 native boundary pairs also pass. The checked
+power loop's equality remains unproved. This does not establish the Rust
+implementation of the underlying checked-multiplication primitive. No Aeneas,
+production Rust, or local model body was changed.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

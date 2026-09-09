@@ -110,15 +110,19 @@ need their remaining review. No production model or Aeneas source changed.
 
 Run `python3 scripts/aeneas-audit-core-models.py` from the repository root.
 The [core source comparisons](reproducers/core_models/README.md) prove the local
-`mem::take` and `usize::div_ceil` models equal fresh extraction of their actual
-standard-library bodies. `take` matches for arbitrary Default results without
+`mem::take`, `usize::div_ceil`, and `u128::saturating_mul` models equal fresh
+extraction of their actual standard-library bodies. `take` matches for arbitrary Default results without
 axioms. Ceiling division matches for every pair of machine-word inputs,
 including zero divisors, using only standard Lean axioms and no arithmetic
 bound or positivity premise. Its rounding bound is derived internally.
+Saturation also matches for every input, including overflow, with only
+standard Lean axioms and no size premise. Its called checked multiplication
+remains an existing Aeneas foundation primitive.
 
-Four native tests cover Default call order, movement without dropping the old
+Five native tests cover Default call order, movement without dropping the old
 value, the tested default-panic state, ceiling-division word boundaries, and
-zero divisors. Both this suite and the Option suite pass with the shared
+zero divisors, plus 35 saturation boundary pairs. Both this suite and the
+Option suite pass with the shared
 source/provenance checker and per-theorem axiom policy. Eleven malformed core
 inventory/report inputs and an injected axiom in an Option proof are rejected.
 
@@ -127,6 +131,14 @@ destructor execution. No production Rust, local model body, or Aeneas source
 changed; the main library and dependency counts are unchanged. These results
 reduce the remaining model review without completing borrowed CoW or the
 other numeric/container boundaries.
+
+The remaining numeric probe fully extracts `u128::checked_pow`'s squaring
+loop, but its comparison is unproved. Trailing-zero counting, next-power-of-two
+rounding, and ordinary power still reach missing compiler intrinsics. Broader
+source inclusion exposes unsupported overflow-pair operations inside existing
+foundation primitives. The preserved callers, exact commands, and trust
+boundary are in the core comparison README and UPSTREAM_BUGS issue 24.
+Incomplete/template output is never imported as verified code.
 
 ## Tuple inequality correction
 
