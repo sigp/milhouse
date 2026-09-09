@@ -491,6 +491,47 @@ axiom alloy_primitives.bits.fixed.FixedBytes.ZERO (N : Std.Usize)
 axiom alloy_primitives.bits.fixed.FixedBytes.is_zero
   {N : Std.Usize} : alloy_primitives.bits.fixed.FixedBytes N → Result Bool
 
+/-- [arbitrary::foreign::alloc::vec::{impl arbitrary::Arbitrary<'a> for alloc::vec::Vec<A>}::arbitrary]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/foreign/alloc/vec.rs', lines 10:4-10:58
+    Name pattern: [arbitrary::foreign::alloc::vec::{arbitrary::Arbitrary<'a, alloc::vec::Vec<@A>>}::arbitrary]
+    Visibility: public -/
+@[rust_fun
+  "arbitrary::foreign::alloc::vec::{arbitrary::Arbitrary<'a, alloc::vec::Vec<@A>>}::arbitrary"]
+axiom alloc.vec.Vec.Insts.ArbitraryArbitrary.arbitrary
+  {A : Type} (ArbitraryInst : arbitrary.Arbitrary A) :
+  arbitrary.unstructured.Unstructured → Result ((core.result.Result
+    (alloc.vec.Vec A) arbitrary.error.Error) ×
+    arbitrary.unstructured.Unstructured)
+
+/-- [arbitrary::Arbitrary::arbitrary_take_rest]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/lib.rs', lines 216:4-216:67
+    Name pattern: [arbitrary::Arbitrary::arbitrary_take_rest]
+    Visibility: public -/
+@[trait_default, rust_fun "arbitrary::Arbitrary::arbitrary_take_rest"]
+axiom arbitrary.Arbitrary.arbitrary_take_rest.default
+  {Self : Type} (ArbitraryInst : arbitrary.Arbitrary Self) :
+  arbitrary.unstructured.Unstructured → Result (core.result.Result Self
+    arbitrary.error.Error)
+
+/-- [arbitrary::Arbitrary::size_hint]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/lib.rs', lines 320:4-320:56
+    Name pattern: [arbitrary::Arbitrary::size_hint]
+    Visibility: public -/
+@[trait_default, rust_fun "arbitrary::Arbitrary::size_hint"]
+axiom arbitrary.Arbitrary.size_hint.default
+  {Self : Type} (ArbitraryInst : arbitrary.Arbitrary Self) :
+  Std.Usize → Result (Std.Usize × (Option Std.Usize))
+
+/-- [arbitrary::Arbitrary::try_size_hint]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/lib.rs', lines 423:4-423:89
+    Name pattern: [arbitrary::Arbitrary::try_size_hint]
+    Visibility: public -/
+@[trait_default, rust_fun "arbitrary::Arbitrary::try_size_hint"]
+axiom arbitrary.Arbitrary.try_size_hint.default
+  {Self : Type} (ArbitraryInst : arbitrary.Arbitrary Self) :
+  Std.Usize → Result (core.result.Result (Std.Usize × (Option Std.Usize))
+    arbitrary.MaxRecursionReached)
+
 /-- [lock_api::rwlock::{lock_api::rwlock::RwLock<R, T>}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lock_api-0.4.12/src/rwlock.rs', lines 371:4-371:44
     Name pattern: [lock_api::rwlock::{lock_api::rwlock::RwLock<@R, @T>}::new]

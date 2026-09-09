@@ -194,6 +194,22 @@ contain `milhouse.leaf.Leaf.Leaf`, so it is not possible to project the field
 Generated identifiers referencing globals should be qualified (e.g. with
 `_root_.`) or locals should be renamed on collision.
 
+The `arbitrary` feature exposes the same issue in a generated trait: the first
+field of `arbitrary.Arbitrary` is named `arbitrary`, shadowing the namespace
+in later field types. `scripts/aeneas-qualify-arbitrary.py` fully qualifies
+those type references within that single generated structure. The extraction
+script applies this idempotent fix automatically; the field names, types,
+and actual milhouse method bodies are preserved, with no Aeneas changes.
+
+Feature extraction also uses explicit Tree method roots instead of the whole
+Tree module. The broader root pulls in unrelated derived Arbitrary impls whose
+thread-local recursion guards cause an unsupported mixed recursive declaration
+group. The existing Tree method bodies remain selected. The pinned arbitrary
+1.4.1 library is external: `Tree/Arbitrary/Models.lean` models its control-byte
+Vec loop and trait defaults, including first-error input state and custom
+element generators that replace the input. The ProgressiveList generator
+itself and all four trait entry points are extracted through proof roots.
+
 ## 8. Aeneas: borrowed fallback closure cannot end an abstraction
 
 **Stage:** Aeneas symbolic execution.

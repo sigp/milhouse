@@ -50,3 +50,45 @@ pub fn progressive_list_decode_metadata<T: Value, U: UpdateMap<T>>() -> (bool, u
         <ProgressiveList<T, U> as ssz::Decode>::ssz_fixed_len(),
     )
 }
+
+#[cfg(feature = "arbitrary")]
+pub fn progressive_list_arbitrary<'a, T, U>(
+    input: &mut arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<ProgressiveList<T, U>>
+where
+    T: arbitrary::Arbitrary<'a> + Value,
+    U: UpdateMap<T>,
+{
+    arbitrary::Arbitrary::arbitrary(input)
+}
+
+#[cfg(feature = "arbitrary")]
+pub fn progressive_list_arbitrary_take_rest<'a, T, U>(
+    input: arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<ProgressiveList<T, U>>
+where
+    T: arbitrary::Arbitrary<'a> + Value,
+    U: UpdateMap<T>,
+{
+    arbitrary::Arbitrary::arbitrary_take_rest(input)
+}
+
+#[cfg(feature = "arbitrary")]
+pub fn progressive_list_arbitrary_size_hint<'a, T, U>(depth: usize) -> (usize, Option<usize>)
+where
+    T: arbitrary::Arbitrary<'a> + Value,
+    U: UpdateMap<T>,
+{
+    <ProgressiveList<T, U> as arbitrary::Arbitrary>::size_hint(depth)
+}
+
+#[cfg(feature = "arbitrary")]
+pub fn progressive_list_arbitrary_try_size_hint<'a, T, U>(
+    depth: usize,
+) -> Result<(usize, Option<usize>), arbitrary::MaxRecursionReached>
+where
+    T: arbitrary::Arbitrary<'a> + Value,
+    U: UpdateMap<T>,
+{
+    <ProgressiveList<T, U> as arbitrary::Arbitrary>::try_size_hint(depth)
+}

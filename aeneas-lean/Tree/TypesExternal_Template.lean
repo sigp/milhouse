@@ -59,6 +59,20 @@ axiom alloc.collections.btree.map.entry.VacantEntry (K : Type) (V : Type) (A :
 axiom alloc.collections.btree.map.BTreeMap (K : Type) (V : Type) (A : Type) :
   Type
 
+/-- [arbitrary::unstructured::Unstructured]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/unstructured.rs', lines 72:0-72:27
+    Name pattern: [arbitrary::unstructured::Unstructured]
+    Visibility: public -/
+@[rust_type "arbitrary::unstructured::Unstructured"]
+axiom arbitrary.unstructured.Unstructured : Type
+
+/-- [arbitrary::MaxRecursionReached]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/lib.rs', lines 44:0-44:30
+    Name pattern: [arbitrary::MaxRecursionReached]
+    Visibility: public -/
+@[rust_type "arbitrary::MaxRecursionReached"]
+axiom arbitrary.MaxRecursionReached : Type
+
 /-- [lock_api::GuardNoSend]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lock_api-0.4.12/src/lib.rs', lines 103:0-103:22
     Name pattern: [lock_api::GuardNoSend]

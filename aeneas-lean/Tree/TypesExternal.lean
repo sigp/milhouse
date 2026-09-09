@@ -15,6 +15,15 @@ set_option linter.unusedVariables false
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 2048
 
+/-- The pinned arbitrary 1.4.1 `Unstructured` stores exactly one remaining
+borrowed byte slice. Functionalization makes that slice the complete state. -/
+@[reducible, rust_type "arbitrary::unstructured::Unstructured"]
+def arbitrary.unstructured.Unstructured : Type := Slice Std.U8
+
+/-- The pinned arbitrary recursion-limit error is an empty Rust struct. -/
+@[reducible, rust_type "arbitrary::MaxRecursionReached"]
+def arbitrary.MaxRecursionReached : Type := Unit
+
 /-- [std::collections::hash::map::HashMap]
     Modelled as an association list; the hasher state `S` and allocator `A` are
     semantically inert (see the hashing models in `FunsExternal.lean`). -/

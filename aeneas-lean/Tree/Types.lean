@@ -46,6 +46,31 @@ def core.marker.PhantomData (T : Type) := Unit
 @[reducible, rust_type "alloy_primitives::bits::fixed::FixedBytes"]
 def alloy_primitives.bits.fixed.FixedBytes (N : Std.Usize) := Array Std.U8 N
 
+/-- [arbitrary::error::Error]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/error.rs', lines 6:0-6:14
+    Name pattern: [arbitrary::error::Error]
+    Visibility: public -/
+@[discriminant isize, rust_type "arbitrary::error::Error"]
+inductive arbitrary.error.Error where
+| EmptyChoose : arbitrary.error.Error
+| NotEnoughData : arbitrary.error.Error
+| IncorrectFormat : arbitrary.error.Error
+
+/-- Trait declaration: [arbitrary::Arbitrary]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.1/src/lib.rs', lines 163:0-163:30
+    Name pattern: [arbitrary::Arbitrary]
+    Visibility: public -/
+@[rust_trait "arbitrary::Arbitrary"]
+structure arbitrary.Arbitrary (Self : Type) where
+  arbitrary : _root_.arbitrary.unstructured.Unstructured → Result
+    ((core.result.Result Self milhouse.arbitrary.error.Error) ×
+    _root_.arbitrary.unstructured.Unstructured)
+  arbitrary_take_rest : _root_.arbitrary.unstructured.Unstructured → Result
+    (core.result.Result Self milhouse.arbitrary.error.Error)
+  size_hint : Std.Usize → Result (Std.Usize × (Option Std.Usize))
+  try_size_hint : Std.Usize → Result (core.result.Result (Std.Usize ×
+    (Option Std.Usize)) _root_.arbitrary.MaxRecursionReached)
+
 /-- Trait declaration: [lock_api::rwlock::RawRwLock]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lock_api-0.4.12/src/rwlock.rs', lines 38:0-38:26
     Name pattern: [lock_api::rwlock::RawRwLock]
@@ -568,6 +593,13 @@ Unit
     Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
 @[reducible]
 def progressive_list.DecodeProgressiveList.from_ssz_bytes.closure (T : Type) (U
+  : Type) :=
+Unit
+
+/-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::closure]
+    Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
+@[reducible]
+def progressive_list.ArbitraryAProgressiveList.arbitrary.closure (T : Type) (U
   : Type) :=
 Unit
 

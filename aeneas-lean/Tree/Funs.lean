@@ -7481,6 +7481,84 @@ def progressive_list.ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes
           (progressive_list.ProgressiveList T U) (core.convert.FromSame
           ssz.decode.DecodeError) residual
 
+/-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::closure<'a, T, U>}::call_once]:
+    Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
+def
+  progressive_list.ArbitraryAProgressiveList.arbitrary.closure.Insts.CoreOpsFunctionFnOnceTupleErrorError.call_once
+  {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
+  (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (c : progressive_list.ArbitraryAProgressiveList.arbitrary.closure T U)
+  (tupled_args : error.Error) :
+  Result arbitrary.error.Error
+  := do
+  ok arbitrary.error.Error.IncorrectFormat
+
+/-- Trait implementation: [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::closure<'a, T, U>}]
+    Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
+@[reducible]
+def
+  progressive_list.ArbitraryAProgressiveList.arbitrary.closure.Insts.CoreOpsFunctionFnOnceTupleErrorError
+  {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
+  (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  core.ops.function.FnOnce
+  (progressive_list.ArbitraryAProgressiveList.arbitrary.closure T U)
+  error.Error arbitrary.error.Error := {
+  call_once :=
+    progressive_list.ArbitraryAProgressiveList.arbitrary.closure.Insts.CoreOpsFunctionFnOnceTupleErrorError.call_once
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst
+}
+
+/-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary]:
+    Source: 'src/progressive_list.rs', lines 497:4-501:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.ArbitraryArbitrary.arbitrary
+  {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
+  (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (u : arbitrary.unstructured.Unstructured) :
+  Result ((core.result.Result (progressive_list.ProgressiveList T U)
+    arbitrary.error.Error) × arbitrary.unstructured.Unstructured)
+  := do
+  let (r, u1) ←
+    alloc.vec.Vec.Insts.ArbitraryArbitrary.arbitrary arbitraryArbitraryInst u
+  let cf ← core.result.Result.Insts.CoreOpsTry.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue val =>
+    let r1 ←
+      progressive_list.ProgressiveList.new ValueInst update_mapUpdateMapInst
+        val
+    let r2 ←
+      core.result.Result.map_err
+        (progressive_list.ArbitraryAProgressiveList.arbitrary.closure.Insts.CoreOpsFunctionFnOnceTupleErrorError
+        arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) r1 ()
+    ok (r2, u1)
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    let r1 ←
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
+        (progressive_list.ProgressiveList T U) (core.convert.FromSame
+        arbitrary.error.Error) residual
+    ok (r1, u1)
+
+/-- Trait implementation: [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}]
+    Source: 'src/progressive_list.rs', lines 492:0-502:1 -/
+@[reducible]
+impl_def progressive_list.ProgressiveList.Insts.ArbitraryArbitrary {T : Type}
+  {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T) (ValueInst :
+  Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T) :
+  arbitrary.Arbitrary (progressive_list.ProgressiveList T U) := {
+  arbitrary :=
+    progressive_list.ProgressiveList.Insts.ArbitraryArbitrary.arbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst
+  arbitrary_take_rest := arbitrary.Arbitrary.arbitrary_take_rest.default
+    (progressive_list.ProgressiveList.Insts.ArbitraryArbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst)
+  size_hint := arbitrary.Arbitrary.size_hint.default
+    (progressive_list.ProgressiveList.Insts.ArbitraryArbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst)
+  try_size_hint := arbitrary.Arbitrary.try_size_hint.default
+    (progressive_list.ProgressiveList.Insts.ArbitraryArbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst)
+}
+
 /-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::build_from_iter]:
     Source: 'src/progressive_tree.rs', lines 109:4-111:5
     Visibility: public -/
@@ -7595,15 +7673,59 @@ def proof_roots.progressive_list_decode_metadata
       ValueInst update_mapUpdateMapInst
   ok (b, i)
 
-/-- Trait implementation: [milhouse::tree::{impl core::cmp::PartialEq<milhouse::tree::Tree<T>> for milhouse::tree::Tree<T>}]
-    Source: 'src/tree.rs', lines 10:16-10:21 -/
-@[reducible]
-impl_def tree.Tree.Insts.CoreCmpPartialEqTree {T : Type} (ValueInst : Value T)
-  (ValueInst1 : Value T) : core.cmp.PartialEq (tree.Tree T) (tree.Tree T) := {
-  eq := tree.Tree.Insts.CoreCmpPartialEqTree.eq ValueInst ValueInst
-  ne := core.cmp.PartialEq.ne.trait_default
-    (tree.Tree.Insts.CoreCmpPartialEqTree ValueInst ValueInst1)
-}
+/-- [milhouse::proof_roots::progressive_list_arbitrary]:
+    Source: 'src/proof_roots.rs', lines 55:0-63:1
+    Visibility: public -/
+def proof_roots.progressive_list_arbitrary
+  {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
+  (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (input : arbitrary.unstructured.Unstructured) :
+  Result ((core.result.Result (progressive_list.ProgressiveList T U)
+    arbitrary.error.Error) × arbitrary.unstructured.Unstructured)
+  := do
+  progressive_list.ProgressiveList.Insts.ArbitraryArbitrary.arbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst input
+
+/-- [milhouse::proof_roots::progressive_list_arbitrary_take_rest]:
+    Source: 'src/proof_roots.rs', lines 66:0-74:1
+    Visibility: public -/
+def proof_roots.progressive_list_arbitrary_take_rest
+  {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
+  (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (input : arbitrary.unstructured.Unstructured) :
+  Result (core.result.Result (progressive_list.ProgressiveList T U)
+    arbitrary.error.Error)
+  := do
+  arbitrary.Arbitrary.arbitrary_take_rest.default
+    (progressive_list.ProgressiveList.Insts.ArbitraryArbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) input
+
+/-- [milhouse::proof_roots::progressive_list_arbitrary_size_hint]:
+    Source: 'src/proof_roots.rs', lines 77:0-83:1
+    Visibility: public -/
+def proof_roots.progressive_list_arbitrary_size_hint
+  {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
+  (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (depth : Std.Usize) :
+  Result (Std.Usize × (Option Std.Usize))
+  := do
+  arbitrary.Arbitrary.size_hint.default
+    (progressive_list.ProgressiveList.Insts.ArbitraryArbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) depth
+
+/-- [milhouse::proof_roots::progressive_list_arbitrary_try_size_hint]:
+    Source: 'src/proof_roots.rs', lines 86:0-94:1
+    Visibility: public -/
+def proof_roots.progressive_list_arbitrary_try_size_hint
+  {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
+  (ValueInst : Value T) (update_mapUpdateMapInst : update_map.UpdateMap U T)
+  (depth : Std.Usize) :
+  Result (core.result.Result (Std.Usize × (Option Std.Usize))
+    arbitrary.MaxRecursionReached)
+  := do
+  arbitrary.Arbitrary.try_size_hint.default
+    (progressive_list.ProgressiveList.Insts.ArbitraryArbitrary
+    arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) depth
 
 /-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
     Source: 'src/tree.rs', lines 10:16-10:21

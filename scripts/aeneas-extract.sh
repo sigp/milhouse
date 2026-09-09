@@ -43,6 +43,10 @@
 #   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
 # - Progressive CoW constructors are included; next_cow still loses borrowed
 #   symbolic values during translation (UPSTREAM_BUGS.md issue 16).
+# - The arbitrary feature is enabled for the actual ProgressiveList generator
+#   and its trait defaults. Tree roots are explicit so unrelated derived
+#   Arbitrary implementations and their thread-local recursion guards are not
+#   pulled in. The pinned external Vec generator is modeled in Tree/Arbitrary.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -54,7 +58,24 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
 "$CHARON" cargo --preset=aeneas \
     --rustc-arg=--cfg=milhouse_aeneas \
     --start-from 'milhouse::proof_roots' \
-    --start-from 'milhouse::tree' \
+    --start-from 'milhouse::tree::_::leaf_unboxed' \
+    --start-from 'milhouse::tree::_::node_unboxed' \
+    --start-from 'milhouse::tree::_::zero' \
+    --start-from 'milhouse::tree::_::leaf_with_hash' \
+    --start-from 'milhouse::tree::_::node' \
+    --start-from 'milhouse::tree::_::with_updated_leaves' \
+    --start-from 'milhouse::tree::_::leaf' \
+    --start-from 'milhouse::tree::_::with_updated_leaf' \
+    --start-from 'milhouse::tree::_::get_recursive' \
+    --start-from 'milhouse::tree::_::empty' \
+    --start-from 'milhouse::tree::_::rebase_on' \
+    --start-from 'milhouse::tree::_::arc_eq' \
+    --start-from 'milhouse::tree::_::zero_unboxed' \
+    --start-from 'milhouse::tree::_::compute_len' \
+    --start-from 'milhouse::tree::_::intra_rebase' \
+    --start-from '{impl core::clone::Clone for milhouse::tree::Tree}' \
+    --start-from '{impl core::hash::Hash for milhouse::tree::Tree}' \
+    --start-from '{impl core::cmp::PartialEq for milhouse::tree::Tree}' \
     --start-from 'milhouse::builder' \
     --start-from 'milhouse::cow::_::run' \
     --start-from 'milhouse::cow::_::with_max_index' \
@@ -113,6 +134,8 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --opaque 'tree_hash' \
     --opaque 'ssz' \
     --opaque 'serde' \
+    --opaque 'arbitrary' \
+    --include 'arbitrary::error::Error' \
     --opaque 'milhouse::mem' \
     --opaque 'milhouse::serde' \
     --opaque 'milhouse::list::_::intra_rebase' \
@@ -122,9 +145,13 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \
     --include 'ssz::decode::DecodeError' \
-    --dest-file tree.llbc
+    --dest-file tree.llbc -- --features arbitrary
 
 "$AENEAS" -backend lean -split-files -dest aeneas-lean/Tree tree.llbc
+
+# The Arbitrary trait's `arbitrary` field shadows its namespace in later
+# field types. Qualify those names without changing the generated interface.
+python3 scripts/aeneas-qualify-arbitrary.py aeneas-lean/Tree/Types.lean
 
 # The pinned Rust Vec equality uses its slice's element-ne loop. Aeneas's
 # built-in Vec.eq calls element eq instead; use the faithful local external
