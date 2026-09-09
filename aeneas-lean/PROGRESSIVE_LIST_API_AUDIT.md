@@ -60,7 +60,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
 | `iter_cow_from` | `ProgressiveList.iter_cow_from_spec`, `ProgressiveList.iter_cow_from_error_iff`; stepping pending |
 | `to_vec` | `ProgressiveList.to_vec_total_spec`, `ProgressiveList.to_vec_mapM` |
-| `pop_front` | `ProgressiveList.pop_front_nonzero_clones_total_spec`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
+| `pop_front` | `ProgressiveList.pop_front_nonzero_overlay_total_spec`, `ProgressiveList.pop_front_success_represents_iff`, `ProgressiveList.pop_front_nonzero_represents_iff`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
 | `rebase` | `ProgressiveList.rebase_total_spec_of_inputs`, `ProgressiveList.rebase_success_represents_iff`, `ProgressiveList.rebase_represents_iff`, `ProgressiveList.rebase_reads_eq_iff`, `ProgressiveList.rebase_cache_iff_of_inputs` |
 | `rebase_on` | `ProgressiveList.rebase_on_total_spec_of_inputs`, `ProgressiveList.rebase_on_success_represents_iff`, `ProgressiveList.rebase_on_represents_iff`, `ProgressiveList.rebase_on_get_eq`, `ProgressiveList.rebase_on_cache_iff_of_inputs` |
 
@@ -134,6 +134,31 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`PopFront/OverlayTotal.lean` proves the exact public success-and-representation
+criterion: nonzero removal needs the bound and retained capacity, actual
+ordered clone outcomes, and an actual default map whose overlay/extent yields
+the retained source suffix. Clone identity and empty-map reads/maxima are not
+separate requirements. Zero removal omits clone/default laws, and layout and
+backing laws apply only to a nonzero in-bounds rebuild. The complete nonzero
+total result derives execution, representation, backing validity, exact cloned
+contents, recorded length, and installed map; pending emptiness is a separate
+observer law. `PopFront/Overlay.lean` gives the successful-result equivalence,
+and `ProgressiveList/Overlay.lean` gives the underlying same-length dense
+representation criterion. Existing dense-backing, front-removal content,
+and total contracts are adapters to these results. Public integration is
+`45f8783` (adapters `7801d06`, overlay foundation `9dd67d2`). The focused proofs
+use only standard Lean axioms. This audits clone/default-map laws under the
+stated geometry and representation premises; it does not establish full
+premise minimality or model fidelity.
+
+Focused and full builds pass (2,078 jobs). The axiom/import audit covers
+5,515 declarations across 362 modules: 5,396 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All five new lemmas use only
+standard Lean axioms; external axiom use is unchanged. No new axiom or
+admission was introduced, and `size_of` remains unused. Borrowed CoW and the
+remaining assumption/model-fidelity audit are unfinished. Debug and Serde
+remain excluded; TreeHash is deferred outside the current goal.
 
 `Rebase/Lookup.lean` establishes exact full-result in-place reads, including
 map failure/divergence and out-of-range indices, without representation or

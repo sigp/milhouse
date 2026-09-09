@@ -376,6 +376,29 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- Front-removal representation now uses the exact default-map overlay and
+  logical extent over the actual ordered clones. Clone identity, absent map
+  entries, and an absent maximum are not separately required. The public
+  success-and-representation criterion combines those outcomes with the
+  removal bound and retained capacity, omitting clone/default laws on zero
+  removal and using packing/traversal laws only for a nonzero in-bounds rebuild.
+  The complete nonzero contract derives all calls, represented suffix, valid
+  backing, exact cloned contents, recorded length, and installed map; a
+  separate emptiness law supplies only the pending observer. The general
+  same-length dense-backing representation equivalence and existing content/
+  total adapters use only standard Lean axioms. Public integration is `45f8783`,
+  with `7801d06` and `9dd67d2` as foundations. These results audit clone/default
+  laws under the stated input representation and geometry, without asserting
+  minimality of all premises or source fidelity of the external models.
+  Borrowed CoW and the remaining assumption/model-fidelity work are incomplete.
+  The full build passes (2,078 jobs), and the axiom/import audit covers 5,515
+  declarations across 362 modules: 5,396 use only standard Lean axioms or none,
+  and 119 use the existing pointer contract. All five new lemmas use only
+  standard Lean axioms; external axiom use is unchanged. No new axiom or
+  admission was introduced, and `size_of` remains unused. No Rust, extraction,
+  external model, or Aeneas source changed. The seven source suites and
+  42-root/151-declaration dependency gate were not repeated for this proof-only
+  work. Debug and Serde remain excluded; TreeHash remains deferred.
 - Rebase read and representation contracts now identify the exact clone
   conditions. In-place rebasing preserves all public read results without
   representation or map-read-success premises. For nonmutating rebasing,
