@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.Rebase.Backing
+import Tree.ProgressiveList.Rebase.SelectedContents
 import Tree.ProgressiveTree.Rebase.Contents
 import Tree.ProgressiveList.Iter.Overlay
 
@@ -31,6 +32,61 @@ theorem ProgressiveList.Represents.with_tree {T U : Type}
     rw [helements]
   simpa only [ProgressiveList.get, hreads] using hrep.2 index
 
+/-- In-place rebasing preserves the merged list under only the selected
+    content laws. Backing validity and layout justify indexed traversal;
+    no additional pending-map or clone law is needed. -/
+theorem ProgressiveList.rebase_on_spec_of_content_inputs {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (self base : ProgressiveList T U) (contents : _root_.List T)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    (hbase : base.tree.Dense factor 0 base.length.val)
+    (hcontent : self.tree.RebaseContentInputs ValueInst base.tree self.length.val base.length.val 0)
+    {result : ProgressiveList T U}
+    (hrebase : ProgressiveList.rebase_on ValueInst mapInst self base =
+      ok (core.result.Result.Ok (), result)) :
+    result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
+      result.length = self.length ∧ result.updates = self.updates := by
+  have hnew := ProgressiveList.rebase_on_preserves_backing ValueInst mapInst self base hlayout
+    hbacking hbase hrebase
+  have helements := ProgressiveList.rebase_on_preserves_backing_contents ValueInst mapInst self base hcontent hrebase
+  obtain ⟨newTree, _, rfl⟩ := ProgressiveList.rebase_on_success_state ValueInst mapInst self base hrebase
+  exact ⟨hrep.with_tree ValueInst mapInst hlayout self contents hbacking hnew helements,
+    hnew, rfl, rfl⟩
+
+/-- Nonmutating rebasing preserves the represented list and backing validity
+    under the selected content laws.
+    Cloning the pending map needs only read agreement after the original backing
+    fallback and matching logical extent;
+    element cloning and exact identity of the cloned map are unnecessary. -/
+theorem ProgressiveList.rebase_spec_of_content_inputs {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (self base : ProgressiveList T U) (contents : _root_.List T)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    (hbase : base.tree.Dense factor 0 base.length.val)
+    (hcontent : self.tree.RebaseContentInputs ValueInst base.tree self.length.val base.length.val 0)
+    (hmapGet : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
+      self.UpdateReadsAgree ValueInst mapInst updates)
+    (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
+      ∃ largest, mapInst.max_index updates = ok largest ∧
+        largest.elim self.length.val
+          (fun index => max (index.val + 1) self.length.val) = contents.length)
+    {result : ProgressiveList T U}
+    (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (core.result.Result.Ok result)) :
+    result.Represents ValueInst mapInst contents ∧ result.BackingValid factor := by
+  obtain ⟨cloned, hcloned, hrebased⟩ := ProgressiveList.rebase_success_state ValueInst mapInst self base hrebase
+  have hclonedRep := ProgressiveList.clone_represents ValueInst mapInst self contents hrep hmapGet hmapMax hcloned
+  have hclonedBacking := ProgressiveList.clone_preserves_backing ValueInst mapInst self hbacking hcloned
+  obtain ⟨updates, hupdates, rfl⟩ := ProgressiveList.clone_success_state ValueInst mapInst self hcloned
+  have hresult := ProgressiveList.rebase_on_spec_of_content_inputs ValueInst mapInst hlayout
+    { self with updates } base contents hclonedRep hclonedBacking hbase hcontent hrebased
+  exact ⟨hresult.1, hresult.2.1⟩
+
 /-- In-place rebasing preserves every represented value and full backing
     validity. Equality/cache laws concern the materialized inputs only; no
     additional pending-map or clone law is needed. -/
@@ -49,13 +105,13 @@ theorem ProgressiveList.rebase_on_spec {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     result.Represents ValueInst mapInst contents ∧ result.BackingValid factor ∧
       result.length = self.length ∧ result.updates = self.updates := by
-  have hnew := ProgressiveList.rebase_on_preserves_backing ValueInst mapInst self base hlayout
-    hbacking hbase hrebase
-  obtain ⟨newTree, htree, rfl⟩ := ProgressiveList.rebase_on_success_state ValueInst mapInst self base hrebase
-  have helements := progressive_tree.ProgressiveTree.rebase_on_preserves_contents ValueInst hlayout
-    hbacking.1 hbase hbacking.2 hequality hhashes htree
-  exact ⟨hrep.with_tree ValueInst mapInst hlayout self contents hbacking hnew helements,
-    hnew, rfl, rfl⟩
+  have hcontent := progressive_tree.ProgressiveTree.rebaseContentInputs_of_dense ValueInst hlayout
+    (origLength := self.length.val) (baseLength := base.length.val) (depth := 0)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbacking.1)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbase)
+    hbacking.2 hequality hhashes
+  exact ProgressiveList.rebase_on_spec_of_content_inputs ValueInst mapInst hlayout
+    self base contents hrep hbacking hbase hcontent hrebase
 
 /-- Nonmutating rebasing preserves the represented list and backing validity.
     Cloning the pending map needs only read agreement after the original backing
@@ -80,12 +136,12 @@ theorem ProgressiveList.rebase_spec {T U : Type}
     {result : ProgressiveList T U}
     (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (core.result.Result.Ok result)) :
     result.Represents ValueInst mapInst contents ∧ result.BackingValid factor := by
-  obtain ⟨cloned, hcloned, hrebased⟩ := ProgressiveList.rebase_success_state ValueInst mapInst self base hrebase
-  have hclonedRep := ProgressiveList.clone_represents ValueInst mapInst self contents hrep hmapGet hmapMax hcloned
-  have hclonedBacking := ProgressiveList.clone_preserves_backing ValueInst mapInst self hbacking hcloned
-  obtain ⟨updates, hupdates, rfl⟩ := ProgressiveList.clone_success_state ValueInst mapInst self hcloned
-  have hresult := ProgressiveList.rebase_on_spec ValueInst mapInst hlayout
-    { self with updates } base contents hclonedRep hclonedBacking hbase hequality hhashes hrebased
-  exact ⟨hresult.1, hresult.2.1⟩
+  have hcontent := progressive_tree.ProgressiveTree.rebaseContentInputs_of_dense ValueInst hlayout
+    (origLength := self.length.val) (baseLength := base.length.val) (depth := 0)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbacking.1)
+    (by simpa only [progressive_tree.progressiveCapacity_zero, Nat.sub_zero] using hbase)
+    hbacking.2 hequality hhashes
+  exact ProgressiveList.rebase_spec_of_content_inputs ValueInst mapInst hlayout
+    self base contents hrep hbacking hbase hcontent hmapGet hmapMax hrebase
 
 end milhouse.progressive_list

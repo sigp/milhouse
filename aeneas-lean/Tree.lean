@@ -157,6 +157,7 @@ import Tree.Ssz.PayloadTrace
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
+import Tree.ProgressiveList.Rebase.SelectedContents
 import Tree.ProgressiveList.Rebase.Contents
 import Tree.ProgressiveList.Rebase.Total
 import Tree.ProgressiveList.Rebase.Conditions
