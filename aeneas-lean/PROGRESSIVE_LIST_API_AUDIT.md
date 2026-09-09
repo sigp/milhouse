@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_overlay`, `ProgressiveList.apply_updates_success_represents_iff`, `ProgressiveList.apply_updates_represents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,32 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The skipped-suffix review (`10c8634`, list contents `592280c`, bulk contents
+`ad51425`, scope `25f577f`) generalizes content preservation, materialization,
+total correctness, and public success/representation criteria. The new
+`BulkSkippedValuesAgree` law permits pending entries beyond the reported
+maximum when they agree with the unchanged backing. It concerns only present
+values inside the new logical prefix and suffixes selected by the actual
+geometry/range/maximum guards; it assumes no rebuilding result. The checked
+length supplies the numeric extension bound. Exact default-map overlay and
+extent remain in the total and sequence criteria, with pending emptiness
+separate. All work laws apply only on nonempty application. Existing
+semantic-maximum and empty-map contracts are adapters; cache contracts validate.
+
+Focused and full builds pass (2,088 jobs). The axiom/import audit covers
+5,583 declarations across 372 modules: 5,464 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All 15 new named lemmas use
+only standard Lean axioms; generated helpers are included in the inventory.
+External axiom use is unchanged. No new axiom or admission was introduced,
+and `size_of` remains unused. No Rust, extraction, external model, or Aeneas
+source changed; the seven source suites and 42-root/151-declaration dependency
+gate were not repeated for this proof-only work. Necessity of the remaining
+selected clone/range/skipped-value premises, geometry minimality, borrowed CoW,
+and model fidelity remain unfinished. Debug and Serde remain excluded;
+TreeHash remains deferred.
+
+Previous apply-updates maximum-premise checkpoint:
 
 The maximum-premise review (`aa023cf`, lower proofs `f0daba3`) removes
 `MaximumBoundsValues` from five existing public lemmas: backing preservation,

@@ -376,6 +376,27 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The skipped-suffix review (`10c8634`, list contents `592280c`, bulk contents
+  `ad51425`, scope `25f577f`) replaces the global semantic maximum bound in
+  generalized content, materialization, total, and success/representation
+  contracts with agreement of present pending values in selected skipped
+  suffixes. The scope follows actual geometry/range/maximum observations on
+  the input tree and contains no rebuilding call or result. Only values in
+  the new logical prefix must agree with unchanged suffix reads; redundant
+  matching entries beyond the reported maximum are allowed. The checked
+  length supplies the numeric extent bound. Old maximum-bound and empty-map
+  contracts remain adapters; cache contracts validate. The full build passes
+  (2,088 jobs), and the axiom/import audit covers 5,583 declarations across
+  372 modules: 5,464 use only standard Lean axioms or none, and 119 use the
+  existing pointer contract. All 15 new named lemmas use only standard Lean
+  axioms; generated helpers are included in the inventory. External axiom use
+  is unchanged. No new axiom or admission was introduced, and `size_of` remains
+  unused. No Rust, extraction, external model, or Aeneas source changed. The
+  seven source suites and 42-root/151-declaration dependency gate were not
+  repeated for this proof-only work. Necessity of the remaining selected
+  clone/range/skipped-value premises, geometry minimality, borrowed CoW, and
+  model fidelity stay open. Debug and Serde remain excluded; TreeHash remains
+  deferred.
 - The maximum-premise review (`aa023cf`, lower proofs `f0daba3`) removes
   `MaximumBoundsValues` from `apply_updates` backing preservation, both
   occupied-capacity criteria, and both actual-rebuilt-value representation
