@@ -11,6 +11,48 @@ private theorem bind_eq_ok_iff {A B : Type} {x : Result A}
     (x >>= f) = ok y ↔ ∃ a, x = ok a ∧ f a = ok y := by
   cases x <;> simp [Bind.bind, Std.bind]
 
+/-- A successful unpacked-leaf update reads exactly one pending value and
+stores the actual result of cloning it. Success supplies the checked index,
+depth zero, and clone termination; no cloning or map law is assumed. -/
+theorem Tree.with_updated_leaves_leaf_cloned {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    {self : leaf.Leaf T} {updates : U} {prefix1 offset depth : Std.Usize}
+    {hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
+    {updated : Tree T}
+    (hupdate : Tree.with_updated_leaves ValueInst mapInst (.Leaf self) updates
+      prefix1 offset depth hashes = ok (core.result.Result.Ok updated)) :
+    depth = 0#usize ∧ ∃ index value result,
+      prefix1 + offset = ok index ∧ mapInst.get updates index = ok (some value) ∧
+      ValueInst.corecloneCloneInst.clone value = ok result.value ∧ updated = Tree.Leaf result := by
+  unfold Tree.with_updated_leaves at hupdate
+  rw [bind_eq_ok_iff] at hupdate
+  obtain ⟨opt, hopt, hupdate⟩ := hupdate
+  rw [bind_eq_ok_iff] at hupdate
+  obtain ⟨hash, hhash, hupdate⟩ := hupdate
+  by_cases hdepth : depth = 0#usize
+  · rw [if_pos hdepth, bind_eq_ok_iff] at hupdate
+    obtain ⟨index, hindex, hupdate⟩ := hupdate
+    rw [bind_eq_ok_iff] at hupdate
+    obtain ⟨found, hfound, hupdate⟩ := hupdate
+    cases found with
+    | none =>
+      simp [core.option.OptionShared0T.cloned, core.option.Option.ok_or,
+        core.result.Result.Insts.CoreOpsTry.branch,
+        core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+        core.convert.FromSame.from] at hupdate
+    | some value =>
+      cases hcloned : ValueInst.corecloneCloneInst.clone value with
+      | fail error => simp [core.option.OptionShared0T.cloned, hcloned] at hupdate
+      | div => simp [core.option.OptionShared0T.cloned, hcloned] at hupdate
+      | ok cloned =>
+        simp [core.option.OptionShared0T.cloned, hcloned, core.option.Option.ok_or,
+          core.result.Result.Insts.CoreOpsTry.branch, Tree.leaf_with_hash,
+          leaf.Leaf.with_hash, lock_api.rwlock.RwLock.new, triomphe.arc.Arc.new] at hupdate
+        exact ⟨hdepth, index, value, { hash, value := cloned },
+          hindex, hfound, hcloned, hupdate.symm⟩
+  · simp [hdepth] at hupdate
+
 /-- A successful bulk update of an unpacked leaf consumes the map value at
     `prefix + offset` and stores that value. Success supplies both depth zero
     and successful checked index arithmetic; no map metadata laws are needed. -/
