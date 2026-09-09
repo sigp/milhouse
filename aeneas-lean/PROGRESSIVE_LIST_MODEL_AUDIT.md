@@ -376,6 +376,29 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The selected cache criteria now cover both public rebase methods without
+  layout, geometry, density, capacity, accurate-length, query-success, map,
+  or representation premises. Under selected content soundness and actual
+  success, `RebaseCacheInputs` is necessary and sufficient for result cache
+  validity. The scope follows supplied binary metadata, actual progressive
+  packing results, and clamped lengths. Immediate stops require original
+  suffix caches; entered progressive roots retain their original caches.
+  Existing cache proofs use the general result through dense-input adapters.
+  Both action-classifier reflection proofs now use only standard Lean axioms,
+  removing their former use of the pointer contract. Public integration is
+  `e88ce19`, with `2307f24`, `c20e293`, `c31c8bb`, `9db36ad`, and `f9da88a` as
+  foundations. This is an assumption audit of clients of the existing model;
+  it does not establish external-model fidelity or minimality of all selected
+  content soundness obligations. Borrowed CoW and the remaining assumption
+  and model-fidelity work are incomplete.
+  The full build passes (2,072 jobs), and the axiom/import audit covers 5,497
+  declarations across 356 modules: 5,388 use only standard Lean axioms or none,
+  and 109 use the existing pointer contract. Five new cache-equivalence
+  declarations use the contract, and the existing classifier no longer does.
+  No new axiom or admission was introduced; `size_of` remains unused. No Rust,
+  extraction, external model, or Aeneas source changed; the seven source suites
+  and 42-root/151-declaration dependency gate were not repeated. Debug and Serde
+  remain excluded, and TreeHash remains deferred outside the current scope.
 - Selected content proofs now preserve exact materialized backing contents
   for both public rebase methods from actual success and `RebaseContentInputs`,
   without packing layout, global query success, shape, density, capacity, or

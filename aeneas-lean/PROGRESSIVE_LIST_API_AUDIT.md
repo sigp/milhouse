@@ -61,8 +61,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `iter_cow_from` | `ProgressiveList.iter_cow_from_spec`, `ProgressiveList.iter_cow_from_error_iff`; stepping pending |
 | `to_vec` | `ProgressiveList.to_vec_total_spec`, `ProgressiveList.to_vec_mapM` |
 | `pop_front` | `ProgressiveList.pop_front_nonzero_clones_total_spec`, `ProgressiveList.pop_front_total_spec`, `ProgressiveList.pop_front_success_iff`, `ProgressiveList.pop_front_out_of_bounds` |
-| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_spec_of_content_inputs`, `ProgressiveList.rebase_preserves_backing_contents`, `ProgressiveList.rebase_success_iff_ready`, `ProgressiveList.rebase_cache_iff` |
-| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_spec_of_content_inputs`, `ProgressiveList.rebase_on_preserves_backing_contents`, `ProgressiveList.rebase_on_success_iff_ready`, `ProgressiveList.rebase_on_cache_iff` |
+| `rebase` | `ProgressiveList.rebase_total_spec`, `ProgressiveList.rebase_spec_of_content_inputs`, `ProgressiveList.rebase_preserves_backing_contents`, `ProgressiveList.rebase_success_iff_ready`, `ProgressiveList.rebase_cache_iff_of_inputs` |
+| `rebase_on` | `ProgressiveList.rebase_on_total_spec`, `ProgressiveList.rebase_on_spec_of_content_inputs`, `ProgressiveList.rebase_on_preserves_backing_contents`, `ProgressiveList.rebase_on_success_iff_ready`, `ProgressiveList.rebase_on_cache_iff_of_inputs` |
 
 ## List trait methods
 
@@ -134,6 +134,30 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+`Rebase/SelectedCaches.lean` gives general public cache criteria for both
+rebase methods. Under selected `RebaseContentInputs` soundness and actual
+success, result cache validity is equivalent to `RebaseCacheInputs`, without
+layout, geometry, density, capacity, accurate-length, query-success, map,
+or representation premises. Binary cache selection follows supplied optional
+lengths and full depth, and cache-subject depth may be arbitrary. Progressive
+selection follows actual packing queries and clamped lengths, with immediate
+stops retaining the original suffix and no imported base progressive cache.
+Existing cache contracts now use these results through dense-input adapters.
+The action classifier is also generalized to supplied metadata, and its
+reflection proofs now use only standard Lean axioms, without the pointer
+contract. The public checkpoint is `e88ce19` (progressive `2307f24`, binary
+`c20e293`, scopes `c31c8bb`, classifier `9db36ad`, axiom reduction `f9da88a`).
+Cache-input necessity and sufficiency are conditional on the content law;
+this does not finish semantic-premise minimality or the overall goal.
+
+Focused and full builds pass (2,072 jobs). The axiom/import audit covers
+5,497 declarations across 356 modules: 5,388 use only standard Lean axioms or
+none, and 109 use the existing pointer contract. Five new cache-equivalence
+declarations use that contract; the existing classifier no longer does.
+No new axiom or admission was introduced, and `size_of` remains unused.
+Borrowed CoW and the remaining assumption/model-fidelity audit are unfinished.
+Debug and Serde remain excluded; TreeHash remains deferred outside the goal.
 
 `Rebase/SelectedContents.lean` proves exact materialized backing-content
 preservation for both public methods under the selected `RebaseContentInputs`
