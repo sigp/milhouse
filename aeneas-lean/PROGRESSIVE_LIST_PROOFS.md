@@ -37,7 +37,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `Debug` | Formatting through the derived formatter | Pending extraction and specification |
 | `TreeHash` methods | Progressive merkleization with length mix-in; reject pending updates and unsupported packed operations | Pending hash model/extraction; existing binary-tree hash extraction limitations remain |
 | `Encode` methods | SSZ encoding/encoded length of the merged sequence | `Encode/Length.lean`: exact fixed-width multiplication and variable payload-size sum plus four-byte offsets, with intermediate arithmetic bounds derived from the final byte bound. Fixed-size calculation needs no backing or traversal assumptions. `Encode/Fixed.lean`, `VariableLoop.lean`, and `Variable.lean`: actual `ssz_append` preserves the destination prefix and writes the exact represented merged payload, with the complete offset table for variable elements. `Encode/Owning.lean` proves both exact `as_ssz_bytes` formats. `Encode/Metadata.lean` proves variable-list classification, four-byte fixed-section width, and the concrete owning wrapper. Premises are representation, relevant traversal invariants/layout only for methods that iterate, element codec laws on the consumed values, final output-size bounds, and 32-bit bounds only on offsets actually emitted. No clone law or assumed iterator output is needed. `Tree/Ssz` models and proves the pinned external encoder state, offset writes, payload accumulation, and finalization |
-| `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | `Decode/Fixed.lean` and `Variable.lean` prove sequence-level partial correctness for both public formats: exact indexed reads, recorded length, valid backing, and no pending updates, including empty lists and empty variable payloads. `Decode/Contents.lean` reconstructs the consumed prefix and retained error through the actual streaming builder; `Backing.lean` proves backing validity after any successful public decode without element-codec or parser laws. `Ssz/FixedCursor.lean`, `VariableInit.lean`, `VariableStep.lean`, and `VariableCursor.lean` derive actual cursor decoding from canonical bytes, with arithmetic bounds derived internally. `Decode/Entry.lean` covers metadata, empty input, zero fixed width, and short variable prefixes; `VariableInit.lean` covers first-offset bounds/alignment/zero errors in the actual check order. `Decode/ErrorMessages.lean` proves exact builder-error text through the derived formatter. `Ssz/ReadOffset.lean` proves four-byte reads and canonical offset roundtrips. Streaming bodies extract with the real error enum and local external models (UPSTREAM_BUGS issue 19); differential release tests cover error order and partial-builder finalization. Remaining malformed-input specifications, valid-input success/totality, and full list roundtrip proofs remain pending |
+| `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | `Decode/FixedTotal.lean` and `VariableTotal.lean` prove successful public decoding of canonical bytes, exact indexed reads, recorded length, valid backing, and no pending updates, including empty lists and empty variable payloads. `FixedRoundtrip.lean` and `VariableRoundtrip.lean` compose actual owning encoding and public decoding, preserving the merged sequence and every indexed read while clearing pending updates. `Decode/Success.lean` proves streaming construction terminates with the exact decoded prefix and retained error. `ProgressiveTree/LengthFits.lean` and `Builder/PushLength.lean` derive every rollover bound from representability of the final sequence; fixed decoding retains this condition for general element widths, while the variable offset table supplies it internally. `Backing.lean` proves backing validity after any successful public decode without element-codec or parser laws. The cursor modules derive parsing from canonical bytes, including 32-bit bounds only on emitted offsets. `Decode/Entry.lean` covers metadata, empty input, zero fixed width, and short variable prefixes; `Ssz/VariableInit.lean` covers first-offset bounds/alignment/zero errors in the actual check order. `Decode/ErrorMessages.lean` proves exact builder-error text; `Ssz/ReadOffset.lean` proves four-byte reads and canonical offset roundtrips. Streaming bodies extract with the real error enum and local external models (UPSTREAM_BUGS issue 19); differential release tests cover error order and partial-builder finalization. Further malformed-input specifications remain pending |
 | `Serialize`, `Deserialize` | Serialize merged sequence; reconstruct the deserialized sequence | Pending serializer models and proofs |
 | Context deserialization feature | Reconstruct the contextual element sequence | Pending feature-specific extraction and proof |
 | `Arbitrary` feature | Successful generation establishes a valid backing tree and length | Pending feature-specific extraction and constructor proof |
@@ -392,7 +392,34 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest builder-totality checkpoint (through `f759827`): the full Lean build
+Latest SSZ totality and roundtrip checkpoint (through `47e0e56`): the full
+Lean build passes (1,895 jobs), including all earlier proofs. All 14 new public
+length-bound, streaming-success, decoder-totality, and roundtrip lemmas were
+audited together and use only `propext`, `Classical.choice`, and `Quot.sound`
+(or subsets), with no admissions, native-evaluation axioms, or Arc pointer
+axiom. Both actual public decoding formats now have valid-input success and
+sequence specifications; both actual owning encoding/decoding roundtrips
+preserve the merged sequence and every indexed read, rebuild valid backing,
+and clear pending updates. Streaming construction also terminates after the
+first cursor or element error, retaining its decoded prefix and error.
+
+`LengthFits` constrains only layers occupied by the final sequence. It supplies
+all intermediate rollover bounds. Variable decoding derives it from the
+four-byte-per-value offset table and the input slice's size bound, so it needs
+no separate sequence-capacity premise. General fixed-width decoding retains
+that condition, which is not implied by byte representability for every small
+element width and packing layout. Roundtrips require element codec laws only
+on represented values and fitting buffers; no clone law or assumed success
+of a list operation is needed.
+
+A fresh fetch of `origin/main` at `d67aabd` and an actual merge report that the
+branch already includes main; there are no merge conflicts. No Rust, generated
+extraction, external models, or Aeneas sources changed at this checkpoint.
+Further malformed-input specifications, serialization, deserialization, CoW
+stepping/materialization, Debug, semantic hashing/cache invariants, and
+feature-specific APIs remain part of the full objective.
+
+Previous builder-totality checkpoint (through `f759827`): the full Lean build
 passes (1,888 jobs). Binary value insertion, progressive insertion including
 rollover, complete binary finalization, and progressive finalization now have
 total specifications. Binary finalization requires only its invariant;
@@ -408,8 +435,8 @@ native-evaluation axioms, or the Arc pointer axiom. The full build includes all
 earlier decoding, encoding, iteration, mutation, equality, and rebase proofs.
 No Rust, generated extraction, external models, or Aeneas sources changed.
 
-Remaining decoding work includes deriving rollover bounds across the complete
-input sequence, composing these total builder operations through the streaming
+At that checkpoint, remaining decoding work included deriving rollover bounds
+across the complete input sequence, composing these total builder operations through the streaming
 loop and public decoder, further malformed-input specifications, and full list
 roundtrips. Serialization, deserialization, CoW stepping/materialization, Debug,
 semantic hashing/cache invariants, and feature-specific APIs remain part of the
