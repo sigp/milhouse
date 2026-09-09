@@ -5,6 +5,34 @@ open milhouse milhouse.progressive_tree
 
 namespace milhouse.progressive_list
 
+/-- Actual nonempty application certifies occupied final capacity under
+numeric layer range conditions and selected binary reflection. No semantic
+maximum bound, clone identity, skipped-value, or default-map law is needed. -/
+theorem ProgressiveList.length_fits_after_nonempty_apply_updates_of_range_extents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hlayers : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerRangeOn
+        (update_map.RangePreservesExtentAt mapInst self.updates self.length.val contents.length)
+        ValueInst mapInst self.updates maximum 0#u32)
+    (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self =
+      ok (core.result.Result.Ok (), result)) :
+    ProgressiveTree.LengthFits factor contents.length := by
+  have hafter := ProgressiveList.apply_updates_preserves_backing_of_range_extents ValueInst mapInst self contents
+    (fun _ => hlayout) (fun _ => hlayers) (fun _ => hrange) hrep hbacking happly
+  have hfits := hafter.1.lengthFits hafter.2
+  rwa [ProgressiveList.backing_length_after_nonempty_apply_updates ValueInst mapInst self contents
+    hrep hempty happly] at hfits
+
 /-- Successful nonempty application certifies representability of every
 occupied final layer. Thus the final-capacity condition in the totality
 theorem is necessary, even without clone identity, default-map laws, or a
@@ -24,11 +52,12 @@ theorem ProgressiveList.length_fits_after_nonempty_apply_updates {T U : Type}
     (happly : ProgressiveList.apply_updates ValueInst mapInst self =
       ok (core.result.Result.Ok (), result)) :
     ProgressiveTree.LengthFits factor contents.length := by
-  have hafter := ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
-    (fun _ => hlayout) (fun _ => hrange) hrep hbacking happly
-  have hfits := hafter.1.lengthFits hafter.2
-  rwa [ProgressiveList.backing_length_after_nonempty_apply_updates ValueInst mapInst self contents
-    hrep hempty happly] at hfits
+  exact ProgressiveList.length_fits_after_nonempty_apply_updates_of_range_extents ValueInst mapInst self contents
+    hlayout
+    (fun maximum hmax => (hrange maximum hmax).layers
+      (fun _ _ h => h.preservesExtent hrep.dense_update_domain))
+    (fun maximum hmax => (hrange maximum hmax).binary_layers)
+    hrep hbacking hempty happly
 
 /-- Given terminating external calls and coherent reached range answers,
 nonempty application succeeds exactly when the occupied final layers fit.
