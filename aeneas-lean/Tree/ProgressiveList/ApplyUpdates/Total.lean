@@ -9,7 +9,8 @@ namespace milhouse.progressive_list
 /-- Nonempty application terminates and installs the computed backing length
 and default map. Representation supplies lookup termination, a dense update
 domain, and the bound on the actual maximum; no extra laws for those facts
-are required. Cloning need only terminate for this execution theorem. -/
+are required. Clone termination and range-query termination are confined to
+selected inputs and reached queries for the actual maximum. -/
 theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -18,7 +19,10 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
     (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+    (hqueries : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn
+        (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
     (hrep : self.Represents ValueInst mapInst contents)
     (hdense : self.tree.Dense factor 0 self.length.val)
@@ -47,7 +51,7 @@ theorem ProgressiveList.apply_updates_nonempty_success {T U : Type}
     hrange maximum hmax self.length.val contents.length hmaximum hrep.dense_update_domain
     hfits self.tree
     (hclone maximum hmax)
-    (ProgressiveTree.BulkRangeOn.of_all ValueInst mapInst self.updates factor maximum hqueries _ _)
+    (hqueries maximum hmax)
     hdense
   refine ⟨{ tree, length, updates := defaults }, ?_, hcontentsLength, rfl⟩
   simp! only [ProgressiveList.apply_updates, hempty, Bool.false_eq_true, ↓reduceIte,
@@ -66,7 +70,10 @@ theorem ProgressiveList.apply_updates_nonempty_total_spec {T U : Type}
     (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkCloneLaws
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+    (hqueries : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn
+        (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
@@ -111,7 +118,10 @@ theorem ProgressiveList.apply_updates_total_spec {T U : Type}
         self.tree.BulkCloneLaws
           ValueInst mapInst self.updates factor maximum 0#u32)
     (hqueries : mapInst.is_empty self.updates = ok false →
-      ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkRangeOn
+          (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+          ValueInst mapInst self.updates factor maximum 0#u32)
     (hrange : mapInst.is_empty self.updates = ok false →
       update_map.RangeReflectsValues mapInst self.updates)
     (hmaximum : mapInst.is_empty self.updates = ok false →

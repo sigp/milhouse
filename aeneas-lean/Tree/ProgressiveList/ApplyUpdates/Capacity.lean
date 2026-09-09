@@ -51,7 +51,8 @@ theorem ProgressiveList.length_fits_after_nonempty_apply_updates {T U : Type}
 
 /-- Given terminating external calls and coherent range/maximum metadata,
 nonempty application succeeds exactly when the occupied final layers fit.
-There is no additional unused-successor capacity requirement. -/
+External termination is required only at selected clone inputs and reached
+range queries. There is no unused-successor capacity requirement. -/
 theorem ProgressiveList.apply_updates_nonempty_success_iff_length_fits {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -60,7 +61,10 @@ theorem ProgressiveList.apply_updates_nonempty_success_iff_length_fits {T U : Ty
     (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+    (hqueries : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRangeOn
+        (fun lo hi => ∃ answer, mapInst.has_any_in_range self.updates lo hi = ok answer)
+        ValueInst mapInst self.updates factor maximum 0#u32)
     (hrange : update_map.RangeReflectsValues mapInst self.updates)
     (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       update_map.MaximumBoundsValues mapInst self.updates maximum)
