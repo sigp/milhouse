@@ -181,3 +181,4 @@ import Tree.ProgressiveTree.Rebase.Soundness
 import Tree.ProgressiveList.Rebase.Pointer
 import Tree.Rebase.HashShortcutSteps
 import Tree.Rebase.ComparisonInputs
+import Tree.ProgressiveTree.Equality.Scope
