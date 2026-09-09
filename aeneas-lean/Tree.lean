@@ -99,6 +99,7 @@ import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Construction.Total
 import Tree.ProgressiveList.Construction.Trace
 import Tree.ProgressiveList.Construction.Conditions
+import Tree.ProgressiveList.Construction.OverlayConditions
 import Tree.ProgressiveList.Construction.Caches
 import Tree.ProgressiveList.Construction.CacheTotal
 import Tree.ProgressiveList.Construction.Capacity
