@@ -287,6 +287,26 @@ replacement through `get_cow` and `into_mut`. The completed proof checkpoint
 passes 1,941 Lean build jobs; all nine new lemmas use only standard axioms.
 Borrowed mutation and CoW iterator stepping retain their separate limitations.
 
+A fresh isolated borrowed-path probe after the consuming checkpoint is in
+`/tmp/milhouse-cow-borrowed-probe-z1n008ka/`. Concrete public callers reproduce
+the original failures. Flattening `Cow::deref` into direct nested variant
+matches removes inner trait calls but still fails on the immutable value.
+With `-print-error-emitters -print-error-diagnostics`, the actual error is
+`interp/InterpBorrowsCore.ml:629`: `lookup_loan` receives no matching loan.
+The previously reported `Interp.ml:609` is the catch-and-report location.
+
+For borrowed `make_mut`, an isolated rewrite uses inline inherent helpers,
+explicit entry/result matches, and a final nonrecursive mutable-variant
+match. Both concrete helpers, the outer method, and its caller still fail.
+`symbolic/SymbolicToPureCore.ml:520` reports missing symbolic values;
+`symbolic/SymbolicToPureValues.ml:896` rejects an `AEmpty`, `AProjLoans`, or
+`AProjBorrows` case during backward projection. The diagnostic does not
+identify which of those three constructors was encountered. Removing trait
+dispatch and `Try` adapters therefore does not resolve this borrowed path.
+The variants and `deref-diagnostic.log`/`make-diagnostic.log` are preserved in
+the probe directory. No trial rewrite or partial generated body was retained
+in production, and no Aeneas source was changed.
+
 ## 10. Aeneas Lean backend: borrowed `Option::take` and `Ord::max` model mismatch
 
 **Stage:** Lean elaboration of generated code.
@@ -481,6 +501,15 @@ constructor specifications, not a proof of `next_cow` enumeration or of CoW
 handle dereferencing/materializing mutation (issue 9). The full goal retains
 those obligations; no opaque milhouse-method model, admission, or Aeneas source
 change is used to replace them.
+
+A further isolated trial in `/tmp/milhouse-cow-borrowed-probe-z1n008ka/`
+passes the backing value to the existing closure-free `get_cow_with_value`
+and replaces the option `?` with an explicit `Some`/`None` match. The cursor
+still advances only on `Some`. The concrete public caller loses symbolic
+value 14, and `next_cow` loses values 25, 26, 33, 38, and 39; Aeneas emits
+only partial files. `progressive-next-explicit.rs` and `next-explicit.log`
+preserve this trial. No production rewrite is retained. This confirms that
+removing both the fallback closure and option adapter is insufficient.
 
 ## 17. External equality models must preserve Arc shortcuts and slice `ne` calls
 
