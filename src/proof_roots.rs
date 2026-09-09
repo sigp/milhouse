@@ -92,3 +92,19 @@ where
 {
     <ProgressiveList<T, U> as arbitrary::Arbitrary>::try_size_hint(depth)
 }
+
+pub fn progressive_list_tree_hash_type<T: Value + Send + Sync, U: UpdateMap<T>>()
+-> tree_hash::TreeHashType {
+    <ProgressiveList<T, U> as tree_hash::TreeHash>::tree_hash_type()
+}
+
+pub fn progressive_list_tree_hash_packed_encoding<T: Value + Send + Sync, U: UpdateMap<T>>(
+    list: &ProgressiveList<T, U>,
+) -> tree_hash::PackedEncoding {
+    tree_hash::TreeHash::tree_hash_packed_encoding(list)
+}
+
+pub fn progressive_list_tree_hash_packing_factor<T: Value + Send + Sync, U: UpdateMap<T>>() -> usize
+{
+    <ProgressiveList<T, U> as tree_hash::TreeHash>::tree_hash_packing_factor()
+}

@@ -7056,6 +7056,38 @@ def progressive_list.ProgressiveList.Insts.CoreDefaultDefault {T : Type} {U :
     ValueInst update_mapUpdateMapInst
 }
 
+/-- [milhouse::progressive_list::{impl tree_hash::TreeHash for milhouse::progressive_list::ProgressiveList<T, U>}::tree_hash_type]:
+    Source: 'src/progressive_list.rs', lines 322:4-324:5
+    Visibility: public -/
+def progressive_list.ProgressiveList.Insts.Tree_hashTreeHash.tree_hash_type
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result tree_hash.TreeHashType
+  := do
+  ok tree_hash.TreeHashType.List
+
+/-- [milhouse::progressive_list::{impl tree_hash::TreeHash for milhouse::progressive_list::ProgressiveList<T, U>}::tree_hash_packed_encoding]:
+    Source: 'src/progressive_list.rs', lines 326:4-328:5
+    Visibility: public -/
+def
+  progressive_list.ProgressiveList.Insts.Tree_hashTreeHash.tree_hash_packed_encoding
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : progressive_list.ProgressiveList T U) :
+  Result (smallvec.SmallVec (Array Std.U8 32#usize) Std.U8)
+  := do
+  fail panic
+
+/-- [milhouse::progressive_list::{impl tree_hash::TreeHash for milhouse::progressive_list::ProgressiveList<T, U>}::tree_hash_packing_factor]:
+    Source: 'src/progressive_list.rs', lines 330:4-332:5
+    Visibility: public -/
+def
+  progressive_list.ProgressiveList.Insts.Tree_hashTreeHash.tree_hash_packing_factor
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result Std.Usize
+  := do
+  fail panic
+
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::is_ssz_fixed_len]:
     Source: 'src/progressive_list.rs', lines 358:4-360:5
     Visibility: public -/
@@ -7726,6 +7758,39 @@ def proof_roots.progressive_list_arbitrary_try_size_hint
   arbitrary.Arbitrary.try_size_hint.default
     (progressive_list.ProgressiveList.Insts.ArbitraryArbitrary
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) depth
+
+/-- [milhouse::proof_roots::progressive_list_tree_hash_type]:
+    Source: 'src/proof_roots.rs', lines 96:0-99:1
+    Visibility: public -/
+def proof_roots.progressive_list_tree_hash_type
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result tree_hash.TreeHashType
+  := do
+  progressive_list.ProgressiveList.Insts.Tree_hashTreeHash.tree_hash_type
+    ValueInst update_mapUpdateMapInst
+
+/-- [milhouse::proof_roots::progressive_list_tree_hash_packed_encoding]:
+    Source: 'src/proof_roots.rs', lines 101:0-105:1
+    Visibility: public -/
+def proof_roots.progressive_list_tree_hash_packed_encoding
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (list : progressive_list.ProgressiveList T U) :
+  Result (smallvec.SmallVec (Array Std.U8 32#usize) Std.U8)
+  := do
+  progressive_list.ProgressiveList.Insts.Tree_hashTreeHash.tree_hash_packed_encoding
+    ValueInst update_mapUpdateMapInst list
+
+/-- [milhouse::proof_roots::progressive_list_tree_hash_packing_factor]:
+    Source: 'src/proof_roots.rs', lines 107:0-110:1
+    Visibility: public -/
+def proof_roots.progressive_list_tree_hash_packing_factor
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) :
+  Result Std.Usize
+  := do
+  progressive_list.ProgressiveList.Insts.Tree_hashTreeHash.tree_hash_packing_factor
+    ValueInst update_mapUpdateMapInst
 
 /-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
     Source: 'src/tree.rs', lines 10:16-10:21

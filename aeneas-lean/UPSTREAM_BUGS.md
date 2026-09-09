@@ -624,6 +624,50 @@ for discussion; the existing iterator enumeration and exact-length proofs are
 available underneath. Deserialization still needs its own extraction/protocol
 work and is not claimed proved by this probe.
 
+## 21. Progressive hashing: parallel recursive groups, LazyLock, and shared cache writes
+
+**Stage:** Aeneas translation and the external lock model.
+**Status:** the actual ProgressiveList classification and two packing-rejection
+methods are extracted and proved separately. Root computation, pending-update
+rejection through the public root, and cache-invariant proofs remain pending.
+No production hashing method, Aeneas source, or lock model has been changed.
+
+A fresh root probe adds this extraction-only caller and removes the binary
+`Tree::tree_hash` exclusion from the existing extraction command:
+
+```rust
+pub fn progressive_list_tree_hash_root<T: Value + Send + Sync, U: UpdateMap<T>>(
+    list: &ProgressiveList<T, U>,
+) -> tree_hash::Hash256 {
+    tree_hash::TreeHash::tree_hash_root(list)
+}
+```
+
+The actual root reaches both binary and progressive hashing. Aeneas reports
+mixed mutually recursive functions and closure trait implementations for the
+`rayon::join` calls (`src/tree.rs:581`, `src/progressive_tree.rs:342`), followed
+by `Mixed-recursive declaration groups are not supported`. The external
+`ethereum_hashing::ZERO_HASHES` global also fails with `Arrow types are not
+supported yet`: its `LazyLock` type contains the default initializer function
+pointer (pinned ethereum_hashing 0.8.0, `src/lib.rs:219`). Partial output from
+this probe is not retained in the normal extraction.
+
+Metadata-only callers need an explicit exclusion of the list's root method
+with the current binary-hash exclusion; otherwise an unused progressive-hash
+closure reaches Aeneas prepasses and produces an internal error. The normal
+script now selects the three independent methods through concrete callers and
+excludes the root. No opaque milhouse hashing method is introduced.
+
+Even after the translation errors are addressed, shared cache effects need a
+faithful model. The current `RwLock R T := T` representation is documented as
+valid only for the existing subset without shared writes. The new write
+signature would be `RwLock R T -> Result (WriteGuard R T * (WriteGuard R T ->
+Unit))`: releasing an updated guard does not return an updated lock or shared
+heap. Returning the old value and discarding writes would not model future
+cache reads or aliases. A stateful/ghost-state account of shared caches and
+parallel calls is needed before claiming root or cache correctness. Removing
+parallelism alone does not address this issue and would change performance.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

@@ -43,6 +43,9 @@
 #   hit borrowed-field/returned-reference translation failures; see UPSTREAM_BUGS.md.
 # - Progressive CoW constructors are included; next_cow still loses borrowed
 #   symbolic values during translation (UPSTREAM_BUGS.md issue 16).
+# - ProgressiveList TreeHash classification and packing rejection are included.
+#   Its root method remains excluded: shared hash-cache writes and parallel
+#   recursive closures need additional extraction/model support.
 # - The arbitrary feature is enabled for the actual ProgressiveList generator
 #   and its trait defaults. Tree roots are explicit so unrelated derived
 #   Arbitrary implementations and their thread-local recursion guards are not
@@ -139,6 +142,7 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --opaque 'milhouse::mem' \
     --opaque 'milhouse::serde' \
     --opaque 'milhouse::list::_::intra_rebase' \
+    --exclude '{impl tree_hash::TreeHash for milhouse::progressive_list::ProgressiveList}::tree_hash_root' \
     --exclude 'milhouse::tree::_::tree_hash' \
     --exclude 'milhouse::update_map::UpdateMap::is_empty' \
     --exclude 'milhouse::builder::{impl core::fmt::Debug for milhouse::builder::Builder<_>}' \
