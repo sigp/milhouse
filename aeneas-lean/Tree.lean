@@ -131,6 +131,7 @@ import Tree.ProgressiveList.PopFront.Contents
 import Tree.ProgressiveList.PopFront.Caches
 import Tree.ProgressiveList.PopFront.BuilderTotal
 import Tree.ProgressiveList.PopFront.Total
+import Tree.ProgressiveList.PopFront.Capacity
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.Builder.New
 import Tree.ProgressiveTree.Builder.Bounds
