@@ -53,7 +53,7 @@ It is a source-coverage check, separate from hypothesis and model-fidelity audit
 | Operation | Required behavior | Current evidence / remaining work |
 | --- | --- | --- |
 | `empty`, `Default::default` | Empty contents, zero length, no pending updates | `Observers.lean` and `Contents.lean`: exact state, observer results, and representation of the empty sequence proved under the relevant empty-map laws; `Spine.lean` establishes the backing-spine invariant on successful construction without additional map laws. `Construction/Caches.lean` also proves all caches cleared after every successful empty/default construction, without map laws. |
-| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | `Construction/Total.lean`: all four actual public constructors/conversions now have total specifications, preserving every indexed value and logical length, establishing `BackingValid` and `SpineValid`, and leaving no pending updates. `ProgressiveTree/Builder/ExtendSuccess.lean` and `ProgressiveTree/ConstructionTotal.lean` prove iterator consumption, every insertion/rollover, and finalization succeed from packing layout and representability of occupied final layers. `Construction/Capacity.lean` proves this final `LengthFits` condition is necessary and sufficient for constructor success, given a finite input iterator and successful default map. Indexed representation adds only the relevant empty-map laws; vector input needs no iterator premise. No constructor, builder, or intermediate-loop success is assumed. Earlier `Representation.lean` and `Traits.lean` retain their successful-execution specifications. `Construction/Caches.lean` proves every successful constructor initializes cleared caches without element, packing, map, or iterator laws. `CacheTotal.lean` adds validity relative to any mathematical reference hash to all four total specifications without additional premises. |
+| `new`, `try_from_iter`, `TryFrom<Vec<T>>`, `TryFromIter` | Preserve the input sequence and its length; establish representation invariants | `Construction/Trace.lean` derives the actual finite input sequence, exact length, and actual default map from successful construction without iterator, packing, or map-law assumptions; its indexed specification adds packing and empty-default-map laws. `Construction/Conditions.lean` proves success of all four entry points is equivalent to finite input (derived for vectors), occupied-layer capacity, and default-map success, without presupposing iterator termination or default construction. `Construction/Total.lean`: all four actual public constructors/conversions now have total specifications, preserving every indexed value and logical length, establishing `BackingValid` and `SpineValid`, and leaving no pending updates. `ProgressiveTree/Builder/ExtendSuccess.lean` and `ProgressiveTree/ConstructionTotal.lean` prove iterator consumption, every insertion/rollover, and finalization succeed from packing layout and representability of occupied final layers. `Construction/Capacity.lean` proves this final `LengthFits` condition is necessary and sufficient for constructor success, given a finite input iterator and successful default map. Indexed representation adds only the relevant empty-map laws; vector input needs no iterator premise. No constructor, builder, or intermediate-loop success is assumed. Earlier `Representation.lean` and `Traits.lean` retain their successful-execution specifications. `Construction/Caches.lean` proves every successful constructor initializes cleared caches without element, packing, map, or iterator laws. `CacheTotal.lean` adds validity relative to any mathematical reference hash to all four total specifications without additional premises. |
 | `len` | Length of the merged backing/pending view | `ProgressiveList/Length.lean` and `UpdateMap/Length.lean`: exact empty/nonempty-map arithmetic, backing lower bound, and successful evaluation below overflow proved. `len_total_spec` and `len_success_iff` derive the complete public result directly from the actual optional map maximum and characterize success by representability of a present maximum's successor, without indexed-read or representation laws; sequence agreement is established by constructor/mutation representation lemmas |
 | `is_empty` | Equivalent to merged length zero | `IsEmpty.lean`: exact total answer from optional maximum metadata, necessary-and-sufficient successor-bound success, and a premise-free true-result characterization by zero backing length and an actual absent maximum. No indexed-read, representation, packing, backing, or successful length-subcall premise. The map's separate emptiness method is not used. `Observers.lean` retains the logical-length comparison lemma |
 | `has_pending_updates` | Equivalent to a nonempty update map | `ProgressiveList.has_pending_updates_spec` proved |
@@ -81,6 +81,26 @@ It is a source-coverage check, separate from hypothesis and model-fidelity audit
 
 ## Existing foundations
 
+- `Tree/ProgressiveTree/Builder/Trace.lean` derives the finite sequence of
+  actual iterator calls from every successful extension, through its first
+  `none`, and proves exact appended elements and length. No finiteness,
+  packing, builder-invariant, or fused-iterator premise is supplied.
+  `ProgressiveTree/Construction/Trace.lean` lifts this to actual construction:
+  the input yields precisely the materialized tree elements and returned
+  count. `ProgressiveList/Construction/Trace.lean` proves the corresponding
+  public input trace, exact length, and actual default map with no iterator,
+  packing, or map law. Its indexed-sequence specification adds only packing
+  and the actual default map's empty laws and establishes backing/spine
+  validity and no pending updates.
+  `Construction/Conditions.lean` characterizes success of `try_from_iter` and
+  its SSZ trait entry point by finite actual conversion/next calls, occupied
+  layer capacity, and successful default-map construction. The vector `new`
+  and `TryFrom<Vec<T>>` criteria derive their iterator behavior internally and
+  require exactly capacity and default-map success. No successful-default or
+  finite-input assumption is imposed before these equivalences. The existing
+  finite-input total contracts and capacity-only specializations remain
+  available. Packing remains a premise: the generic constructor initializes
+  its builder before converting or reading even an empty iterator.
 - The canonical fixed and variable decoder contracts in `Decode/Fixed.lean`,
   `FixedTotal.lean`, `Variable.lean`, and `VariableTotal.lean` now require
   element metadata and packing layout only for nonempty contents. Fixed
@@ -927,7 +947,7 @@ It is a source-coverage check, separate from hypothesis and model-fidelity audit
 ## Validation
 
 The 2026-09-09 scope revisions themselves changed documentation only. The
-subsequent SSZ proof work is validated by the latest checkpoint below.
+subsequent proof work is validated by the latest checkpoint below.
 
 For each completed piece: build its Lean module, check the assumptions, and
 commit with signing disabled and a model co-author trailer. Before completion:
@@ -953,7 +973,35 @@ Command logs, the raw inventory, and a detailed JSON report are retained under
 coverage; model fidelity, API coverage, and theorem-hypothesis minimality still
 require their separate audits.
 
-Latest empty-input premise checkpoint (through `b41b66a`): the shared decoder
+Latest constructor-reflection checkpoint (through `ed766a4`): the builder
+trace, tree/list construction trace, and public success-condition focused
+builds pass. The full library build passes (2,023 jobs), and the complete
+axiom/import audit covers 4,958 theorem declarations across all 307 `Tree`
+library modules. Of these, 4,896 use only standard Lean axioms or none; 62
+additionally use the existing Arc pointer contract. All 24 declarations in the
+four new modules use only standard Lean axioms or none. No admission, native
+evaluation, new external axiom, Rust change, extraction change, external-model
+change, or Aeneas source change is introduced. All 74 list/iterator proof
+references in the API inventory resolve in the audited environment.
+
+Successful construction now reflects the actual finite iterator sequence,
+stored contents, exact count, and default map. Public success criteria for
+iterator and vector constructors and both conversion traits prove the input,
+capacity, and default-map conditions necessary and sufficient without assumed
+iterator finiteness or default-map success. The existing finite-input total
+contracts continue to build. The remaining assumption/model-fidelity audit
+and borrowed CoW obligations stay open; Debug/Serde are excluded and TreeHash
+is deferred under the revised scope.
+
+### Historical validation checkpoints
+
+The following checkpoints record progress and scope at the time they were
+written. Their references to Debug, Serde/context protocols, TreeHash, or an
+active goal are historical; the current [goal and scope](#goal-and-scope)
+supersedes those scope statements. Excluded or deferred implementations do
+not count as remaining work.
+
+Previous empty-input premise checkpoint (through `b41b66a`): the shared decoder
 representation, fixed decoder/roundtrip, and variable decoder/roundtrip focused
 builds pass. The full library build passes (2,019 jobs), and the complete
 axiom/import audit covers 4,934 theorem declarations across all 303 `Tree`
@@ -972,14 +1020,6 @@ canonical sequence specifications share the successful materialized-sequence
 representation theorem. Theorem names are retained with weaker premise types;
 all dependent callers build. The remaining assumption/model-fidelity audit and
 borrowed CoW obligations are still open under the revised scope.
-
-### Historical validation checkpoints
-
-The following checkpoints record progress and scope at the time they were
-written. Their references to Debug, Serde/context protocols, TreeHash, or an
-active goal are historical; the current [goal and scope](#goal-and-scope)
-supersedes those scope statements. Excluded or deferred implementations do
-not count as remaining work.
 
 Previous SSZ reflection and success-criterion checkpoint (through `029fdc4`):
 the streaming-trace, public-input, public-trace, and success-condition focused

@@ -8,6 +8,7 @@ hypotheses.
 
 The SSZ reflection and success-criterion proof checkpoint is `029fdc4`.
 The subsequent empty-input premise audit is through `b41b66a`.
+The constructor trace and complete success-criterion checkpoint is `ed766a4`.
 
 Scope revision (2026-09-09): **Debug implementations and Serde implementations
 are out of scope**, including both iterator Debug derives, in-place
@@ -33,8 +34,8 @@ and auxiliary state/error/cache results are described in the coverage record.
 | Rust method | Primary proof entry point |
 | --- | --- |
 | `empty` | `ProgressiveList.empty_represents`, `ProgressiveList.empty_spec` |
-| `new` | `ProgressiveList.new_total_spec` |
-| `try_from_iter` | `ProgressiveList.try_from_iter_total_spec` |
+| `new` | `ProgressiveList.new_total_spec`, `ProgressiveList.new_success_iff` |
+| `try_from_iter` | `ProgressiveList.try_from_iter_total_spec`, `ProgressiveList.try_from_iter_trace`, `ProgressiveList.try_from_iter_trace_spec`, `ProgressiveList.try_from_iter_success_iff` |
 | `get` | `ProgressiveList.get_of_pending_update`, `ProgressiveList.get_of_backing`, `ProgressiveList.represents_of_dense_backing`; constructors and mutations establish/preserve indexed representation |
 | `get_mut` | `ProgressiveList.get_mut_total_spec` |
 | `get_cow` | `ProgressiveList.get_cow_represents_read`, `ProgressiveList.get_cow_into_mut_spec`; borrowed handle methods remain pending below |
@@ -63,8 +64,8 @@ trait has no additional in-place default. Ordinary Serde does.
 | Trait method | Primary proof entry point, remaining obligation, or scope exclusion |
 | --- | --- |
 | `Default::default` | `ProgressiveList.default_eq_empty`, `ProgressiveList.default_represents` |
-| `TryFrom<Vec<T>>::try_from` | `ProgressiveList.try_from_vec_total_spec` |
-| `TryFromIter::try_from_iter` | `ProgressiveList.ssz_try_from_iter_total_spec` |
+| `TryFrom<Vec<T>>::try_from` | `ProgressiveList.try_from_vec_total_spec`, `ProgressiveList.try_from_vec_success_iff` |
+| `TryFromIter::try_from_iter` | `ProgressiveList.ssz_try_from_iter_total_spec`, `ProgressiveList.ssz_try_from_iter_success_iff` |
 | `IntoIterator::into_iter` for `&ProgressiveList` | `ProgressiveList.into_iter_spec` |
 | `Clone::clone` | `ProgressiveList.clone_total_spec`, `ProgressiveList.clone_success_iff` |
 | `Clone::clone_from` | `ProgressiveList.clone_from_total_spec`; actual inherited method, made reachable by a concrete caller |
@@ -122,6 +123,14 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+Constructor reflection now derives the finite actual input sequence from any
+successful call, with exact stored contents, length, and default map. Iterator
+constructor success is equivalent to finite input, occupied-layer capacity,
+and successful default-map construction; vector entry points derive their
+input trace internally. These equivalences do not assume finite input or a
+successful default call in advance. Generic construction still initializes
+the builder before reading the iterator, so its packing premise is retained.
 
 The audit identified a real hypothesis limitation in successful SSZ decoding:
 the earlier public contracts used a single encoding function for decoded
