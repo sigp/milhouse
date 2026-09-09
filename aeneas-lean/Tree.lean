@@ -67,6 +67,7 @@ import Tree.ProgressiveTree.Equality.Lookup
 import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
 import Tree.ProgressiveList.Construction.Total
+import Tree.ProgressiveList.Construction.Trace
 import Tree.ProgressiveList.Construction.Caches
 import Tree.ProgressiveList.Construction.CacheTotal
 import Tree.ProgressiveList.Construction.Capacity
