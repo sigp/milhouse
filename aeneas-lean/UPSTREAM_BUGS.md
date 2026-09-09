@@ -1032,13 +1032,15 @@ not complete the two removal-model boundaries above.
 
 **Stage:** symbolic interpretation and generated Lean elaboration.
 **Status:** the private decoder and four-byte constant have verified source
-comparisons; public-reader composition is verified separately. Direct public
-reader and encoder extraction remain unresolved. These are extraction and
+comparisons; public-reader composition is verified separately. Encoder
+construction is verified relative to the existing reservation model. Direct
+public-reader, offset encoding, append, and finalization extraction remain
+unresolved. These are extraction and
 foundation limitations, with no discovered Rust bug or Aeneas source change.
 
 The [SSZ offset fixture](reproducers/ssz_offset_models/README.md) pins
 `ethereum_ssz` 0.10.0 with the repository's dependency versions, Charon 0.1.223,
-Aeneas `b59d5188`, and `nightly-2026-06-01`. Its README preserves both exact
+Aeneas `b59d5188`, and `nightly-2026-06-01`. Its README preserves exact
 reproduction commands. Including the public `read_offset`, private decoder,
 Option operations, and slice-clone specialization lets Charon succeed. Aeneas
 exits 1 with `There should be no bottoms in the value` at `decode.rs:360`, from
@@ -1070,7 +1072,33 @@ source-level composition of prefix slicing and that decoder equals the local
 public-reader model, including ignored suffixes and original short-input
 length errors. All three comparisons use only standard Lean axioms, retaining
 the byte/array/slice/scalar foundations. Four native tests and all six source
-audit suites pass. The other SSZ and model boundaries remain open.
+audit suites pass at the original `c0d7c7f` checkpoint.
+
+The `4cbc263` extension checks actual encoder construction, including the
+returned buffer-release continuation, relative to the existing local
+`Vec::reserve` model. Aeneas emits a missing-primitive template for reserve at
+`alloc/src/vec/mod.rs:1470`. The audit checks its source provenance and exact
+signature, then supplies the concrete definition through an import-only
+`FunsExternal.lean`. The axiom template is never compiled, no new primitive
+is added, and generated source bodies remain unchanged. The constructor proof
+uses only `propext`; reservation/allocation fidelity is explicitly still open.
+
+With the actual encoder type and method bodies included, Charon succeeds but
+direct finalization fails in Aeneas: `Can't copy a mutable borrow` at
+`encode.rs:130`, from `InterpExpressions.ml:197`, followed by `Interp.ml:609`.
+The caller additionally reports `Could not find var for symbolic value: 10`
+from `SymbolicToPureCore.ml:520`; Aeneas exits 1. A separate append probe
+also lets Charon succeed and exits 1 in Aeneas, with `Can't copy a mutable
+borrow` in `append_parameterized` at `encode.rs:116`, from the same interpreter
+locations. No partial append/finalize output is imported.
+
+Eight native SSZ tests pass, covering constructor prefix/release, logical
+reservation overflow, offsets and variable payload movement/clearing, repeated
+finalization, output replacement, and callback-panic write order as well as
+the offset checks above. These supplement the model and do not establish
+append/finalize source or Rust unwind-state refinement. All seven source
+suites pass with 35 comparison proofs. The other SSZ/model boundaries remain
+open, and no Aeneas or dependency Rust code is changed.
 
 ## 27. Aeneas: Arbitrary owning-input defaults and vector iterator borrows
 

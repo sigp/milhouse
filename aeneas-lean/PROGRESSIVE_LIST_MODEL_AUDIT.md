@@ -228,7 +228,7 @@ is used in a proof. Exact commands and diagnostics are in the fixture README
 and UPSTREAM_BUGS issue 27. No production Rust, local model, or Aeneas source
 changed; the main proof and 42-root/151-declaration inventories are unchanged.
 
-## SSZ offset source comparisons
+## SSZ offset and encoder-construction source comparisons
 
 Run `python3 scripts/aeneas-audit-ssz-offset-models.py` from the repository root.
 The [SSZ offset comparisons](reproducers/ssz_offset_models/README.md) validate
@@ -263,8 +263,34 @@ in the value` at the borrowed temporary. Offset encoding emits a reference to
 the missing `core.num.Usize.to_le_bytes` foundation operation and cannot
 elaborate. Exact reproduction commands and retained boundaries are in the
 fixture README and UPSTREAM_BUGS issue 26. No assumed primitive, generated
-body patch, production Rust change, or Aeneas change is introduced. Encoder
-state transitions and the remaining SSZ/model/assumption review stay open.
+body patch, production Rust change, or Aeneas change is introduced.
+
+At `4cbc263`, the suite additionally compares the actual `SszEncoder::container`
+body and its returned buffer-release continuation with the local model, for
+every buffer and fixed-byte count. The proof uses only `propext` and requires
+no bound or successful-reservation premise. It explicitly retains the existing
+local `Vec::reserve` primitive; allocation, capacity, and reservation fidelity
+are still boundaries.
+
+The audit validates the primitive's `alloc` provenance and exact generated
+template name/signature. The axiom template is never compiled. A module
+containing only `import Tree.Ssz.Models` supplies the existing concrete
+definition; no primitive or source body is added. Imports must be explicit
+build targets and hashed model inputs, and the report records them under
+`retainedLocalFoundations`. Seven malformed templates, seven invalid foundation
+inventories, four invalid binding configurations, and four invalid axiom
+reports are rejected. Other suites continue rejecting external templates
+unless such a binding is explicitly declared and validated.
+
+Eight native SSZ tests pass, including constructor release, reservation
+overflow, payload movement/clearing, repeated finalization, and callback-panic
+write order. Direct append and finalization extraction still fail on stored
+mutable-buffer access (UPSTREAM_BUGS 26); native checks do not complete these
+source obligations. All seven source suites pass: 33 direct comparisons and
+two compositions, totaling 35 proofs (16 axiom-free, nineteen standard-only).
+The main library and 42-root/151-declaration model inventory are unchanged.
+Append/finalize, reservation fidelity, and the remaining SSZ/model/assumption
+review stay open.
 
 ## Vector source comparisons
 

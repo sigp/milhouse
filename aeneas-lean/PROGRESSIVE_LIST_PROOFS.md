@@ -99,7 +99,7 @@ points and records the trusted boundaries that still need fidelity review.
   (UPSTREAM_BUGS 27). At `e396dad`, all seven source suites pass: 32 direct
   comparisons and two compositions, totaling 34 proofs (16 axiom-free,
   eighteen standard-only).
-- The [SSZ offset source comparisons](reproducers/ssz_offset_models/README.md)
+- The [SSZ source comparisons](reproducers/ssz_offset_models/README.md)
   validate the actual four-byte constant and private decoder for every input
   length, including the complete copy loop and exact error payloads. A separate
   composition proof relates prefix slicing followed by that decoder to the
@@ -108,8 +108,13 @@ points and records the trusted boundaries that still need fidelity review.
   that retaining the private root and renaming its source error type changes
   only the declared metadata. Direct public-reader extraction and the encoder's
   missing `Usize.to_le_bytes` foundation remain unresolved (UPSTREAM_BUGS 26).
-  Four native tests and all six source suites pass at `c0d7c7f`: 29 direct
-  comparisons and two compositions, totaling 31 proofs (16 axiom-free, fifteen
+  Encoder construction also matches its actual source, including the buffer
+  release continuation, relative to the existing local `Vec::reserve` model.
+  This comparison uses only `propext`; reservation fidelity remains a separate
+  boundary. The audit imports the concrete model and never compiles the
+  generated axiom template. Append/finalize fail on borrowed-buffer access.
+  Eight SSZ native tests and all seven source suites pass at `4cbc263`: 33 direct
+  comparisons and two compositions, totaling 35 proofs (16 axiom-free, nineteen
   standard-only). Existing byte/array/slice/scalar foundations are retained.
 - The [vector source comparisons](reproducers/vec_models/README.md) validate
   `is_empty`, `eq`, and `ne` for arbitrary vector values and comparison
@@ -1302,7 +1307,33 @@ The model dependency inventory remains 42 roots/151 local declarations; that
 separate gate was not repeated for these proof-only changes. Borrowed CoW and
 the remaining assumption/model-fidelity review stay open.
 
-Latest source-model checkpoint (`e396dad`): both Arbitrary size-hint defaults
+Latest source-model checkpoint (`4cbc263`): actual SSZ encoder construction
+now compares with the local model for every buffer and fixed-byte count,
+including its buffer-release continuation on every replacement encoder state.
+The proof retains the existing concrete `Vec::reserve` model explicitly and
+requires no caller-supplied bound or success premise. It uses only `propext`.
+This establishes construction relative to that primitive; Rust reservation,
+allocation, and capacity behavior are not independently verified.
+The runner validates the missing primitive's `alloc` source provenance and
+exact template declaration/signature. The generated axiom template is never
+compiled. An import-only module supplies the existing concrete definition;
+generated source bodies remain untouched. The report records this retained
+local foundation, and other suites retain their strict template rejection.
+Seven malformed templates, seven invalid foundation inventories, four invalid
+binding configurations, and four invalid axiom reports are rejected.
+Eight SSZ native tests pass, including constructor release, reservation
+overflow, payload movement/clearing, repeated finalization, and callback-panic
+write order. Direct append and finalization still fail on stored mutable-buffer
+borrows (UPSTREAM_BUGS 26); their native checks are not source proofs.
+All seven source suites pass: 33 direct comparisons and two compositions,
+for 35 proofs (16 axiom-free, nineteen standard-only). No production Rust,
+local model, main proof, or Aeneas source changed. The main gate was not
+repeated for this standalone audit; its latest pass remains 5,117 declarations
+across 320 modules and 2,036 build jobs. The model inventory remains 42
+roots/151 declarations. Borrowed CoW and the remaining model/assumption review
+stay open. Debug and Serde remain excluded; TreeHash remains deferred.
+
+Earlier source-model checkpoint (`e396dad`): both Arbitrary size-hint defaults
 now compare directly with their actual source bodies for arbitrary dictionaries
 and depths. The complete dictionary adapter retains every callback. The fixed
 default ignores them all; the fallible default preserves the actual hint's
