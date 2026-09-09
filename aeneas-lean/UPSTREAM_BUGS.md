@@ -1028,6 +1028,50 @@ successfully to the local/foundation models for arbitrary callback results,
 retaining the existing vector/index/slice foundation. These comparisons do
 not complete the two removal-model boundaries above.
 
+## 26. Aeneas: SSZ offset reader borrowing and missing usize byte conversion
+
+**Stage:** symbolic interpretation and generated Lean elaboration.
+**Status:** the private decoder and four-byte constant have verified source
+comparisons; public-reader composition is verified separately. Direct public
+reader and encoder extraction remain unresolved. These are extraction and
+foundation limitations, with no discovered Rust bug or Aeneas source change.
+
+The [SSZ offset fixture](reproducers/ssz_offset_models/README.md) pins
+`ethereum_ssz` 0.10.0 with the repository's dependency versions, Charon 0.1.223,
+Aeneas `b59d5188`, and `nightly-2026-06-01`. Its README preserves both exact
+reproduction commands. Including the public `read_offset`, private decoder,
+Option operations, and slice-clone specialization lets Charon succeed. Aeneas
+exits 1 with `There should be no bottoms in the value` at `decode.rs:360`, from
+`InterpExpressions.ml:55` and then `Interp.ml:609`. The borrowed prefix
+temporary remains unsupported; no partial output is used in a proof.
+
+Selecting only `encode_length` and its constants lets both Charon and Aeneas
+succeed. Lean then rejects the generated body at `Funs.lean:47`:
+`Unknown identifier core.num.Usize.to_le_bytes`. The builtin mapping names
+this operation, but the pinned foundation's `CoreConvertNum.lean` defines byte
+conversions with `uscalar_no_usize`. The audit adds no assumed replacement.
+Native checks validate tested debug-profile inputs and oversized-offset
+rejection; they do not establish a source or release-profile encoding proof.
+
+Two metadata limitations can be handled without changing dependency code or
+Aeneas. Aeneas's unused-function pass drops the private decoder when it is
+selected directly as a nonlocal root with no retained caller. Marking only
+its locality metadata retains its actual body. The generated `DecodeError`
+discriminant instance also collides with `Tree.Types` across module namespaces;
+changing only the source type's final name to `SourceDecodeError` avoids this.
+The runner validates original transparent crate/file provenance before either
+adjustment, restores both fields in a copy, and requires equality with the
+entire original LLBC. Bodies, signatures, fields, discriminants, IDs, call
+targets, and dictionaries are unchanged.
+
+The private decoder proof covers every length, all four source-loop copies,
+checked increments, termination, and exact error fields. A separate
+source-level composition of prefix slicing and that decoder equals the local
+public-reader model, including ignored suffixes and original short-input
+length errors. All three comparisons use only standard Lean axioms, retaining
+the byte/array/slice/scalar foundations. Four native tests and all six source
+audit suites pass. The other SSZ and model boundaries remain open.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

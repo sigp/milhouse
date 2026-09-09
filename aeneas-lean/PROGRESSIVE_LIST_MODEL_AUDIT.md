@@ -166,6 +166,44 @@ and rebasing; they do not change the scope exclusions or complete the goal.
 No production/model/Aeneas changes were made, and the main library and
 dependency counts are unchanged.
 
+## SSZ offset source comparisons
+
+Run `python3 scripts/aeneas-audit-ssz-offset-models.py` from the repository root.
+The [SSZ offset comparisons](reproducers/ssz_offset_models/README.md) validate
+the actual `ethereum_ssz` 0.10.0 four-byte constant and private `decode_offset`
+body. The decoder comparison covers every input length, preserving exact
+error fields and the four-byte little-endian value. It proves every iteration
+of the actual slice-copy loop, checked increments, and termination, without
+extra input, copy-success, or arithmetic premises.
+
+A separate composition proof uses foundation prefix slicing and that extracted
+decoder to establish the public `read_offset` model for every input. It is
+explicitly not a successful direct extraction of the public body. All three
+proofs use only standard Lean axioms and retain the existing byte, array,
+slice/index, scalar, clone, and default foundations.
+
+The runner validates the original transparent dependency provenance. It then
+retains the private external decoder via its locality metadata and renames
+the source error enum to avoid a generated instance-name collision with
+`Tree.Types`. Reversing these two adjustments must recover the entire original
+LLBC, including unchanged code, fields, IDs, call targets, and dictionaries.
+Nine malformed inventories, eighteen invalid metadata/provenance/configuration
+cases, and four invalid axiom reports are rejected.
+
+At `c0d7c7f`, four native tests pass for short-input error payloads, all 32 bits
+and extrema, mixed-byte order with ignored suffixes, and debug-profile
+oversized-offset rejection. All six source suites pass: 29 direct comparisons
+and two compositions, totaling 31 proofs (16 axiom-free, fifteen standard-only).
+The main proof library and 42-root/151-declaration inventory are unchanged.
+
+Direct public-reader extraction still fails with `There should be no bottoms
+in the value` at the borrowed temporary. Offset encoding emits a reference to
+the missing `core.num.Usize.to_le_bytes` foundation operation and cannot
+elaborate. Exact reproduction commands and retained boundaries are in the
+fixture README and UPSTREAM_BUGS issue 26. No assumed primitive, generated
+body patch, production Rust change, or Aeneas change is introduced. Encoder
+state transitions and the remaining SSZ/model/assumption review stay open.
+
 ## Vector source comparisons
 
 Run `python3 scripts/aeneas-audit-vec-models.py` from the repository root.

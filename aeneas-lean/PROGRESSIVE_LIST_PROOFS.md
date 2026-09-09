@@ -84,6 +84,18 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [SSZ offset source comparisons](reproducers/ssz_offset_models/README.md)
+  validate the actual four-byte constant and private decoder for every input
+  length, including the complete copy loop and exact error payloads. A separate
+  composition proof relates prefix slicing followed by that decoder to the
+  public-reader model. All three use only standard Lean axioms, without extra
+  length, copy-success, termination, or word-bound premises. The runner verifies
+  that retaining the private root and renaming its source error type changes
+  only the declared metadata. Direct public-reader extraction and the encoder's
+  missing `Usize.to_le_bytes` foundation remain unresolved (UPSTREAM_BUGS 26).
+  Four native tests and all six source suites pass at `c0d7c7f`: 29 direct
+  comparisons and two compositions, totaling 31 proofs (16 axiom-free, fifteen
+  standard-only). Existing byte/array/slice/scalar foundations are retained.
 - The [vector source comparisons](reproducers/vec_models/README.md) validate
   `is_empty`, `eq`, and `ne` for arbitrary vector values and comparison
   dictionaries. They preserve empty/length shortcuts, element `ne` dispatch,
@@ -94,7 +106,8 @@ points and records the trusted boundaries that still need fidelity review.
   foundations. Six native tests additionally check moves, capacity, mixed
   iteration, zero-sized elements, and drops. Direct `pop`/`next_back` source
   extraction remains unresolved (UPSTREAM_BUGS 25); native evidence does not
-  replace that obligation. All five source suites pass.
+  replace that obligation. All five then-existing source suites pass at
+  `1a575ec`.
 - The [tuple source comparisons](reproducers/tuple_models/README.md) validate
   `eq`, `ne`, `partial_cmp`, and `cmp` against fresh extraction of the pinned
   standard-library bodies for arbitrary callback dictionaries. Short-circuiting,
@@ -1274,7 +1287,29 @@ The model dependency inventory remains 42 roots/151 local declarations; that
 separate gate was not repeated for these proof-only changes. Borrowed CoW and
 the remaining assumption/model-fidelity review stay open.
 
-Latest source-model checkpoint (`1a575ec`): the vector suite adds three
+Latest source-model checkpoint (`c0d7c7f`): the SSZ offset suite compares the
+actual constant and private decoder with the local model, and separately proves
+the public reader's prefix-slicing composition. The complete four-copy loop,
+checked increments, termination, and all length/error cases are proved without
+additional premises. All three comparisons use only standard Lean axioms.
+The shared runner validates original source provenance, then verifies that
+retaining the private root and renaming the source error enum are the only
+LLBC changes. Nine malformed source inventories, eighteen invalid metadata,
+provenance, or configuration cases, and four invalid axiom reports are rejected.
+Four native tests cover exact short-input errors, all 32 bits and extrema,
+mixed-byte order and ignored suffixes, and debug-profile oversized-offset
+rejection. Direct public-reader extraction still fails on a borrowed temporary;
+direct encoding emits a missing `Usize.to_le_bytes` identifier (UPSTREAM_BUGS 26).
+All six source suites pass: 29 direct comparisons and two separate compositions,
+for 31 proofs (16 axiom-free, fifteen standard-only). No production Rust, local
+model, main library proof, or Aeneas source changed. The main gate was not
+repeated for these standalone checks; its latest pass remains 5,117
+declarations across 320 modules and 2,036 build jobs. The model inventory
+remains 42 roots/151 declarations. Borrowed CoW and the remaining model and
+assumption review stay open. Debug and Serde remain excluded; TreeHash remains
+deferred.
+
+Earlier source-model checkpoint (`1a575ec`): the vector suite adds three
 comparisons against pinned `is_empty`, `eq`, and `ne` bodies. All hold without
 extra callback, termination, or word-bound premises, retaining the existing
 vector/index/slice foundation models. Their standard-only proofs preserve

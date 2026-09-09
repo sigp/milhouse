@@ -181,6 +181,20 @@ Six native vector tests pass. Direct `pop`/`next_back` extraction remains
 unresolved at container field/type analysis (UPSTREAM_BUGS 25). The main
 proof/dependency inventories and scope exclusions are unchanged.
 
+The [SSZ offset comparisons](reproducers/ssz_offset_models/README.md) add two
+direct checks for the actual four-byte constant and private decoder, plus a
+separate composition check for the public reader's prefix slicing. All input
+lengths, the full copy loop and termination, and exact error payloads are
+covered without extra premises. All three proofs use only standard Lean
+axioms. The runner checks that temporary root retention and source error-type
+renaming leave every other LLBC field unchanged. At `c0d7c7f`, all six source
+suites pass: 29 direct comparisons and two compositions, totaling 31 proofs
+(16 axiom-free, fifteen standard-only). Four native SSZ tests pass. Direct
+public-reader extraction and the encoder's missing `Usize.to_le_bytes`
+foundation remain unresolved (UPSTREAM_BUGS 26). The main proof/dependency
+inventories and scope exclusions remain unchanged; borrowed CoW and the
+remaining model/assumption review stay open.
+
 Append now uses exact observable lookup conditions. `AppendReadAgrees` in
 `Push/Lookup.lean` requires the appended key to return the new pending value;
 other keys need only agree after the original backing fallback, without raw
