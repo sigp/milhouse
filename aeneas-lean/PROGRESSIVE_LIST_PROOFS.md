@@ -31,7 +31,7 @@ lower-level hypothesis and count the wrapper as proved.
 | `iter_cow`, `iter_cow_from`, `ProgressiveListIterCow::next_cow` | Enumerate mutable handles at successive indices; read-only and write-back behavior; exhaustion | `IterCow/Construction.lean`: the extracted constructors establish the exact backing suffix and merged pending overlay, retain the requested start and pending state, accept the logical end, and reject oversized starts with exact bounds errors and complete restoration. Premises are representation, backing validity, and packing layout, with no additional map or cloning laws. `IterCow/State.lean` proves exact unchanged release, error restoration, and backing preservation through arbitrary constructor continuations without representation or map-law premises. `next_cow` extraction/enumeration and handle dereferencing/materializing mutation remain pending borrowing limitations (UPSTREAM_BUGS issues 9 and 16); constructor invariants do not substitute for those proofs |
 | `to_vec` | Return the merged sequence in order | `ToVec.lean`: actual collection succeeds and returns exactly the represented merged sequence. Uses the proved public iterator and exact-length results, representation, backing density/representability, packing layout, and successful identity cloning only for values in the sequence. Vector-push bounds and loop termination are derived internally |
 | `pop_front` | Drop the specified prefix, reindex remaining values; reject oversized drops unchanged | `PopFront/Total.lean`: every in-bounds removal succeeds, represents exactly `contents.drop n`, and preserves `BackingValid`. Nonzero removal clears pending updates and requires successful identity cloning only for retained values, occupied capacity only for the retained suffix, and empty-default-map laws. These clone/capacity/map premises are conditional on nonzero removal; zero remains an unconditional no-op. `PopFront/BuilderTotal.lean` establishes actual streaming reconstruction success and the complete builder invariant. `PopFront/State.lean` proves oversized removals return the exact bounds error unchanged and every returned Rust error restores the original list. `Contents.lean` retains successful-execution content and backing proofs. No intermediate vector, assumed iterator output, successful-subcall premise, or opaque milhouse-method model |
-| `rebase`, `rebase_on` | Preserve values, length, and pending updates while changing sharing only | `Rebase/Contents.lean`: both successful operations preserve the represented merged sequence and `BackingValid`, under input representation/backing validity, an accurately sized dense base, packing layout, soundness of true element `eq` and false element `ne`, and agreement of corresponding nonzero cached hashes at equal materialized lengths. Actual binary/progressive rebase content preservation is proved underneath, including shorter or longer bases. In-place rebase preserves exact pending-map state; nonmutating rebase adds only clone read/max laws. `Rebase/Backing.lean` proves backing preservation without equality, hash, or clone laws. `Rebase/State.lean` proves restoration on every returned in-place error and unchanged metadata/observers on all returned results. Deriving cache agreement from the eventual semantic hash model and maintained cache invariant remains part of the hashing work |
+| `rebase`, `rebase_on` | Preserve values, length, and pending updates while changing sharing only | `Rebase/Total.lean`: both operations terminate successfully and preserve the represented merged sequence and `BackingValid`, under input representation/backing validity, an accurately sized dense base, packing layout, soundness of true element `eq` and false element `ne`, terminating comparisons at corresponding input leaves, and equal-length nonzero cache-shortcut soundness. Binary/progressive success is established from shape and original capacity invariants, with all arithmetic and recursive calls derived. In-place rebase preserves exact pending-map state and requires no map or element-clone law; nonmutating rebase requires only the actual pending-map clone to terminate and preserve reads/maximum, and returns exactly that cloned map. `Rebase/Backing.lean` proves backing preservation without equality, hash, or clone laws. `Rebase/State.lean` proves in-place error restoration and unchanged metadata/observers; nonmutating observer preservation needs only the corresponding clone maximum/emptiness laws. Connecting cache-shortcut soundness to semantic hashing and maintained cache validity, with an appropriate collision-soundness condition, remains part of the hashing work |
 | `Clone` | Preserve logical contents and backing validity | `Clone.lean`: the actual derived clone shares the backing tree and copies its recorded length; successful cloning preserves `BackingValid` without clone laws. Sequence representation is preserved when pending-map cloning preserves reads and maximum; the pending observer is preserved under its corresponding map law. No element-clone law or exact identity of the cloned map is assumed |
 | `PartialEq` | Characterize equality under element/map laws | `Equality/Correctness.lean`: actual extracted `eq` and `ne` terminate and characterize backing-tree structure, recorded length, and the explicit pending-map relation, under the element `ne` law and a law for the actual map pair only when preceding comparisons succeed. Hash caches are ignored. Positive equality transfers the represented sequence and `BackingValid` under only soundness of false element `ne` and pending-map read/max agreement; it assumes no comparison termination, completeness, reflexivity, packing layout, literal map identity, or representation/backing validity of the other list. Direct structural representation transfer needs no backing-validity premise. Binary/progressive recursive equality, pointer shortcuts, and structural invariant transport are proved underneath. This is structural equality, so identical merged contents alone do not imply a true comparison |
 | `Debug` | Formatting through the derived formatter | Pending extraction and specification |
@@ -186,8 +186,10 @@ lower-level hypothesis and count the wrapper as proved.
   with the base. `CachedHashesAgree` states an input cache law at corresponding
   nodes: equal nonzero hashes imply equal contents when materialized lengths
   agree. It imposes no constraint on zero caches or different-length sequences,
-  and contains no rebase call or result. Deriving it from semantic hashing and
-  maintained cache validity remains a separate hashing obligation.
+  and contains no rebase call or result. Connecting it to semantic hashing and
+  maintained cache validity remains a separate hashing obligation and also
+  needs an appropriate collision-soundness condition; valid cached hashes
+  alone do not imply equal contents.
 - `Tree/ProgressiveTree/Rebase/Steps.lean`, `Geometry.lean`, `Density.lean`,
   and `Contents.lean`: actual successful recursive calls either retain the
   original tree or rebuild from the binary action and recursive suffix. The
@@ -209,6 +211,31 @@ lower-level hypothesis and count the wrapper as proved.
   laws; nonmutating rebasing adds only pending-map clone read/max preservation.
   The general `Represents.with_tree` lemma preserves the pending overlay when
   valid backing trees have the same materialized sequence.
+- `Tree/Rebase/Arithmetic.lean`, `Comparisons.lean`, `Success.lean`: actual
+  length minimization and clamped child-length splitting always succeed within
+  the checked shift bound. Binary rebasing succeeds for compatible shapes and
+  sufficient routing depth, with that shift bound needed only when lengths
+  are supplied. Recorded lengths need not equal materialized lengths for
+  termination. Element `eq`/`ne` success is scoped to corresponding leaf pairs;
+  pointer-equal leaves and different-length packed vectors need no element
+  calls. No density, packing queries, cloning, or hash law is used for binary
+  success.
+- `Tree/ProgressiveTree/Rebase/Success.lean`: corresponding-layer comparison
+  termination and compatible shapes imply recursive and public progressive
+  success. Packing layout and representable original layers supply successful
+  depth advancement, capacity calculations, saturating subtraction, minimum,
+  full-depth addition, and both recursive calls. The base needs no capacity
+  bound; either zero suffix ends traversal without element calls.
+- `Tree/ProgressiveList/Rebase/Total.lean`: both public operations have actual
+  success specifications under shape and capacity invariants, and total
+  content/backing specifications combining that success with the existing
+  semantic equality/cache laws. In-place rebasing preserves exact pending-map
+  identity. Nonmutating rebasing returns precisely the pending-map clone and
+  keeps the backing length; representation preservation adds only that
+  clone's read/maximum laws. The additional `Rebase/State.lean` lemmas prove
+  these metadata facts on every successful nonmutating call without tree
+  invariants, and preserve length/pending observers under only the clone laws
+  relevant to those observers.
 - `Tree/Arc/Equality.lean`, `Tree/Equality/Comparisons.lean`: faithful Arc
   comparison shortcuts and vector inequality foundations. The local external
   Arc model preserves the pinned triomphe implementation's pointer check, and
@@ -485,7 +512,22 @@ regenerate the full extraction, build all proof modules, inspect axiom
 dependencies for admissions, run the relevant Rust tests and formatting checks,
 and audit every row above against concrete theorem statements.
 
-Latest TreeHash metadata checkpoint: regenerated extraction and the full
+Latest rebase totality checkpoint: the full Lean build passes (1,936 jobs),
+including all earlier proofs and the completed former `Success.lean` draft.
+All 15 public lemmas added since the TreeHash checkpoint were audited
+together. Arithmetic, vector comparison, comparison-law lifting, and
+nonmutating metadata/observer lemmas use only standard Lean axioms. The eight
+pointer-dependent comparison/success/content results additionally use the
+existing trusted `triomphe.arc.Arc.ptr_eq_spec`; none inherits an admission or
+native-evaluation axiom. Existing upstream Slice/StringIter admissions and
+lint warnings remain in the build output. All new modules are imported by
+the root `Tree` target. This checkpoint changes only Lean proofs and their
+documentation; Rust, generated extraction, external models, and Aeneas sources
+are unchanged. Semantic hashing/cache obligations, CoW stepping and
+materialization, serialization/deserialization protocols, Debug, and every
+other pending coverage row remain part of the full objective.
+
+Previous TreeHash metadata checkpoint: regenerated extraction and the full
 Lean build pass (1,931 jobs), including all earlier proofs. The three new public
 classification and packing-rejection lemmas use only `propext`,
 `Classical.choice`, and `Quot.sound`. Formatting passes; production Rust and
