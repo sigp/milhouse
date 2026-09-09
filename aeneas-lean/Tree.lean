@@ -88,6 +88,7 @@ import Tree.ProgressiveList.Decode.State
 import Tree.ProgressiveList.Decode.Contents
 import Tree.ProgressiveList.Decode.Success
 import Tree.ProgressiveList.Decode.Backing
+import Tree.ProgressiveList.Decode.Caches
 import Tree.ProgressiveList.Decode.Fixed
 import Tree.ProgressiveList.Decode.FixedErrors
 import Tree.ProgressiveList.Decode.FixedTotal
