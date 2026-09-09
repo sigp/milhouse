@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.PopFront.ClonesTotal
+import Tree.ProgressiveList.PopFront.OverlayTotal
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -25,14 +26,12 @@ theorem ProgressiveList.pop_front_nonzero_total_spec {T U : Type}
       ok (core.result.Result.Ok (), result) ∧
       result.Represents ValueInst mapInst (contents.drop n.val) ∧ result.BackingValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst result = ok false := by
-  obtain ⟨copied, result, hclones, hpop, hcontents, hvalid, _, hpending⟩ :=
-    ProgressiveList.pop_front_nonzero_clones_total_spec ValueInst mapInst hlayout self contents n
-      hrep hbacking hnonzero hbound (fun value hv => ⟨value, hclone value hv⟩)
-      hfits updates hdefault hget hmax hempty
-  have hidentity := milhouse_models.list_clone_identity ValueInst.corecloneCloneInst
-    (contents.drop n.val) hclone
-  have heq : copied = contents.drop n.val := Result.ok.inj (hclones.symm.trans hidentity)
-  exact ⟨result, hpop, by simpa only [heq] using hcontents, hvalid, hpending⟩
+  obtain ⟨result, hpop, hcontents, hvalid, _, _, _, hpending⟩ :=
+    ProgressiveList.pop_front_nonzero_overlay_total_spec ValueInst mapInst hlayout
+      self contents n hrep hbacking hnonzero hbound hfits (contents.drop n.val) updates
+      (milhouse_models.list_clone_identity ValueInst.corecloneCloneInst (contents.drop n.val) hclone)
+      hdefault ⟨none, hmax, rfl⟩ (fun index => ⟨none, hget index, rfl⟩) hempty
+  exact ⟨result, hpop, hcontents, hvalid, hpending⟩
 
 /-- Front removal within the logical length terminates and preserves exactly
 the retained suffix. A zero removal is the original list and requires no packing,
