@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_skipped`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,35 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The materialization review (`dda608d`, equivalence `034d26b`, suffix reads
+`19dee5c`) proves skipped-value agreement necessary for exact materialization.
+The lower proof preserves complete read results through every actual skipped
+suffix without packing, shape, clone, or range-correctness assumptions. The
+public necessity result needs neither input representation nor default-map
+laws. Under selected clone/range and backing laws, agreement is equivalent
+to correct backing reads and exact stored contents. Successful materialization
+has an exact occupied-capacity/agreement/default-construction criterion;
+the combined representation criterion adds actual default overlay and extent.
+Agreement and default success are derived in the forward direction. The public
+no-op stores the target sequence exactly when its input backing already does;
+all rebuilding laws apply only on nonempty application. `Conditions.lean`
+now reuses the combined criterion. Necessity concerns materialization; the
+separate representation criterion permits compensation by the installed map.
+
+Focused and full builds pass (2,091 jobs). The axiom/import audit covers
+5,600 declarations across 375 modules: 5,481 use only standard Lean axioms or
+none, and 119 use the existing pointer contract. All 10 new named lemmas use
+only standard Lean axioms; private/generated helpers are included in the
+inventory. External axiom use is unchanged. No new axiom or admission was
+introduced, and `size_of` remains unused. Existing sequence, total, and cache
+contracts validate. No Rust, extraction, external model, or Aeneas source
+changed; the seven source suites and 42-root/151-declaration dependency gate
+were not repeated for this proof-only work. Selected clone/range and geometry
+minimality, borrowed CoW, and model fidelity remain unfinished. Debug and
+Serde remain excluded; TreeHash remains deferred.
+
+Previous apply-updates skipped-suffix checkpoint:
 
 The skipped-suffix review (`10c8634`, list contents `592280c`, bulk contents
 `ad51425`, scope `25f577f`) generalizes content preservation, materialization,
