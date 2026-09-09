@@ -53,6 +53,7 @@ import Tree.ProgressiveList.Encode.Variable
 import Tree.ProgressiveList.Encode.Owning
 import Tree.ProgressiveList.Decode.Entry
 import Tree.ProgressiveList.Decode.InitialErrors
+import Tree.ProgressiveList.Decode.ErrorResult
 import Tree.ProgressiveList.Decode.ErrorMessages
 import Tree.ProgressiveList.Decode.Finish
 import Tree.ProgressiveList.Decode.State
@@ -71,6 +72,7 @@ import Tree.Ssz.FixedCursor
 import Tree.Ssz.VariableInit
 import Tree.Ssz.VariableStep
 import Tree.Ssz.VariableErrors
+import Tree.Ssz.DecodedLength
 import Tree.Ssz.VariableCursor
 import Tree.Ssz.Encoder
 import Tree.ProgressiveList.Rebase.State
