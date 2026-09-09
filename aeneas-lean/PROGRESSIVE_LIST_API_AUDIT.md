@@ -170,6 +170,17 @@ comparisons and the separate Option cloned composition: 25 proofs, 16
 axiom-free and nine standard-only. The main proof/dependency inventories are
 unchanged; borrowed CoW and remaining model/assumption review stay open.
 
+The [vector source comparisons](reproducers/vec_models/README.md) add three
+checks for `is_empty`, `eq`, and `ne`, preserving arbitrary callback results
+without consistency or termination assumptions. Checked name-only changes
+to temporary LLBC expose actual source bodies suppressed by builtin matching;
+all other fields must remain identical. The vector/index/slice foundations
+remain trusted. At `1a575ec`, all five source suites pass: 27 direct comparisons
+and one composition, totaling 28 proofs (16 axiom-free, twelve standard-only).
+Six native vector tests pass. Direct `pop`/`next_back` extraction remains
+unresolved at container field/type analysis (UPSTREAM_BUGS 25). The main
+proof/dependency inventories and scope exclusions are unchanged.
+
 Append now uses exact observable lookup conditions. `AppendReadAgrees` in
 `Push/Lookup.lean` requires the appended key to return the new pending value;
 other keys need only agree after the original backing fallback, without raw

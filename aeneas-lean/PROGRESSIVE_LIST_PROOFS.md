@@ -84,6 +84,17 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [vector source comparisons](reproducers/vec_models/README.md) validate
+  `is_empty`, `eq`, and `ne` for arbitrary vector values and comparison
+  dictionaries. They preserve empty/length shortcuts, element `ne` dispatch,
+  and failure/divergence without consistency or termination assumptions.
+  The audit exposes the actual comparison bodies by changing only temporary
+  declaration names and verifying the entire remaining LLBC is unchanged.
+  The proofs use only standard Lean axioms and retain vector/index/slice
+  foundations. Six native tests additionally check moves, capacity, mixed
+  iteration, zero-sized elements, and drops. Direct `pop`/`next_back` source
+  extraction remains unresolved (UPSTREAM_BUGS 25); native evidence does not
+  replace that obligation. All five source suites pass.
 - The [tuple source comparisons](reproducers/tuple_models/README.md) validate
   `eq`, `ne`, `partial_cmp`, and `cmp` against fresh extraction of the pinned
   standard-library bodies for arbitrary callback dictionaries. Short-circuiting,
@@ -1263,7 +1274,28 @@ The model dependency inventory remains 42 roots/151 local declarations; that
 separate gate was not repeated for these proof-only changes. Borrowed CoW and
 the remaining assumption/model-fidelity review stay open.
 
-Latest source-model checkpoint (`c948ef8`): the tuple suite adds four direct
+Latest source-model checkpoint (`1a575ec`): the vector suite adds three
+comparisons against pinned `is_empty`, `eq`, and `ne` bodies. All hold without
+extra callback, termination, or word-bound premises, retaining the existing
+vector/index/slice foundation models. Their standard-only proofs preserve
+actual `ne` dispatch and all callback results. The shared runner exposes
+comparison bodies hidden by builtin matching through two name-only metadata
+changes and verifies that the complete remaining LLBC is identical.
+Nine malformed source inventories, ten invalid renames or extra mutations,
+and four malformed or excessive axiom reports are rejected. Six native tests
+pass, including removal/iteration movement, capacity, zero-sized elements,
+exhaustion, and drop behavior. Direct `pop`/`next_back` extraction is still
+unresolved at container field/type analysis (UPSTREAM_BUGS 25).
+All five source suites pass: 27 direct comparisons and the separate Option
+cloned composition, for 28 proofs (16 axiom-free, twelve standard-only).
+No production Rust, local model, main library proof, or Aeneas source changed.
+The main gate was not repeated for these standalone checks; its latest pass
+remains 5,117 declarations across 320 modules and 2,036 build jobs. The model
+inventory remains 42 roots/151 declarations. Borrowed CoW and remaining
+numeric/container/model/assumption review stay open. Debug and Serde remain
+excluded; TreeHash remains deferred.
+
+Earlier source-model checkpoint (`c948ef8`): the tuple suite adds four direct
 comparisons for arbitrary callback results, with four native tests covering
 59 short-circuit, dispatch, and panic combinations. Equality and inequality
 are axiom-free; partial and total ordering use only `propext`, already present

@@ -993,6 +993,41 @@ large-exponent cases pass. This does not establish the Rust
 implementation of the underlying checked-multiplication primitive. No Aeneas,
 production Rust, or local model body was changed.
 
+## 25. Aeneas: direct vector removal source extraction needs container internals
+
+**Stage:** field-type instantiation and container type analysis.
+**Status:** direct `Vec::pop` and owning-iterator `next_back` source extraction
+remains unresolved. This is an extraction/foundation boundary, not a discovered
+milhouse Rust bug. The vector observer/comparison source checks pass.
+
+The [vector source fixture](reproducers/vec_models/README.md) preserves both
+callers and exact reproduction commands. Charon 0.1.223 succeeds when their
+actual standard-library bodies are included. Aeneas `b59d5188` exits 1 with
+`Unexpected error` at `Vec`'s `len` field (`alloc/src/vec/mod.rs:2851`) and
+`IntoIter`'s `ptr` field (`alloc/src/vec/into_iter.rs:438`). Both errors originate
+in `llbc/Substitute.ml:202`, during structure-field type instantiation; their
+generated bodies are partial.
+
+Explicitly including `alloc::vec::Vec` and `alloc::vec::into_iter::IntoIter`
+moves the failure to `Vec` type analysis: `TypesAnalysis.ml:485` reports
+`Found type error in the output of charon` at `vec/mod.rs:438`. This is followed
+by `Not_found` during backward-signature analysis, and Aeneas exits 2. Neither
+probe produces an admissible source-comparison artifact. The six native vector
+tests include movement without cloning/premature drops, retained capacity,
+mixed front/back iteration, exhaustion, zero-sized elements, and remainder
+drops. They supplement the existing sequence models without proving their
+Rust heap or destructor refinement.
+
+Separately, even transparent vector `eq`/`ne` bodies are suppressed by Aeneas's
+builtin name matching. The standalone audit now changes only their final
+function-name metadata identifiers and verifies that restoring those names
+recovers the entire original LLBC, with unchanged bodies, signatures, IDs,
+call targets, and type/trait declarations. This exposes the actual source
+bodies without modifying Aeneas. Together with `is_empty`, all three compare
+successfully to the local/foundation models for arbitrary callback results,
+retaining the existing vector/index/slice foundation. These comparisons do
+not complete the two removal-model boundaries above.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

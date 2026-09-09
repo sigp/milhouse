@@ -166,6 +166,36 @@ and rebasing; they do not change the scope exclusions or complete the goal.
 No production/model/Aeneas changes were made, and the main library and
 dependency counts are unchanged.
 
+## Vector source comparisons
+
+Run `python3 scripts/aeneas-audit-vec-models.py` from the repository root.
+The [vector comparisons](reproducers/vec_models/README.md) validate
+`Vec::is_empty`, vector `eq`, and vector `ne` against the pinned source bodies.
+Equality matches the corrected local `milhouse_models.vec_eq`; inequality
+matches the existing vector foundation model. Both permit arbitrary callback
+results without consistency or termination assumptions, preserving length
+shortcuts, actual element `ne` dispatch, failure, and divergence.
+
+Aeneas's builtin matching otherwise suppresses the comparison source bodies.
+The runner changes only their final name identifiers in temporary LLBC and
+checks the entire restored file against the original, including bodies,
+signatures, IDs, and call targets. Actual `RangeFull` source indexing is
+included. Vector length/indexing and slice comparison remain foundation
+boundaries; no Aeneas source or local model is changed.
+
+At `1a575ec`, all three comparisons and six native tests pass. Nine malformed
+source inventories, ten invalid name changes or extra LLBC mutations, and
+four malformed or excessive axiom reports are rejected. All five source suites
+pass with the shared runner: 27 direct comparisons and one Option cloned
+composition, totaling 28 proofs (16 axiom-free, twelve standard-only).
+
+Direct `pop` and owning-iterator `next_back` extraction still fails on container
+field access; including the container types exposes a further type-analysis
+failure. Their preserved native tests cover movement, capacity, mixed
+iteration, exhaustion, zero-sized elements, and drops, but do not complete
+source fidelity. See UPSTREAM_BUGS issue 25. These standalone checks leave the
+main proof library and 42-root/151-declaration inventory unchanged.
+
 ## Tuple source comparisons
 
 Run `python3 scripts/aeneas-audit-tuple-models.py` from the repository root.
