@@ -19,6 +19,7 @@ import Tree.Repeat
 import Tree.Builder
 import Tree.Builder.Contents
 import Tree.Builder.Caches.Basic
+import Tree.Builder.Caches.Push
 import Tree.Builder.Contents.Length
 import Tree.Builder.New
 import Tree.Builder.Carry
