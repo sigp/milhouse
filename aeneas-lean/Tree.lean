@@ -38,6 +38,7 @@ import Tree.Roundtrip
 import Tree.Rebase
 import Tree.Rebase.Arithmetic
 import Tree.Rebase.Comparisons
+import Tree.Rebase.Success
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.ProgressiveTree
