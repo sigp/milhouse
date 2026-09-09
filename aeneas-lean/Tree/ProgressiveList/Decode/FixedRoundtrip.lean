@@ -10,19 +10,21 @@ namespace milhouse.progressive_list
 and preserve every indexed value, including pending replacements/extensions.
 The reconstructed list has valid backing and no pending updates. Byte size
 and occupied-layer bounds describe the two operations' representable domains;
-all intermediate arithmetic and traversal conditions are derived internally. -/
+all intermediate arithmetic and traversal conditions are derived internally.
+Decoder metadata, positive width, and reconstruction capacity are needed only
+for nonempty contents; encoder/traversal premises describe their actual calls. -/
 theorem ProgressiveList.ssz_roundtrip_fixed {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
     (hrep : self.Represents ValueInst mapInst contents) {factor : Option Std.Usize}
     {packingDepth : Std.Usize} (hlayout : PackingLayout ValueInst factor packingDepth)
     (hbacking : self.BackingValid factor)
-    (hfits : ProgressiveTree.LengthFits factor contents.length)
-    (width : Std.Usize) (hpositive : 0 < width.val)
+    (hfits : contents ≠ [] → ProgressiveTree.LengthFits factor contents.length)
+    (width : Std.Usize) (hpositive : contents ≠ [] → 0 < width.val)
     (hencodeFixed : ValueInst.sszencodeEncodeInst.is_ssz_fixed_len = ok true)
     (hencodeWidth : ValueInst.sszencodeEncodeInst.ssz_fixed_len = ok width)
-    (hdecodeFixed : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true)
-    (hdecodeWidth : ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
+    (hdecodeFixed : contents ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true)
+    (hdecodeWidth : contents ≠ [] → ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
     (encode : T → _root_.List Std.U8)
     (hwidths : ∀ value ∈ contents, (encode value).length = width.val)
     (happend : ∀ value ∈ contents, ∀ buffer : alloc.vec.Vec Std.U8,
@@ -49,7 +51,7 @@ theorem ProgressiveList.ssz_roundtrip_fixed {T U : Type}
     encode hwidths happend hbytes
   obtain ⟨restored, hdecode, hrestored, hbackingRestored, hpending⟩ :=
     ProgressiveList.from_ssz_bytes_fixed_total_spec ValueInst mapInst bytes.deref contents encode width
-      hpositive hdecodeFixed hdecodeWidth hencoded hwidths hdecodeElement hlayout hfits
+      hpositive hdecodeFixed hdecodeWidth hencoded hwidths hdecodeElement (fun _ => hlayout) hfits
       updates hdefault hget hmax hempty
   refine ⟨bytes, restored, hencode, hdecode, hrestored, hbackingRestored, hpending, ?_⟩
   intro index

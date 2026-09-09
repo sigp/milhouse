@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Decode.Backing
+import Tree.ProgressiveList.Decode.PublicTrace
 import Tree.ProgressiveList.Decode.Contents
 import Tree.Ssz.FixedCursor
 
@@ -10,13 +10,14 @@ namespace milhouse.progressive_list
 /-- A successful fixed-format decode materializes the encoded values in order,
 records their exact length, and initializes the actual default update map.
 The cursor and builder properties are derived internally; only the element
-width and exact-payload decoder laws are required. Empty inputs are included. -/
+width and exact-payload decoder laws are required. Empty input requires no
+element metadata or positive-width assumption. -/
 theorem ProgressiveList.from_ssz_bytes_fixed_contents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) (values : _root_.List T) (encode : T → _root_.List Std.U8)
-    (width : Std.Usize) (hpositive : 0 < width.val)
-    (hfixed : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true)
-    (hwidth : ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
+    (width : Std.Usize) (hpositive : values ≠ [] → 0 < width.val)
+    (hfixed : values ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true)
+    (hwidth : values ≠ [] → ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
     (hbytes : bytes.val = values.flatMap encode)
     (hsize : ∀ value ∈ values, (encode value).length = width.val)
     (hdecodeElement : ∀ value ∈ values, ∀ part : Slice Std.U8,
@@ -37,6 +38,10 @@ theorem ProgressiveList.from_ssz_bytes_fixed_contents {T U : Type}
     obtain ⟨htree, hlength, hdefault⟩ := ProgressiveList.empty_success_state ValueInst mapInst hempty
     exact ⟨by simp [htree, progressive_tree.ProgressiveTree.elements], by simp [hlength], hdefault⟩
   | cons value values =>
+    have hne : value :: values ≠ [] := by simp
+    specialize hpositive hne
+    specialize hfixed hne
+    specialize hwidth hne
     have hnonempty : bytes.val ≠ [] := by
       intro hempty
       have hsize1 := hsize value (by simp)
@@ -56,20 +61,21 @@ theorem ProgressiveList.from_ssz_bytes_fixed_contents {T U : Type}
 /-- Complete sequence-level partial correctness for fixed-element SSZ
 decoding: every indexed read agrees with the input values, the backing tree
 is valid for traversal, and no updates are pending. No iterator-output,
-builder-invariant, clone, or additional arithmetic premise is exposed. -/
+builder-invariant, clone, or additional arithmetic premise is exposed. Metadata,
+positive width, and packing layout are required only for nonempty input. -/
 theorem ProgressiveList.from_ssz_bytes_fixed_spec {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) (values : _root_.List T) (encode : T → _root_.List Std.U8)
-    (width : Std.Usize) (hpositive : 0 < width.val)
-    (hfixed : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true)
-    (hwidth : ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
+    (width : Std.Usize) (hpositive : values ≠ [] → 0 < width.val)
+    (hfixed : values ≠ [] → ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true)
+    (hwidth : values ≠ [] → ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
     (hbytes : bytes.val = values.flatMap encode)
     (hsize : ∀ value ∈ values, (encode value).length = width.val)
     (hdecodeElement : ∀ value ∈ values, ∀ part : Slice Std.U8,
       part.val = encode value → ValueInst.sszdecodeDecodeInst.from_ssz_bytes part =
         ok (core.result.Result.Ok value))
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
-    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hlayout : values ≠ [] → tree.PackingLayout ValueInst factor packingDepth)
     (hdefault : ∀ updates, mapInst.coredefaultDefaultInst.default = ok updates →
       (∀ index, mapInst.get updates index = ok none) ∧
         mapInst.max_index updates = ok none ∧ mapInst.is_empty updates = ok true)
@@ -78,13 +84,15 @@ theorem ProgressiveList.from_ssz_bytes_fixed_spec {T U : Type}
       ok (core.result.Result.Ok self)) :
     self.Represents ValueInst mapInst values ∧ self.BackingValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst self = ok false := by
-  obtain ⟨helements, _, hmap⟩ := ProgressiveList.from_ssz_bytes_fixed_contents
+  obtain ⟨helements, _, _⟩ := ProgressiveList.from_ssz_bytes_fixed_contents
     ValueInst mapInst bytes values encode width hpositive hfixed hwidth hbytes hsize hdecodeElement hdecode
-  obtain ⟨hbacking, _⟩ := ProgressiveList.from_ssz_bytes_backing ValueInst mapInst bytes hlayout hdecode
-  obtain ⟨hget, hmax, hempty⟩ := hdefault self.updates hmap
-  refine ⟨?_, hbacking, ProgressiveList.has_pending_updates_spec ValueInst mapInst self true hempty⟩
-  rw [← helements]
-  exact ProgressiveList.represents_of_dense_backing ValueInst mapInst hlayout self
-    hbacking.1 hbacking.2 hget hmax
+  have hlayoutBytes : bytes.val ≠ [] → tree.PackingLayout ValueInst factor packingDepth := by
+    intro hnonempty
+    apply hlayout
+    intro hvalues
+    apply hnonempty
+    simpa [hvalues] using hbytes
+  simpa only [helements] using ProgressiveList.from_ssz_bytes_represents
+    ValueInst mapInst bytes hlayoutBytes hdefault hdecode
 
 end milhouse.progressive_list
