@@ -37,6 +37,7 @@ import Tree.ProgressiveTree.Equality.Soundness
 import Tree.ProgressiveTree.Equality.Lookup
 import Tree.ProgressiveTree.Iter.Construction
 import Tree.ProgressiveList.Construction.Traits
+import Tree.ProgressiveList.Construction.Total
 import Tree.ProgressiveList.Iter.Construction
 import Tree.ProgressiveList.IterCow.Construction
 import Tree.ProgressiveList.Iter.Length
