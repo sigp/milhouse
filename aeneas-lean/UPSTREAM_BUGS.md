@@ -281,8 +281,11 @@ Lean-elaboration probe is `/tmp/milhouse-cow-consuming-probe-iegnawzx/`.
 The regenerated full Lean build passes (1,937 jobs), and all 329 release tests
 with `arbitrary` pass, including explicit clone-count/nonidentity-clone,
 occupied-handle, missing-entry, and maximum-index checks. Consuming mutation
-proofs can now be built from the extracted body; borrowed mutation and CoW
-iterator stepping retain their separate limitations.
+proofs are now established in `Cow/Consuming.lean` and
+`ProgressiveList/CopyOnWrite/Consuming.lean`, including actual in-bounds list
+replacement through `get_cow` and `into_mut`. The completed proof checkpoint
+passes 1,941 Lean build jobs; all nine new lemmas use only standard axioms.
+Borrowed mutation and CoW iterator stepping retain their separate limitations.
 
 ## 10. Aeneas Lean backend: borrowed `Option::take` and `Ord::max` model mismatch
 
