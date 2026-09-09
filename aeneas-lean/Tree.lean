@@ -92,6 +92,8 @@ import Tree.ProgressiveList.Rebase.State
 import Tree.ProgressiveList.Rebase.Backing
 import Tree.ProgressiveList.Rebase.Contents
 import Tree.ProgressiveList.PopFront.Contents
+import Tree.ProgressiveList.PopFront.BuilderTotal
+import Tree.ProgressiveList.PopFront.Total
 import Tree.ProgressiveTree.Builder.Density
 import Tree.ProgressiveTree.Builder.New
 import Tree.ProgressiveTree.Builder.Bounds
