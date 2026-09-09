@@ -39,7 +39,7 @@ theorem ProgressiveTree.updated_layer_contents {T U : Type}
   have hshape' : before.Shape factor binary.val := by simpa only [hbinaryVal] using hshape
   obtain ⟨hfit, hafter, hcontents⟩ := tree.Tree.with_updated_leaves_capacity_shape_contents
     ValueInst mapInst updates hlayout
-    (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone)
+    (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone.retained)
     hrange hshape' (by simp) hoffset hupdate
   obtain ⟨actualStart, actualStop, hactualStart, hactualStop, _, hwidth, _⟩ :=
     ProgressiveTree.layer_window ValueInst hlayout hnext hbinary hfit
@@ -90,7 +90,7 @@ theorem ProgressiveTree.get_after_updated_layer {T U : Type}
   have hshape' : before.Shape factor binary.val := by simpa only [hbinaryVal] using hshape
   have hlocal := saturating_sub_val query start
   have hread := tree.Tree.get_after_with_updated_leaves ValueInst mapInst updates
-    hlayout (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone)
+    hlayout (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hclone.retained)
     hrange hshape' (by simp) hoffset
     (index := core.num.Usize.saturating_sub query start) (by omega)
     (by simp) (by simp only [hlocal]; omega) hget hupdate

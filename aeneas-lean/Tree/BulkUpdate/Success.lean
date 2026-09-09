@@ -162,8 +162,8 @@ private theorem bulk_update_success_aux {T U : Type}
           (newLength - subtreeCapacity factor child) hright halignRight (by omega)
           (by omega) (by omega) ?_ (by omega) (fun hselected => by
             have h := hclone.2 middle stop hmiddleVal (by omega) hselected
-            convert h using 1
-            omega) (by simpa only [htrue] using hbr)
+            simpa only [hrightPrefix, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h)
+          (by simpa only [htrue] using hbr)
         have heq : (prefix1 ||| stride).val + offset.val =
             (prefix1.val + offset.val) + subtreeCapacity factor child := by omega
         simpa only [heq] using rightWindow
@@ -343,7 +343,7 @@ theorem Tree.with_updated_leaves_total_spec {T U : Type}
     (hqueries : ∀ lo hi, ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
     (hrange : update_map.RangeReflectsValues mapInst updates)
     (before : Tree T) (prefix1 offset depth : Std.Usize) (oldLength newLength : Nat)
-    (hclone : before.BulkCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+    (hclone : before.BulkCloneLaws ValueInst.corecloneCloneInst
       mapInst updates factor depth.val (prefix1.val + offset.val))
     (hdense : DenseTree factor before depth.val oldLength)
     (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
@@ -360,10 +360,10 @@ theorem Tree.with_updated_leaves_total_spec {T U : Type}
       Tree.BulkContents mapInst updates factor before after depth.val prefix1.val offset.val := by
   obtain ⟨after, hafter, hdenseAfter⟩ := Tree.with_updated_leaves_total_dense ValueInst mapInst updates
     hlayout hget hqueries hrange before prefix1 offset depth oldLength newLength
-    (Tree.BulkCloneOn.mono mapInst updates factor (fun value h => ⟨value, h⟩) before depth.val _ hclone)
+    hclone.terminates
     hdense halign hoffset hend hwindow hcapacity hhas
   exact ⟨after, hafter, hdenseAfter,
     (Tree.with_updated_leaves_capacity_shape_contents ValueInst mapInst updates
-      hlayout hclone hrange.excludesValues hdense.shape halign hoffset hafter).2.2⟩
+      hlayout hclone.preserves hrange.excludesValues hdense.shape halign hoffset hafter).2.2⟩
 
 end milhouse.tree
