@@ -1,5 +1,5 @@
 import Tree.ProgressiveList.PopFront.Length
-import Tree.ProgressiveList.PopFront.Success
+import Tree.ProgressiveList.PopFront.Conditions
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -42,13 +42,12 @@ theorem ProgressiveList.pop_front_nonzero_success_iff_length_fits {T U : Type}
     (∃ result, ProgressiveList.pop_front ValueInst mapInst self n =
       ok (core.result.Result.Ok (), result)) ↔
       ProgressiveTree.LengthFits factor (contents.drop n.val).length := by
+  have hconditions := ProgressiveList.pop_front_success_iff ValueInst mapInst self contents n
+    (fun _ => hrep) (fun _ _ => hlayout) (fun _ _ => hbacking)
   constructor
-  · rintro ⟨result, hpop⟩
-    exact ProgressiveList.length_fits_after_nonzero_pop_front
-      ValueInst mapInst hlayout self contents n hrep hbacking hnonzero hpop
+  · intro hpop
+    exact ((hconditions.mp hpop).resolve_left hnonzero).2.1
   · intro hfits
-    obtain ⟨result, hpop, _, _, _⟩ := ProgressiveList.pop_front_nonzero_success
-      ValueInst mapInst hlayout self contents n hrep hbacking hnonzero hbound hclone hfits updates hdefault
-    exact ⟨result, hpop⟩
+    exact hconditions.mpr (Or.inr ⟨hbound, hfits, hclone, updates, hdefault⟩)
 
 end milhouse.progressive_list
