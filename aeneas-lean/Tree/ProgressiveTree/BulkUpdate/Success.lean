@@ -2,6 +2,7 @@ import Tree.BulkUpdate.Success
 import Tree.ProgressiveTree.BulkUpdate.Density
 import Tree.ProgressiveTree.BulkUpdate.CloneScope
 import Tree.ProgressiveTree.BulkUpdate.RangeScope
+import Tree.ProgressiveTree.BulkUpdate.Activation
 import Tree.ProgressiveTree.LengthFits
 
 open Aeneas Aeneas.Std Result
