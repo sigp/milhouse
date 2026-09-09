@@ -50,6 +50,7 @@ import Tree.Rebase.ComparisonReflection
 import Tree.Rebase.Success
 import Tree.Rebase.SuccessReflection
 import Tree.Rebase.GeometryInputs
+import Tree.Rebase.GeometrySuccess
 import Tree.Rebase.Lengths
 import Tree.Rebase.Contents
 import Tree.Rebase.PackedSoundness
