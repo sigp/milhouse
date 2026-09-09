@@ -1,5 +1,6 @@
 import Tree.BulkUpdate.RangeScope
 import Tree.BulkUpdate.Activation
+import Tree.BulkUpdate.ActivationNecessary
 import Tree.BulkUpdate.Arithmetic
 import Tree.BulkUpdate.Density
 import Tree.BulkUpdate.Contents
@@ -425,5 +426,46 @@ theorem Tree.with_updated_leaves_total_spec {T U : Type}
   exact ⟨after, hafter, hdenseAfter,
     (Tree.with_updated_leaves_capacity_shape_contents ValueInst mapInst updates
       hlayout hclone.preserves hrange.excludesValues hdense.shape halign hoffset hafter).2.2⟩
+
+/-- Under the remaining execution laws and dense input/window invariants,
+the binary start condition is necessary and sufficient for actual success.
+No successful update or pending-value witness is assumed upfront. -/
+theorem Tree.with_updated_leaves_success_iff_enabled {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    (hget : ∀ query, ∃ found, mapInst.get updates query = ok found)
+    (before : Tree T) (prefix1 offset depth : Std.Usize) (oldLength newLength : Nat)
+    (hclone : before.BulkCloneOn (fun value => ∃ cloned, ValueInst.corecloneCloneInst.clone value = ok cloned)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
+    (hqueries : BulkRangeOn
+      (fun lo hi => ∃ answer, mapInst.has_any_in_range updates lo hi = ok answer)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
+    (hrange : BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
+    (hdense : DenseTree factor before depth.val oldLength)
+    (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
+    (hoffset : offset.val % leafCapacity factor = 0)
+    (hend : prefix1.val + offset.val + subtreeCapacity factor depth.val ≤ Std.Usize.max)
+    (hwindow : DenseUpdateWindow (update_map.HasValueAt mapInst updates)
+      (prefix1.val + offset.val) (subtreeCapacity factor depth.val) oldLength newLength)
+    (hcapacity : newLength ≤ subtreeCapacity factor depth.val) :
+    (∃ after, Tree.with_updated_leaves ValueInst mapInst before updates
+      prefix1 offset depth none = ok (core.result.Result.Ok after)) ↔
+      BulkUpdateEnabled mapInst updates factor depth.val (prefix1.val + offset.val) := by
+  constructor
+  · rintro ⟨after, hupdate⟩
+    apply Tree.with_updated_leaves_enabled ValueInst mapInst hlayout ?_ halign
+      hrange.selectsValues hupdate
+    intro leaf hleaf
+    have hshape := hdense.shape
+    rw [hleaf] at hshape
+    generalize depth.val = treeDepth at hshape
+    cases hshape
+    simp
+  · intro henabled
+    exact Tree.with_updated_leaves_success_of_enabled ValueInst mapInst updates hlayout hget
+      before prefix1 offset depth oldLength newLength hclone hqueries hrange hdense
+      halign hoffset hend hwindow hcapacity henabled
 
 end milhouse.tree
