@@ -113,4 +113,37 @@ theorem ProgressiveList.rebase_success_state {T U : Type}
     subst after
     exact ⟨cloned, hcloned, hafter⟩
 
+/-- Every successful nonmutating rebase keeps the recorded backing length
+and returns precisely the pending-map clone performed at entry. This fact is
+independent of structural invariants and of any clone-preservation law. -/
+theorem ProgressiveList.rebase_preserves_metadata {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self base : ProgressiveList T U) {result : ProgressiveList T U}
+    (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result)) :
+    result.length = self.length ∧ mapInst.corecloneCloneInst.clone self.updates = ok result.updates := by
+  obtain ⟨cloned, hcloned, hrebased⟩ := ProgressiveList.rebase_success_state ValueInst mapInst self base hrebase
+  obtain ⟨updates, hupdates, rfl⟩ := ProgressiveList.clone_success_state ValueInst mapInst self hcloned
+  obtain ⟨hlength, hmap⟩ := ProgressiveList.rebase_on_preserves_metadata ValueInst mapInst
+    { self with updates } base hrebased
+  exact ⟨hlength, by simpa only [hmap] using hupdates⟩
+
+/-- Nonmutating rebasing preserves length and pending-update observers when
+the actual map clone preserves maximum and emptiness. No element, cache,
+representation, or read-preservation law is needed for these observers. -/
+theorem ProgressiveList.rebase_preserves_observers {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self base : ProgressiveList T U)
+    (hmapMax : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
+      mapInst.max_index updates = mapInst.max_index self.updates)
+    (hmapEmpty : ∀ updates, mapInst.corecloneCloneInst.clone self.updates = ok updates →
+      mapInst.is_empty updates = mapInst.is_empty self.updates)
+    {result : ProgressiveList T U}
+    (hrebase : ProgressiveList.rebase ValueInst mapInst self base = ok (.Ok result)) :
+    ProgressiveList.len ValueInst mapInst result = ProgressiveList.len ValueInst mapInst self ∧
+      ProgressiveList.has_pending_updates ValueInst mapInst result =
+        ProgressiveList.has_pending_updates ValueInst mapInst self := by
+  obtain ⟨hlength, hclone⟩ := ProgressiveList.rebase_preserves_metadata ValueInst mapInst self base hrebase
+  simp only [ProgressiveList.len, hlength, utils.updated_length, hmapMax result.updates hclone,
+    ProgressiveList.has_pending_updates, hmapEmpty result.updates hclone, and_self]
+
 end milhouse.progressive_list
