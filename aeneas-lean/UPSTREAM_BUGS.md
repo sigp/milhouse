@@ -560,6 +560,54 @@ decoder body; the existing Aeneas Slice/StringIter admissions are not inherited.
 The full build now passes 1,858 jobs. General decoding sequence reconstruction
 and full list roundtrip remain outstanding in the coverage ledger.
 
+## 20. Serde serialization: mutually recursive external trait dictionaries
+
+**Stage:** generated Lean types and elaboration.
+**Status:** serialization remains outside extraction pending a faithful
+external protocol model or backend support. Aeneas and production Rust are
+unchanged; no opaque milhouse-method model is substituted.
+
+Making the actual `ProgressiveList::serialize` body reachable through this
+extraction-only caller reproduces the issue with pinned serde 1.0.217:
+
+```rust
+pub fn progressive_list_serialize<T: Value + serde::Serialize, U: UpdateMap<T>, S: serde::Serializer>(
+    list: &ProgressiveList<T, U>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serde::Serialize::serialize(list, serializer)
+}
+```
+
+The existing script's Charon and Aeneas commands complete, but Aeneas warns
+that the mutually recursive `Serialize`, `Serializer`, and seven compound
+serializer traits will not type-check (`Translate.ml`, line 1203). Checking
+the generated `Types.lean` confirms unknown `serde.ser.Serializer` and
+compound serializer identifiers. `Serialize.serialize` takes a `Serializer`
+dictionary, whose generic methods and compound serializers take `Serialize`
+dictionaries in turn. This is a recursive trait interface, not the
+self-referential default-method issue avoided for SSZ in issue 18.
+
+The concrete generated milhouse method faithfully calls
+`Serializer.collect_seq` with the actual borrowed `IntoIterator` implementation
+and the element serialization dictionary. Adding
+`--exclude 'serde::ser::Serialize::serialize'` leaves the cyclic trait fields
+in the generated types and does not resolve the failure. The probe was run
+with generated files in a temporary directory; no failed extraction output
+or probe root is retained in the normal build.
+
+A workaround must preserve custom `collect_seq` overrides, element
+serialization behavior, errors, and the iterator's length hint. The pinned
+default obtains `iterator_len_hint`, starts a sequence, serializes each element
+until an error, and ends the sequence. Replacing the public method with this
+manual loop would bypass a serializer's override and is not an equivalent
+general Rust change. Likewise, erasing the element serialization dictionary
+or assuming the result of the milhouse method would not establish the requested
+correctness. A suitable external protocol model and its precise laws remain
+for discussion; the existing iterator enumeration and exact-length proofs are
+available underneath. Deserialization still needs its own extraction/protocol
+work and is not claimed proved by this probe.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
