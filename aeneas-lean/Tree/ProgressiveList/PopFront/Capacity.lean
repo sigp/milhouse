@@ -19,7 +19,7 @@ theorem ProgressiveList.length_fits_after_nonzero_pop_front {T U : Type}
     (hpop : ProgressiveList.pop_front ValueInst mapInst self n = ok (core.result.Result.Ok (), result)) :
     ProgressiveTree.LengthFits factor (contents.drop n.val).length := by
   have hvalid := ProgressiveList.pop_front_preserves_backing
-    ValueInst mapInst hlayout self n hbacking hpop
+    ValueInst mapInst self n (fun _ => hlayout) hbacking hpop
   have hfits := hvalid.1.lengthFits hvalid.2
   rwa [ProgressiveList.backing_length_after_nonzero_pop_front
     ValueInst mapInst hlayout self contents n hrep hbacking hnonzero hpop] at hfits

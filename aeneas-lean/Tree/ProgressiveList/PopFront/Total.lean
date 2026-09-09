@@ -36,7 +36,8 @@ theorem ProgressiveList.pop_front_nonzero_total_spec {T U : Type}
     cases hactual
     exact ⟨hget, hmax, hempty⟩
   obtain ⟨hcontents, hvalid, hpending⟩ := ProgressiveList.pop_front_spec
-    ValueInst mapInst hlayout self contents n hrep hbacking hclone hdefaultLaws hpop
+    ValueInst mapInst self contents n (fun _ => hlayout) hrep hbacking
+    (fun _ => hclone) (fun _ => hdefaultLaws) hpop
   exact ⟨result, hpop, hcontents, hvalid, hpending hnonzero⟩
 
 /-- Front removal within the logical length terminates and preserves exactly
