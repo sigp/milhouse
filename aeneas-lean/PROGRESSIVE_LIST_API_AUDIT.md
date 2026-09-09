@@ -160,6 +160,16 @@ pass, alongside the core and Option suites after extending the shared runner
 for locked dependencies and constant-initializer provenance. Public API
 coverage and the scope exclusions are unchanged.
 
+The [tuple source comparisons](reproducers/tuple_models/README.md) validate
+`eq`, `ne`, `partial_cmp`, and `cmp` for arbitrary callback results, without
+consistency or termination premises. Four native tests cover 59 answer
+combinations, dispatch, and call order. The runner verifies that omitting four
+unused unsupported trait defaults leaves every compared source declaration
+unchanged. All four source suites pass at `c948ef8`, totaling 24 direct
+comparisons and the separate Option cloned composition: 25 proofs, 16
+axiom-free and nine standard-only. The main proof/dependency inventories are
+unchanged; borrowed CoW and remaining model/assumption review stay open.
+
 Append now uses exact observable lookup conditions. `AppendReadAgrees` in
 `Push/Lookup.lean` requires the appended key to return the new pending value;
 other keys need only agree after the original backing fallback, without raw

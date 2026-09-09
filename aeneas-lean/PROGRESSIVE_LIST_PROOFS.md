@@ -84,6 +84,16 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [tuple source comparisons](reproducers/tuple_models/README.md) validate
+  `eq`, `ne`, `partial_cmp`, and `cmp` against fresh extraction of the pinned
+  standard-library bodies for arbitrary callback dictionaries. Short-circuiting,
+  failure, and divergence match without consistency or termination premises.
+  Equality and inequality are axiom-free; the ordering comparisons use only
+  the existing models' `propext`. Four native tests check 59 answer combinations
+  and exact dispatch/order. Omitting four unused, unsupported trait defaults
+  leaves all four expanded source declarations unchanged; the runner checks
+  this on each run and rejects incomplete generated output. All four source
+  audit suites pass. The broader `PartialOrd` interface is not covered.
 - The [fixed-byte source comparisons](reproducers/fixed_bytes_models/README.md)
   validate clone, equality, ZERO, default, and `is_zero` against the actual
   pinned `alloy-primitives` bodies used by cache initialization and rebasing.
@@ -1253,7 +1263,25 @@ The model dependency inventory remains 42 roots/151 local declarations; that
 separate gate was not repeated for these proof-only changes. Borrowed CoW and
 the remaining assumption/model-fidelity review stay open.
 
-Latest fixed-byte checkpoint (`c3e0616`): five direct comparisons and four
+Latest source-model checkpoint (`c948ef8`): the tuple suite adds four direct
+comparisons for arbitrary callback results, with four native tests covering
+59 short-circuit, dispatch, and panic combinations. Equality and inequality
+are axiom-free; partial and total ordering use only `propext`, already present
+in the local ordering model definitions. No callback-consistency or termination
+premise is added. The shared runner verifies dependency module provenance and
+requires identical expanded source declarations before and after excluding
+four unused ordering defaults. Nine malformed source inventories, a changed
+body after exclusions, and four malformed or excessive axiom reports are
+rejected. All four source suites pass: 24 direct comparisons and the separate
+Option cloned composition, for 25 proofs (16 axiom-free, nine standard-only).
+No production Rust, local model, main library proof, or Aeneas source changed.
+The main library gate was not repeated for these standalone checks; its latest
+passing checkpoint remains 5,117 declarations across 320 modules (2,036 build
+jobs). The 42-root/151-declaration dependency inventory is unchanged. Borrowed
+CoW, three numeric intrinsic boundaries, and remaining model/assumption review
+stay open. Debug and Serde remain excluded; TreeHash remains deferred.
+
+Earlier fixed-byte checkpoint (`c3e0616`): five direct comparisons and four
 native tests pass for the pinned dependency's clone, equality, ZERO, default,
 and `is_zero`, at every array length and byte input. The runner verifies
 constant-initializer links and dependency provenance; eleven malformed

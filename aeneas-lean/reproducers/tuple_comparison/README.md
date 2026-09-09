@@ -35,6 +35,11 @@ relationship between `eq` and `ne` and no laws on unreached callbacks. They fail
 against the former model; they are kernel proofs over the corrected model,
 separate from the native evidence for Rust's callback protocol.
 
+The later [tuple source comparison suite](../tuple_models/README.md) directly
+extracts all four pinned pair-comparison bodies and proves them equal to the
+local models for arbitrary callback results. Its four native tests extend
+dispatch/order coverage to equality and both ordering operations.
+
 The current ProgressiveList dependency inventory includes this tuple dictionary
 only through the optional BTreeMap hash lookup under `apply_updates`. The
 progressive update path passes `None` (`src/progressive_tree.rs`), and the

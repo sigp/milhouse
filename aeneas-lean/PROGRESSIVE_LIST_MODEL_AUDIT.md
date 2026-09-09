@@ -166,6 +166,31 @@ and rebasing; they do not change the scope exclusions or complete the goal.
 No production/model/Aeneas changes were made, and the main library and
 dependency counts are unchanged.
 
+## Tuple source comparisons
+
+Run `python3 scripts/aeneas-audit-tuple-models.py` from the repository root.
+The [tuple comparisons](reproducers/tuple_models/README.md) validate all four
+local pair-comparison bodies against fresh extraction of pinned `core::tuple`
+source: `eq`, `ne`, `partial_cmp`, and `cmp`. They permit arbitrary callback
+results, preserve short-circuiting and failure/divergence, and need no
+consistency or termination premise. Equality and inequality are axiom-free;
+the ordering comparisons use only the existing models' `propext`.
+
+Four native tests cover 59 callback-answer combinations and exact method/order
+traces. Four unused newer `PartialOrd` defaults require unsupported function
+pointers; the runner omits exactly those defaults and verifies identical
+expanded source declarations for all four comparisons before and after the
+exclusions. Complete generated modules and all four axiom reports are required.
+This does not verify the broader `PartialOrd` interface or its other methods.
+
+At `c948ef8`, all four source suites pass with the shared runner extension:
+24 direct comparisons and the separate Option cloned composition, totaling
+25 proofs (16 axiom-free, nine standard-only). Nine malformed inventories,
+a changed body after exclusions, and four malformed or excessive axiom reports
+are rejected. The main proof library and 42-root/151-declaration inventory are
+unchanged; their gates were not repeated for these standalone checks. Remaining
+model boundaries and borrowed CoW are still open; the goal is incomplete.
+
 ## Tuple inequality correction
 
 Review of the referenced tuple dictionary found a local model defect: its
