@@ -1080,7 +1080,7 @@ private theorem aligned_window_unique {unit start first second : Nat}
         Nat.mul_le_mul_left unit (Nat.succ_le_iff.mpr hunits)
     omega
 
-private theorem BuilderInvariant.finish_cursor_normalized {T : Type}
+theorem BuilderInvariant.finish_cursor_normalized {T : Type}
     {ValueInst : Value T} {self : builder.Builder T}
     (hinvariant : BuilderInvariant ValueInst self)
     {level_capacity next_index : Std.Usize}
@@ -3772,7 +3772,7 @@ private theorem finish_tree_completed_entry_dense {T : Type}
     simpa using harced.symm
   exact ⟨hdepth, hlength, by simpa [htree] using hdense⟩
 
-private def finishTreeAndFinalize {T : Type} (ValueInst : Value T)
+def finishTreeAndFinalize {T : Type} (ValueInst : Value T)
     (self : builder.Builder T) (next_index : Std.Usize) :
     Result (core.result.Result
       ((triomphe.arc.Arc (Tree T)) × Std.Usize × utils.Length)
