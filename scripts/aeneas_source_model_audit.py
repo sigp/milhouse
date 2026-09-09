@@ -2,6 +2,7 @@
 """Shared runner for comparisons with freshly extracted dependency bodies."""
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -75,6 +76,34 @@ def check_exclusions(original, selected, suite):
                 != source_declaration(selected["translated"], suite, name)):
             raise ValueError(f"Source declaration changed after exclusions: {name}")
     return list(suite["source_files"])
+
+
+def check_source_renames(original, renamed, suite):
+    """Allow only declared final-name changes; compare the entire restored LLBC."""
+    check_llbc(original, suite)
+    restored = copy.deepcopy(renamed)
+    records = []
+    for name, replacement in suite.get("rename_sources", {}).items():
+        if name not in suite["source_files"] or not re.fullmatch(r"[A-Za-z_]\w*", replacement):
+            raise ValueError("Invalid source rename")
+        source = source_declaration(original["translated"], suite, name)
+        expected_name = copy.deepcopy(source["item_meta"]["name"])
+        expected_name[-1] = {"Ident": [replacement, 0]}
+        if any(f and f["item_meta"]["name"] == expected_name
+               for f in original["translated"]["fun_decls"]):
+            raise ValueError(f"Source rename collides with an existing declaration: {name}")
+        candidates = [f for f in restored["translated"]["fun_decls"] if f
+                      and f["def_id"] == source["def_id"]]
+        if len(candidates) != 1 or candidates[0]["item_meta"]["name"] != expected_name:
+            raise ValueError(f"Missing or incorrect source rename: {name}")
+        if sum(bool(f and f["item_meta"]["name"] == expected_name)
+               for f in renamed["translated"]["fun_decls"]) != 1:
+            raise ValueError(f"Ambiguous source rename: {name}")
+        candidates[0]["item_meta"]["name"] = copy.deepcopy(source["item_meta"]["name"])
+        records.append({"method": name, "extractedMethod": replacement, "defId": source["def_id"]})
+    if restored != original:
+        raise ValueError("LLBC changed beyond the declared source names")
+    return records
 
 
 def check_axiom_output(output, proofs):
@@ -180,6 +209,15 @@ def main(suite):
     provenance = check_llbc(selected, suite)
     if exclusions:
         unchanged = check_exclusions(original, selected, suite)
+    renames = []
+    if suite.get("rename_sources"):
+        renamed = copy.deepcopy(selected)
+        for name, replacement in suite["rename_sources"].items():
+            source_declaration(renamed["translated"], suite, name)["item_meta"]["name"][-1] = {
+                "Ident": [replacement, 0]}
+        shutil.copyfile(llbc, work / "original-names.llbc")
+        llbc.write_text(json.dumps(renamed) + "\n")
+        renames = check_source_renames(selected, json.loads(llbc.read_text()), suite)
     run("aeneas", [args.aeneas, "-backend", "lean", "-namespace", suite["namespace"],
                    "-split-files", "-no-progress-bar", "-dest", str(work / suite["namespace"]),
                    str(llbc)], cwd=work)
@@ -207,6 +245,7 @@ def main(suite):
         "versions": versions, "inputSha256": hashes, "runDirectory": str(work),
         "dependencySources": dependency_sources,
         "excludedItems": exclusions, "unchangedSourceDeclarations": unchanged,
+        "sourceNameChanges": renames,
         "directSourceComparisons": provenance, "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,
