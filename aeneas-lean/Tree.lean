@@ -65,6 +65,7 @@ import Tree.ProgressiveList.Decode.FixedErrors
 import Tree.ProgressiveList.Decode.FixedTotal
 import Tree.ProgressiveList.Decode.FixedRoundtrip
 import Tree.ProgressiveList.Decode.Variable
+import Tree.ProgressiveList.Decode.VariableErrors
 import Tree.ProgressiveList.Decode.VariableTotal
 import Tree.ProgressiveList.Decode.VariableRoundtrip
 import Tree.Ssz.Bytes
