@@ -134,6 +134,7 @@ import Tree.ProgressiveList.ApplyUpdates.Backing
 import Tree.ProgressiveList.ApplyUpdates.Total
 import Tree.ProgressiveList.ApplyUpdates.Capacity
 import Tree.ProgressiveList.Mutable
+import Tree.ProgressiveList.Mutable.Total
 import Tree.ProgressiveList.Spine
 import Tree.ProgressiveList.CopyOnWrite
 import Tree.Cow.Metadata
