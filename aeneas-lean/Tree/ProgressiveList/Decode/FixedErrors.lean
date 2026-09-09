@@ -31,13 +31,8 @@ theorem ProgressiveList.from_ssz_bytes_fixed_final_error {T U : Type}
       ok (core.result.Result.Err error) := by
   have hlastLength := _root_.List.length_pos_iff.mpr hlast
   have hpositive : 0 < width.val := by simp only [Slice.length] at hshort; omega
-  have hnonempty : bytes.val ≠ [] := by
-    intro hempty
-    have h := congrArg _root_.List.length hbytes
-    simp only [hempty, _root_.List.length_nil, _root_.List.length_append] at h
-    omega
   exact ProgressiveList.from_ssz_bytes_fixed_error ValueInst mapInst bytes width values error
-    hnonempty hfixed hwidth hpositive
+    hfixed hwidth hpositive
     (ssz_items.SszItems.fixed_decodes_final_error ValueInst.sszdecodeDecodeInst.from_ssz_bytes
       encode width values bytes last error hbytes hvalueWidth hdecode hlast hshort herror)
     hlayout hfits updates hdefault
@@ -64,13 +59,8 @@ theorem ProgressiveList.from_ssz_bytes_fixed_element_error {T U : Type}
     (updates : U) (hdefault : mapInst.coredefaultDefaultInst.default = ok updates) :
     ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
       ok (core.result.Result.Err error) := by
-  have hnonempty : bytes.val ≠ [] := by
-    intro hempty
-    have h := congrArg _root_.List.length hbytes
-    simp only [hempty, _root_.List.length_nil, _root_.List.length_append, hinvalid] at h
-    omega
   exact ProgressiveList.from_ssz_bytes_fixed_error ValueInst mapInst bytes width values error
-    hnonempty hfixed hwidth hpositive
+    hfixed hwidth hpositive
     (ssz_items.SszItems.fixed_decodes_element_error ValueInst.sszdecodeDecodeInst.from_ssz_bytes
       encode width hpositive values bytes invalid unread error hbytes hvalueWidth hdecode
       hinvalid herror) hlayout hfits updates hdefault

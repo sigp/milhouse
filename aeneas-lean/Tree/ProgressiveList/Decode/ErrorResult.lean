@@ -1,6 +1,7 @@
 import Tree.ProgressiveList.Decode.Entry
 import Tree.ProgressiveList.Decode.Success
 import Tree.Ssz.DecodedLength
+import Tree.Ssz.FixedCursor
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -14,7 +15,7 @@ about the list decoder's result. -/
 theorem ProgressiveList.from_ssz_bytes_fixed_error {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) (width : Std.Usize) (values : _root_.List T)
-    (error : ssz.decode.DecodeError) (hnonempty : bytes.val ≠ [])
+    (error : ssz.decode.DecodeError)
     (hfixed : ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true)
     (hwidth : ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width)
     (hpositive : 0 < width.val)
@@ -26,6 +27,13 @@ theorem ProgressiveList.from_ssz_bytes_fixed_error {T U : Type}
     (updates : U) (hdefault : mapInst.coredefaultDefaultInst.default = ok updates) :
     ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
       ok (core.result.Result.Err error) := by
+  have hnonempty : bytes.val ≠ [] := by
+    intro hempty
+    have hnext := ssz_items.SszItems.next_fixed_empty bytes width hempty
+    cases hitems with
+    | boundary_error h => simp_all
+    | element_error h _ => simp_all
+    | cons h _ _ => simp_all
   have hwidthNe : width ≠ 0#usize := by
     intro h
     subst width
