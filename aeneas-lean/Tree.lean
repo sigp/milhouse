@@ -68,6 +68,7 @@ import Tree.ProgressiveList.Decode.Variable
 import Tree.ProgressiveList.Decode.VariableErrors
 import Tree.ProgressiveList.Decode.VariablePrefixErrors
 import Tree.ProgressiveList.Decode.VariableElementErrors
+import Tree.ProgressiveList.Decode.PayloadErrors
 import Tree.ProgressiveList.Decode.VariableTotal
 import Tree.ProgressiveList.Decode.VariableRoundtrip
 import Tree.Ssz.Bytes
