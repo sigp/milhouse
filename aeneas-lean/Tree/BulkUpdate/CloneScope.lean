@@ -49,6 +49,34 @@ theorem Tree.BulkCloneOn.of_all {T U : Type} {P : T → Prop}
     cases self <;> simp only [Tree.BulkCloneOn] <;>
       constructor <;> intro lo hi _ _ _ <;> apply ih
 
+/-- Implications between value laws lift through the same selected inputs.
+In particular, identity cloning supplies termination at exactly those calls. -/
+theorem Tree.BulkCloneOn.mono {T U : Type} {P Q : T → Prop}
+    (mapInst : update_map.UpdateMap U T) (updates : U) (factor : Option Std.Usize)
+    (hPQ : ∀ value, P value → Q value) (self : Tree T) (depth start : Nat)
+    (hself : self.BulkCloneOn P mapInst updates factor depth start) :
+    self.BulkCloneOn Q mapInst updates factor depth start := by
+  induction depth generalizing self start with
+  | zero =>
+    constructor
+    · cases self with
+      | PackedLeaf leaf =>
+        intro value hv
+        exact hPQ value (hself.1 value hv)
+      | Leaf _ => trivial
+      | Node _ _ _ => trivial
+      | Zero _ => trivial
+    · intro query value hlo hhi hget
+      exact hPQ value (hself.2 query value hlo hhi hget)
+  | succ depth ih =>
+    cases self <;> simp only [Tree.BulkCloneOn] at hself ⊢
+    all_goals
+      constructor
+      · intro lo hi hlo hhi hselected
+        exact ih _ _ (hself.1 lo hi hlo hhi hselected)
+      · intro lo hi hlo hhi hselected
+        exact ih _ _ (hself.2 lo hi hlo hhi hselected)
+
 /-- A zero tree has no stored clone inputs, independently of the depth tag
 in its Rust representation. The traversal depth determines its windows. -/
 theorem Tree.BulkCloneOn.zero_congr {T U : Type} (P : T → Prop)
