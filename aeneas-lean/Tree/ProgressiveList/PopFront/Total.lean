@@ -1,7 +1,4 @@
-import Tree.ProgressiveList.PopFront.Contents
-import Tree.ProgressiveList.PopFront.BuilderTotal
-import Tree.ProgressiveTree.Builder.New
-import Tree.ProgressiveTree.Builder.FinishSuccess
+import Tree.ProgressiveList.PopFront.Success
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -28,28 +25,19 @@ theorem ProgressiveList.pop_front_nonzero_total_spec {T U : Type}
       ok (core.result.Result.Ok (), result) ∧
       result.Represents ValueInst mapInst (contents.drop n.val) ∧ result.BackingValid factor ∧
       ProgressiveList.has_pending_updates ValueInst mapInst result = ok false := by
-  obtain ⟨length, hlen, hlength⟩ := hrep.1
-  have hindex : ¬ n > length := by change ¬ length.val < n.val; omega
-  obtain ⟨cursor, hiter, _, _, hyields⟩ := ProgressiveList.iter_from_spec ValueInst mapInst hlayout
-    self contents n hrep hbacking.1 hbacking.2 hbound
-  obtain ⟨initial, hnew, hvalid, hemptyTree, hzero⟩ := ProgressiveTreeBuilder.new_spec ValueInst hlayout
-  obtain ⟨built, hextend, hvalidBuilt, hbuilt, _⟩ := ProgressiveListIter.extend_builder_total_spec
-    ValueInst mapInst cursor initial (contents.drop n.val) hyields hclone hvalid
-    (by simpa only [hzero, Nat.zero_add] using hfits)
-  obtain ⟨output, hfinish, helements, hdense, hcapacity⟩ :=
-    ProgressiveTreeBuilder.finish_total_spec ValueInst built hvalidBuilt
-  have houtput : output.elements = contents.drop n.val := by
-    simpa only [hbuilt, hemptyTree, _root_.List.nil_append] using helements
-  let result : ProgressiveList T U := { tree := output, length := built.length, updates }
-  refine ⟨result, ?_, ?_, ⟨hdense, hcapacity⟩, ?_⟩
-  · simp! only [ProgressiveList.pop_front, hnonzero, ↓reduceIte, hlen, hindex, hiter, hnew,
-      hextend, hfinish, core.result.Result.Insts.CoreOpsTry.branch, triomphe.arc.Arc.new,
-      hdefault, bind_tc_ok]
-    rfl
-  · rw [← houtput]
-    exact ProgressiveList.represents_of_dense_backing ValueInst mapInst hlayout result hdense
-      hcapacity hget hmax
-  · exact ProgressiveList.has_pending_updates_spec ValueInst mapInst result true hempty
+  obtain ⟨result, hpop, _, _, _⟩ := ProgressiveList.pop_front_nonzero_success
+    ValueInst mapInst hlayout self contents n hrep hbacking hnonzero hbound
+    (fun value hv => ⟨value, hclone value hv⟩) hfits updates hdefault
+  have hdefaultLaws : ∀ actual, mapInst.coredefaultDefaultInst.default = ok actual →
+      (∀ index, mapInst.get actual index = ok none) ∧
+        mapInst.max_index actual = ok none ∧ mapInst.is_empty actual = ok true := by
+    intro actual hactual
+    rw [hdefault] at hactual
+    cases hactual
+    exact ⟨hget, hmax, hempty⟩
+  obtain ⟨hcontents, hvalid, hpending⟩ := ProgressiveList.pop_front_spec
+    ValueInst mapInst hlayout self contents n hrep hbacking hclone hdefaultLaws hpop
+  exact ⟨result, hpop, hcontents, hvalid, hpending hnonzero⟩
 
 /-- Front removal within the logical length terminates and preserves exactly
 the retained suffix. A zero removal is the original list and requires no packing,
