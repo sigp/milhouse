@@ -341,6 +341,7 @@ theorem Tree.with_updated_leaves_total_spec {T U : Type}
     oldLength newLength hdense halign hoffset hend hwindow hcapacity hhas
   exact ⟨after, hafter, hdenseAfter,
     (Tree.with_updated_leaves_capacity_shape_contents ValueInst mapInst updates
-      hlayout hclone hrange.excludesValues hdense.shape halign hoffset hafter).2.2⟩
+      hlayout (Tree.BulkCloneOn.of_all mapInst updates factor hclone before depth.val _)
+      hrange.excludesValues hdense.shape halign hoffset hafter).2.2⟩
 
 end milhouse.tree
