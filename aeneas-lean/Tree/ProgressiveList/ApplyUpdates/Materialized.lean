@@ -32,7 +32,7 @@ theorem ProgressiveList.apply_updates_nonempty_backing_contents {T U : Type}
     ValueInst mapInst self contents hlayout hclone (fun maximum hmax => (hrange maximum hmax).excludesValues)
     hmaximum hrep hbacking.1.shape (by simpa using hbacking.1.endsAfter) hempty happly
   have hafter := ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
-    (fun _ => hlayout) (fun _ => hrange) (fun _ => hmaximum) hrep hbacking happly
+    (fun _ => hlayout) (fun _ => hrange) hrep hbacking happly
   have hlength := ProgressiveList.backing_length_after_nonempty_apply_updates
     ValueInst mapInst self contents hrep hempty happly
   have helementsLength : result.tree.elements.length = contents.length :=

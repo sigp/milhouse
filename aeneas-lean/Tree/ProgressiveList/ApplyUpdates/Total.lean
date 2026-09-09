@@ -102,10 +102,10 @@ theorem ProgressiveList.apply_updates_nonempty_total_spec_of_overlay {T U : Type
     hlayout (fun maximum hmax => (hclone maximum hmax).preserves) hrange hmaximum hrep hbacking hempty happly
   refine ⟨result, happly, ?_, ?_, ?_⟩
   · exact (ProgressiveList.apply_updates_nonempty_represents_iff ValueInst mapInst self contents
-      hlayout hrange hmaximum hrep hbacking hempty happly).mpr
+      hlayout hrange hrep hbacking hempty happly).mpr
       (by simpa only [hdefaults, helements] using And.intro hextent hoverlay)
   · exact ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
-      (fun _ => hlayout) (fun _ => hrange) (fun _ => hmaximum) hrep hbacking happly
+      (fun _ => hlayout) (fun _ => hrange) hrep hbacking happly
   · exact ProgressiveList.has_pending_updates_spec ValueInst mapInst result true
       (by simpa only [hdefaults] using hdefaultEmpty)
 

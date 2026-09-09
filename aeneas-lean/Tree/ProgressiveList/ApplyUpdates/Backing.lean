@@ -35,7 +35,9 @@ theorem ProgressiveList.Represents.dense_update_domain {T U : Type}
 /-- Applying pending updates preserves the full backing traversal invariant.
     The dense update domain comes from the old representation. Density and
     capacity bounds need neither identity cloning nor default-map laws.
-    Packing and metadata laws apply only to the nonempty branch. -/
+    The actual checked length calculation supplies the maximum's numeric
+    extension bound; no law bounding pending values by that maximum remains.
+    Packing and reached range laws apply only to the nonempty branch. -/
 theorem ProgressiveList.apply_updates_preserves_backing {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -46,9 +48,6 @@ theorem ProgressiveList.apply_updates_preserves_backing {T U : Type}
       ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hmaximum : mapInst.is_empty self.updates = ok false →
-      ∀ maximum, mapInst.max_index self.updates = ok maximum →
-      update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hrep : self.Represents ValueInst mapInst contents)
     (hbacking : self.BackingValid factor)
     {result : ProgressiveList T U}
@@ -67,8 +66,15 @@ theorem ProgressiveList.apply_updates_preserves_backing {T U : Type}
     have hdomain : tree.DenseUpdateDomain self.length.val length.val
         (update_map.HasValueAt mapInst self.updates) := by
       simpa only [hcontentsLength] using hrep.dense_update_domain
-    exact progressive_tree.ProgressiveTree.with_updated_leaves_dense ValueInst mapInst self.updates
-      (hlayout hempty) (hmaximum hempty) hdomain (hrange hempty) hbacking.1 hbacking.2 hupdate
+    have hextent : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        length.val ≤ maximum.elim self.length.val (fun last => max (last.val + 1) self.length.val) := by
+      intro maximum hmax
+      obtain ⟨actual, hactual, hvalue⟩ :=
+        (utils.updated_length_eq_ok_iff mapInst self.length self.updates length).mp hlength
+      have heq : actual = maximum := Result.ok.inj (hactual.symm.trans hmax)
+      simpa only [heq] using Nat.le_of_eq hvalue.symm
+    exact progressive_tree.ProgressiveTree.with_updated_leaves_dense_of_extent ValueInst mapInst self.updates
+      (hlayout hempty) hextent hdomain (hrange hempty) hbacking.1 hbacking.2 hupdate
 
 /-- Successful application preserves the complete represented sequence and
     backing validity and clears pending updates. The resulting invariants
@@ -111,7 +117,7 @@ theorem ProgressiveList.apply_updates_spec {T U : Type}
     (fun hempty defaults h => (hdefault hempty defaults h).2.1) hrep hshape hends happly
   exact ⟨hnewRep.1,
     ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
-      hlayout hrange hmaximum hrep hbacking happly,
+      hlayout hrange hrep hbacking happly,
     ProgressiveList.no_pending_updates_after_apply_updates ValueInst mapInst self
       (fun hempty defaults h => (hdefault hempty defaults h).2.2) happly⟩
 

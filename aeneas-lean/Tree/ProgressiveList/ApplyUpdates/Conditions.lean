@@ -39,7 +39,7 @@ theorem ProgressiveList.apply_updates_nonempty_success_represents_iff {T U : Typ
   constructor
   · rintro ⟨result, happly, hresult⟩
     have hfits := ProgressiveList.length_fits_after_nonempty_apply_updates ValueInst mapInst self contents
-      hlayout hrange hmaximum hrep hbacking hempty happly
+      hlayout hrange hrep hbacking hempty happly
     have hdefault : mapInst.coredefaultDefaultInst.default = ok result.updates := by
       rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
         ⟨htrue, _⟩ | ⟨defaults, length, newTree, _, hdefault, _, _, rfl⟩
@@ -51,7 +51,7 @@ theorem ProgressiveList.apply_updates_nonempty_success_represents_iff {T U : Typ
     refine ⟨hfits, result.updates, hdefault, ?_⟩
     simpa only [helements] using
       (ProgressiveList.apply_updates_nonempty_represents_iff ValueInst mapInst self contents
-        hlayout hrange hmaximum hrep hbacking hempty happly).mp hresult
+        hlayout hrange hrep hbacking hempty happly).mp hresult
   · rintro ⟨hfits, defaults, hdefault, hextent, hoverlay⟩
     obtain ⟨result, happly, _, hdefaults⟩ := ProgressiveList.apply_updates_nonempty_success ValueInst mapInst
       self contents hlayout (fun maximum hmax => (hclone maximum hmax).terminates)
@@ -60,7 +60,7 @@ theorem ProgressiveList.apply_updates_nonempty_success_represents_iff {T U : Typ
       hlayout (fun maximum hmax => (hclone maximum hmax).preserves) hrange hmaximum hrep hbacking hempty happly
     refine ⟨result, happly,
       (ProgressiveList.apply_updates_nonempty_represents_iff ValueInst mapInst self contents
-        hlayout hrange hmaximum hrep hbacking hempty happly).mpr ?_⟩
+        hlayout hrange hrep hbacking hempty happly).mpr ?_⟩
     simpa only [hdefaults, helements] using And.intro hextent hoverlay
 
 /-- The complete public success and representation criterion distinguishes

@@ -7,7 +7,8 @@ namespace milhouse.progressive_list
 
 /-- Successful nonempty application certifies representability of every
 occupied final layer. Thus the final-capacity condition in the totality
-theorem is necessary, even without clone identity or default-map laws. -/
+theorem is necessary, even without clone identity, default-map laws, or a
+semantic bound on pending values from the returned maximum. -/
 theorem ProgressiveList.length_fits_after_nonempty_apply_updates {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
@@ -16,8 +17,6 @@ theorem ProgressiveList.length_fits_after_nonempty_apply_updates {T U : Type}
     (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
-      update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hrep : self.Represents ValueInst mapInst contents)
     (hbacking : self.BackingValid factor)
     (hempty : mapInst.is_empty self.updates = ok false)
@@ -26,13 +25,14 @@ theorem ProgressiveList.length_fits_after_nonempty_apply_updates {T U : Type}
       ok (core.result.Result.Ok (), result)) :
     ProgressiveTree.LengthFits factor contents.length := by
   have hafter := ProgressiveList.apply_updates_preserves_backing ValueInst mapInst self contents
-    (fun _ => hlayout) (fun _ => hrange) (fun _ => hmaximum) hrep hbacking happly
+    (fun _ => hlayout) (fun _ => hrange) hrep hbacking happly
   have hfits := hafter.1.lengthFits hafter.2
   rwa [ProgressiveList.backing_length_after_nonempty_apply_updates ValueInst mapInst self contents
     hrep hempty happly] at hfits
 
-/-- Given terminating external calls and coherent range/maximum metadata,
+/-- Given terminating external calls and coherent reached range answers,
 nonempty application succeeds exactly when the occupied final layers fit.
+The checked length calculation supplies the maximum's numeric extension bound.
 External termination is required only at selected clone inputs and reached
 range queries. There is no unused-successor capacity requirement. -/
 theorem ProgressiveList.apply_updates_nonempty_success_iff_length_fits {T U : Type}
@@ -50,8 +50,6 @@ theorem ProgressiveList.apply_updates_nonempty_success_iff_length_fits {T U : Ty
     (hrange : ∀ maximum, mapInst.max_index self.updates = ok maximum →
       self.tree.BulkRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
         ValueInst mapInst self.updates factor maximum 0#u32)
-    (hmaximum : ∀ maximum, mapInst.max_index self.updates = ok maximum →
-      update_map.MaximumBoundsValues mapInst self.updates maximum)
     (hrep : self.Represents ValueInst mapInst contents)
     (hbacking : self.BackingValid factor)
     (hempty : mapInst.is_empty self.updates = ok false)
@@ -61,7 +59,7 @@ theorem ProgressiveList.apply_updates_nonempty_success_iff_length_fits {T U : Ty
   constructor
   · rintro ⟨result, happly⟩
     exact ProgressiveList.length_fits_after_nonempty_apply_updates ValueInst mapInst self contents
-      hlayout hrange hmaximum hrep hbacking hempty happly
+      hlayout hrange hrep hbacking hempty happly
   · intro hfits
     obtain ⟨result, happly, _, _⟩ := ProgressiveList.apply_updates_nonempty_success ValueInst mapInst
       self contents hlayout hclone hqueries hrange hrep hbacking.1 hfits hempty defaults hdefault
