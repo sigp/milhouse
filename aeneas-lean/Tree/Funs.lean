@@ -138,9 +138,11 @@ def
     Name pattern: [core::clone::Clone<alloy_primitives::bits::fixed::FixedBytes<@N>>] -/
 @[reducible, rust_trait_impl
   "core::clone::Clone<alloy_primitives::bits::fixed::FixedBytes<@N>>"]
-def alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCloneClone (N : Std.Usize)
-  : core.clone.Clone (alloy_primitives.bits.fixed.FixedBytes N) := {
+impl_def alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCloneClone (N :
+  Std.Usize) : core.clone.Clone (alloy_primitives.bits.fixed.FixedBytes N) := {
   clone := alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCloneClone.clone
+  clone_from := core.clone.Clone.clone_from.default
+    (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreCloneClone N)
 }
 
 /-- Trait implementation: [alloy_primitives::bits::fixed::{impl core::marker::Copy for alloy_primitives::bits::fixed::FixedBytes<N>}]
@@ -2874,13 +2876,16 @@ def list.ListInner.Insts.CoreCloneClone.clone
 /-- Trait implementation: [milhouse::list::{impl core::clone::Clone for milhouse::list::ListInner<T, N>}]
     Source: 'src/list.rs', lines 34:16-34:21 -/
 @[reducible]
-def list.ListInner.Insts.CoreCloneClone {T : Type} {N : Type}
+impl_def list.ListInner.Insts.CoreCloneClone {T : Type} {N : Type}
   (corecloneCloneInst : core.clone.Clone T) (ValueInst : Value T)
   (corecloneCloneInst1 : core.clone.Clone N) (typenummarker_traitsUnsignedInst
   : typenum.marker_traits.Unsigned N) : core.clone.Clone (list.ListInner T N)
   := {
   clone := list.ListInner.Insts.CoreCloneClone.clone corecloneCloneInst
     ValueInst corecloneCloneInst1 typenummarker_traitsUnsignedInst
+  clone_from := core.clone.Clone.clone_from.default
+    (list.ListInner.Insts.CoreCloneClone corecloneCloneInst ValueInst
+    corecloneCloneInst1 typenummarker_traitsUnsignedInst)
 }
 
 /-- [milhouse::list::{impl core::clone::Clone for milhouse::list::List<T, N, U>}::clone]:
@@ -5112,6 +5117,21 @@ def progressive_list.ProgressiveList.Insts.CoreCloneClone.clone
   let l ← utils.Length.Insts.CoreCloneClone.clone self.length
   let t ← corecloneCloneInst1.clone self.updates
   ok { tree := a, length := l, updates := t }
+
+/-- Trait implementation: [milhouse::progressive_list::{impl core::clone::Clone for milhouse::progressive_list::ProgressiveList<T, U>}]
+    Source: 'src/progressive_list.rs', lines 15:16-15:21 -/
+@[reducible]
+impl_def progressive_list.ProgressiveList.Insts.CoreCloneClone {T : Type} {U :
+  Type} (corecloneCloneInst : core.clone.Clone T) (ValueInst : Value T)
+  (corecloneCloneInst1 : core.clone.Clone U) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) : core.clone.Clone
+  (progressive_list.ProgressiveList T U) := {
+  clone := progressive_list.ProgressiveList.Insts.CoreCloneClone.clone
+    corecloneCloneInst ValueInst corecloneCloneInst1 update_mapUpdateMapInst
+  clone_from := core.clone.Clone.clone_from.default
+    (progressive_list.ProgressiveList.Insts.CoreCloneClone corecloneCloneInst
+    ValueInst corecloneCloneInst1 update_mapUpdateMapInst)
+}
 
 mutual
 
@@ -7925,6 +7945,22 @@ def proof_roots.progressive_list_tree_hash_packing_factor
   progressive_list.ProgressiveList.Insts.Tree_hashTreeHash.tree_hash_packing_factor
     ValueInst update_mapUpdateMapInst
 
+/-- [milhouse::proof_roots::progressive_list_clone_from]:
+    Source: 'src/proof_roots.rs', lines 116:0-121:1
+    Visibility: public -/
+def proof_roots.progressive_list_clone_from
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T)
+  (destination : progressive_list.ProgressiveList T U)
+  (source : progressive_list.ProgressiveList T U) :
+  Result (progressive_list.ProgressiveList T U)
+  := do
+  core.clone.Clone.clone_from.default
+    (progressive_list.ProgressiveList.Insts.CoreCloneClone
+    ValueInst.corecloneCloneInst ValueInst
+    update_mapUpdateMapInst.corecloneCloneInst update_mapUpdateMapInst)
+    destination source
+
 /-- [milhouse::tree::{impl core::hash::Hash for milhouse::tree::Tree<T>}::hash]:
     Source: 'src/tree.rs', lines 10:16-10:21
     Visibility: public -/
@@ -8010,9 +8046,11 @@ def tree.Tree.Insts.CoreCloneClone.clone
 /-- Trait implementation: [milhouse::tree::{impl core::clone::Clone for milhouse::tree::Tree<T>}]
     Source: 'src/tree.rs', lines 30:0-43:1 -/
 @[reducible]
-def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
+impl_def tree.Tree.Insts.CoreCloneClone {T : Type} (ValueInst : Value T) :
   core.clone.Clone (tree.Tree T) := {
   clone := tree.Tree.Insts.CoreCloneClone.clone ValueInst
+  clone_from := core.clone.Clone.clone_from.default
+    (tree.Tree.Insts.CoreCloneClone ValueInst)
 }
 
 /-- [milhouse::tree::{milhouse::tree::Tree<T>}::zero_unboxed]:

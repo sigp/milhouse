@@ -112,3 +112,10 @@ pub fn progressive_list_tree_hash_packing_factor<T: Value + Send + Sync, U: Upda
 {
     <ProgressiveList<T, U> as tree_hash::TreeHash>::tree_hash_packing_factor()
 }
+
+pub fn progressive_list_clone_from<T: Value, U: UpdateMap<T>>(
+    destination: &mut ProgressiveList<T, U>,
+    source: &ProgressiveList<T, U>,
+) {
+    Clone::clone_from(destination, source);
+}
