@@ -99,6 +99,26 @@ theorem ProgressiveList.apply_updates_success_state {T U : Type}
       exact Or.inr ⟨defaults, length, tree, hempty, hdefault, hlength, hupdated, happly.symm⟩
     | Err e => simp at happly
 
+/-- A successful nonempty application records the represented merged length
+as its backing length. This state fact needs no clone, range, or default-map
+laws and includes the actual checked length calculation. -/
+theorem ProgressiveList.backing_length_after_nonempty_apply_updates {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self =
+      ok (core.result.Result.Ok (), result)) : result.length.val = contents.length := by
+  rcases ProgressiveList.apply_updates_success_state ValueInst mapInst self happly with
+    ⟨htrue, _⟩ | ⟨defaults, length, newTree, _, _, hlength, _, rfl⟩
+  · rw [hempty] at htrue
+    cases htrue
+  · obtain ⟨observed, hobserved, hcontents⟩ := hrep.1
+    rw [ProgressiveList.len_eq_updated_length, hlength] at hobserved
+    cases hobserved
+    exact hcontents
+
 /-- A successful application leaves an empty map. Default construction must
     produce an empty map only on the nonempty branch that uses it; no laws
     about tree updates are needed. -/
