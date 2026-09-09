@@ -11,6 +11,13 @@ filing upstream. Versions used:
 Issue trackers: <https://github.com/AeneasVerif/charon/issues>,
 <https://github.com/AeneasVerif/aeneas/issues>.
 
+Scope revision (2026-09-09): Debug and Serde implementations, including
+Serde-based context deserialization, are out of scope for the
+[ProgressiveList proof goal](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope).
+The corresponding findings in issues 5, 20, and 22 are retained as historical
+diagnostics, not outstanding goal obligations. SSZ codec and error-formatting
+proofs remain in scope.
+
 ## 1. Charon: `Iterator::cloned`/`copied` break `--remove-associated-types`
 
 **Stage:** charon (`--preset=aeneas`).
@@ -118,8 +125,9 @@ Source closures: `src/packed_leaf.rs:100`, `src/tree.rs:187` and `:192`.
 ## 5. Aeneas Lean backend: recursive derived impls emitted with forward references
 
 **Stage:** Lean elaboration of generated code.
-**Status:** `Debug` remains excluded. `PartialEq` is now extracted using
-concrete Arc-comparison helpers in milhouse (commit `89044cc`).
+**Status:** `Debug` is out of scope for the proof goal and remains excluded
+from extraction. The Debug findings below are historical. `PartialEq` is
+extracted using concrete Arc-comparison helpers in milhouse (commit `89044cc`).
 
 For a recursive type (`Tree` contains `Arc<Tree<T>>`), the derived
 `Debug`/`PartialEq` impls generate a method body that references the trait
@@ -686,8 +694,9 @@ and full list roundtrip remain outstanding in the coverage ledger.
 ## 20. Serde serialization: mutually recursive external trait dictionaries
 
 **Stage:** generated Lean types and elaboration.
-**Status:** serialization remains outside extraction pending a faithful
-external protocol model or backend support. Aeneas and production Rust are
+**Status:** Serde serialization and deserialization, including the inherited
+in-place default, are out of scope for the proof goal. The extraction and
+protocol findings below are historical. Aeneas and production Rust are
 unchanged; no opaque milhouse-method model is substituted.
 
 Making the actual `ProgressiveList::serialize` body reachable through this
@@ -726,10 +735,11 @@ until an error, and ends the sequence. Replacing the public method with this
 manual loop would bypass a serializer's override and is not an equivalent
 general Rust change. Likewise, erasing the element serialization dictionary
 or assuming the result of the milhouse method would not establish the requested
-correctness. A suitable external protocol model and its precise laws remain
-for discussion; the existing iterator enumeration and exact-length proofs are
-available underneath. Deserialization still needs its own extraction/protocol
-work and is not claimed proved by this probe.
+correctness. If Serde is brought back into scope, a suitable external protocol
+model and its precise laws would need discussion; the existing iterator
+enumeration and exact-length proofs are available underneath. Deserialization
+would need its own extraction/protocol work and is not claimed proved by this
+probe.
 
 ### Ordinary deserialization: source dependency audit
 
@@ -753,8 +763,8 @@ processor returns. Builder finalization and error formatting may therefore
 run before that error is returned. An immediate-error loop would need to
 preserve this order, in addition to the generic trait interface.
 
-The public default `Deserialize::deserialize_in_place` is also part of the
-required API coverage. ProgressiveList supplies no override; serde 1.0.217
+The public default `Deserialize::deserialize_in_place` is also out of scope.
+ProgressiveList supplies no override; serde 1.0.217
 calls the actual `deserialize` and assigns its result to the destination only
 after success. This default remains unproved alongside ordinary deserialization.
 
@@ -823,7 +833,8 @@ library. Aeneas has not been changed.
 
 **Stage:** external protocol extraction, Aeneas loop translation, and Lean
 trait elaboration.
-**Status:** the actual public list body is reachable, but its complete
+**Status:** Serde-based context deserialization is out of scope for the proof
+goal. The historical probe reaches the actual public list body, but its complete
 sequence/seed protocol is not yet extractable. No probe root, partial generated
 file, modified dependency, or opaque milhouse-method model is retained.
 

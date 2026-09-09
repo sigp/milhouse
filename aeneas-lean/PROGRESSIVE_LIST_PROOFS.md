@@ -1,8 +1,31 @@
 # ProgressiveList proof coverage
 
-The goal is correctness of every public `ProgressiveList` operation, including
-the iterators and trait implementations exposed by that API. Extraction or a
-wrapper equation alone does not establish an operation's full correctness.
+## Goal and scope
+
+Prove high-level correctness lemmas for every public `ProgressiveList`
+operation within the scope below, including its iterators and trait
+implementations. Build on the existing `Tree`, `ProgressiveTree`, and
+`ProgressiveList` lemmas, organize them in separate files as appropriate, and
+commit each completed piece. Proven lemmas must be free of extraneous
+assumptions. If program semantics are counterintuitive or buggy, apply sensible,
+minimal Rust changes that preserve intent and performance where possible.
+Do not change Aeneas; raise its limitations for discussion and workarounds.
+
+As requested on 2026-09-09, **Debug implementations and Serde implementations
+are out of scope**. This excludes `Debug::fmt` for the list, both iterator
+types, and supporting types; `Serialize`, `Deserialize`, the inherited
+`Deserialize::deserialize_in_place`, and Serde-based context deserialization,
+including their visitor/seed protocols. Their extraction and proof gaps do not
+count as unfinished work for this goal.
+
+SSZ `Encode`/`Decode` implementations remain in scope, as do hashing and shared
+cache effects, borrowed CoW operations and iterator stepping, and the remaining
+assumption and model-fidelity audits for included operations. The goal is still
+incomplete. This scope revision supersedes earlier checkpoint statements that
+count Debug or Serde/context protocols as required work.
+
+Extraction or a wrapper equation alone does not establish an operation's full
+correctness.
 Unchecked internal helpers are proof dependencies, not substitutes for the
 public-operation specifications below.
 
@@ -16,7 +39,8 @@ lower-level hypothesis and count the wrapper as proved.
 
 The [source and proof inventory](PROGRESSIVE_LIST_API_AUDIT.md) lists the 19
 public inherent methods, direct and inherited trait entry points, returned
-iterator/handle methods, and the corresponding theorem or unresolved obligation.
+iterator/handle methods, and the corresponding theorem, unresolved obligation,
+or explicit scope exclusion.
 It is a source-coverage check, separate from hypothesis and model-fidelity audits.
 
 | Operation | Required behavior | Current evidence / remaining work |
@@ -40,12 +64,12 @@ It is a source-coverage check, separate from hypothesis and model-fidelity audit
 | `Clone::clone` | Preserve logical contents and backing validity | `Clone/Total.lean` proves that actual list-clone success is equivalent to success of the pending-map clone, without representation, packing, or element laws. Its total specification preserves the represented sequence, valid backing, exact backing fields, and the actual cloned pending map under only termination and read/maximum preservation for that map call. No successful list-clone call is assumed. `Clone.lean`: the actual derived clone shares the backing tree and copies its recorded length; successful cloning preserves `BackingValid` without clone laws. Sequence representation is preserved when pending-map cloning preserves reads and maximum; the pending observer is preserved under its corresponding map law. No element-clone law or exact identity of the cloned map is assumed. `ProgressiveList/Caches.lean` preserves every backing-cache predicate without element or pending-map clone laws. |
 | `Clone::clone_from` | Replace the destination with a clone of the source | `Clone/From.lean` connects the concrete Rust caller to the actual inherited trait default and characterizes its computation, including clone failure/divergence. Success is equivalent to success of the source pending-map clone. The total contract replaces the represented sequence, preserves source backing validity and exact backing fields, and returns the actual cloned source map. All map laws concern only that source clone; the destination requires no invariant. Successful replacement preserves source cache predicates without map semantics, and the pending observer transfers under only the corresponding emptiness law. It calls the source map's `clone`, so no map `clone_from` law is needed. The proof-only root and actual generated dictionary are retained; no production implementation or external model is substituted. |
 | `PartialEq` | Characterize equality under input-scoped element/map laws | `Equality/Correctness.lean`: actual extracted `eq` and `ne` terminate and characterize backing-tree structure, recorded length, and the explicit pending-map relation. Element `ne` laws cover only selected input pairs, respecting pointer shortcuts, packed-vector length rejection, and field/element short circuiting; the map law applies only to the actual pair when preceding comparisons succeed. Hash caches are ignored. Positive equality transfers the represented sequence and `BackingValid` under only input-scoped false-`ne` soundness and pending-map read/max agreement; it assumes no comparison termination, completeness, reflexivity, packing layout, literal map identity, or representation/backing validity of the other list. Direct structural representation transfer needs no backing-validity premise. `Equality/Pointer.lean` gives the exact shared-backing computation without element or map laws, including map failure/divergence. This is structural equality, so identical merged contents alone do not imply a true comparison |
-| `Debug` for the list and both iterator types | Formatting through each actual derived formatter | Pending for `ProgressiveList`, `ProgressiveListIter`, and `ProgressiveListIterCow`. The concrete list formatter probe reproduces recursive Debug dictionary forward references; neither iterator formatter has been extracted or proved. Full correctness also needs formatter options/sinks and observable lock state: the current error-only formatter and value-only lock models cannot represent general derived Debug output, including `RwLock` data versus `<locked>` (UPSTREAM_BUGS issue 5). The `debug` feature changes `Value` bounds and does not gate these derives. No probe-only generated formatter or no-op output proof is retained |
+| `Debug` for the list and both iterator types | Out of scope | Explicitly excluded from the proof goal, including `ProgressiveList`, `ProgressiveListIter`, and `ProgressiveListIterCow`. Historical formatter and lock-model findings are retained in UPSTREAM_BUGS issue 5. These implementations are not claimed proved. |
 | `TreeHash` methods | Progressive merkleization with length mix-in; reject pending updates and unsupported packed operations | `TreeHash/Metadata.lean` proves actual List classification and unconditional panic for both unsupported packing methods, without packing, map, or representation assumptions. Actual root computation and its pending-update rejection remain pending. A fresh full-root probe confirms recursive parallel-closure groups and the function pointer in `ZERO_HASHES` fail translation; a standalone shared read/write/read reproducer also shows the written value is dropped and the pre-write guard reused, which no implementation of the generated pure lock interfaces can repair (UPSTREAM_BUGS issue 21) |
 | `Encode` methods | SSZ encoding/encoded length of the merged sequence | `Encode/FixedLength.lean` and `Encode/Length.lean`: exact fixed-width multiplication and variable payload-size sum plus four-byte offsets. The fixed-width numeric contract requires only logical length, and the total contract derives that length internally from the returned map maximum, without indexed reads or sequence representation. Its success criterion proves successor representability and the final byte bound are necessary and sufficient; the successor check remains necessary at zero width. Variable-size accumulation derives intermediate bounds from the final byte bound. Fixed-size calculation needs no backing or traversal assumptions. `Encode/Fixed.lean`, `VariableLoop.lean`, and `Variable.lean`: actual `ssz_append` preserves the destination prefix and writes the exact represented merged payload, with the complete offset table for variable elements. `Encode/Owning.lean` proves both exact `as_ssz_bytes` formats. `Encode/Metadata.lean` proves variable-list classification, four-byte fixed-section width, and the concrete owning wrapper. Representation and traversal invariants/layout are required only by methods that iterate. The remaining premises are the relevant element codec/size laws on consumed values, final output-size bounds, and 32-bit bounds only on offsets actually emitted. No clone law or assumed iterator output is needed. `Tree/Ssz` models and proves the pinned external encoder state, offset writes, payload accumulation, and finalization |
 | `Decode` methods | Decode SSZ contents, including empty/invalid/zero-sized-element cases | `Decode/PayloadFixed.lean` and `PayloadVariable.lean` prove total public decoding from independently accepted payload occurrences, including different encodings of equal values, empty variable payloads, empty input, and an accepted short final fixed chunk. They establish exact indexed contents, valid backing, and no pending updates; metadata/layout/capacity laws are omitted on empty input. `FixedTotal.lean` and `VariableTotal.lean` retain the earlier canonical-byte contracts. `FixedRoundtrip.lean` and `VariableRoundtrip.lean` compose actual owning encoding and public decoding, preserving the merged sequence and every indexed read while clearing pending updates. `Decode/Success.lean` proves streaming construction terminates with the exact decoded prefix and retained error. `ProgressiveTree/LengthFits.lean` and `Builder/PushLength.lean` derive every rollover bound from representability of the final sequence; fixed decoding retains this condition for general element widths, while the variable offset table supplies it internally. `Backing.lean` proves backing validity after any successful public decode without element-codec or parser laws. The cursor modules derive parsing from canonical bytes, including 32-bit bounds only on emitted offsets. `Decode/Entry.lean` covers metadata, empty input, zero fixed width, and short variable prefixes; `Ssz/VariableInit.lean` covers first-offset bounds/alignment/zero errors in the actual check order. `Decode/ErrorMessages.lean` proves exact builder-error text; `Ssz/ReadOffset.lean` proves four-byte reads and canonical offset roundtrips. Streaming bodies extract with the real error enum and local external models (UPSTREAM_BUGS issue 19); differential release tests cover error order and partial-builder finalization. `Decode/InitialErrors.lean` derives public first-offset bounds, alignment, and zero errors from raw offset bytes without packing, map, or element laws. `Decode/FixedErrors.lean` returns the first invalid element error after an arbitrary successful prefix, covering short final chunks and unconstrained bytes after a full-width invalid element. `Decode/VariableErrors.lean` derives second-offset fixed-section/bounds errors and third-offset decreasing errors directly from bytes, with exact element/error order. `Decode/ErrorResult.lean` propagates arbitrary cursor error traces through actual successful prefix finalization; `Ssz/DecodedLength.lean` derives variable prefix capacity from the table even for malformed input. `Ssz/VariablePrefix.lean`, `VariablePrefixErrors.lean`, and `VariableElementErrors.lean` derive every prefix step from raw table and payload bytes. `Decode/VariablePrefixErrors.lean` and `VariableElementErrors.lean` return the exact malformed-offset or element error after any successful prefix, including empty final payloads. `Decode/PayloadErrors.lean` generalizes both formats to per-entry payload bytes: equal values may have distinct accepted encodings, with no canonical-encoding assumption. `Ssz/PayloadTrace.lean` erases proof-level byte annotations to recover the exact original decoder trace. All public prefix-error results establish actual parser and builder behavior internally; later bytes and decoder calls are unconstrained. `Decode/Caches.lean` proves every successful public decoder initializes cleared caches, also covering partial lists finalized after streaming element errors, without parser, packing, map, element, or finiteness laws. |
-| `Serialize`, `Deserialize`, `Deserialize::deserialize_in_place` | Serialize merged sequence; reconstruct the deserialized sequence; assign the destination only after successful deserialization | Pending. A fresh concrete `Serialize` extraction probe reaches the actual `collect_seq` call but generates mutually recursive Serde dictionaries that fail Lean elaboration (UPSTREAM_BUGS issue 20). A faithful external protocol model or backend support must preserve serializer overrides, element behavior, errors, and iterator length hints. Excluding generic dispatch did not remove the cycle; no failed generated files, erased element dictionary, or opaque milhouse method is retained. The actual ordinary visitor reaches the recursive deserializer/visitor/sequence interface as well; its next-element dispatch and process-results error order must be retained. The inherited public `deserialize_in_place` default calls actual deserialization and assigns only after success. Both deserialization entry points remain pending (UPSTREAM_BUGS issues 20 and 22) |
-| Context deserialization feature | Reconstruct the contextual element sequence | Pending complete external protocol and proof. A fresh feature probe reaches the actual list method, but the opaque contextual Vec interface leaves Visitor with only `expecting`, which cannot model sequence generation. Exposing the pinned Vec visitor/seed bodies produces a recursive `DeserializeSeed`/`Deserializer`/`Visitor`/`SeqAccess` interface that fails Lean elaboration, plus a separate visitor-loop translation error (UPSTREAM_BUGS issue 22). A faithful model must preserve actual deserializer dispatch, size hints, every context clone including the terminal call, seed inputs, and first errors. No failed probe output or opaque milhouse method is retained |
+| `Serialize`, `Deserialize`, `Deserialize::deserialize_in_place` | Out of scope | Explicitly excluded from the proof goal, including the inherited in-place default and visitor/sequence protocols. Historical extraction and source-audit findings are retained in UPSTREAM_BUGS issues 20 and 22. These implementations are not claimed proved. |
+| Context deserialization feature | Out of scope | Serde-based `ContextDeserialize` and its contextual visitor/seed protocol are explicitly excluded from the proof goal. Historical extraction findings are retained in UPSTREAM_BUGS issue 22. This implementation is not claimed proved. |
 | `Arbitrary` feature | Successful generation establishes a valid backing tree and length | `Arbitrary/Behavior.lean` proves every successful actual generator stores the exact generated backing sequence and length and establishes `BackingValid`, without element-generation or default-map laws. `Generated.lean` derives the actual finite control/element trace from every successful call and proves indexed representation, valid backing/spine, and no pending updates under packing and empty-default-map laws. `Total.lean` proves actual generation and construction succeed along finite element traces; occupied-layer `LengthFits` is necessary and sufficient for success under a terminating default map. First element errors propagate unchanged with their consumed input and need no construction laws; constructor errors map to `IncorrectFormat`. `Traits.lean` proves both size-hint methods at every depth and the actual owning-input default, including its total representation and successful backing guarantees. The feature and all four trait entry points are extracted. `Tree/Arbitrary/Models.lean`, `Generation.lean`, and `Reflection.lean` model and prove pinned external Vec collection, including even stopping-byte consumption, first-error state, and custom input replacement; vector success is equivalent to a finite trace. No opaque milhouse method or assumed intermediate success. `Arbitrary/Caches.lean` proves both ordinary and owning-input generation initialize cleared caches on every successful result, without generator, packing, or map laws. |
 
 ## Existing foundations
@@ -862,6 +886,10 @@ It is a source-coverage check, separate from hypothesis and model-fidelity audit
 
 ## Validation
 
+The 2026-09-09 scope revision changes documentation only. The last full proof
+build and axiom audit remain the successful checkpoint below; no new proof
+validation is claimed for this documentation change.
+
 For each completed piece: build its Lean module, check the assumptions, and
 commit with signing disabled and a model co-author trailer. Before completion:
 regenerate the full extraction, build all proof modules, inspect axiom
@@ -900,11 +928,18 @@ equal values in both formats and a short final fixed chunk accepted by the
 element decoder. They derive actual parsing and construction, with metadata
 and layout laws omitted for empty input. The source inventory accounts for
 all 19 inherent methods; its 64 list/iterator theorem references were checked
-against the built environment. Both iterator Debug implementations are now
-explicit pending obligations, without a new extraction claim. Full hashing
-and shared-cache effects, borrowed CoW, all three derived formatters, ordinary
-Serde including in-place deserialization, context deserialization, and the
-remaining hypothesis/model-fidelity audits remain open.
+against the built environment. Both iterator Debug implementations are
+explicitly accounted for, without a new extraction claim. Under the revised
+scope, full hashing and shared-cache effects, borrowed CoW, and the remaining
+hypothesis/model-fidelity audits remain open. Debug and Serde implementations,
+including in-place and context deserialization, are out of scope.
+
+### Historical validation checkpoints
+
+The following checkpoints record progress and scope at the time they were
+written. Their references to Debug, Serde/context protocols, or an active goal
+are historical; the current [goal and scope](#goal-and-scope) supersedes those
+scope statements. Excluded implementations do not count as remaining work.
 
 Previous front-removal clone checkpoint (through `e06f464`): all focused
 streaming, public clone-result, success-condition, and totality builds pass.

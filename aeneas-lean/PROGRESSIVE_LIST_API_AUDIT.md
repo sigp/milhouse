@@ -1,9 +1,17 @@
 # ProgressiveList source and proof inventory
 
 Source checkpoint: `0ed21ba`. This inventory names the Rust entry points and
-their current proof entry points or unresolved obligations. It complements
-[the coverage and validation record](PROGRESSIVE_LIST_PROOFS.md); it is not a
-claim of complete correctness, model fidelity, or minimal theorem hypotheses.
+their current proof entry points, unresolved obligations, or scope exclusions.
+It complements the [coverage and validation record](PROGRESSIVE_LIST_PROOFS.md);
+it is not a claim of complete correctness, model fidelity, or minimal theorem
+hypotheses.
+
+Scope revision (2026-09-09): **Debug implementations and Serde implementations
+are out of scope**, including both iterator Debug derives, in-place
+deserialization, and Serde-based context deserialization with its visitor/seed
+protocols. Excluded rows are retained for source accounting and do not count
+as unfinished goal obligations. SSZ encoding/decoding remains in scope. See
+the [revised goal](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope).
 
 The source search covered `src/progressive_list.rs`, other production uses of
 `ProgressiveList`, `src/cow.rs`, `src/serde.rs`, `src/context_deserialize.rs`,
@@ -46,7 +54,7 @@ The pinned dependency sources were checked for additional methods:
 1.4.1 (four), and `context_deserialize` 0.2.0 (one). In particular, the context
 trait has no additional in-place default. Ordinary Serde does.
 
-| Trait method | Primary proof entry point or remaining obligation |
+| Trait method | Primary proof entry point, remaining obligation, or scope exclusion |
 | --- | --- |
 | `Default::default` | `ProgressiveList.default_eq_empty`, `ProgressiveList.default_represents` |
 | `TryFrom<Vec<T>>::try_from` | `ProgressiveList.try_from_vec_total_spec` |
@@ -56,7 +64,7 @@ trait has no additional in-place default. Ordinary Serde does.
 | `Clone::clone_from` | `ProgressiveList.clone_from_total_spec`; actual inherited method, made reachable by a concrete caller |
 | `PartialEq::eq` | `ProgressiveList.partial_eq_spec`, `ProgressiveList.partial_eq_represents` |
 | `PartialEq::ne` | `ProgressiveList.partial_ne_spec`; actual trait default |
-| `Debug::fmt` | Pending actual formatter, options, sink behavior, and lock observation; UPSTREAM_BUGS issue 5 |
+| `Debug::fmt` | Out of scope. Historical extraction/model findings: UPSTREAM_BUGS issue 5 |
 | `TreeHash::tree_hash_type` | `ProgressiveList.tree_hash_type_eq` |
 | `TreeHash::tree_hash_packed_encoding` | `ProgressiveList.tree_hash_packed_encoding_panics` |
 | `TreeHash::tree_hash_packing_factor` | `ProgressiveList.tree_hash_packing_factor_panics` |
@@ -69,40 +77,40 @@ trait has no additional in-place default. Ordinary Serde does.
 | `Decode::is_ssz_fixed_len` | `ProgressiveList.decode_is_fixed_len_eq` |
 | `Decode::ssz_fixed_len` | `ProgressiveList.decode_fixed_len_eq` |
 | `Decode::from_ssz_bytes` | `ProgressiveList.from_ssz_bytes_fixed_payloads_total_spec`, `ProgressiveList.from_ssz_bytes_fixed_final_payload_total_spec`, `ProgressiveList.from_ssz_bytes_variable_payloads_total_spec`; empty, zero-width, malformed-offset, and prefix-error results in the coverage record |
-| `Serialize::serialize` | Pending actual `collect_seq` dispatch, element dictionary, output/error protocol, and iterator length hints; issue 20 |
-| `Deserialize::deserialize` | Pending actual visitor/sequence protocol, override dispatch, and process-results finalization/error order; issues 20 and 22 |
-| `Deserialize::deserialize_in_place` | Pending actual inherited call and assignment only after successful deserialization; issue 20 |
+| `Serialize::serialize` | Out of scope. Historical Serde protocol findings: issue 20 |
+| `Deserialize::deserialize` | Out of scope. Historical visitor/sequence and error-order findings: issues 20 and 22 |
+| `Deserialize::deserialize_in_place` | Out of scope, including the inherited default. Historical source audit: issue 20 |
 | `Arbitrary::arbitrary` | `ProgressiveList.arbitrary_total_spec`; feature `arbitrary` |
 | `Arbitrary::arbitrary_take_rest` | `ProgressiveList.arbitrary_take_rest_total_spec`; actual default, not Vec's override |
 | `Arbitrary::size_hint` | `ProgressiveList.arbitrary_size_hint` |
 | `Arbitrary::try_size_hint` | `ProgressiveList.arbitrary_try_size_hint` |
-| `ContextDeserialize::context_deserialize` | Pending actual contextual Vec visitor/seed protocol, every context clone, and errors; feature `context_deserialize`, issue 22 |
+| `ContextDeserialize::context_deserialize` | Out of scope as Serde-based context deserialization, including its visitor/seed protocol; feature `context_deserialize`, issue 22 |
 
 ## Returned iterators and handles
 
-| Rust method | Primary proof entry point or remaining obligation |
+| Rust method | Primary proof entry point, remaining obligation, or scope exclusion |
 | --- | --- |
 | `ProgressiveListIter::next` | Complete merged enumeration in `Tree/ProgressiveList/Iter/Next.lean`, consumed by the public constructor and collection contracts |
 | `ProgressiveListIter::size_hint` | `ProgressiveListIter.size_hint_spec` |
 | `ProgressiveListIter::len` | `ProgressiveListIter.exact_len_spec` |
-| `ProgressiveListIter::fmt` | Pending derived `Debug`; the backing iterator, map, index, and length must be formatted through their actual dictionaries |
+| `ProgressiveListIter::fmt` | Out of scope: derived `Debug` |
 | `ProgressiveListIterCow::next_cow` | Pending actual borrowed stepping, returned indices/handles, exhaustion, and write-back; issue 16 |
-| `ProgressiveListIterCow::fmt` | Pending derived `Debug`; the backing iterator, mutable map reference, and index must be formatted through their actual dictionaries |
+| `ProgressiveListIterCow::fmt` | Out of scope: derived `Debug` |
 | `Cow::into_mut` | `milhouse.cow.Cow.into_mut_spec`, `milhouse.cow.Cow.into_mut_missing_entry`, and the list's consuming write-back contract |
 | `Cow::deref` | Pending actual borrowed-field extraction; issue 9. The proved data observer is not this method |
 | `Cow::make_mut` | Pending actual borrowed materialization and write-back; issue 9. Consuming `into_mut` is not this method |
 
 The two iterator Debug derives were present in Rust but were not explicitly
-named in the previous coverage row. They are now recorded as pending. No
+named in the previous coverage row. They are now recorded as out of scope. No
 iterator-formatting extraction was attempted in this audit; the existing list
 formatter probe is not evidence that either iterator formatter elaborates.
 The `debug` feature changes the bounds on `Value`; it does not gate these
 three Debug derives.
 
 `src/serde.rs` also exposes `ProgressiveListVisitor`. Its actual `Default`,
-`expecting`, `visit_seq`, and inherited visitor dispatch/error behavior remain
-dependencies of the public deserializer protocol; they cannot be replaced by
-a sequence-only opaque callback. `AnyList` contains and dispatches to
+`expecting`, `visit_seq`, and inherited visitor dispatch/error behavior are
+dependencies of the excluded Serde deserializer protocol and are also out of
+scope. `AnyList` contains and dispatches to
 `ProgressiveList`; a proved underlying method alone does not verify the wrapper.
 Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
@@ -115,9 +123,10 @@ values. Per-occurrence payload contracts now cover distinct accepted encodings
 of equal values in both formats and an accepted short final fixed chunk.
 Empty input in the new contracts requires no element metadata or packing law.
 
-The full goal is still incomplete. The named formatter, hashing/shared-state,
-borrowed-CoW, and Serde/context obligations require faithful extraction and
-models; existing counterexamples and failed probes are recorded in
+The revised goal is still incomplete. Hashing/shared-state and borrowed-CoW
+obligations require faithful extraction and models; existing counterexamples
+and failed probes are recorded in
 [UPSTREAM_BUGS.md](UPSTREAM_BUGS.md). The remaining theorem-hypothesis and model
 fidelity audits are separate from this source inventory. No new extraction
-result or general API completion is claimed here.
+result or general API completion is claimed here. Debug and Serde/context
+implementations are excluded from the goal, not claimed proved.
