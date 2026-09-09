@@ -86,41 +86,50 @@ theorem ProgressiveList.from_ssz_bytes_variable_success {T U : Type}
     have hb := map_err_success _ _ _ hdecode
     simpa only [hb] using hbuild
 
-/-- Every successful public decode is either the actual empty constructor or
-a completed streaming construction with no decode error. This state theorem
-does not assume metadata, parser validity, packing, or element-codec laws. -/
-theorem ProgressiveList.from_ssz_bytes_success_source {T U : Type}
+/-- Successful public decoding identifies the actual input branch and cursor
+initialization. Nonempty fixed input has positive declared width; variable
+input passes its actual offset initialization. No metadata, parser validity,
+packing, or element-codec law is assumed. -/
+theorem ProgressiveList.from_ssz_bytes_success_input {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (bytes : Slice Std.U8) {self : ProgressiveList T U}
     (hdecode : ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
       ok (core.result.Result.Ok self)) :
-    ProgressiveList.empty ValueInst mapInst = ok self ∨
-      ∃ items, ProgressiveList.decode_ssz_items ValueInst mapInst items =
-        ok (core.result.Result.Ok self, none) := by
+    (bytes.val = [] ∧ ProgressiveList.empty ValueInst mapInst = ok self) ∨
+      (bytes.val ≠ [] ∧
+        ((∃ width, ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok true ∧
+          ValueInst.sszdecodeDecodeInst.ssz_fixed_len = ok width ∧ width ≠ 0#usize ∧
+          ProgressiveList.decode_ssz_items ValueInst mapInst (.Fixed bytes width) =
+            ok (core.result.Result.Ok self, none)) ∨
+        (ValueInst.sszdecodeDecodeInst.is_ssz_fixed_len = ok false ∧
+          ∃ items, ssz_items.SszItems.variable bytes = ok (core.result.Result.Ok items) ∧
+            ProgressiveList.decode_ssz_items ValueInst mapInst items =
+              ok (core.result.Result.Ok self, none)))) := by
   unfold ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes at hdecode
   rw [bind_eq_ok_iff] at hdecode
-  obtain ⟨empty, _, hdecode⟩ := hdecode
+  obtain ⟨empty, hempty, hdecode⟩ := hdecode
   cases empty with
   | true =>
-    simp only [if_pos rfl, if_true] at hdecode
+    simp only [if_true] at hdecode
     rw [bind_eq_ok_iff] at hdecode
     obtain ⟨result, hresult, hdecode⟩ := hdecode
     simp only [ok.injEq, core.result.Result.Ok.injEq] at hdecode
     cases hdecode
-    exact .inl hresult
+    exact .inl ⟨by simpa [core.slice.Slice.is_empty] using hempty, hresult⟩
   | false =>
-    right
+    refine .inr ⟨by simpa [core.slice.Slice.is_empty] using hempty, ?_⟩
     simp only [Bool.false_eq_true, if_false] at hdecode
     rw [bind_eq_ok_iff] at hdecode
-    obtain ⟨fixed, _, hdecode⟩ := hdecode
+    obtain ⟨fixed, hfixed, hdecode⟩ := hdecode
     cases fixed with
     | true =>
-      simp only [if_pos rfl, if_true] at hdecode
+      simp only [if_true] at hdecode
       rw [bind_eq_ok_iff] at hdecode
-      obtain ⟨width, _, hdecode⟩ := hdecode
+      obtain ⟨width, hwidth, hdecode⟩ := hdecode
       split at hdecode
       · simp at hdecode
-      · rw [bind_eq_ok_iff] at hdecode
+      · rename_i hnonzero
+        rw [bind_eq_ok_iff] at hdecode
         obtain ⟨⟨built, error⟩, hbuild, hdecode⟩ := hdecode
         dsimp! only at hdecode
         rw [bind_eq_ok_iff] at hdecode
@@ -131,11 +140,11 @@ theorem ProgressiveList.from_ssz_bytes_success_source {T U : Type}
           simp only [ok.injEq] at hdecode
           subst mapped
           have hb := map_err_success _ _ _ hmap
-          exact ⟨_, by simpa only [hb] using hbuild⟩
+          exact .inl ⟨width, hfixed, hwidth, hnonzero, by simpa only [hb] using hbuild⟩
     | false =>
       simp only [Bool.false_eq_true, if_false] at hdecode
       rw [bind_eq_ok_iff] at hdecode
-      obtain ⟨status, _, hdecode⟩ := hdecode
+      obtain ⟨status, hitems, hdecode⟩ := hdecode
       cases status with
       | Err e =>
         simp [core.result.Result.Insts.CoreOpsTry.branch,
@@ -150,6 +159,24 @@ theorem ProgressiveList.from_ssz_bytes_success_source {T U : Type}
         | some error => simp at hdecode
         | none =>
           have hb := map_err_success _ _ _ hdecode
-          exact ⟨items, by simpa only [hb] using hbuild⟩
+          exact .inr ⟨hfixed, items, hitems, by simpa only [hb] using hbuild⟩
+
+/-- Every successful public decode is either the actual empty constructor or
+a completed streaming construction with no decode error. This is the state
+projection of the stronger input/cursor characterization. -/
+theorem ProgressiveList.from_ssz_bytes_success_source {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (bytes : Slice Std.U8) {self : ProgressiveList T U}
+    (hdecode : ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes ValueInst mapInst bytes =
+      ok (core.result.Result.Ok self)) :
+    ProgressiveList.empty ValueInst mapInst = ok self ∨
+      ∃ items, ProgressiveList.decode_ssz_items ValueInst mapInst items =
+        ok (core.result.Result.Ok self, none) := by
+  rcases ProgressiveList.from_ssz_bytes_success_input ValueInst mapInst bytes hdecode with
+    ⟨_, hempty⟩ | ⟨_, hsource⟩
+  · exact .inl hempty
+  · rcases hsource with ⟨width, _, _, _, hbuild⟩ | ⟨_, items, _, hbuild⟩
+    · exact .inr ⟨.Fixed bytes width, hbuild⟩
+    · exact .inr ⟨items, hbuild⟩
 
 end milhouse.progressive_list
