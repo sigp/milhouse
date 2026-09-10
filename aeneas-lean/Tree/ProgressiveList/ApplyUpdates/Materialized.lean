@@ -5,6 +5,56 @@ open milhouse
 
 namespace milhouse.progressive_list
 
+/-- Exact materialization from retained/pending clone identity, positive
+numeric selection, and agreement in all skipped progressive/binary ranges
+and maximum-skipped suffixes. Skipped agreement supplies density's false-answer
+extent laws; no range-value reflection or default-map law is required. -/
+theorem ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped_ranges {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hclone : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hselected : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+        ValueInst mapInst self.updates maximum 0#u32)
+    (hbinarySelected : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hbinaryAgreement : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinarySkippedValuesAgree ValueInst mapInst self.updates factor maximum 0#u32)
+    (hlayers : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32)
+    (hskipped : ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
+    result.tree.elements = contents := by
+  obtain ⟨_, _, hreads⟩ := ProgressiveList.apply_updates_nonempty_backing_spec_of_skipped_ranges
+    ValueInst mapInst self contents hlayout hclone
+    hbinaryAgreement
+    hlayers hskipped hrep hbacking.1.shape (by simpa using hbacking.1.endsAfter) hempty happly
+  have hafter := ProgressiveList.apply_updates_preserves_backing_of_skipped_ranges ValueInst mapInst self contents
+    (fun _ => hlayout) (fun _ => hselected) (fun _ => hlayers) (fun _ => hbinarySelected) (fun _ => hbinaryAgreement) hrep hbacking happly
+  have hlength := ProgressiveList.backing_length_after_nonempty_apply_updates
+    ValueInst mapInst self contents hrep hempty happly
+  have helementsLength : result.tree.elements.length = contents.length :=
+    hafter.1.elements_length.trans hlength
+  apply _root_.List.ext_getElem?
+  intro index
+  by_cases hinside : index < contents.length
+  · have hbound : index < 2 ^ UScalarTy.Usize.numBits := by scalar_tac
+    let query := Std.Usize.ofNatCore index hbound
+    have hquery : query.val = index := Usize.ofNatCore_val_eq hbound
+    have hget := ProgressiveList.backing_get_eq_elements ValueInst mapInst hlayout result hafter.1 hafter.2 query
+    simpa only [hquery] using Result.ok.inj (hget.symm.trans (hreads query))
+  · rw [_root_.List.getElem?_eq_none (by omega), _root_.List.getElem?_eq_none (by omega)]
+
 /-- Skipped-layer value agreement already forces its occupied length to
 stay unchanged. Exact materialization therefore needs only positive layer
 selection, selected binary reflection, and agreement in skipped layers and
@@ -33,25 +83,14 @@ theorem ProgressiveList.apply_updates_nonempty_backing_contents_of_layer_selecti
     {result : ProgressiveList T U}
     (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
     result.tree.elements = contents := by
-  obtain ⟨_, _, hreads⟩ := ProgressiveList.apply_updates_nonempty_backing_spec_of_layer_agreement
-    ValueInst mapInst self contents hlayout hclone
-    (fun maximum hmax layer start binary hvisit => (hrange maximum hmax layer start binary hvisit).excludesValues)
-    hlayers hskipped hrep hbacking.1.shape (by simpa using hbacking.1.endsAfter) hempty happly
-  have hafter := ProgressiveList.apply_updates_preserves_backing_of_layer_agreement ValueInst mapInst self contents
-    (fun _ => hlayout) (fun _ => hselected) (fun _ => hlayers) (fun _ => hrange) hrep hbacking happly
-  have hlength := ProgressiveList.backing_length_after_nonempty_apply_updates
-    ValueInst mapInst self contents hrep hempty happly
-  have helementsLength : result.tree.elements.length = contents.length :=
-    hafter.1.elements_length.trans hlength
-  apply _root_.List.ext_getElem?
-  intro index
-  by_cases hinside : index < contents.length
-  · have hbound : index < 2 ^ UScalarTy.Usize.numBits := by scalar_tac
-    let query := Std.Usize.ofNatCore index hbound
-    have hquery : query.val = index := Usize.ofNatCore_val_eq hbound
-    have hget := ProgressiveList.backing_get_eq_elements ValueInst mapInst hlayout result hafter.1 hafter.2 query
-    simpa only [hquery] using Result.ok.inj (hget.symm.trans (hreads query))
-  · rw [_root_.List.getElem?_eq_none (by omega), _root_.List.getElem?_eq_none (by omega)]
+  exact ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped_ranges
+    ValueInst mapInst self contents hlayout hclone hselected
+    (fun maximum hmax layer start binary hvisit lo hi hquery =>
+      ((hrange maximum hmax layer start binary hvisit lo hi hquery).preservesExtent
+        hrep.dense_update_domain).selectsInside)
+    (fun maximum hmax => progressive_tree.ProgressiveTree.BulkBinarySkippedValuesAgree.of_ranges
+      (fun layer start binary hvisit => (hrange maximum hmax layer start binary hvisit).excludesValues))
+    hlayers hskipped hrep hbacking hempty happly
 
 /-- Exact stored materialization under numeric progressive-layer extents,
 reflection only in selected binary subtrees, and pending-value agreement in
