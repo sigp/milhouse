@@ -14,15 +14,15 @@ theorem offsetBytes_length (offset : Nat) : (offsetBytes offset).length = 4 := b
 theorem encode_length_spec (offset : Std.Usize) (hbound : offset.val ≤ Std.U32.max) :
     encode_length offset = ok (offsetBytes offset.val) := by
   simp only [encode_length, hbound, ↓reduceIte, offsetBytes,
-    core.num.U32.to_le_bytes, UScalar.cast]
+    core.num.U32.to_le_bytes, UScalar.cast, Array.from_val]
   congr 3
   exact (BitVec.ofNat_toNat 32 offset.bv).symm
 
 theorem append_bytes_spec (buf : alloc.vec.Vec Std.U8) (bytes : _root_.List Std.U8)
     (hbound : buf.val.length + bytes.length ≤ Std.Usize.max) :
     ∃ output, append_bytes buf bytes = ok output ∧ output.val = buf.val ++ bytes := by
-  exact ⟨⟨buf.val ++ bytes, by simpa only [_root_.List.length_append] using hbound⟩,
-    by simp [append_bytes, hbound], rfl⟩
+  exact ⟨alloc.vec.Vec.from (buf.val ++ bytes) (by simpa only [_root_.List.length_append] using hbound),
+    by simp [append_bytes, hbound], by simp⟩
 
 /-- Offsets for variable items, starting at the fixed section's size and
     advancing by the exact encoded payload size of each preceding item. -/

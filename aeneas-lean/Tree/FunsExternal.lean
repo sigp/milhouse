@@ -446,12 +446,12 @@ def alloc.vec.Vec.pop
   match h : v.val.reverse with
   | [] => ok (none, v)
   | x :: xs =>
-    ok (some x, ⟨ xs.reverse, by
+    ok (some x, alloc.vec.Vec.from xs.reverse (by
       have hv := v.property
       have hl : xs.length < v.val.length := by simp_all
       have hl' : xs.reverse.length ≤ v.val.length := by
         simpa using Nat.le_of_lt hl
-      exact hl'.trans hv ⟩)
+      exact hl'.trans hv))
 
 /-- An owning vector iterator is modelled by its remaining vector. Taking
     from the back therefore has the same sequence semantics as `Vec::pop`.

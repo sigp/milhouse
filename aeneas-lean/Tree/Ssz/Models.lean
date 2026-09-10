@@ -23,7 +23,7 @@ namespace ssz.encode
 def append_bytes (buf : alloc.vec.Vec Std.U8) (bytes : _root_.List Std.U8) :
     Result (alloc.vec.Vec Std.U8) :=
   if h : buf.val.length + bytes.length ≤ Std.Usize.max then
-    ok ⟨buf.val ++ bytes, by simpa only [_root_.List.length_append] using h⟩
+    ok (alloc.vec.Vec.from (buf.val ++ bytes) (by simpa only [_root_.List.length_append] using h))
   else fail .panic
 
 /-- SSZ's four little-endian offset bytes, including its development-profile

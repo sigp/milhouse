@@ -6,6 +6,9 @@ open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+set_option linter.style.whitespace false
+set_option linter.style.setOption false
+set_option linter.style.longLine false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -428,12 +431,12 @@ structure interface.Interface (T : Type) (B : Type) (U : Type) where
   updates : U
   _phantom : core.marker.PhantomData T
 
-/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::closure]
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::{closure}]
     Source: 'src/interface.rs', lines 70:31-70:67 -/
 @[reducible]
 def interface.Interface.get_mut.closure (T : Type) (B : Type) (U : Type) := B
 
-/-- [milhouse::utils::updated_length::closure]
+/-- [milhouse::utils::updated_length::{closure}]
     Source: 'src/utils.rs', lines 87:41-89:5 -/
 @[reducible]
 def utils.updated_length.closure (U : Type) (T : Type) := utils.Length
@@ -479,12 +482,12 @@ structure list.ListInner (T : Type) (N : Type) where
 structure list.List (T : Type) (N : Type) (U : Type) where
   interface : interface.Interface T (list.ListInner T N) U
 
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure#1]
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{closure#1}]
     Source: 'src/tree.rs', lines 337:25-350:21 -/
 @[reducible]
 def tree.Tree.rebase_on.closure_1 (T : Type) := Std.Usize
 
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::closure]
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{closure}]
     Source: 'src/tree.rs', lines 330:42-330:97 -/
 @[reducible]
 def tree.Tree.rebase_on.closure (T : Type) := Unit
@@ -543,12 +546,12 @@ inductive ssz_items.SszItems where
   Std.Usize →
   ssz_items.SszItems
 
-/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::closure]
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{closure}]
     Source: 'src/progressive_list.rs', lines 109:41-115:9 -/
 def progressive_list.ProgressiveList.get_mut.closure (T : Type) (U : Type) :=
   triomphe.arc.Arc (progressive_tree.ProgressiveTree T) × utils.Length
 
-/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::closure]
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{closure}]
     Source: 'src/progressive_tree.rs', lines 223:49-223:73 -/
 @[reducible]
 def progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure (T :
@@ -582,21 +585,21 @@ structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
   updates : U
   index : Std.Usize
 
-/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure#1]
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure#1}]
     Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
 @[reducible]
 def progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1 (T : Type)
   (U : Type) :=
 Unit
 
-/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure]
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure}]
     Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
 @[reducible]
 def progressive_list.DecodeProgressiveList.from_ssz_bytes.closure (T : Type) (U
   : Type) :=
 Unit
 
-/-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::closure]
+/-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{closure}]
     Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
 @[reducible]
 def progressive_list.ArbitraryAProgressiveList.arbitrary.closure (T : Type) (U

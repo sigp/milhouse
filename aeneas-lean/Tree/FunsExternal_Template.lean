@@ -7,6 +7,9 @@ open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+set_option linter.style.whitespace false
+set_option linter.style.setOption false
+set_option linter.style.longLine false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -67,14 +70,14 @@ axiom core.marker.PhantomData.Insts.CoreCloneClone.clone
   {T : Type} : core.marker.PhantomData T → Result (core.marker.PhantomData T)
 
 /-- [core::mem::size_of]:
-    Source: '/rustc/library/core/src/mem/mod.rs', lines 373:0-373:34
+    Source: '/rustc/library/core/src/mem/mod.rs', lines 375:0-375:34
     Name pattern: [core::mem::size_of]
     Visibility: public -/
 @[rust_fun "core::mem::size_of"]
 axiom core.mem.size_of (T : Type) : Result Std.Usize
 
 /-- [core::mem::take]:
-    Source: '/rustc/library/core/src/mem/mod.rs', lines 849:0-849:56
+    Source: '/rustc/library/core/src/mem/mod.rs', lines 894:0-894:56
     Name pattern: [core::mem::take]
     Visibility: public -/
 @[rust_fun "core::mem::take"]
@@ -90,7 +93,7 @@ axiom core.mem.take
 axiom core.num.Usize.trailing_zeros : Std.Usize → Result Std.U32
 
 /-- [core::num::{u128}::checked_pow]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 2346:8-2346:68
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 2399:8-2399:68
     Name pattern: [core::num::{u128}::checked_pow]
     Visibility: public -/
 @[rust_fun "core::num::{u128}::checked_pow"]
@@ -98,28 +101,28 @@ axiom core.num.U128.checked_pow
   : Std.U128 → Std.U32 → Result (Option Std.U128)
 
 /-- [core::num::{u128}::saturating_mul]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 2516:8-2516:60
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 2584:8-2584:60
     Name pattern: [core::num::{u128}::saturating_mul]
     Visibility: public -/
 @[rust_fun "core::num::{u128}::saturating_mul"]
 axiom core.num.U128.saturating_mul : Std.U128 → Std.U128 → Result Std.U128
 
 /-- [core::num::{usize}::pow]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3570:8-3570:52
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3634:8-3634:48
     Name pattern: [core::num::{usize}::pow]
     Visibility: public -/
 @[rust_fun "core::num::{usize}::pow"]
 axiom core.num.Usize.pow : Std.Usize → Std.U32 → Result Std.Usize
 
 /-- [core::num::{usize}::div_ceil]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3755:8-3755:54
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3787:8-3787:54
     Name pattern: [core::num::{usize}::div_ceil]
     Visibility: public -/
 @[rust_fun "core::num::{usize}::div_ceil"]
 axiom core.num.Usize.div_ceil : Std.Usize → Std.Usize → Result Std.Usize
 
 /-- [core::num::{usize}::checked_next_power_of_two]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3924:8-3924:68
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3956:8-3956:68
     Name pattern: [core::num::{usize}::checked_next_power_of_two]
     Visibility: public -/
 @[rust_fun "core::num::{usize}::checked_next_power_of_two"]
@@ -127,7 +130,7 @@ axiom core.num.Usize.checked_next_power_of_two
   : Std.Usize → Result (Option Std.Usize)
 
 /-- [core::option::{core::option::Option<T>}::is_some_and]:
-    Source: '/rustc/library/core/src/option.rs', lines 658:4-658:96
+    Source: '/rustc/library/core/src/option.rs', lines 659:4-659:96
     Name pattern: [core::option::{core::option::Option<@T>}::is_some_and]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<@T>}::is_some_and"]
@@ -137,7 +140,7 @@ axiom core.option.Option.is_some_and
   Option T → T1 → Result Bool
 
 /-- [core::option::{core::option::Option<T>}::is_none_or]:
-    Source: '/rustc/library/core/src/option.rs', lines 707:4-707:95
+    Source: '/rustc/library/core/src/option.rs', lines 708:4-708:95
     Name pattern: [core::option::{core::option::Option<@T>}::is_none_or]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<@T>}::is_none_or"]
@@ -147,14 +150,14 @@ axiom core.option.Option.is_none_or
   Option T → T1 → Result Bool
 
 /-- [core::option::{core::option::Option<T>}::as_ref]:
-    Source: '/rustc/library/core/src/option.rs', lines 741:4-741:44
+    Source: '/rustc/library/core/src/option.rs', lines 742:4-742:44
     Name pattern: [core::option::{core::option::Option<@T>}::as_ref]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<@T>}::as_ref"]
 axiom core.option.Option.as_ref {T : Type} : Option T → Result (Option T)
 
 /-- [core::option::{core::option::Option<T>}::unwrap_or_default]:
-    Source: '/rustc/library/core/src/option.rs', lines 1090:4-1092:27
+    Source: '/rustc/library/core/src/option.rs', lines 1091:4-1093:27
     Name pattern: [core::option::{core::option::Option<@T>}::unwrap_or_default]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<@T>}::unwrap_or_default"]
@@ -163,7 +166,7 @@ axiom core.option.Option.unwrap_or_default
   Option T → Result T
 
 /-- [core::option::{core::option::Option<T>}::map]:
-    Source: '/rustc/library/core/src/option.rs', lines 1157:4-1159:53
+    Source: '/rustc/library/core/src/option.rs', lines 1158:4-1160:53
     Name pattern: [core::option::{core::option::Option<@T>}::map]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<@T>}::map"]
@@ -173,7 +176,7 @@ axiom core.option.Option.map
   Option T → F → Result (Option U)
 
 /-- [core::option::{core::option::Option<T>}::map_or]:
-    Source: '/rustc/library/core/src/option.rs', lines 1221:4-1224:28
+    Source: '/rustc/library/core/src/option.rs', lines 1222:4-1225:28
     Name pattern: [core::option::{core::option::Option<@T>}::map_or]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<@T>}::map_or"]
@@ -182,16 +185,8 @@ axiom core.option.Option.map_or
   core.ops.function.FnOnce F T U) :
   Option T → U → F → Result U
 
-/-- [core::option::{core::option::Option<T>}::ok_or]:
-    Source: '/rustc/library/core/src/option.rs', lines 1334:4-1334:73
-    Name pattern: [core::option::{core::option::Option<@T>}::ok_or]
-    Visibility: public -/
-@[rust_fun "core::option::{core::option::Option<@T>}::ok_or"]
-axiom core.option.Option.ok_or
-  {T : Type} {E : Type} : Option T → E → Result (core.result.Result T E)
-
 /-- [core::option::{core::option::Option<T>}::or]:
-    Source: '/rustc/library/core/src/option.rs', lines 1618:4-1620:28
+    Source: '/rustc/library/core/src/option.rs', lines 1617:4-1619:28
     Name pattern: [core::option::{core::option::Option<@T>}::or]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<@T>}::or"]
@@ -199,7 +194,7 @@ axiom core.option.Option.or
   {T : Type} : Option T → Option T → Result (Option T)
 
 /-- [core::option::{core::option::Option<(T, U)>}::unzip]:
-    Source: '/rustc/library/core/src/option.rs', lines 2111:4-2111:48
+    Source: '/rustc/library/core/src/option.rs', lines 2107:4-2107:48
     Name pattern: [core::option::{core::option::Option<(@T, @U)>}::unzip]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<(@T, @U)>}::unzip"]
@@ -207,7 +202,7 @@ axiom core.option.OptionPair.unzip
   {T : Type} {U : Type} : Option (T × U) → Result ((Option T) × (Option U))
 
 /-- [core::option::{core::option::Option<&'_0 T>}::copied]:
-    Source: '/rustc/library/core/src/option.rs', lines 2135:4-2137:16
+    Source: '/rustc/library/core/src/option.rs', lines 2131:4-2133:16
     Name pattern: [core::option::{core::option::Option<&'0 @T>}::copied]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<&'0 @T>}::copied"]
@@ -216,7 +211,7 @@ axiom core.option.OptionShared0T.copied
   Option T → Result (Option T)
 
 /-- [core::option::{core::option::Option<&'_0 T>}::cloned]:
-    Source: '/rustc/library/core/src/option.rs', lines 2161:4-2163:17
+    Source: '/rustc/library/core/src/option.rs', lines 2157:4-2159:17
     Name pattern: [core::option::{core::option::Option<&'0 @T>}::cloned]
     Visibility: public -/
 @[rust_fun "core::option::{core::option::Option<&'0 @T>}::cloned"]
@@ -225,7 +220,7 @@ axiom core.option.OptionShared0T.cloned
   Option T → Result (Option T)
 
 /-- [core::option::{impl core::ops::try_trait::Try for core::option::Option<T>}::branch]:
-    Source: '/rustc/library/core/src/option.rs', lines 2779:4-2779:64
+    Source: '/rustc/library/core/src/option.rs', lines 2868:4-2868:64
     Name pattern: [core::option::{core::ops::try_trait::Try<core::option::Option<@T>>}::branch]
     Visibility: public -/
 @[rust_fun
@@ -236,7 +231,7 @@ axiom core.option.Option.Insts.CoreOpsTry_traitTry.branch
     core.convert.Infallible) T)
 
 /-- [core::option::{impl core::ops::try_trait::FromResidual<core::option::Option<core::convert::Infallible>> for core::option::Option<T>}::from_residual]:
-    Source: '/rustc/library/core/src/option.rs', lines 2793:4-2793:67
+    Source: '/rustc/library/core/src/option.rs', lines 2882:4-2882:67
     Name pattern: [core::option::{core::ops::try_trait::FromResidual<core::option::Option<@T>, core::option::Option<core::convert::Infallible>>}::from_residual]
     Visibility: public -/
 @[rust_fun
@@ -244,16 +239,6 @@ axiom core.option.Option.Insts.CoreOpsTry_traitTry.branch
 axiom
   core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
   (T : Type) : Option core.convert.Infallible → Result (Option T)
-
-/-- [core::result::{core::result::Result<T, E>}::map_err]:
-    Source: '/rustc/library/core/src/result.rs', lines 962:4-964:53
-    Name pattern: [core::result::{core::result::Result<@T, @E>}::map_err]
-    Visibility: public -/
-@[rust_fun "core::result::{core::result::Result<@T, @E>}::map_err"]
-axiom core.result.Result.map_err
-  {T : Type} {E : Type} {F : Type} {O : Type} (opsfunctionFnOnceOTupleEFInst :
-  core.ops.function.FnOnce O E F) :
-  core.result.Result T E → O → Result (core.result.Result T F)
 
 /-- [core::tuple::{impl core::cmp::PartialEq<(U, T)> for (U, T)}::ne]:
     Source: '/rustc/library/core/src/tuple.rs', lines 34:16-34:55
@@ -297,7 +282,7 @@ axiom Pair.Insts.CoreCmpOrd.cmp
   (U × T) → (U × T) → Result Ordering
 
 /-- [std::collections::hash::map::{std::collections::hash::map::HashMap<K, V, S, A>}::get]:
-    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 1035:4-1038:21
+    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 1034:4-1037:21
     Name pattern: [std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, @S, @A>}::get]
     Visibility: public -/
 @[rust_fun
@@ -311,7 +296,7 @@ axiom std.collections.hash.map.HashMap.get
   std.collections.hash.map.HashMap K V S A → Q → Result (Option V)
 
 /-- [std::collections::hash::map::{std::collections::hash::map::HashMap<K, V, S, A>}::insert]:
-    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 1333:4-1333:53
+    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 1332:4-1332:53
     Name pattern: [std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, @S, @A>}::insert]
     Visibility: public -/
 @[rust_fun
@@ -354,7 +339,7 @@ axiom
   : std.hash.random.RandomState → Result std.hash.random.DefaultHasher
 
 /-- [alloc::collections::btree::map::entry::{alloc::collections::btree::map::entry::VacantEntry<'a, K, V, A>}::insert]:
-    Source: '/rustc/library/alloc/src/collections/btree/map/entry.rs', lines 359:4-359:46
+    Source: '/rustc/library/alloc/src/collections/btree/map/entry.rs', lines 425:4-425:46
     Name pattern: [alloc::collections::btree::map::entry::{alloc::collections::btree::map::entry::VacantEntry<'a, @K, @V, @A>}::insert]
     Visibility: public -/
 @[rust_fun
@@ -408,7 +393,7 @@ axiom
     (alloc.vec.into_iter.IntoIter T))
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::reserve]:
-    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 1470:4-1470:48
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 1460:4-1460:48
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::reserve]
     Visibility: public -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::reserve"]
@@ -417,7 +402,7 @@ axiom alloc.vec.Vec.reserve
   alloc.vec.Vec T → Std.Usize → Result (alloc.vec.Vec T)
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::pop]:
-    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2850:4-2850:38
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2872:4-2872:38
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::pop]
     Visibility: public -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::pop"]
@@ -426,7 +411,7 @@ axiom alloc.vec.Vec.pop
   alloc.vec.Vec T → Result ((Option T) × (alloc.vec.Vec T))
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::is_empty]:
-    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 3085:4-3085:40
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 3125:4-3125:40
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::is_empty]
     Visibility: public -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::is_empty"]

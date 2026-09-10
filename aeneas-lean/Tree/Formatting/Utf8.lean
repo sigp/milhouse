@@ -24,7 +24,7 @@ private theorem byteArray_toList (bytes : ByteArray) :
 
 theorem utf8_toStr (s : String) (h : s.toByteArray.size ≤ Std.U32.max) :
     utf8 (toStr s h).val = ok s := by
-  simp only [utf8, toStr, List.map_map, byteArray_toList]
+  simp only [utf8, toStr, Slice.from_val, List.map_map, byteArray_toList]
   change (match String.fromUTF8?
       ⟨(s.toByteArray.data.toList.map fun x => UInt8.ofNat x.toNat).toArray⟩ with
       | some output => ok output
