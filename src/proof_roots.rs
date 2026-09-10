@@ -36,6 +36,35 @@ pub fn max_map_max_index<T, M: UpdateMap<T>>(map: &crate::update_map::MaxMap<M>)
     map.max_index()
 }
 
+pub fn max_map_get_mut_with<T, M: UpdateMap<T>, F: FnOnce(usize) -> Option<T>>(
+    map: &mut crate::update_map::MaxMap<M>,
+    key: usize,
+    fallback: F,
+) -> Option<&mut T> {
+    map.get_mut_with(key, fallback)
+}
+
+pub fn max_map_get_cow_with_value<'a, T: Clone + 'a, M: UpdateMap<T>>(
+    map: &'a mut crate::update_map::MaxMap<M>,
+    key: usize,
+    value: Option<&'a T>,
+) -> Option<crate::Cow<'a, T>> {
+    map.get_cow_with_value(key, value)
+}
+
+pub fn max_map_get_cow_with<
+    'a,
+    T: Clone + 'a,
+    M: UpdateMap<T>,
+    F: FnOnce(usize) -> Option<&'a T>,
+>(
+    map: &'a mut crate::update_map::MaxMap<M>,
+    key: usize,
+    fallback: F,
+) -> Option<crate::Cow<'a, T>> {
+    map.get_cow_with(key, fallback)
+}
+
 pub fn progressive_list_eq<T: Value, U: UpdateMap<T> + PartialEq>(
     left: &ProgressiveList<T, U>,
     right: &ProgressiveList<T, U>,

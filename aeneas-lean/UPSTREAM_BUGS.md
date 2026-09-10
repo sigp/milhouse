@@ -316,6 +316,18 @@ standard `Result::branch` model returns only `ControlFlow`. Namespace-safe
 `inner`/`handle` bindings avoid issue 7. The public API, successful/error
 mutation order, and number of clones are unchanged.
 
+The same borrowed-`Try` mismatch occurs in the three `MaxMap` wrappers
+`get_mut_with`, `get_cow_with`, and `get_cow_with_value`. The isolated probe
+`/tmp/milhouse-max-map-borrows-itf7o8f9/` generates all three bodies, but their
+`Option::branch` calls expect a backward continuation absent from the helper
+signature. Including the actual `core::option::_::branch` and `from_residual`
+source bodies does not fix it: `mutable-source-try/Funs-lean.log` reports
+`expected a product type, got ControlFlow ...` at the generated call.
+The wrappers now use explicit `Some`/`None` matches, preserving their call
+order, early returns, metadata updates, and clone behavior. CoW locals use
+`handle` because `cow` shadows the generated `cow.Cow` namespace (issue 7).
+No Rust bug or change to Aeneas is involved in this workaround.
+
 The complete extraction now includes the actual public `Cow::into_mut` and
 its write-back continuation. `Tree/Cow/EntryModels.lean` supplies the reached
 external vacant-entry insertion models; the former `Unit` placeholders now

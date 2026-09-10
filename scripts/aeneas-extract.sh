@@ -44,6 +44,8 @@
 #   and make_mut still hit borrowed-field failures; see UPSTREAM_BUGS.md.
 # - MaxMap default/get/insert/len/max_index callers expose the actual wrapper
 #   bodies and cached-maximum updates over an abstract inner UpdateMap.
+#   Mutable and CoW callers are included too; explicit Option matches avoid
+#   the borrowed Try interface mismatch (UPSTREAM_BUGS.md issue 9).
 # - Progressive CoW constructors are included; next_cow still loses borrowed
 #   symbolic values during translation (UPSTREAM_BUGS.md issue 16).
 # - ProgressiveList TreeHash classification and packing rejection are included.
@@ -184,3 +186,6 @@ perl -0pi -e 's/\btoStr(\s+"(?:[^"\\]|\\.)*")/toStr$1 (by rw [U32.max_eq]; cbv)/
 # Unit. The currently reached fragment uses only default formatting options.
 perl -0pi -e 's/\bcore\.fmt\./milhouse_fmt./g' \
     aeneas-lean/Tree/Funs.lean
+
+# The formatter can emit a trailing space when wrapping a function signature.
+sed -i 's/[[:blank:]]*$//' aeneas-lean/Tree/Funs.lean

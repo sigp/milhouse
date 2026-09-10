@@ -272,7 +272,11 @@ where
     where
         F: FnOnce(usize) -> Option<T>,
     {
-        let value = self.inner.get_mut_with(k, f)?;
+        // Keep borrowed Option results out of Aeneas's Try translation.
+        let value = match self.inner.get_mut_with(k, f) {
+            Some(value) => value,
+            None => return None,
+        };
         self.max_index.record_insert(k);
         Some(value)
     }
@@ -283,9 +287,12 @@ where
         T: Clone + 'a,
     {
         let Self { inner, max_index } = self;
-        let cow = inner.get_cow_with(k, f)?;
+        let handle = match inner.get_cow_with(k, f) {
+            Some(handle) => handle,
+            None => return None,
+        };
 
-        Some(cow.with_max_index(max_index, k))
+        Some(handle.with_max_index(max_index, k))
     }
 
     fn get_cow_with_value<'a>(&'a mut self, k: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
@@ -293,9 +300,12 @@ where
         T: Clone + 'a,
     {
         let Self { inner, max_index } = self;
-        let cow = inner.get_cow_with_value(k, value)?;
+        let handle = match inner.get_cow_with_value(k, value) {
+            Some(handle) => handle,
+            None => return None,
+        };
 
-        Some(cow.with_max_index(max_index, k))
+        Some(handle.with_max_index(max_index, k))
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
