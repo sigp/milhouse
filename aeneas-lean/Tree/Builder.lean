@@ -2406,22 +2406,24 @@ theorem vec_pop_append_last {A X : Type}
         rest.val = items := by
   have bound : (items ++ [last]).length ≤ Usize.max := by
     simpa [hsource] using source.property
-  let explicit : alloc.vec.Vec X := ⟨items ++ [last], bound⟩
+  let explicit : alloc.vec.Vec X := alloc.vec.Vec.from (items ++ [last]) bound
   have hexplicit : source = explicit := by
-    apply Subtype.ext
+    apply alloc.vec.Vec.ext
     simpa [explicit] using hsource
   subst source
-  let rest : alloc.vec.Vec X := ⟨items, by
+  let rest : alloc.vec.Vec X := alloc.vec.Vec.from items (by
     have hle : items.length ≤ (items ++ [last]).length := by simp
-    exact hle.trans bound⟩
-  refine ⟨rest, ?_, rfl⟩
+    exact hle.trans bound)
+  refine ⟨rest, ?_, by simp [rest]⟩
   have hreverse : (items ++ [last]).reverse = last :: items.reverse := by simp
   unfold alloc.vec.Vec.pop
   split
   · rename_i hempty
+    simp only [explicit, alloc.vec.Vec.from_val] at hempty
     rw [hreverse] at hempty
     simp at hempty
   · rename_i head tail hcons
+    simp only [explicit, alloc.vec.Vec.from_val] at hcons
     rw [hreverse] at hcons
     cases hcons
     simp [rest]
@@ -2441,8 +2443,8 @@ private theorem vec_pop_some_values {A X : Type}
         source.val = source.val.reverse.reverse := by simp
         _ = (head :: tail).reverse := by rw [hreverse]
         _ = tail.reverse ++ [head] := by simp
-    have hrest_values : tail.reverse = rest.val :=
-      congrArg Subtype.val hrest
+    have hrest_values : tail.reverse = rest.val := by
+      simpa only [alloc.vec.Vec.from_val] using congrArg (fun v : alloc.vec.Vec X => v.val) hrest
     rw [hrest_values] at hsource
     exact hsource
 
@@ -2830,13 +2832,13 @@ private theorem push_loop0_follows_merge_plan {T : Type}
     have hbound : (base_stack ++ [left]).length ≤ Usize.max := by
       simpa [hstack] using stack.property
     let source : alloc.vec.Vec (utils.MaybeArced (Tree T)) :=
-      ⟨base_stack ++ [left], hbound⟩
+      alloc.vec.Vec.from (base_stack ++ [left]) hbound
     have hsource : stack = source := by
-      apply Subtype.ext
+      apply alloc.vec.Vec.ext
       simpa [source] using hstack
     subst stack
     obtain ⟨rest, hpop, hrest⟩ :=
-      vec_pop_append_last (A := Global) source base_stack left rfl
+      vec_pop_append_last (A := Global) source base_stack left (by simp [source])
     rw [push_loop0_step] at hloop
     unfold builder.Builder.push_loop0.body at hloop
     simp [hnext, hpop, core.option.Option.ok_or,
@@ -2888,13 +2890,13 @@ private theorem push_node_loop_follows_merge_plan {T : Type}
     have hbound : (base_stack ++ [left]).length ≤ Usize.max := by
       simpa [hstack] using stack.property
     let source : alloc.vec.Vec (utils.MaybeArced (Tree T)) :=
-      ⟨base_stack ++ [left], hbound⟩
+      alloc.vec.Vec.from (base_stack ++ [left]) hbound
     have hsource : stack = source := by
-      apply Subtype.ext
+      apply alloc.vec.Vec.ext
       simpa [source] using hstack
     subst stack
     obtain ⟨rest, hpop, hrest⟩ :=
-      vec_pop_append_last (A := Global) source base_stack left rfl
+      vec_pop_append_last (A := Global) source base_stack left (by simp [source])
     rw [push_node_loop_step] at hloop
     unfold builder.Builder.push_node_loop.body at hloop
     simp [hnext, hpop, maybeArced_arced, htop, merge_eq] at hloop

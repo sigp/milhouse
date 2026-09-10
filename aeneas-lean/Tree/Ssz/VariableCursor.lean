@@ -50,15 +50,15 @@ private theorem variable_decodes_suffix {T : Type}
       have hb := bytes.property
       simp only [Slice.length] at hlength
       omega
-    let part : Slice Std.U8 := ⟨encode value, hpartBound⟩
+    let part : Slice Std.U8 := Slice.from (encode value) hpartBound
     cases values with
     | nil =>
       have heq : index = count := by
         apply UScalar.eq_of_val_eq
         simpa using hcount
       have hpart : bytes.drop offset = part := by
-        apply Subtype.ext
-        simpa only [Slice.drop, _root_.List.flatMap_cons, _root_.List.flatMap_nil,
+        apply Slice.ext
+        simpa only [part, Slice.drop, Slice.from_val, _root_.List.flatMap_cons, _root_.List.flatMap_nil,
           _root_.List.append_nil] using hpayload
       have hitem := SszItems.variable_item_last bytes first count offset hoffsetBound
       rw [hpart] at hitem
@@ -66,7 +66,7 @@ private theorem variable_decodes_suffix {T : Type}
       exact .cons
         (SszItems.next_variable_step bytes first count index successor offset offset
           (.Ok part) hlive hsuccessor (by simpa only [heq] using hitem))
-        (hdecode value (by simp) part rfl)
+        (hdecode value (by simp) part (by simp [part]))
         (.exhausted (SszItems.next_variable_exhausted bytes first count successor offset
           (by rw [hsuccessor, heq]; omega)))
     | cons nextValue rest =>
@@ -82,7 +82,8 @@ private theorem variable_decodes_suffix {T : Type}
         omega
       let position := usizeOfBound (4 * index.val) hpositionBound
       let tableTail := bytes.drop position
-      have htail : tableTail.val = bytes.val.drop (4 * index.val) := rfl
+      have htail : tableTail.val = bytes.val.drop (4 * index.val) := by
+        simp [tableTail, Slice.drop, position, usizeOfBound]
       have htableTail : tableTail.val =
           _root_.ssz.encode.offsets encode nextOffset.val (nextValue :: rest) ++ originalPayload := by
         have h := congrArg (_root_.List.drop 4) htable
@@ -105,9 +106,8 @@ private theorem variable_decodes_suffix {T : Type}
           originalPayload) hnextFit.1
         (by simpa only [_root_.ssz.encode.offsets, _root_.List.append_assoc] using htableTail)
       have hpart : part.val = bytes.val.slice offset.val nextOffset.val := by
-        simp only [_root_.List.slice, hpayload, _root_.List.flatMap_cons, hnextOffset,
+        simp only [part, Slice.from_val, _root_.List.slice, hpayload, _root_.List.flatMap_cons, hnextOffset,
           Nat.add_sub_cancel_left, _root_.List.take_left]
-        rfl
       have hitem := SszItems.variable_item_between bytes part tableTail first count index
         offset nextOffset (by intro h; subst index; simp only [_root_.List.length_cons] at hcount; omega)
         (by omega) htail hread (by rw [hnextOffset]; omega) (by rw [hnextOffset]; omega)
@@ -115,7 +115,7 @@ private theorem variable_decodes_suffix {T : Type}
       apply SszItems.Decodes.cons
         (SszItems.next_variable_step bytes first count index successor offset nextOffset
           (.Ok part) hlive hsuccessor hitem)
-        (hdecode value (by simp) part rfl)
+        (hdecode value (by simp) part (by simp [part]))
       apply ih successor nextOffset (by rw [hsuccessor]; omega)
         (by simp only [_root_.List.length_cons] at hcount ⊢; omega)
         (by rw [hnextOffset]; omega) (by rw [hnextOffset]; omega)

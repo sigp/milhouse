@@ -20,7 +20,7 @@ theorem Tree.StructuralEq.get_recursive_eq {T : Type} (ValueInst : Value T)
   | PackedLeaf value =>
     cases other <;> simp only [Tree.StructuralEq] at heq
     rename_i otherValue
-    have hvalues : value.values = otherValue.values := Subtype.ext heq
+    have hvalues : value.values = otherValue.values := alloc.vec.Vec.ext _ _ heq
     simp only [Tree.get_recursive, hvalues]
   | Node hash left right ihLeft ihRight =>
     cases other <;> simp only [Tree.StructuralEq] at heq
