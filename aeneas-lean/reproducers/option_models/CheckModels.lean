@@ -13,8 +13,7 @@ theorem option_is_some_and_agrees {T F : Type}
       core.option.Option.is_some_and inst value f := by
   cases value with
   | none => rfl
-  | some value =>
-    simp only [OptionSource.core.option.Option.is_some_and, core.option.Option.is_some_and]
+  | some _ => rfl
 
 theorem option_is_none_or_agrees {T F : Type}
     (inst : core.ops.function.FnOnce F T Bool) (value : Option T) (f : F) :
@@ -22,16 +21,14 @@ theorem option_is_none_or_agrees {T F : Type}
       core.option.Option.is_none_or inst value f := by
   cases value with
   | none => rfl
-  | some value =>
-    simp only [OptionSource.core.option.Option.is_none_or, core.option.Option.is_none_or]
+  | some _ => rfl
 
 theorem option_map_agrees {T U F : Type}
     (inst : core.ops.function.FnOnce F T U) (value : Option T) (f : F) :
     OptionSource.core.option.Option.map inst value f = core.option.Option.map inst value f := by
   cases value with
   | none => rfl
-  | some value =>
-    simp only [OptionSource.core.option.Option.map, core.option.Option.map]
+  | some _ => rfl
 
 theorem option_map_or_agrees {T U F : Type}
     (inst : core.ops.function.FnOnce F T U) (value : Option T) (fallback : U) (f : F) :
@@ -39,8 +36,7 @@ theorem option_map_or_agrees {T U F : Type}
       core.option.Option.map_or inst value fallback f := by
   cases value with
   | none => rfl
-  | some value =>
-    simp only [OptionSource.core.option.Option.map_or, core.option.Option.map_or]
+  | some _ => rfl
 
 theorem option_unwrap_or_default_agrees {T : Type}
     (inst : core.default.Default T) (value : Option T) :
