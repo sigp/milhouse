@@ -36,9 +36,14 @@ theorem fixed_eq_agrees {N : Std.Usize} (left right : Array Std.U8 N) :
       left.to_slice right.to_slice (by
         intro x y
         simp [liftFun2, WP.spec_ok]))
-  change core.slice.cmp.PartialEqSlice.eq core.cmp.PartialEqU8
-      left.to_slice right.to_slice = ok (decide (left.val = right.val))
-  rw [hrun]
+  have harray : core.array.equality.PartialEqArray.eq core.cmp.PartialEqU8
+      left right = ok answer := by
+    simpa only [core.array.equality.PartialEqArray.eq,
+      core.slice.cmp.PartialEqSlice.eq, Array.length_to_slice,
+      Array.val_to_slice, Array.length_eq, Array.length] using hrun
+  change core.array.equality.PartialEqArray.eq core.cmp.PartialEqU8
+      left right = ok (decide (left.val = right.val))
+  rw [harray]
   congr 1
   apply Bool.eq_iff_iff.mpr
   simpa only [Slice.eq_iff, Array.val_to_slice, decide_eq_true_eq] using hanswer
