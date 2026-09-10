@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_binary_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_binary_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,45 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The progressive/list clone-identity review (`6f2915e`, list necessity
+`5e01cf9`, progressive necessity `18b4833`, selected slots `b1246e7`) proves
+that successful dense materialization forces every selected pending clone and
+retained stored clone to preserve its value. Selected-slot routing recovers
+both the original binary input and its actual rebuilt result without shape,
+density, range, clone, or termination laws. Progressive necessity uses layout,
+input shape, and correct mathematical suffix slots, with no capacity law.
+At the list boundary, input representation and backing validity supply the
+overlay; output density and exact stored contents supply correctness, without
+assuming output capacity validity or any range, maximum, default, or clone law.
+
+Four public existence criteria now assume no clone or termination law upfront.
+Selected `BulkCloneLaws` appear on the necessary-and-sufficient side, combining
+termination of all copied storage with identity only for retained slots and
+pending values. Overwritten stored copies may change value. Query termination,
+start, occupied capacity, positive progressive selection, skipped-layer/suffix
+agreement, and actual default construction remain part of the criterion.
+Selected binary reflection, layout, and input invariants remain upfront.
+The representation variants add exact default-map extent and self-overlay;
+the no-op requires valid backing already storing the contents and no rebuilding
+laws. Output backing validity remains part of the result, so stored-list
+equality alone is a weaker observation.
+
+Focused and full builds pass (2,125 jobs). The axiom/import audit covers
+5,897 declarations across 409 modules: 5,778 use only standard Lean axioms or
+none, and 119 use the existing Arc pointer contract. All ten new public lemmas
+use standard Lean axioms; private/generated declarations are included in the
+inventory. No new axiom or admission was introduced. External axiom use is
+unchanged, and `size_of` remains unused. Existing success, total, and cache
+proofs validate.
+
+Binary range and geometry minimality, borrowed CoW, and model fidelity remain
+unfinished. No Rust, extraction, external model, or Aeneas source changed;
+the seven source suites and 42-root/151-declaration dependency gate were not
+repeated for this proof-only work. Debug and Serde remain excluded; TreeHash
+is deferred outside the goal.
+
+Previous binary clone-identity checkpoint:
 
 The clone-identity review (`c3b836b`, terminal/routing lemmas `ba2a10c`,
 packed identity `e6ea416`, actual clone tracking `1bc9b38`) proves that correct
