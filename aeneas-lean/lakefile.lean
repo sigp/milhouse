@@ -1,11 +1,11 @@
 import Lake
 open Lake DSL
 
--- Path to a checkout of https://github.com/AeneasVerif/aeneas with the Lean
--- backend; override with `lake build -Kaeneas=/path/to/aeneas/backends/lean`
--- if it does not sit next to the milhouse repository.
+-- Install the pinned official bundle with `python3 scripts/aeneas_toolchain.py`
+-- from the repository root. An explicit backend path remains available with
+-- `lake build -Kaeneas=/path/to/aeneas/backends/lean`.
 require aeneas from
-  (get_config? aeneas |>.getD "../../aeneas/backends/lean")
+  (get_config? aeneas |>.getD ".lake/aeneas/backends/lean")
 
 package «tree» {}
 

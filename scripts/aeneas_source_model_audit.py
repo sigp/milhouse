@@ -13,8 +13,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+from aeneas_toolchain import PIN_PATH, default_bundle, load_pin
 
-TOOLCHAIN = "nightly-2026-08-18"
+
+PIN = load_pin()
+TOOLCHAIN = PIN["rustToolchain"]
 
 
 def source_span(meta):
@@ -419,8 +422,8 @@ def main(suite):
     lean_project = repo / "aeneas-lean"
     sources = lean_project / "reproducers" / suite["directory"]
     parser = argparse.ArgumentParser(description=suite["description"])
-    parser.add_argument("--charon", default=os.environ.get("CHARON", str(repo.parent / "aeneas/charon/bin/charon")))
-    parser.add_argument("--aeneas", default=os.environ.get("AENEAS", str(repo.parent / "aeneas/bin/aeneas")))
+    parser.add_argument("--charon", default=os.environ.get("CHARON", str(default_bundle(repo) / "charon")))
+    parser.add_argument("--aeneas", default=os.environ.get("AENEAS", str(default_bundle(repo) / "aeneas")))
     parser.add_argument("--output", type=Path, default=lean_project / ".lake" / (suite["name"] + "-model-audit"))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
@@ -449,9 +452,9 @@ def main(suite):
         "miri": run("miri-version", ["cargo", "+" + TOOLCHAIN, "miri", "--version"]),
         "rustfmt": run("rustfmt-version", ["rustfmt", "+" + TOOLCHAIN, "--version"]),
     }
-    if (versions["charon"] != "0.1.251 (85bba1f2a64ded1704586cdc26dfb62aeb4b7168)" or versions["aeneas"] != "aeneas nightly-2026.09.08-7ebd01d"
+    if (versions["charon"] != PIN["charonVersion"] or versions["aeneas"] != PIN["aeneasVersion"]
             or versions["toolchain"] != TOOLCHAIN
-            or "8fa1c96cfd489e4c27654c144ae871ce2c4db6c6" not in versions["rustc"]):
+            or PIN["rustcCommit"] not in versions["rustc"]):
         raise ValueError("Tool versions changed; review the source comparison before updating pins")
     dependency_sources = []
     cargo = suite.get("cargo_dependency")
@@ -588,6 +591,7 @@ def main(suite):
             checked_axioms = check_axiom_output(output, suite["proofs"])
     inputs = [sources / "source.rs", sources / "CheckModels.lean"]
     inputs += [Path(__file__).resolve(), Path(sys.argv[0]).resolve()]
+    inputs += [PIN_PATH, repo / "scripts/aeneas_toolchain.py"]
     inputs += [lean_project / path for path in suite.get("model_files", ["Tree/FunsExternal.lean"])]
     if cargo:
         inputs += [sources / "Cargo.toml", sources / "Cargo.lock"]

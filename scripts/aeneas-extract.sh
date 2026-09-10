@@ -4,9 +4,9 @@
 # Produces `tree.llbc` (Charon's LLBC dump) and regenerates the generated
 # files in `aeneas-lean/Tree/` (the hand-written `TypesExternal.lean` and
 # `FunsExternal.lean` are not touched; diff the `*_Template.lean` files after
-# regenerating to see if the external interface changed). Requires a checkout
-# of https://github.com/AeneasVerif/aeneas with `charon` and `aeneas` built;
-# defaults assume it sits next to this repo.
+# regenerating to see if the external interface changed). Install the pinned
+# official compiler bundle with `python3 scripts/aeneas_toolchain.py` first.
+# CHARON/AENEAS overrides and the legacy AENEAS_DIR checkout layout are supported.
 #
 # Check the result elaborates with: cd aeneas-lean && lake build
 #
@@ -59,9 +59,20 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-AENEAS_DIR="${AENEAS_DIR:-../aeneas}"
-CHARON="${CHARON:-$AENEAS_DIR/charon/bin/charon}"
-AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
+if [[ -n "${AENEAS_DIR:-}" ]]; then
+    CHARON="${CHARON:-$AENEAS_DIR/charon/bin/charon}"
+    AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
+else
+    CHARON="${CHARON:-aeneas-lean/.lake/aeneas/charon}"
+    AENEAS="${AENEAS:-aeneas-lean/.lake/aeneas/aeneas}"
+fi
+
+# Dependency bodies require Miri's full-MIR sysroot. The optimized fallback
+# can inline operations that Aeneas cannot translate across its model boundary.
+charon_toolchain="$("$CHARON" toolchain-version)"
+cargo "+$charon_toolchain" miri --version >/dev/null
+charon_log="$(mktemp -t milhouse-charon-XXXXXX)"
+trap 'rm -f -- "$charon_log"' EXIT
 
 "$CHARON" cargo --preset=aeneas \
     --rustc-arg=--cfg=milhouse_aeneas \
@@ -154,7 +165,12 @@ AENEAS="${AENEAS:-$AENEAS_DIR/bin/aeneas}"
     --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \
     --include 'ssz::decode::DecodeError' \
-    --dest-file tree.llbc -- --features arbitrary
+    --dest-file tree.llbc -- --features arbitrary 2>&1 | tee "$charon_log"
+
+if rg -q -F "falling back to rustc's default sysroot" "$charon_log"; then
+    echo "Charon did not use a full-MIR sysroot; resolve the Miri setup failure before extraction." >&2
+    exit 1
+fi
 
 "$AENEAS" -backend lean -split-files -dest aeneas-lean/Tree tree.llbc
 
