@@ -39,7 +39,15 @@ theorem vec_clone_mapM {T : Type} (cloneInst : core.clone.Clone T)
     _root_.List.mapM cloneInst.clone self.val = ok copied.val := by
   unfold alloc.vec.CloneVec.clone Slice.clone Aeneas.Std.List.clone at hclone
   split at hclone <;> simp_all
-  exact congrArg (fun value : alloc.vec.Vec T => value.val) (Result.ok.inj hclone)
+  have hvalues := congrArg (fun value : alloc.vec.Vec T => value.val) hclone
+  simp_all [alloc.vec.Vec.val]
+
+/-- The vector wrapper preserves the length of its successfully cloned slice. -/
+theorem vec_clone_length {T : Type} (cloneInst : core.clone.Clone T)
+    {self copied : alloc.vec.Vec T}
+    (hclone : alloc.vec.CloneVec.clone cloneInst self = ok copied) :
+    copied.val.length = self.val.length :=
+  List.mapM_Result_length (vec_clone_mapM cloneInst hclone)
 
 /-- Successful vector cloning preserves one optional lookup if the element
 at that position clones identically. Other element results may differ, and a

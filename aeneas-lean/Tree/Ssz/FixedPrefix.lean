@@ -21,7 +21,7 @@ theorem SszItems.fixed_decodes_prefix {T : Type}
     (.Fixed bytes width : SszItems).Decodes decode (values ++ suffixValues) error := by
   induction values generalizing bytes with
   | nil =>
-    have heq : bytes = suffix := Subtype.ext (by simpa using hbytes)
+    have heq : bytes = suffix := Slice.ext _ _ (by simpa using hbytes)
     simpa only [heq, _root_.List.nil_append] using hsuffix
   | cons value values ih =>
     have hhead := hwidth value (by simp)
@@ -31,14 +31,14 @@ theorem SszItems.fixed_decodes_prefix {T : Type}
       rw [hbytes] at hb
       simp only [_root_.List.flatMap_cons, _root_.List.length_append] at hb ⊢
       omega
-    let part : Slice Std.U8 := ⟨encode value, hpartBound⟩
-    let rest : Slice Std.U8 := ⟨values.flatMap encode ++ suffix.val, hrestBound⟩
+    let part : Slice Std.U8 := Slice.from (encode value) hpartBound
+    let rest : Slice Std.U8 := Slice.from (values.flatMap encode ++ suffix.val) hrestBound
     exact .cons
       (SszItems.next_fixed_full bytes part rest width
-        (by simpa only [_root_.List.flatMap_cons, _root_.List.append_assoc] using hbytes)
-        hhead hpositive)
-      (hdecode value (by simp) part rfl)
-      (ih rest rfl (fun value hv => hwidth value (by simp [hv]))
+        (by simpa only [part, rest, Slice.from_val, _root_.List.flatMap_cons, _root_.List.append_assoc] using hbytes)
+        (by simpa [part] using hhead) hpositive)
+      (hdecode value (by simp) part (by simp [part]))
+      (ih rest (by simp [rest]) (fun value hv => hwidth value (by simp [hv]))
         (fun value hv => hdecode value (by simp [hv])))
 
 /-- A nonempty final chunk at most one element wide is passed unchanged to
@@ -81,11 +81,11 @@ theorem SszItems.fixed_decodes_element_error {T : Type}
     rw [hbytes] at hb
     simp only [_root_.List.length_append] at hb ⊢
     omega
-  let suffix : Slice Std.U8 := ⟨invalid.val ++ unread.val, hsuffixBound⟩
+  let suffix : Slice Std.U8 := Slice.from (invalid.val ++ unread.val) hsuffixBound
   simpa only [_root_.List.append_nil] using SszItems.fixed_decodes_prefix decode encode width
     hpositive values [] bytes suffix (some error)
-    (by simpa only [_root_.List.append_assoc] using hbytes) hwidth hdecode
-    (.element_error (SszItems.next_fixed_full suffix invalid unread width rfl hinvalid hpositive)
+    (by simpa only [suffix, Slice.from_val, _root_.List.append_assoc] using hbytes) hwidth hdecode
+    (.element_error (SszItems.next_fixed_full suffix invalid unread width (by simp [suffix]) hinvalid hpositive)
       herror)
 
 end milhouse.ssz_items
