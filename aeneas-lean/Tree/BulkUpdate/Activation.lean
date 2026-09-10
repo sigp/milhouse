@@ -5,9 +5,10 @@ open milhouse
 
 namespace milhouse.tree
 
-/-- An unpacked leaf or internal binary node needs a pending value to start
-bulk rebuilding. A packed terminal scans its window and can also succeed with
-no pending values. This condition uses only input metadata and map lookups. -/
+/-- A pending-value start condition used with range reflection. An unpacked
+leaf or internal binary node is activated by a pending value; a packed terminal
+may also scan without one. Actual internal guards concern child range answers,
+so necessity of this value-based condition uses positive range witnesses. -/
 def BulkUpdateEnabled {T U : Type} (mapInst : update_map.UpdateMap U T) (updates : U)
     (factor : Option Std.Usize) (depth start : Nat) : Prop :=
   (depth = 0 ∧ factor ≠ none) ∨
