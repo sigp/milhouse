@@ -3,6 +3,7 @@ import Tree.ProgressiveTree.BulkUpdate.Range
 import Tree.ProgressiveTree.BulkUpdate.Steps
 import Tree.ProgressiveTree.BulkUpdate.LayerRangeScope
 import Tree.ProgressiveTree.BulkUpdate.LayerSkippedExtents
+import Tree.ProgressiveTree.BulkUpdate.BinarySkippedExtents
 import Tree.ProgressiveTree.Iter.Layer
 
 open Aeneas Aeneas.Std Result
@@ -364,6 +365,76 @@ theorem ProgressiveTree.with_updated_leaves_dense_of_range_extents {T U : Type}
     ValueInst mapInst updates hlayout hextent hdomain hlayers
     (fun maximum hmax layer start binary hvisit =>
       (hrange maximum hmax layer start binary hvisit).mono (fun _ _ h => h.preservesExtent hdomain))
+    hdense hfit hupdate
+
+/-- Skipped-layer value agreement supplies every false-answer extent law.
+Agreement also supplies false-answer extents inside selected binary layers.
+Only positive answers need numeric selection conditions; no binary reflection
+or independent false-answer extent law is required. -/
+theorem ProgressiveTree.with_updated_leaves_recursive_dense_of_skipped_ranges {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {maximum : Option Std.Usize} {oldLength : Nat} {newLength : Std.Usize}
+    (hextent : newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength))
+    (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
+    {before after : ProgressiveTree T} {depth : Std.U32}
+    (hselected : before.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst updates newLength.val)
+      ValueInst mapInst updates maximum depth)
+    (hagreement : before.BulkLayerSkippedValuesAgree ValueInst mapInst updates maximum newLength.val depth)
+    (hbinarySelected : before.BulkBinaryRangeOn (update_map.RangeSelectsInsideAt mapInst updates newLength.val)
+      ValueInst mapInst updates factor maximum depth)
+    (hbinaryAgreement : before.BulkBinarySkippedValuesAgree ValueInst mapInst updates factor maximum depth)
+    (hdense : before.Dense factor depth.val (oldLength - progressiveCapacity factor depth.val))
+    (hfit : before.Fits factor depth.val)
+    (hupdate : ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
+      ok (core.result.Result.Ok after)) :
+    after.Dense factor depth.val (newLength.val - progressiveCapacity factor depth.val) ∧
+      after.Fits factor depth.val := by
+  exact ProgressiveTree.with_updated_leaves_recursive_dense_of_all_range_extents ValueInst mapInst updates
+    hlayout hextent hdomain
+    (hagreement.preservesExtents hlayout hdense hfit hdomain.length_mono
+      (update_map.extensionComplete_of_denseUpdateDomain mapInst updates hdomain) hselected)
+    (hbinaryAgreement.preservesExtents hlayout hdense hdomain.length_mono
+      (update_map.extensionComplete_of_denseUpdateDomain mapInst updates hdomain) hbinarySelected)
+    hdense hfit hupdate
+
+/-- Public density from agreement in skipped progressive and binary ranges
+and positive numeric selection conditions. No range-value reflection or
+independent false-answer extent law is required. -/
+theorem ProgressiveTree.with_updated_leaves_dense_of_skipped_ranges {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {oldLength : Nat} {newLength : Std.Usize}
+    (hextent : ∀ maximum, mapInst.max_index updates = ok maximum →
+      newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength))
+    (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
+    {before after : ProgressiveTree T}
+    (hselected : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst updates newLength.val)
+        ValueInst mapInst updates maximum 0#u32)
+    (hagreement : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkLayerSkippedValuesAgree ValueInst mapInst updates maximum newLength.val 0#u32)
+    (hbinarySelected : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkBinaryRangeOn (update_map.RangeSelectsInsideAt mapInst updates newLength.val)
+        ValueInst mapInst updates factor maximum 0#u32)
+    (hbinaryAgreement : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkBinarySkippedValuesAgree ValueInst mapInst updates factor maximum 0#u32)
+    (hdense : before.Dense factor 0 oldLength) (hfit : before.Fits factor 0)
+    (hupdate : ProgressiveTree.with_updated_leaves ValueInst mapInst before updates =
+      ok (core.result.Result.Ok after)) :
+    after.Dense factor 0 newLength.val ∧ after.Fits factor 0 := by
+  have hdense' : before.Dense factor (0#u32).val
+      (oldLength - progressiveCapacity factor (0#u32).val) := by
+    simpa [progressiveCapacity] using hdense
+  exact ProgressiveTree.with_updated_leaves_dense_of_all_range_extents ValueInst mapInst updates
+    hlayout hextent hdomain
+    (fun maximum hmax => (hagreement maximum hmax).preservesExtents hlayout hdense' hfit hdomain.length_mono
+      (update_map.extensionComplete_of_denseUpdateDomain mapInst updates hdomain) (hselected maximum hmax))
+    (fun maximum hmax => (hbinaryAgreement maximum hmax).preservesExtents
+      hlayout hdense' hdomain.length_mono
+      (update_map.extensionComplete_of_denseUpdateDomain mapInst updates hdomain) (hbinarySelected maximum hmax))
     hdense hfit hupdate
 
 /-- Skipped-layer value agreement supplies every false-answer extent law.

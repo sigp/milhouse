@@ -114,6 +114,47 @@ theorem ProgressiveList.apply_updates_preserves_backing_of_range_extents {T U : 
         (fun _ _ h => h.preservesExtent hrep.dense_update_domain))
     hrep hbacking happly
 
+/-- Agreement with original values in skipped progressive and binary ranges
+supplies every false-answer extent law. Positive answers need only select an
+occupied final window. This preserves backing validity without range-value
+reflection or clone laws, including unchanged empty-map application. -/
+theorem ProgressiveList.apply_updates_preserves_backing_of_skipped_ranges {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hselected : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+        ValueInst mapInst self.updates maximum 0#u32)
+    (hagreement : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32)
+    (hbinarySelected : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hbinaryAgreement : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinarySkippedValuesAgree ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self =
+      ok (core.result.Result.Ok (), result)) :
+    result.BackingValid factor := by
+  apply ProgressiveList.apply_updates_preserves_backing_of_all_range_extents
+    ValueInst mapInst self contents hlayout _ _ hrep hbacking happly
+  · intro hempty maximum hmax
+    exact (hagreement hempty maximum hmax).preservesExtents (hlayout hempty)
+      (by simpa [progressive_tree.progressiveCapacity] using hbacking.1)
+      hbacking.2 hrep.dense_update_domain.length_mono hrep.extension_complete (hselected hempty maximum hmax)
+  · intro hempty maximum hmax
+    exact (hbinaryAgreement hempty maximum hmax).preservesExtents (hlayout hempty)
+      (by simpa [progressive_tree.progressiveCapacity] using hbacking.1)
+      hrep.dense_update_domain.length_mono hrep.extension_complete (hbinarySelected hempty maximum hmax)
+
 /-- Skipped-layer agreement supplies false-answer extents from the input
 representation and backing invariant. The remaining progressive range law
 constrains only positive answers, on nonempty application. -/
