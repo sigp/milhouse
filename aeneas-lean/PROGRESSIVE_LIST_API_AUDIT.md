@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_guards`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_binary_selection`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_binary_selection`, `ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_clones_skipped` (no range-value reflection; numeric binary selection remains); `ProgressiveList.apply_updates_preserves_backing_of_all_range_extents`, `ProgressiveList.apply_updates_preserves_backing_of_skipped_ranges` (backing preservation without range-value reflection); `ProgressiveList.apply_updates_nonempty_success_of_guards`, `ProgressiveList.apply_updates_nonempty_success_iff_guards`, `ProgressiveList.apply_updates_success_iff_guards` (execution without range correctness); `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_success_valid_materializes_iff_of_inputs`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_inputs`, `ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_selected_clones_skipped` (only layout and input representation/backing preconditions; clone/range conditions in the exact criterion); `ProgressiveList.apply_updates_total_spec_of_guards`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_binary_selection`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_binary_selection`, `ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_clones_skipped` (no range-value reflection; numeric binary selection remains); `ProgressiveList.apply_updates_preserves_backing_of_all_range_extents`, `ProgressiveList.apply_updates_preserves_backing_of_skipped_ranges` (backing preservation without range-value reflection); `ProgressiveList.apply_updates_nonempty_success_of_guards`, `ProgressiveList.apply_updates_nonempty_success_iff_guards`, `ProgressiveList.apply_updates_success_iff_guards` (execution without range correctness); `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,62 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The binary selection necessity review (`3cf17f1`, progressive/list necessity
+`22b4d2f`, binary necessity `453ef4c`) removes the remaining upfront numeric
+binary selection condition from the materialization criteria. Successful
+selected children rebuild to nonzero trees; dense output therefore forces their
+lengths positive. Binary `Selection.lean` proves that every selected query starts
+inside the final occupied window, using layout, prefix alignment, successful
+execution, and output density. It needs no input invariant, offset alignment,
+capacity, clone, range-value, or termination law. A clipped-prefix corollary
+converts the local occupied length to a global logical endpoint.
+
+`ProgressiveTree/BulkUpdate/BinarySelection.lean` recovers both an actual
+successful binary result and its exact clipped dense length at each selected
+layer. It then lifts numeric selection necessity to recursive and public
+progressive rebuilding. `ApplyUpdates/BinarySelection.lean` derives the condition
+from successful nonempty application and dense output alone, with layout but
+without input representation/backing, output capacity, default, clone, range,
+or termination assumptions.
+
+The new successful-result criterion in `SkippedConditions.lean` needs only
+layout and input representation/backing validity upfront. Selected clone
+identity, numeric selection, and all skipped-value agreements are jointly
+necessary and sufficient for valid materialization after actual success.
+`InputConditions.lean` gives four exact existence criteria, with or without
+final representation and across both branches. Positive binary selection is
+now on the necessary-and-sufficient side alongside reached-query termination,
+`BulkCloneLaws`, missing-update guards, progressive selection, all skipped-value
+agreements, final occupied capacity, and actual default construction. The
+representation variants additionally require the actual default map's exact
+extent and self-overlay.
+
+No separate clone, range, termination, guard-success, final-capacity, or
+default-success law is assumed upfront by those existence criteria. Layout and
+input representation/backing validity remain the explicit rebuilding
+preconditions. The no-op needs valid backing already storing the contents and
+no rebuilding conditions; its representation variant uses input representation.
+All existing public theorem names remain available. This closes binary
+selection necessity for these materialization contracts; it does not establish
+raw success alone implies density or complete the remaining input/geometry
+and model-fidelity audits.
+
+Focused and full builds pass (2,145 jobs). The axiom/import audit covers
+6,103 declarations across 429 modules: 5,984 use only standard Lean axioms or
+none, and 119 use the existing Arc pointer contract. All 11 new public lemmas
+use standard Lean axioms; private/generated declarations are included in the
+inventory. No new axiom or admission was introduced. External axiom use is
+unchanged, and `size_of` remains unused. Existing execution, total, and cache
+proofs validate.
+
+Work remains on geometry and input assumptions, borrowed CoW, and model
+fidelity. No Rust, extraction, external model, or Aeneas source changed; the
+seven source suites and 42-root/151-declaration dependency gate were not
+repeated for this proof-only work. Debug and Serde remain excluded; TreeHash
+is deferred outside the goal.
+
+Previous skipped-binary materialization checkpoint:
 
 The skipped-binary materialization review (`5108135`, successful-result
 criterion `92b365d`, total contracts `a8455fa`, progressive/list contents

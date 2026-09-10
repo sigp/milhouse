@@ -376,6 +376,59 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The binary selection necessity review (`3cf17f1`, progressive/list necessity
+  `22b4d2f`, binary necessity `453ef4c`) removes the remaining upfront numeric
+  binary selection condition from the materialization criteria. Successful
+  selected children rebuild to nonzero trees; dense output therefore forces their
+  lengths positive. Binary `Selection.lean` proves that every selected query starts
+  inside the final occupied window, using layout, prefix alignment, successful
+  execution, and output density. It needs no input invariant, offset alignment,
+  capacity, clone, range-value, or termination law. A clipped-prefix corollary
+  converts the local occupied length to a global logical endpoint.
+
+  `ProgressiveTree/BulkUpdate/BinarySelection.lean` recovers both an actual
+  successful binary result and its exact clipped dense length at each selected
+  layer. It then lifts numeric selection necessity to recursive and public
+  progressive rebuilding. `ApplyUpdates/BinarySelection.lean` derives the condition
+  from successful nonempty application and dense output alone, with layout but
+  without input representation/backing, output capacity, default, clone, range,
+  or termination assumptions.
+
+  The new successful-result criterion in `SkippedConditions.lean` needs only
+  layout and input representation/backing validity upfront. Selected clone
+  identity, numeric selection, and all skipped-value agreements are jointly
+  necessary and sufficient for valid materialization after actual success.
+  `InputConditions.lean` gives four exact existence criteria, with or without
+  final representation and across both branches. Positive binary selection is
+  now on the necessary-and-sufficient side alongside reached-query termination,
+  `BulkCloneLaws`, missing-update guards, progressive selection, all skipped-value
+  agreements, final occupied capacity, and actual default construction. The
+  representation variants additionally require the actual default map's exact
+  extent and self-overlay.
+
+  No separate clone, range, termination, guard-success, final-capacity, or
+  default-success law is assumed upfront by those existence criteria. Layout and
+  input representation/backing validity remain the explicit rebuilding
+  preconditions. The no-op needs valid backing already storing the contents and
+  no rebuilding conditions; its representation variant uses input representation.
+  All existing public theorem names remain available. This closes binary
+  selection necessity for these materialization contracts; it does not establish
+  raw success alone implies density or complete the remaining input/geometry
+  and model-fidelity audits.
+
+  Focused and full builds pass (2,145 jobs). The axiom/import audit covers
+  6,103 declarations across 429 modules: 5,984 use only standard Lean axioms or
+  none, and 119 use the existing Arc pointer contract. All 11 new public lemmas
+  use standard Lean axioms; private/generated declarations are included in the
+  inventory. No new axiom or admission was introduced. External axiom use is
+  unchanged, and `size_of` remains unused. Existing execution, total, and cache
+  proofs validate.
+
+  Work remains on geometry and input assumptions, borrowed CoW, and model
+  fidelity. No Rust, extraction, external model, or Aeneas source changed; the
+  seven source suites and 42-root/151-declaration dependency gate were not
+  repeated for this proof-only work. Debug and Serde remain excluded; TreeHash
+  is deferred outside the goal.
 - The skipped-binary materialization review (`5108135`, successful-result
   criterion `92b365d`, total contracts `a8455fa`, progressive/list contents
   `24607a2`, selected-layer reads and scope `3a7d3ce`) removes pending-value
