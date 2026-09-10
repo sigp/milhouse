@@ -376,6 +376,62 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The skipped-binary materialization review (`5108135`, successful-result
+  criterion `92b365d`, total contracts `a8455fa`, progressive/list contents
+  `24607a2`, selected-layer reads and scope `3a7d3ce`) removes pending-value
+  exclusion and reflection from selected-layer read-back, progressive contents,
+  list materialization, and complete total correctness. Matching redundant updates
+  may now be skipped inside binary windows as well as progressive layers and
+  maximum-skipped suffixes. The conditions refer to actual input observations and
+  original slots, without assuming a rebuilding result.
+
+  The generalized layer and progressive contents proofs use binary skipped-value
+  agreement alongside retained/pending clone identity and the existing progressive
+  layer/suffix agreements. `ApplyUpdates/Contents.lean` derives every final backing
+  read without density or default-map laws. `Materialized.lean` combines these
+  reads with the weaker backing-density contracts to identify the exact stored
+  sequence. The new nonempty and all-branch `_total_spec_of_guards` contracts
+  also derive execution, representation, backing validity, and the pending
+  observer, under the actual default map's extent, overlay, and emptiness laws.
+  The older sufficient contracts retain their signatures as adapters.
+
+  `SkippedConditions.lean` characterizes valid materialization after actual
+  nonempty success by retained/pending identity, positive progressive selection,
+  and agreement in all three skipped scopes. No clone or range-value law is
+  assumed upfront. Layout, input representation/backing validity, and positive
+  numeric binary selection remain explicit. The default map is unconstrained.
+
+  `SelectionConditions.lean` gives four exact existence criteria for valid
+  materialization, with or without final representation, on the nonempty branch
+  and across both branches. Occupied capacity, reached-query termination, copied
+  storage termination plus retained/pending identity, missing-update guards,
+  positive progressive selection, all skipped-value agreements, and actual default
+  construction are on the necessary-and-sufficient side. No range-value reflection
+  or upfront clone, termination, guard-success, or default-success law is required.
+  Final occupied capacity is part of the criterion. Representation additionally
+  requires exact default-map extent and self-overlay. The no-op requires valid
+  backing already storing the contents, with no rebuilding conditions; its
+  representation variant uses input representation.
+
+  Positive numeric selection inside binary subtrees remains an upfront condition
+  on rebuilding: a true answer must select a window starting inside the final
+  prefix. Proving this condition necessary and moving it into the exact criterion
+  is unfinished. These results do not claim that raw success alone establishes
+  valid backing or correct contents, or that all hypothesis audits are complete.
+
+  Focused and full builds pass (2,141 jobs). The axiom/import audit covers
+  6,069 declarations across 425 modules: 5,950 use only standard Lean axioms or
+  none, and 119 use the existing Arc pointer contract. All 19 new public lemmas
+  use standard Lean axioms; private/generated declarations are included in the
+  inventory. No new axiom or admission was introduced. External axiom use is
+  unchanged, and `size_of` remains unused. Existing execution, total, and cache
+  proofs validate.
+
+  Work remains on binary selection necessity, geometry and other assumptions,
+  borrowed CoW, and model fidelity. No Rust, extraction, external model, or Aeneas
+  source changed; the seven source suites and 42-root/151-declaration dependency
+  gate were not repeated for this proof-only work. Debug and Serde remain excluded;
+  TreeHash is deferred outside the goal.
 - The binary density range review (`82f8265`, binary skipped extents `4446f3e`,
   progressive/list numeric contracts `3bbf03b`, binary density `a44efeb`, local
   reflection adapter `0fefbab`) removes pending-value range reflection from
