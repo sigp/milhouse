@@ -16,6 +16,88 @@ from pathlib import Path
 
 TOOLCHAIN = "nightly-2026-06-01"
 
+# This parameter represents one nondeterministic Bool outcome. The pinned
+# power body queries the intrinsic once; both loops remain freshly extracted.
+# Do not generalize this to callers that query it repeatedly: a constant
+# outcome would then impose an invalid repeated-call consistency assumption.
+POW_SELECTOR_SOURCE = """import Aeneas
+
+open Aeneas Aeneas.Std Result
+
+class PowSource.StaticKnown where
+  outcome : Bool
+
+def core.intrinsics.is_val_statically_known {T : Type} [PowSource.StaticKnown]
+    (_markerCopyInst : core.marker.Copy T) (_value : T) : Result Bool :=
+  ok PowSource.StaticKnown.outcome
+"""
+
+# Validate the call's control flow as well as its count. This is an expected
+# shape, never a replacement for the freshly extracted function body.
+POW_SELECTOR_CALLER = """
+def core.num.Usize.pow
+  (self : Std.Usize) (exp : Std.U32) : Result Std.Usize := do
+  if exp = 0#u32
+  then ok 1#usize
+  else
+    let b ← core.intrinsics.is_val_statically_known core.marker.CopyU32 exp
+    if b
+    then
+      let (base, acc) ← core.num.Usize.pow_loop0 exp self 1#usize
+      acc * base
+    else core.num.Usize.pow_loop1 exp self 1#usize
+"""
+
+
+def prepare_pow_selector(data, template, original):
+    """Validate the sole intrinsic boundary; add only a section parameter.
+
+    The class is generated here, not populated from the admitted template.
+    It has exactly one unconstrained Bool field and no axioms or instances.
+    The comparison theorem quantifies over this class.
+    """
+    name = "core.intrinsics.is_val_statically_known"
+    signature = "{T : Type} (markerCopyInst : core.marker.Copy T) : T → Result Bool"
+    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n((?:[^\n]+\n?)*)", template)
+    if ([(n, " ".join(s.split())) for n, s in records] != [(name, signature)]
+            or len(re.findall(r"(?m)^axiom\b", template)) != 1
+            or re.search(r"\b(sorry|admit|opaque)\b", template)
+            or re.search(r"(?m)^(def|theorem|abbrev|instance)\b", template)):
+        raise ValueError("Unexpected power selector template")
+    crate = data["translated"]
+    source = source_declaration(crate, {"source_prefix": "core::intrinsics"},
+                                "is_val_statically_known")
+    meta = source["item_meta"]
+    span = meta["span"]["data"]
+    files = {file["id"]: file for file in crate["files"] if file}
+    file = files[span["file_id"]]
+    if (crate["crate_name"] != "pow_source" or meta["is_local"] is not False
+            or meta["opacity"] != "Foreign" or source["is_global_initializer"] is not None
+            or source["body"] != {"Intrinsic": {"name": "is_val_statically_known", "arg_names": ["_arg"]}}
+            or file["crate_name"] != "core"
+            or file["name"] != {"Local": "/rustc/library/core/src/intrinsics/mod.rs"}):
+        raise ValueError("Unexpected power selector source provenance")
+    # A single call in the non-loop power body is the only supported caller.
+    start = original.find("\ndef core.num.Usize.pow\n")
+    stop = original.find("\n/-- [pow_source::pow]", start)
+    marker = "\nnamespace PowSource\n"
+    parameter = "\nvariable [PowSource.StaticKnown]\n"
+    if (start < 0 or stop < start or original.count(name) != 1
+            or original[start:stop] != POW_SELECTOR_CALLER or original.count(marker) != 1
+            or "PowSource.StaticKnown" in original):
+        raise ValueError("Unexpected power selector call or parameter scope")
+    prepared = original.replace(marker, marker + parameter, 1)
+    if prepared.replace(marker + parameter, marker, 1) != original:
+        raise ValueError("Power source body changed while introducing the selector parameter")
+    record = {"method": "is_val_statically_known", "sourceCrate": "core",
+              "sourceFile": "/rustc/library/core/src/intrinsics/mod.rs", "source": span,
+              "defId": source["def_id"], "signature": signature,
+              "parameter": "[PowSource.StaticKnown]", "outcomes": [False, True],
+              "scope": "one intrinsic call per power invocation; both loops unchanged",
+              "originalFunsSha256": hashlib.sha256(original.encode()).hexdigest(),
+              "parameterizedFunsSha256": hashlib.sha256(prepared.encode()).hexdigest()}
+    return prepared, record
+
 
 def source_declaration(crate, suite, name, kind="fun_decls"):
     prefix_key = {"type_decls": "type_source_prefix", "trait_decls": "trait_source_prefix"}.get(
@@ -411,11 +493,24 @@ def main(suite):
                    str(llbc)], cwd=work)
     generated = list((work / suite["namespace"]).glob("*.lean"))
     expected_generated = {"Types.lean", "Funs.lean"}
-    if suite.get("foundation_bindings"):
+    if suite.get("foundation_bindings") or suite.get("pow_selector"):
         expected_generated.add("FunsExternal_Template.lean")
     if {path.name for path in generated} != expected_generated:
         raise ValueError("Unexpected generated files or external model templates")
     foundations = []
+    selectors = []
+    if suite.get("pow_selector"):
+        if suite["namespace"] != "PowSource" or suite.get("foundation_bindings"):
+            raise ValueError("Power selector requires its own comparison suite")
+        funs = work / suite["namespace"] / "Funs.lean"
+        original = funs.read_text()
+        prepared, selector = prepare_pow_selector(selected,
+            (work / suite["namespace"] / "FunsExternal_Template.lean").read_text(), original)
+        (work / "Funs.original.lean").write_text(original)
+        funs.write_text(prepared)
+        selectors.append(selector)
+        (work / suite["namespace"] / "Selector.lean").write_text(POW_SELECTOR_SOURCE)
+        (work / suite["namespace"] / "FunsExternal.lean").write_text("import PowSource.Selector\n")
     if suite.get("foundation_bindings"):
         template_path = work / suite["namespace"] / "FunsExternal_Template.lean"
         foundations = check_foundation_bindings(selected, suite, template_path.read_text())
@@ -425,7 +520,7 @@ def main(suite):
         (work / suite["namespace"] / "FunsExternal.lean").write_text(
             "".join("import " + module + "\n" for module in imports))
     for path in generated:
-        if foundations and path.name == "FunsExternal_Template.lean":
+        if (foundations or selectors) and path.name == "FunsExternal_Template.lean":
             continue
         if re.search(r"\b(sorry|admit|axiom|opaque)\b", path.read_text()):
             raise ValueError(f"Incomplete or opaque generated body: {path}")
@@ -435,7 +530,9 @@ def main(suite):
     env["LEAN_PATH"] = str(work) + os.pathsep + base_path
     shutil.copyfile(sources / "CheckModels.lean", work / "CheckModels.lean")
     modules = [suite["namespace"] + "/Types"]
-    if foundations:
+    if selectors:
+        modules.append(suite["namespace"] + "/Selector")
+    if foundations or selectors:
         modules.append(suite["namespace"] + "/FunsExternal")
     modules += [suite["namespace"] + "/Funs", "CheckModels"]
     for module in modules:
@@ -444,6 +541,7 @@ def main(suite):
         if module == "CheckModels":
             checked_axioms = check_axiom_output(output, suite["proofs"])
     inputs = [sources / "source.rs", sources / "CheckModels.lean"]
+    inputs += [Path(__file__).resolve(), Path(sys.argv[0]).resolve()]
     inputs += [lean_project / path for path in suite.get("model_files", ["Tree/FunsExternal.lean"])]
     if cargo:
         inputs += [sources / "Cargo.toml", sources / "Cargo.lock"]
@@ -457,13 +555,19 @@ def main(suite):
         "retainedSourceBodies": retained, "sourceTypeNameChanges": type_renames,
         "sourceTraitMethodNameChanges": method_renames,
         "retainedLocalFoundations": foundations,
-        "directSourceComparisons": provenance, "compositionChecks": suite["composition"],
+        "abstractCompilerSelectors": selectors,
+        "directSourceComparisons": {} if selectors else provenance,
+        "parameterizedSourceComparisons": provenance if selectors else {},
+        "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,
         "axiomFreeProofs": [name for name, axioms in checked_axioms.items() if not axioms],
-        "limits": ["Aeneas reference/value abstraction", "destructor execution is not modeled"],
+        "limits": ["Aeneas reference/value abstraction", "destructor execution is not modeled"]
+            + (["Compiler selector is an arbitrary total Bool; both outcomes are proved"]
+               if selectors else []),
     }, indent=2) + "\n")
-    print(f"Passed: {len(suite['source_files'])} direct source comparisons and "
+    print(f"Passed: {0 if selectors else len(provenance)} direct source comparisons, "
+          f"{len(provenance) if selectors else 0} parameterized source comparisons and "
           f"{len(suite['composition'])} composition checks")
     print(f"Proofs: {len(checked_axioms)}; axiom-free: "
           f"{sum(not axioms for axioms in checked_axioms.values())}")

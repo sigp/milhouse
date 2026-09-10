@@ -1,0 +1,69 @@
+# Power model source comparison
+
+From the repository root:
+
+```sh
+python3 scripts/aeneas-audit-pow-models.py
+python3 -m unittest discover -s scripts -p test_aeneas_pow_selector.py
+```
+
+`core_pow_agrees` in [CheckModels.lean](CheckModels.lean) proves that the entire
+freshly extracted `usize::pow` body equals the local `core.num.Usize.pow`
+model for every machine-word base and `u32` exponent, including exponent
+zero and integer-overflow failure. It assumes no arithmetic bound or loop
+termination. Its only axioms are `propext`, `Classical.choice`, and `Quot.sound`.
+
+## Compiler-selector boundary
+
+With Aeneas `b59d5188`, Charon 0.1.223, and Rust `nightly-2026-06-01`, both
+standard-library squaring loops extract completely. The intrinsic
+`core::intrinsics::is_val_statically_known` remains an external template
+(UPSTREAM_BUGS issue 24). The pinned Rust documentation allows either Bool
+outcome and explicitly disallows assuming repeated calls agree.
+
+This comparison supplies one arbitrary Bool outcome through a generated
+`PowSource.StaticKnown` class. The theorem quantifies over the class, covering
+both branches. The power body queries the intrinsic at most once, so this
+parameter does not assume repeated-call consistency. The selector's apparent
+`false` fallback is not used to select a preferred branch.
+
+The proof first derives the dynamic loop's mathematical result by induction
+on the exponent. An accumulator invariant proves intermediate overflow cannot
+be hidden by subsequent multiplication by zero. A second induction proves
+that the constant loop followed by its final multiplication agrees with the
+dynamic loop, including errors. The full-body theorem then covers either
+selector outcome and the zero-exponent early return.
+
+## Provenance and validation
+
+The shared runner checks the source path, crate, transparent whole-body LLBC
+provenance, pinned tool versions, and exact intrinsic metadata/signature. It
+also checks the outer power body's control flow, which contains the only
+intrinsic call. Both arithmetic loops remain freshly extracted.
+
+The sole change to generated `Funs.lean` is the section declaration
+`variable [PowSource.StaticKnown]`. The original file is retained beside the
+generated modules, both hashes are recorded, and removing that declaration
+must reproduce the original byte for byte. No generated function body is
+replaced. The admitted external template is inspected but never compiled;
+the runner generates a concrete selector definition returning the class's
+unconstrained Bool field. There is no default class instance or new axiom.
+
+The report at `.lake/pow-model-audit/report.json` records this separately as
+one `parameterizedSourceComparisons` entry with an `abstractCompilerSelectors`
+boundary. The source function and both loops are validated; extraction of the
+compiler intrinsic itself remains unsupported. Existing Aeneas scalar
+primitives, including checked multiplication and exponent halving, remain
+foundation abstractions. This is not a compiler-correctness proof.
+
+Four native tests cover 70 base/exponent pairs against repeated multiplication,
+five zero-exponent bases, final-bit overflow boundaries, and eight cases with
+the two largest exponents. They exercise the overflow-checking build. They
+do not establish which compiler-selector outcome executed; Lean covers both.
+Four Python tests check exact body preservation and reject five malformed
+templates, seven invalid provenance records, and seven altered call/scope
+forms.
+
+No production Rust, production model, main extraction, or Aeneas source is
+changed. This standalone comparison narrows the numeric model boundary and
+does not complete the remaining borrowed CoW or other model-fidelity work.
