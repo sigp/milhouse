@@ -224,6 +224,7 @@ import Tree.ProgressiveList.Contents
 import Tree.ProgressiveList.WriteBack
 import Tree.ProgressiveList.ApplyUpdates
 import Tree.ProgressiveList.ApplyUpdates.Contents
+import Tree.ProgressiveList.ApplyUpdates.BinarySkipped
 import Tree.ProgressiveList.ApplyUpdates.Backing
 import Tree.ProgressiveList.ApplyUpdates.Overlay
 import Tree.ProgressiveList.ApplyUpdates.Materialized
