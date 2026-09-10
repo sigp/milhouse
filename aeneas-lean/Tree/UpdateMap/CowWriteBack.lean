@@ -7,21 +7,33 @@ open milhouse
 
 namespace milhouse.update_map
 
+/-- Entry location for present handles from one supplied fallback value. -/
+def GetCowWithValueEntryAtFor {T U : Type} (mapInst : UpdateMap U T)
+    (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
+    (fallback : Option T) : Prop :=
+  ∀ handle back,
+    mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
+      handle.EntryAt index
+
 /-- A present CoW loan contains the requested vacant entry, or an already
 mutable value. This is an entry-location law, not a mutation-success premise. -/
 def GetCowWithValueEntryAt {T U : Type} (mapInst : UpdateMap U T)
     (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize) : Prop :=
-  ∀ fallback handle back,
+  ∀ fallback, GetCowWithValueEntryAtFor mapInst cloneInst updates index fallback
+
+/-- Pending-value handles from one supplied fallback need no element clone. -/
+def GetCowWithValueExistingMutableFor {T U : Type} (mapInst : UpdateMap U T)
+    (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
+    (fallback : Option T) : Prop :=
+  ∀ handle back,
     mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
-      handle.EntryAt index
+    ∀ value, mapInst.get updates index = ok (some value) → handle.NeedsClone = false
 
 /-- Existing pending values are already borrowed mutably; consuming that
 handle does not clone an element. -/
 def GetCowWithValueExistingMutable {T U : Type} (mapInst : UpdateMap U T)
     (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize) : Prop :=
-  ∀ fallback handle back,
-    mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
-    ∀ value, mapInst.get updates index = ok (some value) → handle.NeedsClone = false
+  ∀ fallback, GetCowWithValueExistingMutableFor mapInst cloneInst updates index fallback
 
 /-- Returning a filled entry footprint stores the replacement at its key and
 frames all other lookups. `Written` describes data/metadata effects only;
@@ -34,18 +46,24 @@ def GetCowWithValueWrites {T U : Type} (mapInst : UpdateMap U T)
     ∀ query, mapInst.get (back (some changed)) query =
       if query = index then ok (some replacement) else mapInst.get updates query
 
+/-- Lookup agreement for filled handles from one supplied fallback value. -/
+def GetCowWithValueWriteReadsFor {T U : Type} (mapInst : UpdateMap U T)
+    (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
+    (backing : Std.Usize → Result (Option T)) (fallback : Option T) : Prop :=
+  ∀ handle back,
+    mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
+    ∀ replacement changed, handle.Written replacement changed →
+    ∀ query, LookupResultsAgree (backing query)
+      (mapInst.get (back (some changed)) query)
+      (if query = index then ok (some replacement) else mapInst.get updates query)
+
 /-- A filled CoW footprint gives the replacement and frames other reads
 after the supplied backing fallback. The actual entry and callback effects
 remain described by `Written`; exact pending-map answers are unnecessary. -/
 def GetCowWithValueWriteReads {T U : Type} (mapInst : UpdateMap U T)
     (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
     (backing : Std.Usize → Result (Option T)) : Prop :=
-  ∀ fallback handle back,
-    mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
-    ∀ replacement changed, handle.Written replacement changed →
-    ∀ query, LookupResultsAgree (backing query)
-      (mapInst.get (back (some changed)) query)
-      (if query = index then ok (some replacement) else mapInst.get updates query)
+  ∀ fallback, GetCowWithValueWriteReadsFor mapInst cloneInst updates index backing fallback
 
 /-- The exact CoW insertion/lookup law implies agreement after any backing
 fallback, retaining the same actual filled-entry footprint. -/
@@ -69,17 +87,23 @@ def GetCowWithValueMaxIndex {T U : Type} (mapInst : UpdateMap U T)
       mapInst.max_index (back (some changed)) = ok (some (oldMax.elim index
         (core.cmp.impls.OrdUsize.max index)))
 
+/-- Maximum-result agreement for filled handles from one supplied fallback. -/
+def GetCowWithValueMaxIndexAgreesFor {T U : Type} (mapInst : UpdateMap U T)
+    (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
+    (previous : utils.Length) (fallback : Option T) : Prop :=
+  ∀ handle back,
+    mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
+    ∀ replacement changed, handle.Written replacement changed →
+    utils.MaxIndexResultsAgree previous
+      (mapInst.max_index (back (some changed))) (mapInst.max_index updates)
+
 /-- A filled CoW footprint preserves maximum-query outcomes relevant to the
 given backing length. The map need not expose the exact insertion maximum;
 the separate write law still specifies the replacement and lookup frame. -/
 def GetCowWithValueMaxIndexAgrees {T U : Type} (mapInst : UpdateMap U T)
     (cloneInst : core.clone.Clone T) (updates : U) (index : Std.Usize)
     (previous : utils.Length) : Prop :=
-  ∀ fallback handle back,
-    mapInst.get_cow_with_value cloneInst updates index fallback = ok (some handle, back) →
-    ∀ replacement changed, handle.Written replacement changed →
-    utils.MaxIndexResultsAgree previous
-      (mapInst.max_index (back (some changed))) (mapInst.max_index updates)
+  ∀ fallback, GetCowWithValueMaxIndexAgreesFor mapInst cloneInst updates index previous fallback
 
 /-- Exact insertion metadata suffices for observer agreement whenever the
 borrowed key is below an existing successful logical length. -/
