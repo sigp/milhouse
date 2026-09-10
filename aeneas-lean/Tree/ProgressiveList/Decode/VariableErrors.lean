@@ -17,6 +17,7 @@ private theorem read_first_two_offsets (bytes : Slice Std.U8) (first second : St
     (_root_.ssz.encode.offsetBytes second.val ++ rest) hfirstFit
     (by simpa only [_root_.List.append_assoc] using hbytes), ?_⟩
   apply _root_.ssz.decode.read_offset_offsetBytes (bytes.drop 4#usize) second rest hsecondFit
+  simp only [Slice.drop, Slice.from_val]
   change bytes.val.drop 4 = _
   rw [hbytes, _root_.List.append_assoc, ← _root_.ssz.encode.offsetBytes_length first.val,
     _root_.List.drop_left]
@@ -47,7 +48,7 @@ theorem ProgressiveList.from_ssz_bytes_second_offset_into_fixed {T U : Type}
     omega
   have hitem := ssz_items.SszItems.variable_item_into_fixed bytes (bytes.drop 4#usize)
     first count 1#usize first second hindex (by change 4 * 1 ≤ bytes.length; omega)
-    rfl hreadSecond hbad
+    (by simp [Slice.drop]) hreadSecond hbad
   apply ProgressiveList.from_ssz_bytes_variable_error ValueInst mapInst bytes first count []
     (.OffsetIntoFixedPortion second) hvariable hreadFirst hfirst (by omega) hbound
     (ssz_items.SszItems.Decodes.boundary_error
@@ -81,7 +82,7 @@ theorem ProgressiveList.from_ssz_bytes_second_offset_out_of_bounds {T U : Type}
     omega
   have hitem := ssz_items.SszItems.variable_item_out_of_bounds bytes (bytes.drop 4#usize)
     first count 1#usize first second hindex (by change 4 * 1 ≤ bytes.length; omega)
-    rfl hreadSecond (by omega) hbad
+    (by simp [Slice.drop]) hreadSecond (by omega) hbad
   exact ProgressiveList.from_ssz_bytes_variable_error ValueInst mapInst bytes first count []
     (.OffsetOutOfBounds second) hvariable hreadFirst hfirst (by omega) hbound
     (ssz_items.SszItems.Decodes.boundary_error
@@ -124,6 +125,7 @@ theorem ProgressiveList.from_ssz_bytes_third_offset_decreasing {T U : Type}
         _root_.ssz.encode.offsetBytes second.val) ++
         (_root_.ssz.encode.offsetBytes third.val ++ rest) := by
       simpa only [_root_.List.append_assoc] using hbytes
+    simp only [Slice.drop, Slice.from_val]
     change bytes.val.drop 8 = _
     rw [hcanonical, ← hlen, _root_.List.drop_left]
   have hindexOne : (1#usize) ≠ count := by
@@ -138,10 +140,10 @@ theorem ProgressiveList.from_ssz_bytes_third_offset_decreasing {T U : Type}
     omega
   have hfirstItem := ssz_items.SszItems.variable_item_between bytes part (bytes.drop 4#usize)
     first count 1#usize first second hindexOne (by change 4 * 1 ≤ bytes.length; omega)
-    rfl hreadSecond horder hbound horder hpart
+    (by simp [Slice.drop]) hreadSecond horder hbound horder hpart
   have hsecondItem := ssz_items.SszItems.variable_item_decreasing bytes (bytes.drop 8#usize)
     first count 2#usize second third hindexTwo (by change 4 * 2 ≤ bytes.length; omega)
-    rfl hreadThird hfixed (by omega) hdecreasing
+    (by simp [Slice.drop]) hreadThird hfixed (by omega) hdecreasing
   exact ProgressiveList.from_ssz_bytes_variable_error ValueInst mapInst bytes first count [value]
     (.OffsetsAreDecreasing third) hvariable hreadFirst hfirst (by omega) (by omega)
     (ssz_items.SszItems.Decodes.cons

@@ -49,7 +49,7 @@ theorem ProgressiveList.ssz_append_variable_spec {T U : Type}
     ProgressiveList.ssz_append_variable_loop_spec ValueInst mapInst hvariable cursor contents
       encode encoder id hyields happend
       (by dsimp [encoder]; omega)
-      (by simp only [encoder, alloc.vec.Vec.new, _root_.List.length_nil, Nat.zero_add]; omega)
+    (by simp only [encoder, alloc.vec.Vec.new, alloc.vec.Vec.from_val, _root_.List.length_nil, Nat.zero_add]; omega)
       (by simpa [encoder, hfixedValue] using hoffsets)
   have hfinalBound : encoded.buf.val.length + encoded.variable_bytes.val.length ≤ Std.Usize.max := by
     simpa [hencodedBuf, hencodedPayload, encoder, offsets_length] using hbound
