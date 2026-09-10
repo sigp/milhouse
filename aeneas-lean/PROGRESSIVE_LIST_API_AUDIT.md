@@ -135,6 +135,50 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The binary skipped-value review (`30c17f3`, binary equivalence/selected
+content bridge `8d17355`, generalized contents `7a2235e`, scope/routing
+`79282b8`) weakens content preservation from exclusion of pending values in
+skipped binary ranges to agreement with their original slots. Matching redundant
+updates may be skipped. The condition uses only the original tree, geometry,
+and reached range answers, without any rebuilding result. The generalized
+shape/capacity/content and extracted read-back contracts accept this weaker
+law; existing exclusion contracts remain adapters with unchanged signatures.
+
+Actual successful binary rebuilding preserves every slot in a reached range
+answered false. This uses layout and prefix alignment, without input shape,
+density, capacity, offset alignment, range, clone, or termination laws. Correct
+binary contents therefore force skipped-value agreement. Combined with retained
+clone necessity, `with_updated_leaves_contents_iff_clones_skipped` characterizes
+correct binary contents by retained/pending identity and skipped-value agreement,
+with no range-correctness law in either direction. Layout, input shape, alignment,
+and actual successful execution remain explicit in the equivalence.
+
+The selected progressive content bridge and progressive/list `BinarySkipped.lean`
+modules lift agreement necessity to successful dense list materialization.
+Progressive necessity needs layout and correct mathematical slots, with no input
+shape or density law. List necessity derives those slots from input representation
+and backing validity plus dense output storing the exact contents; no output
+capacity, range, maximum, default, clone, or termination law is assumed.
+These results do not yet remove selected binary reflection from public
+valid-materialization existence criteria: binary execution and backing-density
+proofs still use it.
+
+Focused and full builds pass (2,131 jobs). The axiom/import audit covers
+5,962 declarations across 415 modules: 5,843 use only standard Lean axioms or
+none, and 119 use the existing Arc pointer contract. All 19 new public lemmas
+use standard Lean axioms; private/generated declarations are included in the
+inventory. No new axiom or admission was introduced. External axiom use is
+unchanged, and `size_of` remains unused. Existing success, total, and cache
+proofs validate.
+
+Remaining binary execution/density range premises and geometry minimality,
+borrowed CoW, and model fidelity are unfinished. No Rust, extraction, external
+model, or Aeneas source changed; the seven source suites and
+42-root/151-declaration dependency gate were not repeated for this proof-only
+work. Debug and Serde remain excluded; TreeHash is deferred outside the goal.
+
+Previous progressive/list clone-identity checkpoint:
+
 The progressive/list clone-identity review (`6f2915e`, list necessity
 `5e01cf9`, progressive necessity `18b4833`, selected slots `b1246e7`) proves
 that successful dense materialization forces every selected pending clone and
