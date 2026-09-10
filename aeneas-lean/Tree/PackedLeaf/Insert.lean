@@ -45,7 +45,7 @@ theorem PackedLeaf.insert_mut_success {T : Type}
         ↓reduceIte]
       have hlt' : index < self.values.len := by scalar_tac
       rw [if_pos hlt']
-      change (alloc.vec.Vec.index_mut_usize self.values index >>= _) = _
+      rw [alloc.vec.Vec.index_mut_slice_index]
       simp! only [hmut, bind_tc_ok]
   obtain ⟨result, hinsert⟩ := hsuccess
   exact ⟨result, hinsert, (PackedLeaf.insert_mut_values hinsert).1⟩
