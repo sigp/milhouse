@@ -48,7 +48,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `new` | `ProgressiveList.new_total_spec_of_overlay`, `ProgressiveList.new_success_represents_iff`, `ProgressiveList.new_represents_iff`, `ProgressiveList.new_success_iff` |
 | `try_from_iter` | `ProgressiveList.try_from_iter_total_spec_of_overlay`, `ProgressiveList.try_from_iter_success_represents_iff`, `ProgressiveList.try_from_iter_represents_iff`, `ProgressiveList.try_from_iter_trace`, `ProgressiveList.try_from_iter_success_iff` |
 | `get` | `ProgressiveList.get_of_pending_update`, `ProgressiveList.get_of_backing`, `ProgressiveList.represents_of_dense_backing`; constructors and mutations establish/preserve indexed representation |
-| `get_mut` | `ProgressiveList.get_mut_total_spec`, `ProgressiveList.get_mut_represents_set_iff` |
+| `get_mut` | `ProgressiveList.get_mut_total_spec_of_fallback` (laws only for the actual fallback), `ProgressiveList.get_mut_value_success_iff_of_fallback`, `ProgressiveList.get_mut_success_iff_inputs_of_fallback`, `ProgressiveList.get_mut_present_success_iff_clone_of_fallback`; `ProgressiveList.get_mut_represents_set_iff` retains the exact write-back criterion |
 | `get_cow` | `ProgressiveList.get_cow_represents_read`, `ProgressiveList.get_cow_into_mut_spec`, `ProgressiveList.cow_writeback_represents_set_iff`; borrowed handle methods remain pending below |
 | `push` | `ProgressiveList.push_total_spec`, `ProgressiveList.push_represents_append_iff`, `ProgressiveList.len_after_push_iff_max_index`, `ProgressiveList.push_represents_append_iff_max_index` |
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
@@ -134,6 +134,27 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The mutable fallback review (`06e66dc`, exact criteria `dfdc682`) removes the
+requirement that mutable-map laws hold for every possible fallback closure.
+The read, write-read, maximum-result, and missing-handle laws now apply only
+to the dictionary and environment actually supplied by this list's `get_mut`.
+Thirteen weaker theorems cover acquisition, initial value, element replacement,
+length, and missing-index restoration; the original eighteen theorem names
+and signatures remain available, with their stronger contracts specialized
+through adapters. Three further equivalences characterize a specified returned
+value, successful acquisition, and the exact clone-termination condition for
+an actually present immutable read. The acquisition criteria require only
+the read law at this fallback, without representation, structural, write,
+metadata, or clone laws upfront.
+
+All sixteen new public lemmas use only standard Lean axioms. The full build
+and axiom/import audit pass for 6,130 declarations across 434 modules: 6,011
+use only standard axioms or none, and 119 retain the existing Arc pointer
+contract. No Rust, extraction, external model, or Aeneas source changed; the
+eight source suites and 42-root/151-declaration dependency gate were not
+repeated for this proof-only change. Borrowed CoW and remaining assumption/
+model-fidelity work stay open. Debug, Serde, and TreeHash remain out of scope.
 
 The core adapter review in `7b2939e` adds axiom-free source comparisons for
 `Result::map_err`, `hint::must_use`, and blanket `Borrow::borrow`, all referenced

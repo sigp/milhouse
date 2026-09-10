@@ -429,6 +429,34 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The mutable fallback review (`06e66dc`, exact criteria `dfdc682`) restricts
+  map laws to the actual `get_mut` fallback dictionary and `(tree, length)`
+  environment. `UpdateMap/Mutable.lean` defines four laws for a specified invocation;
+  `ProgressiveList/Mutable/Contracts.lean` selects the actual invocation.
+  `Fallback.lean` and `FallbackTotal.lean` prove thirteen weaker observer,
+  acquisition, replacement, and missing-handle contracts. The original
+  eighteen theorem names/signatures remain available; stronger laws are
+  specialized by adapters, and law-independent equations live in `State.lean`.
+
+  `Mutable/Conditions.lean` adds three exact criteria. A pending hit returns
+  that value without a backing read. A pending miss needs a successful
+  backing read; absent backing data needs no clone, while a found value needs
+  its actual clone to succeed. These input conditions characterize both
+  existence and the specified optional value of a successful mutable result.
+  For an actually present immutable read, clone termination on the fallback
+  branch is necessary and sufficient. No representation, structural backing,
+  write, maximum-index, or clone law is assumed by the general acquisition
+  criteria; the map read law is needed only at this invocation.
+
+  All sixteen new public lemmas use only standard Lean axioms. The full build
+  and axiom/import audit pass for 6,130 declarations across 434 modules;
+  6,011 use only standard axioms or none and 119 retain the existing Arc
+  pointer contract. No Rust, extraction, external model, or Aeneas source
+  changed. The eight source suites and unchanged 42-root/151-declaration
+  dependency gate were not repeated for this proof-only change. These are
+  weaker client assumptions. Concrete mutable-map fidelity and the unavailable
+  borrowed CoW methods remain open.
+
 - The binary selection necessity review (`3cf17f1`, progressive/list necessity
   `22b4d2f`, binary necessity `453ef4c`) removes the remaining upfront numeric
   binary selection condition from the materialization criteria. Successful
