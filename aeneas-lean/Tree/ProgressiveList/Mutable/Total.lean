@@ -1,5 +1,5 @@
 import Tree.ProgressiveList.Mutable
-import Tree.ProgressiveList.Mutable.FallbackTotal
+import Tree.ProgressiveList.Mutable.Conditions
 
 open Aeneas Aeneas.Std Result
 open milhouse
