@@ -726,7 +726,9 @@ points and records the trusted boundaries that still need fidelity review.
   validates this and reports a separate parameterized source comparison.
   Existing Aeneas scalar primitives remain a foundation boundary.
 - The [core source comparisons](reproducers/core_models/README.md) validate
-  `mem::take`, used for pending-map rebuilding, `usize::div_ceil`, used in
+  `Result::map_err` and `hint::must_use`, reached by SSZ decoding, blanket
+  `Borrow::borrow`, and `mem::take`, used for pending-map rebuilding,
+  `usize::div_ceil`, used in
   builder finalization, and `u128::saturating_mul`/`u128::checked_pow`, used in capacity arithmetic,
   against their actual extracted standard-library bodies.
   Default results are unconstrained; zero-divisor failure and rounding safety
@@ -734,8 +736,11 @@ points and records the trusted boundaries that still need fidelity review.
   Saturation and checked power cover every input and overflow, retaining
   Aeneas's existing checked-multiplication primitive. Checked-power termination
   and its accumulator invariant are derived from the actual loop and initial
-  state. `take` is axiom-free; the three numeric
-  comparisons use only standard Lean axioms. The source audit and seven native
+  state. `map_err` preserves arbitrary callback success, failure, and divergence;
+  the borrow and hint comparisons establish their runtime value behavior in
+  the existing reference abstraction. These three adapter proofs and `take`
+  are axiom-free; the three numeric comparisons use only standard Lean axioms.
+  The source audit and eleven native
   tests pass. Remaining intrinsic boundaries are recorded in UPSTREAM_BUGS
   issue 24.
 - The [Option source comparison](reproducers/option_models/README.md) checks
@@ -1787,6 +1792,23 @@ absence of selected incompatible local models. Its conservative dependency
 closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
+
+Latest core adapter source-model checkpoint (`7b2939e`): axiom-free comparisons
+validate the actual `Result::map_err`, `hint::must_use`, and blanket
+`Borrow::borrow` bodies. The error adapter preserves arbitrary callback
+success, failure, and divergence, without callback laws or termination
+assumptions. The core suite passes seven comparisons and eleven native tests.
+The full library build and axiom/import audit pass for the unchanged 6,103
+declarations across 429 modules, with no new external axiom or admission.
+
+No production Rust, local model body, main extraction, shared runner, or Aeneas
+source changed. The other seven source suites and the dependency gate were
+not repeated; their inputs are unchanged. The current source reports cover
+36 direct comparisons, one parameterized comparison, and two compositions,
+totaling 39 proofs (19 axiom-free, twenty standard-only). The model inventory
+remains 42 roots and 151 local declarations. Borrowed CoW and other
+model-fidelity obligations remain open; Debug, Serde, and TreeHash remain
+outside the goal.
 
 Latest power source-model checkpoint (`eb2f91b`): `core_pow_agrees` validates
 the complete extracted `usize::pow` body for both compiler-selector outcomes,
@@ -2953,7 +2975,7 @@ Rust, local model, main library proof, or Aeneas source changed. The main
 library gate was not repeated; its counts remain 5,015 declarations across
 314 modules. Borrowed CoW and the remaining model/assumption review are open.
 
-Latest core-model checkpoint (`3182fd0`): the source audit also proves
+Previous core-model checkpoint (`3182fd0`): the source audit also proves
 `u128::checked_pow` equals its actual extracted squaring loop for every base
 and exponent. Exponent-halving termination and sound intermediate-overflow
 detection are derived internally; the public equality has no arithmetic or

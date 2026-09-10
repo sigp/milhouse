@@ -135,6 +135,16 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The core adapter review in `7b2939e` adds axiom-free source comparisons for
+`Result::map_err`, `hint::must_use`, and blanket `Borrow::borrow`, all referenced
+by included API roots. Error-mapping callbacks may succeed, fail, or diverge;
+no callback or clone law is assumed. The core suite passes seven comparisons
+and eleven native tests. The full library/axiom audit still passes for 6,103
+declarations across 429 modules. The unchanged other source suites were not
+rerun; current reports together contain 39 comparison proofs. This reduces
+model-fidelity gaps without changing public-operation coverage or closing the
+borrowed CoW extraction obligations.
+
 The power model review in `eb2f91b` adds a
 [parameterized source comparison](reproducers/pow_models/README.md) for the
 complete `usize::pow` body, including both permitted compiler-selector
@@ -976,10 +986,12 @@ function item. This reduces a trusted-model review obligation; it does not
 change API coverage or complete the borrowed CoW proofs.
 
 The [core source comparisons](reproducers/core_models/README.md) additionally
-validate `mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` against their
+validate `Result::map_err`, `hint::must_use`, blanket `Borrow::borrow`,
+`mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` against their
 actual extracted standard-library bodies, including arbitrary Default results,
 zero divisors, saturation on overflow, and checked-power termination/overflow.
-Their shared audit and all seven native tests pass. Checked multiplication
+Error mapping preserves arbitrary callback results; the three adapter proofs
+and `take` are axiom-free. Their source audit and all eleven native tests pass. Checked multiplication
 remains an Aeneas foundation primitive; three
 other numeric helpers retain missing intrinsic templates (UPSTREAM_BUGS issue
 24). No production model or public-operation specification changed.

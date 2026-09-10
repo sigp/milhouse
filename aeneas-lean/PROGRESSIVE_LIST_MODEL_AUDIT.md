@@ -110,8 +110,15 @@ need their remaining review. No production model or Aeneas source changed.
 
 Run `python3 scripts/aeneas-audit-core-models.py` from the repository root.
 The [core source comparisons](reproducers/core_models/README.md) prove the local
-`mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` models equal fresh
-extraction of their actual standard-library bodies. `take` matches for arbitrary Default results without
+`Result::map_err`, `hint::must_use`, blanket `Borrow::borrow`, `mem::take`,
+`usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` models equal
+fresh extraction of their actual standard-library bodies. The three adapter
+comparisons were added in `7b2939e`, without axioms: error mapping preserves
+arbitrary callback success, failure, and divergence, while the two identity
+bodies return the supplied value in Aeneas's reference/value abstraction.
+They assume no callback law, clone, or termination; compile-time must-use
+diagnostics and a general pointer-identity refinement are not claimed.
+`take` matches for arbitrary Default results without
 axioms. Ceiling division matches for every pair of machine-word inputs,
 including zero divisors, using only standard Lean axioms and no arithmetic
 bound or positivity premise. Its rounding bound is derived internally.
@@ -123,10 +130,13 @@ derives loop termination, the accumulator invariant, and sound overflow
 detection, without imposing an arithmetic or termination premise on callers.
 It also uses only standard Lean axioms and the existing arithmetic foundation.
 
-Seven native tests cover Default call order, movement without dropping the old
+Eleven native tests cover Default call order, movement without dropping the old
 value, the tested default-panic state, ceiling-division word boundaries, and
 zero divisors, plus 35 saturation boundary pairs, 77 checked-power reference
-pairs, and eight large-exponent cases. Both this suite and the
+pairs, and eight large-exponent cases. Four tests added in `7b2939e` cover
+error-mapping branch/call behavior and callback panic, must-use movement
+without cloning or early drops, and preservation of the borrowed pointer in
+the tested native case. Both this suite and the
 Option suite pass with the shared
 source/provenance checker and per-theorem axiom policy. Eleven malformed core
 inventory/report inputs and an injected axiom in an Option proof are rejected.
@@ -144,6 +154,17 @@ source inclusion exposes unsupported overflow-pair operations inside existing
 foundation primitives. The preserved callers, exact commands, and trust
 boundary are in the core comparison README and UPSTREAM_BUGS issue 24.
 Incomplete/template output is never imported as verified code.
+
+At `7b2939e`, the expanded core suite passes all seven comparisons and eleven
+native tests; its four nonnumeric comparisons are axiom-free. The full library
+build and axiom/import audit pass for the unchanged 6,103 declarations across
+429 modules. No production Rust, model, main extraction, shared runner, or
+Aeneas source changed. The other seven source suites were unchanged and were
+not repeated; together the current reports contain 36 direct comparisons,
+one parameterized comparison, and two compositions: 39 proofs, of which 19
+are axiom-free and twenty use only standard axioms. The 42-root/151-declaration
+dependency inventory is unchanged; its gate was not repeated for this
+standalone source-comparison extension.
 
 ### Power comparison for both compiler-selector outcomes
 
@@ -166,7 +187,7 @@ the full caller shape, and records this under `parameterizedSourceComparisons`
 and `abstractCompilerSelectors`. It never compiles the admitted template or
 substitutes a power/loop body. Existing Aeneas scalar primitives remain trusted.
 
-All eight source suites pass at this checkpoint: 33 direct comparisons, one
+At the power checkpoint `eb2f91b`, all eight source suites pass: 33 direct comparisons, one
 parameterized source comparison, and two compositions, totaling 36 proofs
 (16 axiom-free, twenty standard-only). Four native power tests and four
 Python provenance/control-flow tests also pass. The full library build and
