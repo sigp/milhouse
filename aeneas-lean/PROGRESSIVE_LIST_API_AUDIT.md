@@ -135,6 +135,36 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The MaxMap wrapper review (`a5c77c3`, cache invariant `72dba6d`) adds
+seventeen public lemmas for five actual source paths: default construction,
+lookup, insertion, cardinality, and cached maximum. Exact insertion metadata
+requires no inner maximum law, cache invariant, cloning, or successor bound.
+A separate invariant bounds successful present reads and attains a present
+cached key. Construction's validity is characterized by the actual inner
+default outcome; insertion preserves it from the inner lookup frame. These
+proofs advance the concrete wrapper's source coverage while retaining an
+abstract inner `UpdateMap`. The remaining wrapper mutable/CoW, range, and
+trait paths, concrete dictionary composition, borrowed CoW, and remaining
+assumption/model review are still incomplete. Debug and Serde are excluded;
+TreeHash is deferred.
+
+All seventeen public lemmas pass individual axiom checks: five are axiom-free
+and twelve use only standard Lean axioms. The eight existing update-map Rust
+tests pass. Extraction adds only cfg-gated callers and their source bodies;
+existing Rust and extracted method bodies, external templates/models, and
+Aeneas remain unchanged.
+
+The full build passes (2,161 jobs), as does the complete axiom/import audit:
+6,190 declarations across 445 modules, with 6,071 using only standard axioms
+or none and 119 retaining the existing Arc pointer contract. No new
+nonstandard axiom dependencies are introduced.
+
+The model dependency gate passes for the unchanged 42 roots and 151 local
+declarations. SSZ and Arbitrary source suites pass after rerunning against the
+regenerated type file. All nine reports have current input hashes, totaling
+52 source-contract proofs (20 axiom-free, 32 standard-only); the seven
+unaffected suites were not rerun.
+
 The concrete VecMap source review (`ad39a6d`, invariants `235382e`) adds
 thirteen proofs against independently extracted source for
 construction, cardinality, emptiness, indexed lookup, and mutable lookup,
@@ -148,10 +178,11 @@ composition still need their own work.
 
 All nine source suites pass with explicit source-crate validation, totaling
 52 checked proofs (20 axiom-free, 32 standard-only); all report input hashes
-are current. Main `Tree` proofs and the included-root inventory are unchanged,
-so their previous 6,163-declaration/443-module audit and 42-root/151-declaration
-model inventory were not rerun. Borrowed CoW and remaining assumption/model
-review are still incomplete. Debug and Serde are excluded; TreeHash is deferred.
+were current at that checkpoint. Its main `Tree` proofs and included-root
+inventory were unchanged, so the previous 6,163-declaration/443-module audit
+and 42-root/151-declaration model inventory were not rerun then. Borrowed CoW
+and remaining assumption/model review are still incomplete. Debug and Serde
+are excluded; TreeHash is deferred.
 
 The consuming materialization review (`8bb4bb4`, list contracts `477cdb3`)
 proves the exact entry/clone conditions for `Cow.into_mut`, including vector

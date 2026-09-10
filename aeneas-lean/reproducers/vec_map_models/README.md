@@ -6,6 +6,13 @@ observer and mutable-lookup behavior against slot semantics. It does not yet
 construct a verified `UpdateMap` dictionary or validate insertion, range
 iteration, maximum queries, or `MaxMap` composition.
 
+The main library separately extracts and proves `MaxMap` default, lookup,
+insertion, cardinality, and cached-maximum behavior over an abstract inner
+`UpdateMap`, including preservation of cache validity. See
+[the wrapper source proofs](../../PROGRESSIVE_LIST_MODEL_AUDIT.md#maxmap-wrapper-source-proofs).
+Connecting this suite's concrete VecMap representation to that dictionary
+remains unfinished.
+
 Run from the repository root:
 
 ```sh

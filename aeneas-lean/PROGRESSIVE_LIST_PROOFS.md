@@ -85,6 +85,17 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- `UpdateMap/MaxMap/Operations.lean` proves the actual extracted wrapper's
+  default construction, lookup, cardinality, cached maximum, and insertion
+  behavior over an arbitrary inner `UpdateMap`. Insertion propagates the inner
+  result and records the key; the exact maximum update needs no inner maximum
+  law, cache invariant, cloning law, or index/successor bound.
+  `Maximum.lean` defines cache validity by bounding successful present reads
+  and attaining a present maximum. It characterizes valid default construction
+  by the actual inner outcome and proves insertion preserves validity from
+  the inner insertion's lookup frame. These seventeen public lemmas prove
+  wrapper behavior; the concrete inner dictionary and borrowed map operations
+  remain separate obligations.
 - The independent [VecMap source suite](reproducers/vec_map_models/README.md)
   proves exact construction/observer/mutable-lookup equations from pinned
   source, including the actual Option borrow helpers. Six derived contracts
@@ -1826,7 +1837,47 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest VecMap source checkpoint (`ad39a6d`, invariants `235382e`): the pinned
+Latest MaxMap source checkpoint (`a5c77c3`, cache validity `72dba6d`): five
+actual wrapper paths now extract through cfg-gated proof callers: default,
+lookup, insertion, cardinality, and maximum. Eleven operational lemmas prove
+exact delegation, result propagation, inner/wrapper success equivalence,
+lookup frames, and cached insertion metadata. Six semantic lemmas specify
+valid maxima, characterize valid default construction by the actual inner
+outcome, and preserve validity through insertion. The invariant bounds
+successful present reads and attains a present cache; it does not assume
+all reads terminate. Exact cached insertion metadata is independent of that
+invariant, inner maximum-query laws, cloning, and index/successor bounds.
+
+All seventeen public lemmas pass individual axiom checks: five are axiom-free
+and twelve use only standard Lean axioms. Full extraction succeeds, and the
+eight existing `update_map::tests` pass with the arbitrary feature enabled.
+Formatting passes for the added proof callers. Existing Rust method bodies,
+prior extracted function bodies, external templates/models, and Aeneas are
+unchanged. Concrete inner dictionary composition and the remaining MaxMap
+mutable/CoW, range, and trait paths are still open, alongside borrowed CoW and
+the remaining assumption/model-fidelity review. Debug and Serde remain
+excluded; TreeHash remains deferred.
+
+The full build passes (2,161 jobs). The complete axiom/import audit covers
+6,190 theorem declarations across 445 project modules: 6,071 use only standard
+axioms or none, and 119 retain the existing Arc pointer contract. It introduces
+no new nonstandard axiom dependencies. Logs are
+`/tmp/milhouse-max-map-extraction.log`,
+`/tmp/milhouse-max-map-operations-axioms.log`,
+`/tmp/milhouse-max-map-maximum-axioms.log`,
+`/tmp/milhouse-max-map-native.log`, and
+`/tmp/milhouse-max-map-full-audit.log`.
+
+The model dependency gate also passes with the unchanged 42 roots and 151
+local declarations (`/tmp/milhouse-max-map-model-audit.log`). SSZ and Arbitrary
+source suites were rerun because their inputs include regenerated `Tree.Types`;
+both pass. All nine source reports now have current input hashes and retain
+52 checked proofs (20 axiom-free, 32 standard-only). The seven unaffected
+suites were not rerun. Regression logs are
+`/tmp/milhouse-max-map-ssz-regression.log` and
+`/tmp/milhouse-max-map-arbitrary-regression.log`.
+
+Previous VecMap source checkpoint (`ad39a6d`, invariants `235382e`): the pinned
 0.8.2 map has seven exact source equations covering construction, count and
 emptiness observers, indexed lookup, mutable lookup, and their actual Option
 borrow helpers. Six additional contracts establish the count invariant,

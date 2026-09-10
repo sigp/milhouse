@@ -81,6 +81,56 @@ general Debug implementations are excluded. The specialized formatter's
 string-buffer and default-option contract must not be extended to general
 formatter options, user sinks, or lock observation without further work.
 
+## MaxMap wrapper source proofs
+
+Extraction callers added in `a5c77c3` expose the actual `MaxMap` type and five
+source bodies: derived `Default::default`, `get`, `insert`, `len`, and
+`max_index`. They are included in the main extraction and proved in
+`Tree/UpdateMap/MaxMap/Operations.lean`; no replacement model is introduced.
+Default construction calls the inner default and starts with an empty cache.
+Lookup and cardinality delegate to the inner map. The maximum query reads
+only the cache. Insertion preserves the inner call's returned previous value
+and updated map, then records the inserted key. Exact result equations include
+failure and divergence, and wrapper insertion succeeds exactly when the inner
+insertion succeeds.
+
+The cache's new value is the maximum of the inserted key and previous cached
+key, or just the inserted key when the cache was empty. This law is enforced
+by the source wrapper without any inner maximum-query law, cache-validity
+invariant, clone law, or index/successor bound. The lookup frame transfers
+pointwise from the actual inner insertion, including failed or divergent
+reads at other keys.
+
+`Maximum.lean` (`72dba6d`) defines validity independently: all successfully
+observed keys are bounded by the cache, and a present cached key is attained.
+It imposes no global read-totality law. Successful default construction has a
+valid cache exactly when the actual inner default succeeds with no successful
+present reads. Insertion preserves validity from the input invariant and the
+inner insertion's exact lookup frame. The resulting specification supplies
+execution, lookup replacement, semantic validity, and exact cached metadata.
+These seventeen public lemmas use only standard Lean axioms or none; five
+are axiom-free.
+
+The added Rust callers are restricted to `milhouse_aeneas`. Existing Rust
+method bodies, prior generated function bodies, external templates, local
+external models, and Aeneas are unchanged. These proofs retain an abstract
+inner `UpdateMap`; they do not establish a concrete VecMap dictionary or the
+remaining `MaxMap` mutable/CoW, range, and trait paths. The independent VecMap
+source suite below supplies part of that separate composition work.
+
+The full main build passes (2,161 jobs), and the axiom/import gate validates
+6,190 declarations across 445 modules. Of these, 6,071 use only standard Lean
+axioms or none; 119 retain the existing Arc pointer contract. There are no new
+nonstandard axiom dependencies. The eight existing update-map Rust tests and
+formatting for the added proof callers pass.
+
+The dependency gate was rerun and still reports 42 roots and 151 local model
+declarations. The SSZ and Arbitrary source suites were rerun because their
+inputs include the regenerated `Tree.Types`; both pass. All nine source
+reports have current input hashes and retain 52 checked proofs (20 axiom-free,
+32 standard-only). The seven unaffected suites were not rerun. These source
+counts are separate from the seventeen main-library wrapper proofs above.
+
 ## VecMap source contracts
 
 The [VecMap suite](reproducers/vec_map_models/README.md), added in `ad39a6d`
@@ -108,9 +158,10 @@ hashes are current: 43 direct source equations/comparisons, one parameterized
 comparison, two compositions, and six derived VecMap contracts, totaling
 52 checked proofs (20 axiom-free, 32 standard-only). The standalone VecMap
 suite does not add production external models or change the main 42-root/
-151-declaration inventory. The main `Tree` sources are unchanged; their last
-full build/axiom audit remains 6,163 declarations across 443 modules and was
-not repeated for these standalone source proofs.
+151-declaration inventory. At that standalone checkpoint the main `Tree`
+sources were unchanged, and its 6,163-declaration/443-module build and axiom
+audit was not repeated. The subsequent MaxMap checkpoint above adds source
+bodies and proofs to the main library.
 
 The insertion probe is reproduced and recorded as UPSTREAM_BUGS issue 28.
 Including iterator/extension dependencies fails on `try_fold` signatures and
