@@ -107,9 +107,9 @@ theorem SszItems.variable_decodes_final_error {T : Type}
     simp only [Slice.length] at hfirstBound ⊢
     omega
   have hlast : bytes.drop current = last := by
-    apply Subtype.ext
+    apply Slice.ext
     have h := congrArg (_root_.List.drop (values.flatMap encode).length) hpayload
-    simpa only [_root_.List.drop_drop, _root_.List.drop_left, Slice.drop, hcurrent] using h
+    simpa only [_root_.List.drop_drop, _root_.List.drop_left, Slice.drop, Slice.from_val, hcurrent] using h
   have hsuccessorBound : count.val + 1 ≤ Std.Usize.max := by
     have hb := bytes.property
     simp only [Slice.length] at hfirstBound

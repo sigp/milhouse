@@ -24,8 +24,8 @@ private theorem variable_table_position (bytes tableTail : Slice Std.U8)
   simp only [core.slice.index.Slice.index,
     core.slice.index.SliceIndexRangeFromUsizeSlice.index, hposition, htable, ↓reduceIte]
   congr 1
-  apply Subtype.ext
-  simpa only [Slice.drop, hposition] using htail.symm
+  apply Slice.ext
+  simpa only [Slice.drop, Slice.from_val, hposition] using htail.symm
 
 /-- A final offset beyond the input returns the exact byte-bounds error and
 leaves the payload offset unchanged. -/

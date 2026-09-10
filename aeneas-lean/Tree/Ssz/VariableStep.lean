@@ -50,8 +50,8 @@ theorem SszItems.variable_item_between (bytes part tableTail : Slice Std.U8)
     simp only [core.slice.index.Slice.index,
       core.slice.index.SliceIndexRangeFromUsizeSlice.index, hposition, htable, ↓reduceIte]
     congr 1
-    apply Subtype.ext
-    simpa only [Slice.drop, hposition] using htail.symm
+    apply Slice.ext
+    simpa only [Slice.drop, Slice.from_val, hposition] using htail.symm
   have hfirst : ¬ nextOffset < first := by exact not_lt.mpr hfixed
   have hlength : ¬ nextOffset > bytes.len := by exact not_lt.mpr hbound
   have hnext : ¬ offset > nextOffset := by exact not_lt.mpr horder
@@ -61,7 +61,8 @@ theorem SszItems.variable_item_between (bytes part tableTail : Slice Std.U8)
       core.slice.index.SliceIndexRangeUsizeSlice.get, UScalar.le_equiv,
       horder, hbound, and_self, ↓reduceIte]
     congr 2
-    exact Subtype.ext hpart.symm
+    apply Slice.ext
+    simpa only [Slice.slice, Slice.from_val] using hpart.symm
   simp only [SszItems.variable_item, hindex, ↓reduceIte, ssz.BYTES_PER_LENGTH_OFFSET,
     bind_tc_ok, hmul, hslice, hread, core.result.Result.Insts.CoreOpsTry.branch,
     hfirst, hlength, hnext, ↓reduceIte, hget, core.option.Option.ok_or]
