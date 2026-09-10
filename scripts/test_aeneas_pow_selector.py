@@ -9,12 +9,13 @@ from aeneas_source_model_audit import POW_SELECTOR_CALLER, prepare_pow_selector
 class PowSelectorTests(unittest.TestCase):
     def setUp(self):
         self.source = {
-            "def_id": 2, "is_global_initializer": None,
+            "def_id": 2, "src": "Normal",
             "body": {"Intrinsic": {"name": "is_val_statically_known", "arg_names": ["_arg"]}},
             "item_meta": {
                 "name": [{"Ident": [part, 0]} for part in
                          ["core", "intrinsics", "is_val_statically_known"]],
-                "span": {"data": {"file_id": 4}}, "is_local": False, "opacity": "Foreign",
+                "span": {"Untagged": {"data": {"file_id": 4}, "generated_from_span": None}},
+                "is_local": False, "opacity": "Foreign",
             },
         }
         self.data = {"translated": {"crate_name": "pow_source", "fun_decls": [self.source],
@@ -52,7 +53,7 @@ class PowSelectorTests(unittest.TestCase):
         for mutate in [
             lambda d: d["translated"].update(crate_name="another"),
             lambda d: d["translated"]["fun_decls"][0].update(body="Opaque"),
-            lambda d: d["translated"]["fun_decls"][0].update(is_global_initializer=0),
+            lambda d: d["translated"]["fun_decls"][0].update(src={"GlobalInitializer": {"id": 0}}),
             lambda d: d["translated"]["fun_decls"][0]["item_meta"].update(is_local=True),
             lambda d: d["translated"]["fun_decls"][0]["item_meta"].update(opacity="Transparent"),
             lambda d: d["translated"]["files"][0].update(crate_name="pow_source"),

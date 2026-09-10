@@ -19,6 +19,16 @@ SUITE = {
     "crate": "option_source", "namespace": "OptionSource",
     "includes": ["core::option"],
     "source_files": {name: "/rustc/library/core/src/option.rs" for name in METHODS},
+    "rename_sources": {"ok_or": "ok_or_source"},
+    "model_modules": ["Tree.FunsExternal", "Tree.Intrinsics"],
+    "model_files": ["Tree/FunsExternal.lean", "Tree/Intrinsics.lean"],
+    "foundation_bindings": [{
+        "method": "assume", "source_prefix": "core::intrinsics", "source_crate": "core",
+        "source_file": "/rustc/library/core/src/intrinsics/mod.rs",
+        "lean_name": "core.intrinsics.assume", "signature": ": Bool → Result Unit",
+        "intrinsic": {"name": "assume", "arg_names": ["b"]},
+        "module": "Tree.Intrinsics",
+    }],
     "proofs": {name: [] for name in PROOFS},
     "composition": ["cloned"], "unresolved": ["cloned"],
 }

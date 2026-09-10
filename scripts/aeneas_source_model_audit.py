@@ -14,7 +14,32 @@ import tempfile
 from pathlib import Path
 
 
-TOOLCHAIN = "nightly-2026-06-01"
+TOOLCHAIN = "nightly-2026-08-18"
+
+
+def source_span(meta):
+    """Read the untagged source span emitted by the pinned Charon 0.1.251."""
+    span = meta.get("span")
+    if (not isinstance(span, dict) or set(span) != {"Untagged"}
+            or not isinstance(span["Untagged"], dict)
+            or not isinstance(span["Untagged"].get("data"), dict)):
+        raise ValueError("Unexpected source span format")
+    return span["Untagged"]["data"]
+
+
+def source_initializer(item):
+    """Recover the global id from Charon's declaration-source discriminator."""
+    source = item["src"]
+    if source == "Normal":
+        return None
+    if isinstance(source, dict) and len(source) == 1:
+        if set(source) <= {"TraitImpl", "TraitDefault"}:
+            return None
+        if "GlobalInitializer" in source:
+            global_ref = source["GlobalInitializer"]
+            if isinstance(global_ref, dict) and type(global_ref.get("id")) is int:
+                return global_ref["id"]
+    raise ValueError("Unexpected declaration source")
 
 # This parameter represents one nondeterministic Bool outcome. The pinned
 # power body queries the intrinsic once; both loops remain freshly extracted.
@@ -58,7 +83,7 @@ def prepare_pow_selector(data, template, original):
     """
     name = "core.intrinsics.is_val_statically_known"
     signature = "{T : Type} (markerCopyInst : core.marker.Copy T) : T → Result Bool"
-    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n((?:[^\n]+\n?)*)", template)
+    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n?((?:[^\n]+\n?)*)", template)
     if ([(n, " ".join(s.split())) for n, s in records] != [(name, signature)]
             or len(re.findall(r"(?m)^axiom\b", template)) != 1
             or re.search(r"\b(sorry|admit|opaque)\b", template)
@@ -68,11 +93,11 @@ def prepare_pow_selector(data, template, original):
     source = source_declaration(crate, {"source_prefix": "core::intrinsics"},
                                 "is_val_statically_known")
     meta = source["item_meta"]
-    span = meta["span"]["data"]
+    span = source_span(meta)
     files = {file["id"]: file for file in crate["files"] if file}
     file = files[span["file_id"]]
     if (crate["crate_name"] != "pow_source" or meta["is_local"] is not False
-            or meta["opacity"] != "Foreign" or source["is_global_initializer"] is not None
+            or meta["opacity"] != "Foreign" or source_initializer(source) is not None
             or source["body"] != {"Intrinsic": {"name": "is_val_statically_known", "arg_names": ["_arg"]}}
             or file["crate_name"] != "core"
             or file["name"] != {"Local": "/rustc/library/core/src/intrinsics/mod.rs"}):
@@ -125,7 +150,7 @@ def trait_method_declaration(crate, suite, trait_name, method_name):
 
 
 def check_llbc(data, suite):
-    if data.get("has_errors") is not False or data.get("charon_version") != "0.1.223":
+    if data.get("has_errors") is not False or data.get("charon_version") != "0.1.251":
         raise ValueError("LLBC has errors or an unexpected Charon version")
     crate = data["translated"]
     if crate["crate_name"] != suite["crate"]:
@@ -139,7 +164,7 @@ def check_llbc(data, suite):
     for name in suite["source_files"]:
         item = source_declaration(crate, suite, name)
         meta = item["item_meta"]
-        span = meta["span"]["data"]
+        span = source_span(meta)
         source = files[span["file_id"]]
         if (meta["is_local"] or meta["opacity"] != "Transparent"
                 or source["crate_name"] != source_crates.get(name, source_crate)
@@ -147,14 +172,19 @@ def check_llbc(data, suite):
                 or not isinstance(item["body"], dict)
                 or not isinstance(item["body"].get("Structured"), dict)):
             raise ValueError(f"Missing transparent dependency provenance for {name}")
-        initializer = item["is_global_initializer"]
+        initializer = source_initializer(item)
         if name in suite.get("initializers", []):
             globals_ = [g for g in crate["global_decls"] if g
                         and type(initializer) is int and g["def_id"] == initializer]
             if len(globals_) != 1:
                 raise ValueError(f"Missing global declaration for {name}")
             global_ = globals_[0]
-            call = global_["value"]["kind"].get("Call")
+            value = global_["value"]
+            if (not isinstance(value, dict) or set(value) != {"Untagged"}
+                    or not isinstance(value["Untagged"], list) or len(value["Untagged"]) != 2
+                    or not isinstance(value["Untagged"][0], dict)):
+                raise ValueError(f"Unexpected constant expression for {name}")
+            call = value["Untagged"][0].get("Call")
             if (global_["item_meta"] != meta or global_["global_kind"] != "NamedConst"
                     or not isinstance(call, list) or len(call) != 2
                     or call[0]["kind"] != {"Fun": {"Regular": item["def_id"]}}
@@ -262,7 +292,7 @@ def check_source_metadata(original, adjusted, suite):
             raise ValueError("Invalid source type rename")
         source = source_declaration(original["translated"], suite, name, "type_decls")
         meta = source["item_meta"]
-        span = meta["span"]["data"]
+        span = source_span(meta)
         file = files[span["file_id"]]
         if (meta["is_local"] is not False or meta["opacity"] != "Transparent"
                 or file["crate_name"] != suite.get("source_crate", "core")
@@ -293,7 +323,7 @@ def check_source_metadata(original, adjusted, suite):
         trait, index, method = trait_method_declaration(original["translated"], suite, trait_name, name)
         field = method["skip_binder"]
         for meta in (trait["item_meta"], field["item_meta"]):
-            file = files[meta["span"]["data"]["file_id"]]
+            file = files[source_span(meta)["file_id"]]
             if (meta["is_local"] is not False or meta["opacity"] != "Transparent"
                     or file["crate_name"] != suite.get("source_crate", "core")
                     or file["name"] != {"Local": change["source_file"]}):
@@ -312,7 +342,7 @@ def check_source_metadata(original, adjusted, suite):
         renamed_method["skip_binder"]["item_meta"]["name"] = copy.deepcopy(field["item_meta"]["name"])
         methods.append({"trait": trait_name, "method": name, "extractedMethod": replacement,
                         "traitDefId": trait["def_id"], "methodId": index,
-                        "source": field["item_meta"]["span"]["data"]})
+                        "source": source_span(field["item_meta"])})
     # This restores any separately declared function renames and compares the
     # entire result, including code, types, IDs, dictionaries, and source spans.
     renames = check_source_renames(original, restored, suite)
@@ -341,7 +371,7 @@ def check_foundation_bindings(data, suite, template):
     The template is inspected but never compiled. The replacement module may
     contain imports only; all generated source definitions stay untouched.
     """
-    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n((?:[^\n]+\n?)*)", template)
+    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n?((?:[^\n]+\n?)*)", template)
     bindings = suite.get("foundation_bindings", [])
     expected = {binding["lean_name"]: " ".join(binding["signature"].split()) for binding in bindings}
     if (len(expected) != len(bindings) or len(records) != len(expected)
@@ -361,10 +391,11 @@ def check_foundation_bindings(data, suite, template):
             raise ValueError("Foundation import must be an explicit built and hashed model module")
         source = source_declaration(crate, {"source_prefix": binding["source_prefix"]}, binding["method"])
         meta = source["item_meta"]
-        span = meta["span"]["data"]
+        span = source_span(meta)
         file = files[span["file_id"]]
+        expected_body = {"Intrinsic": binding["intrinsic"]} if "intrinsic" in binding else "Opaque"
         if (meta["is_local"] is not False or meta["opacity"] != "Foreign"
-                or source["body"] != "Opaque" or source["is_global_initializer"] is not None
+                or source["body"] != expected_body or source_initializer(source) is not None
                 or file["crate_name"] != binding["source_crate"]
                 or file["name"] != {"Local": binding["source_file"]}):
             raise ValueError(f"Unexpected foundation source provenance: {binding['method']}")
@@ -405,9 +436,9 @@ def main(suite):
         "toolchain": run("charon-toolchain", [args.charon, "toolchain-version"]),
         "rustc": run("rustc-version", ["rustc", "+" + TOOLCHAIN, "--version", "--verbose"]),
     }
-    if (versions["charon"] != "0.1.223" or versions["aeneas"] != "aeneas b59d5188"
+    if (versions["charon"] != "0.1.251 (85bba1f2a64ded1704586cdc26dfb62aeb4b7168)" or versions["aeneas"] != "aeneas nightly-2026.09.08-7ebd01d"
             or versions["toolchain"] != TOOLCHAIN
-            or "14210df0e27ccd7d9e6a05b8085cbd438e4bbc65" not in versions["rustc"]):
+            or "8fa1c96cfd489e4c27654c144ae871ce2c4db6c6" not in versions["rustc"]):
         raise ValueError("Tool versions changed; review the source comparison before updating pins")
     dependency_sources = []
     cargo = suite.get("cargo_dependency")
@@ -433,11 +464,10 @@ def main(suite):
         run("native-build", ["rustc", "+" + TOOLCHAIN, "--edition", "2024", "--test",
                              str(sources / "source.rs"), "-o", str(work / "native")])
         run("native-tests", [str(work / "native")], cwd=work)
-    command = [args.charon, "cargo" if cargo else "rustc", "--preset=aeneas"]
-    if suite.get("excludes"):
-        # Compare complete source declarations, not references to separately
-        # serialized hash-consed values whose meaning could change between runs.
-        command += ["--no-dedup-serialized-ast"]
+    # Compare complete source declarations, not references to separately
+    # serialized hash-consed values whose meaning could change between runs.
+    command = [args.charon, "cargo" if cargo else "rustc", "--preset=aeneas",
+               "--no-dedup-serialized-ast"]
     for include in suite["includes"]:
         command += ["--include", include]
     llbc = work / (suite["crate"] + ".llbc")

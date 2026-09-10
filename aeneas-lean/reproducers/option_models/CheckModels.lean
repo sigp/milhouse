@@ -15,7 +15,6 @@ theorem option_is_some_and_agrees {T F : Type}
   | none => rfl
   | some value =>
     simp only [OptionSource.core.option.Option.is_some_and, core.option.Option.is_some_and]
-    cases inst.call_once f value <;> rfl
 
 theorem option_is_none_or_agrees {T F : Type}
     (inst : core.ops.function.FnOnce F T Bool) (value : Option T) (f : F) :
@@ -25,7 +24,6 @@ theorem option_is_none_or_agrees {T F : Type}
   | none => rfl
   | some value =>
     simp only [OptionSource.core.option.Option.is_none_or, core.option.Option.is_none_or]
-    cases inst.call_once f value <;> rfl
 
 theorem option_map_agrees {T U F : Type}
     (inst : core.ops.function.FnOnce F T U) (value : Option T) (f : F) :
@@ -34,7 +32,6 @@ theorem option_map_agrees {T U F : Type}
   | none => rfl
   | some value =>
     simp only [OptionSource.core.option.Option.map, core.option.Option.map]
-    cases inst.call_once f value <;> rfl
 
 theorem option_map_or_agrees {T U F : Type}
     (inst : core.ops.function.FnOnce F T U) (value : Option T) (fallback : U) (f : F) :
@@ -44,7 +41,6 @@ theorem option_map_or_agrees {T U F : Type}
   | none => rfl
   | some value =>
     simp only [OptionSource.core.option.Option.map_or, core.option.Option.map_or]
-    cases inst.call_once f value <;> rfl
 
 theorem option_unwrap_or_default_agrees {T : Type}
     (inst : core.default.Default T) (value : Option T) :
@@ -53,7 +49,7 @@ theorem option_unwrap_or_default_agrees {T : Type}
   cases value <;> rfl
 
 theorem option_ok_or_agrees {T E : Type} (value : Option T) (error : E) :
-    OptionSource.core.option.Option.ok_or value error = core.option.Option.ok_or value error := by
+    OptionSource.core.option.Option.ok_or_source value error = core.option.Option.ok_or value error := by
   cases value <;> rfl
 
 theorem option_or_agrees {T : Type} (value fallback : Option T) :
@@ -80,7 +76,11 @@ theorem option_from_residual_agrees (T : Type) (value : Option core.convert.Infa
     OptionSource.core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual T value =
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual T value := by
   cases value with
-  | none => rfl
+  | none =>
+    simp only [OptionSource.core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual,
+      read_discriminant, optionInfallibleDiscriminant, core.intrinsics.assume,
+      decide_true, ite_true, bind_tc_ok]
   | some impossible => cases impossible
 
 /-- Rust spells `cloned` as `self.map(T::clone)`. Its function-item adapter

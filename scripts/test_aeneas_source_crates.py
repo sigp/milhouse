@@ -17,16 +17,16 @@ class SourceCrateTests(unittest.TestCase):
         declarations = []
         for index, parts in enumerate([("vec_map", "get"), ("core", "option", "as_ref")]):
             declarations.append({
-                "def_id": index, "is_global_initializer": None,
+                "def_id": index, "src": "Normal",
                 "body": {"Structured": {}},
                 "item_meta": {
                     "name": [{"Ident": [part, 0]} for part in parts],
-                    "span": {"data": {"file_id": index}},
+                    "span": {"Untagged": {"data": {"file_id": index}, "generated_from_span": None}},
                     "is_local": False, "opacity": "Transparent",
                 },
             })
         self.data = {
-            "has_errors": False, "charon_version": "0.1.223",
+            "has_errors": False, "charon_version": "0.1.251",
             "translated": {
                 "crate_name": "vec_map_source", "fun_decls": declarations,
                 "files": [
@@ -74,6 +74,17 @@ class SourceCrateTests(unittest.TestCase):
         suite["source_crates"]["unused"] = "core"
         with self.assertRaisesRegex(ValueError, "no selected source body"):
             check_llbc(self.data, suite)
+
+    def test_rejects_old_compiler_and_unsupported_span_formats(self):
+        data = copy.deepcopy(self.data)
+        data["charon_version"] = "0.1.223"
+        with self.assertRaisesRegex(ValueError, "version"):
+            check_llbc(data, self.suite)
+        for span in [{"data": {"file_id": 0}}, {"Tagged": {"data": {"file_id": 0}}}]:
+            data = copy.deepcopy(self.data)
+            data["translated"]["fun_decls"][0]["item_meta"]["span"] = span
+            with self.subTest(span=span), self.assertRaisesRegex(ValueError, "source span"):
+                check_llbc(data, self.suite)
 
 
 if __name__ == "__main__":
