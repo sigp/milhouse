@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_nonempty_success_of_guards`, `ProgressiveList.apply_updates_nonempty_success_iff_guards`, `ProgressiveList.apply_updates_success_iff_guards` (execution without range correctness); `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,54 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The missing-update guard review (`d1c91b1`, progressive contracts `676a3a5`,
+binary contracts `2998487`, necessity `2224494`, scope `bcefc21`) removes
+range correctness from binary, progressive, and public list execution proofs.
+`BulkGuardsPass` states the actual missing-update checks: an unpacked terminal
+needs a pending value; an internal node cannot have both child queries return
+false, and selected children must pass their own guards. Packed terminals need
+no pending-value witness. This condition uses input geometry and actual map
+answers, without assuming an update result or query termination.
+
+Successful binary execution implies these guards under layout, input shape,
+and prefix alignment, without range, clone, termination, density, or capacity
+laws. Selected-layer scopes lift necessity to progressive rebuilding and list
+application. The generalized sufficient execution proofs use these guards and
+reached-query termination instead of binary range reflection. Previous
+`_of_enabled` contracts retain their signatures as adapters from their stronger
+pending-witness and reflection laws.
+
+`ApplyUpdates/GuardConditions.lean` proves exact execution criteria for nonempty
+application and both branches. On the rebuilding branch, input representation,
+density, layout, occupied capacity, and selected clone termination remain
+upfront. Reached range-query termination, selected guards, and an actual
+successful default construction are on the necessary-and-sufficient side.
+No range correctness, assumed guard success, or upfront query/default success
+is required. The empty-map no-op has no rebuilding conditions.
+
+These are execution criteria. The existing binary contents criterion separately
+uses retained/pending clone identity and skipped-value agreement without range
+correctness. Public valid-materialization criteria still use selected binary
+reflection: weakening backing-density preservation and connecting the weaker
+content conditions remain unfinished. Successful execution alone does not
+establish valid backing or correct stored contents for incoherent map answers.
+
+Focused and full builds pass (2,136 jobs). The axiom/import audit covers
+6,008 declarations across 420 modules: 5,889 use only standard Lean axioms or
+none, and 119 use the existing Arc pointer contract. All 19 new public lemmas
+use standard Lean axioms; private/generated declarations are included in the
+inventory. No new axiom or admission was introduced. External axiom use is
+unchanged, and `size_of` remains unused. Existing success, total, and cache
+proofs validate.
+
+Backing-density range premises, geometry and other assumption minimality,
+borrowed CoW, and model fidelity remain unfinished. No Rust, extraction,
+external model, or Aeneas source changed; the seven source suites and
+42-root/151-declaration dependency gate were not repeated for this proof-only
+work. Debug and Serde remain excluded; TreeHash is deferred outside the goal.
+
+Previous binary skipped-value checkpoint:
 
 The binary skipped-value review (`30c17f3`, binary equivalence/selected
 content bridge `8d17355`, generalized contents `7a2235e`, scope/routing
