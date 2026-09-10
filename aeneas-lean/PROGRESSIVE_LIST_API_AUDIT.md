@@ -135,6 +135,24 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The concrete VecMap source review (`ad39a6d`, invariants `235382e`) adds
+thirteen proofs against independently extracted source for
+construction, cardinality, emptiness, indexed lookup, and mutable lookup,
+including the two actual Option borrow helpers. Four native tests pass. The
+count invariant is established by construction and preserved by mutable loans;
+lookup equations require no count invariant or cloning. This advances the
+fidelity of the default map's dependencies without claiming a complete
+`UpdateMap` instance. Insertion's iterator-signature failure is reproduced in
+UPSTREAM_BUGS 28; range/max operations, entry footprints, and `MaxMap`
+composition still need their own work.
+
+All nine source suites pass with explicit source-crate validation, totaling
+52 checked proofs (20 axiom-free, 32 standard-only); all report input hashes
+are current. Main `Tree` proofs and the included-root inventory are unchanged,
+so their previous 6,163-declaration/443-module audit and 42-root/151-declaration
+model inventory were not rerun. Borrowed CoW and remaining assumption/model
+review are still incomplete. Debug and Serde are excluded; TreeHash is deferred.
+
 The consuming materialization review (`8bb4bb4`, list contracts `477cdb3`)
 proves the exact entry/clone conditions for `Cow.into_mut`, including vector
 growth bounds and the actual initial value. Successful execution supplies the
@@ -192,7 +210,7 @@ by included API roots. Error-mapping callbacks may succeed, fail, or diverge;
 no callback or clone law is assumed. The core suite passes seven comparisons
 and eleven native tests. The full library/axiom audit still passes for 6,103
 declarations across 429 modules. The unchanged other source suites were not
-rerun; current reports together contain 39 comparison proofs. This reduces
+rerun; those reports together contain 39 comparison proofs. This reduces
 model-fidelity gaps without changing public-operation coverage or closing the
 borrowed CoW extraction obligations.
 

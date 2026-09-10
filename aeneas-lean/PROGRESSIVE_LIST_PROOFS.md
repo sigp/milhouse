@@ -85,6 +85,15 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The independent [VecMap source suite](reproducers/vec_map_models/README.md)
+  proves exact construction/observer/mutable-lookup equations from pinned
+  source, including the actual Option borrow helpers. Six derived contracts
+  establish the occupancy-count invariant, give semantic cardinality and
+  emptiness, and preserve occupancy through every mutable continuation.
+  These thirteen proofs retain vector/scalar/reference foundations and live
+  outside `Tree`. Concrete insertion, range/max operations, entry footprints,
+  and `UpdateMap`/`MaxMap` composition remain separate fidelity obligations;
+  insertion's tested iterator-signature failure is recorded in UPSTREAM_BUGS 28.
 - Binary `Selection.lean` derives positive numeric selection from actual
   rebuilding and dense output, using layout and prefix alignment without input
   invariants, clone/range laws, offset alignment, or capacity assumptions.
@@ -1817,7 +1826,30 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest consuming materialization checkpoint (`8bb4bb4`, list contracts
+Latest VecMap source checkpoint (`ad39a6d`, invariants `235382e`): the pinned
+0.8.2 map has seven exact source equations covering construction, count and
+emptiness observers, indexed lookup, mutable lookup, and their actual Option
+borrow helpers. Six additional contracts establish the count invariant,
+connect observers to occupied slots, and specify and preserve mutable loans.
+The thirteen standalone proofs use only standard Lean axioms or none; one is
+axiom-free. Four native tests and four new provenance-validation tests pass.
+
+All nine source suites pass with the shared runner's mixed-source-crate
+validation. Their reports have current input hashes and contain 52 checked
+proofs: 43 direct equations/comparisons, one parameterized comparison, two
+compositions, and six derived VecMap contracts (20 axiom-free, 32 standard-only).
+No production Rust, external model, main extraction, or Aeneas source changed.
+The main `Tree` sources and 42-root/151-declaration inventory are unchanged;
+their previous full build/axiom result remains 6,163 declarations across 443
+modules and was not repeated for this standalone source-contract work.
+
+The reproduced insertion probe fails on iterator `try_fold` signatures and
+an erased region (UPSTREAM_BUGS 28). Concrete insertion/range/max operations,
+entry footprints, and `UpdateMap`/`MaxMap` composition remain unfinished, along
+with borrowed CoW and the remaining assumption/model-fidelity review. Debug
+and Serde remain excluded; TreeHash remains deferred.
+
+Previous consuming materialization checkpoint (`8bb4bb4`, list contracts
 `477cdb3`): actual `Cow.into_mut` success is equivalent to structural entry
 readiness and clone termination only for immutable handles. A specified
 returned value is characterized by the actual clone result or existing mutable

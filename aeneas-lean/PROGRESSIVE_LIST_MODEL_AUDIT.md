@@ -81,6 +81,44 @@ general Debug implementations are excluded. The specialized formatter's
 string-buffer and default-option contract must not be extended to general
 formatter options, user sinks, or lock observation without further work.
 
+## VecMap source contracts
+
+The [VecMap suite](reproducers/vec_map_models/README.md), added in `ad39a6d`
+with invariant contracts in `235382e`, checks the pinned 0.8.2 implementation
+used inside the default `MaxMap<VecMap<T>>`. Run
+`python3 scripts/aeneas-audit-vec-map-models.py` from the repository root.
+Seven exact equations cover `new`, `len`, `is_empty`, `get`, `get_mut`, and
+the actual `Option::as_ref`/`as_mut` helpers. Lookup is indexed slot access;
+mutable lookup's complete continuation preserves absent slots and updates
+only an originally present slot, retaining count metadata. No source body,
+LLBC name, or generated Lean body is patched, and no external template is
+accepted in this suite.
+
+Six further laws establish and preserve the occupancy-count invariant,
+connect cardinality/emptiness to occupied slots, and specify missing/present
+mutable loans. All thirteen proofs pass with standard Lean axioms or none;
+`option_as_ref_eq` is axiom-free. Four native tests cover sparse and reserved
+maps, extreme missing keys, replacement frames, and non-Clone values. The
+shared runner validates both source crates explicitly. Four new provenance
+tests reject wrong crate/path/body/transparency/locality metadata and unused
+overrides while preserving the existing single-crate gate.
+
+All nine source suites pass after this extension, and their recorded input
+hashes are current: 43 direct source equations/comparisons, one parameterized
+comparison, two compositions, and six derived VecMap contracts, totaling
+52 checked proofs (20 axiom-free, 32 standard-only). The standalone VecMap
+suite does not add production external models or change the main 42-root/
+151-declaration inventory. The main `Tree` sources are unchanged; their last
+full build/axiom audit remains 6,163 declarations across 443 modules and was
+not repeated for these standalone source proofs.
+
+The insertion probe is reproduced and recorded as UPSTREAM_BUGS issue 28.
+Including iterator/extension dependencies fails on `try_fold` signatures and
+an erased region in `map_try_fold`. Insertion, ranges/maxima, entry footprints,
+and concrete `UpdateMap`/`MaxMap` composition remain unfinished. These
+contracts retain the existing vector/scalar/reference foundations; they are
+not a full concrete-map or allocator refinement. Borrowed CoW remains open.
+
 ## Option source comparisons
 
 Run `python3 scripts/aeneas-audit-option-models.py` from the repository root.
@@ -160,7 +198,7 @@ native tests; its four nonnumeric comparisons are axiom-free. The full library
 build and axiom/import audit pass for the unchanged 6,103 declarations across
 429 modules. No production Rust, model, main extraction, shared runner, or
 Aeneas source changed. The other seven source suites were unchanged and were
-not repeated; together the current reports contain 36 direct comparisons,
+not repeated; the reports at that checkpoint contain 36 direct comparisons,
 one parameterized comparison, and two compositions: 39 proofs, of which 19
 are axiom-free and twenty use only standard axioms. The 42-root/151-declaration
 dependency inventory is unchanged; its gate was not repeated for this

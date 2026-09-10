@@ -1180,6 +1180,34 @@ source error type's global `instDiscriminantErrorIsize` collision with
 `Tree.Types`; reversing that adjustment must recover the entire original
 LLBC. Seven native tests and all seven source suites pass at `db45ecc`.
 
+## 28. Aeneas: VecMap insertion reaches unsupported iterator signatures
+
+**Status:** isolated for the pinned `vec_map` 0.8.2 source; insertion remains
+outside the successful source-contract suite. No Aeneas or Rust source change.
+
+The [VecMap source reproducer](reproducers/vec_map_models/README.md) retains a
+direct `VecMap::insert` caller and the full diagnostic command. Charon 0.1.223
+succeeds with Rust `nightly-2026-06-01`. With only `vec_map` included, the
+generated insertion still calls external `Iterator::map`, map-iterator `next`,
+and `Vec::extend`; this is incomplete source evidence and no new models are
+substituted for those calls.
+
+Adding `core::iter::traits::iterator::Iterator::map`,
+`core::iter::adapters::map`, and `alloc::vec::_::extend` makes Aeneas `b59d5188`
+exit 2 during signature translation. `Iterator::try_fold`
+(`core/src/iter/traits/iterator.rs:2486`) and the map adapter's `try_fold`
+(`core/src/iter/adapters/map.rs:115`) fail at
+`symbolic/SymbolicToPureTypes.ml:1012`. `map_try_fold` (source line 91) also
+reports `Unexpected erased region` at compiler line 813. No partial output is
+imported. This records the tested extraction boundary, not a Rust bug or a
+claim that every possible extraction strategy fails.
+
+The successful suite independently extracts `VecMap::new`, `len`, `is_empty`,
+`get`, `get_mut`, and their actual `Option::as_ref`/`as_mut` helpers. Thirteen
+source-contract and invariant lemmas pass with standard Lean axioms or none,
+and four native tests pass. Insertion, range/max queries, the entry footprints,
+and concrete `UpdateMap`/`MaxMap` composition still need their own fidelity work.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
