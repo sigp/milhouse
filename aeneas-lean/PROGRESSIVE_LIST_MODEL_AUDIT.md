@@ -376,6 +376,57 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The binary density range review (`82f8265`, binary skipped extents `4446f3e`,
+  progressive/list numeric contracts `3bbf03b`, binary density `a44efeb`, local
+  reflection adapter `0fefbab`) removes pending-value range reflection from
+  backing-density preservation. Reached ranges need only numeric effects:
+  skipped windows keep their occupied length, and selected windows start inside
+  the final prefix. The generalized binary proof clips global prefix endpoints
+  to each child window. The prior binary, progressive, and list reflection
+  contracts retain their signatures as adapters.
+
+  `Tree/BulkUpdate/SkippedExtents.lean` derives false-answer extent preservation
+  from agreement with original dense slots. Otherwise a newly required extension
+  value would have to match a missing old slot. This uses input density, prefix
+  alignment, and local monotonicity/extension completeness, without an update
+  result, packing-operation law, machine-capacity bound, clone law, or range-value
+  law. Its density corollary combines that agreement with numeric positive
+  selection. `ProgressiveTree/BulkUpdate/BinarySkippedExtents.lean` lifts the
+  false-answer result through selected-layer slot routing using input density,
+  layout, and the extension laws, without input capacity or successful rebuilding.
+
+  The new progressive density and list backing contracts accept numeric conditions
+  for both progressive and binary ranges. Their skipped-range variants derive all
+  false-answer extent conditions from agreement with original values, leaving only
+  positive numeric selection independent. `apply_updates_preserves_backing_of_skipped_ranges`
+  proves backing validity on every successful application from input representation
+  and backing validity, with layout and reached range conditions only on the
+  rebuilding branch. Representation supplies the dense update domain, and actual
+  checked length supplies the maximum's numeric bound. No clone identity,
+  clone termination, range termination, or default-map law is assumed.
+
+  These are preservation theorems conditional on actual success. The separate
+  execution criteria use the previously proved missing-update guards without
+  range correctness. The public valid-materialization existence criteria still
+  retain selected binary reflection: the weaker binary content conditions must
+  be lifted through the progressive/list sufficient proofs and combined with
+  these density contracts. Necessity of the remaining binary numeric selection
+  conditions also needs proof. Correct stored contents, valid backing, and
+  successful execution remain distinct obligations.
+
+  Focused and full builds pass (2,139 jobs). The axiom/import audit covers
+  6,051 declarations across 423 modules: 5,932 use only standard Lean axioms or
+  none, and 119 use the existing Arc pointer contract. All 14 new public lemmas
+  use standard Lean axioms; private/generated declarations are included in the
+  inventory. No new axiom or admission was introduced. External axiom use is
+  unchanged, and `size_of` remains unused. Existing execution, total, and cache
+  proofs validate.
+
+  Work remains on materialization criteria, selection necessity, geometry and
+  other assumptions, borrowed CoW, and model fidelity. No Rust, extraction, external
+  model, or Aeneas source changed; the seven source suites and
+  42-root/151-declaration dependency gate were not repeated for this proof-only
+  work. Debug and Serde remain excluded; TreeHash is deferred outside the goal.
 - The missing-update guard review (`d1c91b1`, progressive contracts `676a3a5`,
   binary contracts `2998487`, necessity `2224494`, scope `bcefc21`) removes
   range correctness from binary, progressive, and public list execution proofs.

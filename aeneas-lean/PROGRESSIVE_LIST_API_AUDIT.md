@@ -54,7 +54,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
 | `has_pending_updates` | `ProgressiveList.has_pending_updates_spec` |
-| `apply_updates` | `ProgressiveList.apply_updates_nonempty_success_of_guards`, `ProgressiveList.apply_updates_nonempty_success_iff_guards`, `ProgressiveList.apply_updates_success_iff_guards` (execution without range correctness); `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
+| `apply_updates` | `ProgressiveList.apply_updates_preserves_backing_of_all_range_extents`, `ProgressiveList.apply_updates_preserves_backing_of_skipped_ranges` (backing preservation without range-value reflection); `ProgressiveList.apply_updates_nonempty_success_of_guards`, `ProgressiveList.apply_updates_nonempty_success_iff_guards`, `ProgressiveList.apply_updates_success_iff_guards` (execution without range correctness); `ProgressiveList.apply_updates_total_spec_of_enabled`, `ProgressiveList.apply_updates_success_valid_materializes_iff_of_ranges`, `ProgressiveList.apply_updates_success_valid_materializes_represents_iff_of_ranges`, `ProgressiveList.apply_updates_total_spec_of_skipped`, `ProgressiveList.apply_updates_success_represents_iff_of_skipped`, `ProgressiveList.apply_updates_represents_iff_of_range_extents`, `ProgressiveList.apply_updates_nonempty_backing_reads_iff_layer_agreement`, `ProgressiveList.apply_updates_backing_valid_contents_iff`, `ProgressiveList.apply_updates_nonempty_backing_contents_iff_layer_agreement`, `ProgressiveList.apply_updates_success_materializes_iff`, `ProgressiveList.apply_updates_success_materializes_represents_iff`, `ProgressiveList.len_after_apply_updates_iff` |
 | `iter` | `ProgressiveList.iter_spec` |
 | `iter_from` | `ProgressiveList.iter_from_spec`, `ProgressiveList.iter_from_error_iff` |
 | `iter_cow` | `ProgressiveList.iter_cow_spec`; constructor only, stepping pending |
@@ -134,6 +134,60 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The binary density range review (`82f8265`, binary skipped extents `4446f3e`,
+progressive/list numeric contracts `3bbf03b`, binary density `a44efeb`, local
+reflection adapter `0fefbab`) removes pending-value range reflection from
+backing-density preservation. Reached ranges need only numeric effects:
+skipped windows keep their occupied length, and selected windows start inside
+the final prefix. The generalized binary proof clips global prefix endpoints
+to each child window. The prior binary, progressive, and list reflection
+contracts retain their signatures as adapters.
+
+`Tree/BulkUpdate/SkippedExtents.lean` derives false-answer extent preservation
+from agreement with original dense slots. Otherwise a newly required extension
+value would have to match a missing old slot. This uses input density, prefix
+alignment, and local monotonicity/extension completeness, without an update
+result, packing-operation law, machine-capacity bound, clone law, or range-value
+law. Its density corollary combines that agreement with numeric positive
+selection. `ProgressiveTree/BulkUpdate/BinarySkippedExtents.lean` lifts the
+false-answer result through selected-layer slot routing using input density,
+layout, and the extension laws, without input capacity or successful rebuilding.
+
+The new progressive density and list backing contracts accept numeric conditions
+for both progressive and binary ranges. Their skipped-range variants derive all
+false-answer extent conditions from agreement with original values, leaving only
+positive numeric selection independent. `apply_updates_preserves_backing_of_skipped_ranges`
+proves backing validity on every successful application from input representation
+and backing validity, with layout and reached range conditions only on the
+rebuilding branch. Representation supplies the dense update domain, and actual
+checked length supplies the maximum's numeric bound. No clone identity,
+clone termination, range termination, or default-map law is assumed.
+
+These are preservation theorems conditional on actual success. The separate
+execution criteria use the previously proved missing-update guards without
+range correctness. The public valid-materialization existence criteria still
+retain selected binary reflection: the weaker binary content conditions must
+be lifted through the progressive/list sufficient proofs and combined with
+these density contracts. Necessity of the remaining binary numeric selection
+conditions also needs proof. Correct stored contents, valid backing, and
+successful execution remain distinct obligations.
+
+Focused and full builds pass (2,139 jobs). The axiom/import audit covers
+6,051 declarations across 423 modules: 5,932 use only standard Lean axioms or
+none, and 119 use the existing Arc pointer contract. All 14 new public lemmas
+use standard Lean axioms; private/generated declarations are included in the
+inventory. No new axiom or admission was introduced. External axiom use is
+unchanged, and `size_of` remains unused. Existing execution, total, and cache
+proofs validate.
+
+Work remains on materialization criteria, selection necessity, geometry and
+other assumptions, borrowed CoW, and model fidelity. No Rust, extraction, external
+model, or Aeneas source changed; the seven source suites and
+42-root/151-declaration dependency gate were not repeated for this proof-only
+work. Debug and Serde remain excluded; TreeHash is deferred outside the goal.
+
+Previous execution-guard checkpoint:
 
 The missing-update guard review (`d1c91b1`, progressive contracts `676a3a5`,
 binary contracts `2998487`, necessity `2224494`, scope `bcefc21`) removes
