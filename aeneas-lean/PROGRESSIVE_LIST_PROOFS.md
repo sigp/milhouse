@@ -1845,6 +1845,13 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
+The [2026-09-10 upstream version review](UPSTREAM_VERSION_REVIEW.md) identifies
+relevant merged fixes and tests two newer releases in isolation. Both require
+Slice model changes; latest also changes Result proof techniques. Fresh CoW
+extraction checks await Rust nightly 2026-08-18. No tool pin, source, or proof
+was changed, and no outstanding extraction obligation is discharged by this
+review.
+
 Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
 `get_cow_with`, and `get_cow_with_value` now extract and compile through
 cfg-gated callers. Explicit Rust Option matches avoid the borrowed `Try`
