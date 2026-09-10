@@ -33,6 +33,21 @@ inductive BulkRangeQueried {T U : Type} (mapInst : update_map.UpdateMap U T)
         (start + subtreeCapacity factor depth) queryLo queryHi) :
       BulkRangeQueried mapInst updates factor (depth + 1) start queryLo queryHi
 
+/-- Every queried binary range lies inside its root window. This includes
+degenerate capacities and needs no successful update or external law. -/
+theorem BulkRangeQueried.bounds {T U : Type}
+    {mapInst : update_map.UpdateMap U T} {updates : U} {factor : Option Std.Usize}
+    {depth start : Nat} {lo hi : Std.Usize}
+    (hquery : BulkRangeQueried mapInst updates factor depth start lo hi) :
+    start ≤ lo.val ∧ lo.val ≤ hi.val ∧ hi.val ≤ start + subtreeCapacity factor depth := by
+  induction hquery with
+  | left_here hlo hhi | right_here hlo hhi =>
+    simp only [subtreeCapacity, pow_succ, ← Nat.mul_assoc] at *
+    omega
+  | left_tail hlo hhi _ _ ih | right_tail hlo hhi _ _ ih =>
+    simp only [subtreeCapacity, pow_succ, ← Nat.mul_assoc] at *
+    omega
+
 /-- An external range law restricted to queries selected by binary traversal. -/
 def BulkRangeOn {T U : Type} (Q : Std.Usize → Std.Usize → Prop)
     (mapInst : update_map.UpdateMap U T) (updates : U) (factor : Option Std.Usize)
