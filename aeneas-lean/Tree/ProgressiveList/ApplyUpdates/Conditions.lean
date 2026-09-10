@@ -2,6 +2,7 @@ import Tree.ProgressiveList.ApplyUpdates.CloneConditions
 import Tree.ProgressiveList.ApplyUpdates.GuardConditions
 import Tree.ProgressiveList.ApplyUpdates.SkippedConditions
 import Tree.ProgressiveList.ApplyUpdates.SelectionConditions
+import Tree.ProgressiveList.ApplyUpdates.InputConditions
 import Tree.ProgressiveList.ApplyUpdates.StoredCloneConditions
 import Tree.ProgressiveList.ApplyUpdates.StartConditions
 import Tree.ProgressiveList.ApplyUpdates.MaterializedConditions

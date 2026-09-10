@@ -1,6 +1,7 @@
 import Tree.ProgressiveList.ApplyUpdates.Skipped
 import Tree.ProgressiveList.ApplyUpdates.RetainedClones
 import Tree.ProgressiveList.ApplyUpdates.BinarySkipped
+import Tree.ProgressiveList.ApplyUpdates.BinarySelection
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.progressive_tree
@@ -73,5 +74,46 @@ theorem ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_clones
       ProgressiveList.apply_updates_nonempty_backing_contents_of_skipped_ranges
         ValueInst mapInst self contents hlayout hclone hselected hbinarySelected hbinaryAgreement
         hlayers hskipped hrep hbacking hempty happly⟩
+
+/-- Actual successful application materializes valid backing exactly when
+all selected clones, numeric selections, and skipped-value agreements hold.
+Only layout and input representation/backing validity remain upfront; successful
+dense output itself supplies positive binary selection. -/
+theorem ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_selected_clones_skipped {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : tree.PackingLayout ValueInst factor packingDepth)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    (hempty : mapInst.is_empty self.updates = ok false)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self = ok (.Ok (), result)) :
+    (result.BackingValid factor ∧ result.tree.elements = contents) ↔
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+        self.tree.BulkBinaryRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+          ValueInst mapInst self.updates factor maximum 0#u32 ∧
+        self.tree.BulkRetainedCloneOn (fun value => ValueInst.corecloneCloneInst.clone value = ok value)
+          ValueInst mapInst self.updates factor maximum 0#u32 ∧
+        self.tree.BulkLayerRangeOn (update_map.RangeSelectsInsideAt mapInst self.updates contents.length)
+          ValueInst mapInst self.updates maximum 0#u32 ∧
+        self.tree.BulkBinarySkippedValuesAgree ValueInst mapInst self.updates factor maximum 0#u32 ∧
+        self.tree.BulkLayerSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 ∧
+        self.tree.BulkSkippedValuesAgree ValueInst mapInst self.updates maximum contents.length 0#u32 := by
+  constructor
+  · rintro ⟨hafter, helements⟩
+    have hbinarySelected := ProgressiveList.apply_updates_nonempty_binary_selection_of_dense_backing
+      ValueInst mapInst self hlayout hempty happly hafter.1
+    have hlength := ProgressiveList.backing_length_after_nonempty_apply_updates
+      ValueInst mapInst self contents hrep hempty happly
+    rw [hlength] at hbinarySelected
+    have hconditions := (ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_clones_skipped
+      ValueInst mapInst self contents hlayout hbinarySelected hrep hbacking hempty happly).mp
+      ⟨hafter, helements⟩
+    exact fun maximum hmax => ⟨hbinarySelected maximum hmax, hconditions maximum hmax⟩
+  · intro hconditions
+    exact (ProgressiveList.apply_updates_nonempty_backing_valid_contents_iff_clones_skipped
+      ValueInst mapInst self contents hlayout (fun maximum hmax => (hconditions maximum hmax).1)
+      hrep hbacking hempty happly).mpr (fun maximum hmax => (hconditions maximum hmax).2)
 
 end milhouse.progressive_list
