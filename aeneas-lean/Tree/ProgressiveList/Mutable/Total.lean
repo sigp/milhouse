@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.Mutable
+import Tree.ProgressiveList.Mutable.FallbackTotal
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -19,41 +20,9 @@ theorem ProgressiveList.get_mut_present_succeeds {T U : Type}
       ProgressiveList.get_mut ValueInst mapInst self index = ok (some value, back) ∧
       ((mapInst.get self.updates index = ok (some old) ∧ value = old) ∨
        (mapInst.get self.updates index = ok none ∧
-        ValueInst.corecloneCloneInst.clone old = ok value)) := by
-  obtain ⟨value, hread, hinitial⟩ : ∃ value,
-      (do let (found, _) ← ProgressiveList.get_mut ValueInst mapInst self index
-          ok found) = ok (some value) ∧
-      ((mapInst.get self.updates index = ok (some old) ∧ value = old) ∨
-       (mapInst.get self.updates index = ok none ∧
-        ValueInst.corecloneCloneInst.clone old = ok value)) := by
-    have hread := ProgressiveList.get_mut_read_eq_pending_or_clone
-      ValueInst mapInst self index hreads
-    cases hpending : mapInst.get self.updates index with
-    | fail e => simp [ProgressiveList.get, hpending] at hget
-    | div => simp [ProgressiveList.get, hpending] at hget
-    | ok pending =>
-      cases pending with
-      | none =>
-        simp only [ProgressiveList.get, hpending, bind_tc_ok] at hget
-        obtain ⟨value, hcloned⟩ := hclone hpending
-        refine ⟨value, ?_, Or.inr ⟨rfl, hcloned⟩⟩
-        refine hread.trans ?_
-        simp only [hpending, bind_tc_ok, hget, core.option.OptionShared0T.cloned,
-          hcloned]
-      | some pending =>
-        have heq : pending = old := by simpa [ProgressiveList.get, hpending] using hget
-        subst pending
-        refine ⟨old, ?_, Or.inl ⟨rfl, rfl⟩⟩
-        refine hread.trans ?_
-        simp only [hpending, bind_tc_ok]
-  cases hmut : ProgressiveList.get_mut ValueInst mapInst self index with
-  | fail e => simp [hmut] at hread
-  | div => simp [hmut] at hread
-  | ok handle =>
-    obtain ⟨found, back⟩ := handle
-    simp [hmut] at hread
-    subst found
-    exact ⟨value, back, rfl, hinitial⟩
+        ValueInst.corecloneCloneInst.clone old = ok value)) :=
+  ProgressiveList.get_mut_present_succeeds_of_fallback
+    ValueInst mapInst self index old (hreads _ _) hget hclone
 
 /-- Accessing any represented in-bounds element succeeds, and writing through
 the returned reference replaces exactly that element while preserving the
@@ -80,19 +49,10 @@ theorem ProgressiveList.get_mut_spec {T U : Type}
       ∀ replacement,
         (back (some replacement)).Represents ValueInst mapInst (contents.set index.val replacement) ∧
         (back (some replacement)).tree = self.tree ∧
-        (back (some replacement)).length = self.length := by
-  have hget : ProgressiveList.get ValueInst mapInst self index = ok (some contents[index.val]) := by
-    rw [hrep.2 index]
-    simp [hindex]
-  obtain ⟨value, back, hmut, hinitial⟩ := ProgressiveList.get_mut_present_succeeds
-    ValueInst mapInst self index contents[index.val] hreads hget hclone
-  refine ⟨value, back, hmut, hinitial, ?_⟩
-  intro replacement
-  refine ⟨ProgressiveList.get_mut_represents_set ValueInst mapInst self contents index replacement
-    hrep hreads hwrites hmax hmut, ?_⟩
-  obtain ⟨mapBack, hmap, hback⟩ := ProgressiveList.get_mut_success ValueInst mapInst self index hmut
-  rw [hback]
-  exact ⟨rfl, rfl⟩
+        (back (some replacement)).length = self.length :=
+  ProgressiveList.get_mut_spec_of_fallback
+    ValueInst mapInst self contents index hrep hindex
+    (hreads _ _) (hwrites _ _) (hmax _ _) hclone
 
 /-- Complete mutable access for every machine index. A missing index returns
 no element and leaves the list unchanged. A present index returns the pending
@@ -123,16 +83,10 @@ theorem ProgressiveList.get_mut_total_spec {T U : Type}
           ∀ replacement,
             (back (some replacement)).Represents ValueInst mapInst (contents.set index.val replacement) ∧
             (back (some replacement)).tree = self.tree ∧
-            (back (some replacement)).length = self.length := by
-  by_cases hindex : index.val < contents.length
-  · have hsome : contents[index.val]? = some contents[index.val] := by simp [hindex]
-    obtain ⟨value, back, hmut, hinitial, hwrite⟩ := ProgressiveList.get_mut_spec
-      ValueInst mapInst self contents index hrep hindex hreads (hwrites hindex) (hmax hindex)
-      (hclone contents[index.val] hsome)
-    exact ⟨some value, back, hmut, contents[index.val], hsome, hinitial, hwrite⟩
-  · have hout : contents.length ≤ index.val := by omega
-    obtain ⟨back, hmut, hback⟩ := ProgressiveList.get_mut_out_of_bounds
-      ValueInst mapInst self contents index hrep hout hreads (hmissing hout)
-    exact ⟨none, back, hmut, _root_.List.getElem?_eq_none_iff.mpr hout, hback⟩
+            (back (some replacement)).length = self.length :=
+  ProgressiveList.get_mut_total_spec_of_fallback
+    ValueInst mapInst self contents index hrep (hreads _ _)
+    (fun hindex => hwrites hindex _ _) (fun hindex => hmax hindex _ _)
+    (fun hindex => hmissing hindex _ _) hclone
 
 end milhouse.progressive_list
