@@ -49,7 +49,7 @@ and auxiliary state/error/cache results are described in the coverage record.
 | `try_from_iter` | `ProgressiveList.try_from_iter_total_spec_of_overlay`, `ProgressiveList.try_from_iter_success_represents_iff`, `ProgressiveList.try_from_iter_represents_iff`, `ProgressiveList.try_from_iter_trace`, `ProgressiveList.try_from_iter_success_iff` |
 | `get` | `ProgressiveList.get_of_pending_update`, `ProgressiveList.get_of_backing`, `ProgressiveList.represents_of_dense_backing`; constructors and mutations establish/preserve indexed representation |
 | `get_mut` | `ProgressiveList.get_mut_total_spec_of_fallback` (laws only for the actual fallback), `ProgressiveList.get_mut_value_success_iff_of_fallback`, `ProgressiveList.get_mut_success_iff_inputs_of_fallback`, `ProgressiveList.get_mut_present_success_iff_clone_of_fallback`; `ProgressiveList.get_mut_represents_set_iff` retains the exact write-back criterion |
-| `get_cow` | `ProgressiveList.get_cow_represents_read`, `ProgressiveList.get_cow_into_mut_spec`, `ProgressiveList.cow_writeback_represents_set_iff`; borrowed handle methods remain pending below |
+| `get_cow` | `ProgressiveList.get_cow_represents_read_of_fallback`, `ProgressiveList.get_cow_into_mut_spec_of_fallback`, `ProgressiveList.cow_writeback_represents_set_iff`; `get_cow_read_eq_get_iff_fallback` and `get_cow_read_only_preserves_self_iff_fallback` establish exact read/release law requirements. Original stronger signatures remain adapters; borrowed handle methods remain pending below |
 | `push` | `ProgressiveList.push_total_spec`, `ProgressiveList.push_represents_append_iff`, `ProgressiveList.len_after_push_iff_max_index`, `ProgressiveList.push_represents_append_iff_max_index` |
 | `len` | `ProgressiveList.len_total_spec`, `ProgressiveList.len_success_iff` |
 | `is_empty` | `ProgressiveList.is_empty_total_spec`, `ProgressiveList.is_empty_true_iff` |
@@ -114,7 +114,7 @@ trait has no additional in-place default. Ordinary Serde does.
 | `ProgressiveListIter::fmt` | Out of scope: derived `Debug` |
 | `ProgressiveListIterCow::next_cow` | Pending actual borrowed stepping, returned indices/handles, exhaustion, and write-back; issue 16 |
 | `ProgressiveListIterCow::fmt` | Out of scope: derived `Debug` |
-| `Cow::into_mut` | `milhouse.cow.Cow.into_mut_spec`, `milhouse.cow.Cow.into_mut_missing_entry`, and the list's consuming write-back contract |
+| `Cow::into_mut` | `milhouse.cow.Cow.into_mut_spec`, `milhouse.cow.Cow.into_mut_missing_entry`, and `ProgressiveList.get_cow_into_mut_spec_of_fallback`, with map laws restricted to the selected fallback |
 | `Cow::deref` | Pending actual borrowed-field extraction; issue 9. The proved data observer is not this method |
 | `Cow::make_mut` | Pending actual borrowed materialization and write-back; issue 9. Consuming `into_mut` is not this method |
 
@@ -134,6 +134,22 @@ Likewise, this inventory does not assert proofs of arbitrary standard-library
 blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
+
+The CoW fallback review (`c7310ef`, exact criteria `5ad99dc`) removes the
+requirement that map laws hold for every possible optional fallback. Read,
+release, entry-location, occupied-handle, write-read, and maximum-result laws
+are restricted to the value selected by this list's actual input lookups.
+The proofs preserve all sixteen original public theorem names/signatures.
+The selected-fallback read and release laws are also proved necessary, with
+no representation, cloning, termination, or structural assumptions.
+
+All fifteen new public lemmas use only standard Lean axioms. The full build
+and axiom/import audit pass for 6,147 declarations across 440 modules: 6,028
+use only standard axioms or none, and 119 retain the existing Arc pointer
+contract. No Rust, extraction, external model, or Aeneas source changed; the
+eight source suites and unchanged 42-root/151-declaration dependency gate were
+not repeated for this proof-only work. Borrowed CoW and remaining assumption/
+model-fidelity work stay open. Debug and Serde are excluded; TreeHash is deferred.
 
 The mutable fallback review (`06e66dc`, exact criteria `dfdc682`) removes the
 requirement that mutable-map laws hold for every possible fallback closure.

@@ -429,6 +429,31 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The CoW fallback review (`c7310ef`, exact criteria `5ad99dc`) restricts
+  read, release, entry-location, occupied-handle, write-read, and maximum-result
+  laws to the optional fallback selected by actual input lookups. A pending
+  hit passes `none`; a miss passes the successful backing-read result.
+  `CopyOnWrite/Contracts.lean` defines this selection without assuming CoW
+  success. `Acquisition.lean` recovers it from execution and gives the exact
+  lifted map result. Eleven weaker acquisition/release/consuming-write proofs
+  retain all sixteen original public names/signatures through adapters.
+
+  `CopyOnWrite/Conditions.lean` proves that the selected-fallback read law is
+  necessary and sufficient for public handle-data agreement with `get`, and
+  the release law is necessary and sufficient for restoring every successful
+  public handle unchanged. These equivalences require no representation,
+  cloning, termination, or structural assumptions. They audit client-law
+  minimality; they do not establish the concrete maps' source fidelity or the
+  unavailable Rust borrowed `Deref`, `make_mut`, and iterator stepping methods.
+
+  All fifteen new public lemmas use only standard Lean axioms. The full build
+  and axiom/import audit pass for 6,147 declarations across 440 modules;
+  6,028 use only standard axioms or none and 119 retain the existing Arc
+  pointer contract. No Rust, extraction, external model, or Aeneas source
+  changed. The eight source suites and unchanged 42-root/151-declaration
+  dependency gate were not repeated for this proof-only work. The goal remains
+  incomplete; Debug and Serde are excluded and TreeHash remains deferred.
+
 - The mutable fallback review (`06e66dc`, exact criteria `dfdc682`) restricts
   map laws to the actual `get_mut` fallback dictionary and `(tree, length)`
   environment. `UpdateMap/Mutable.lean` defines four laws for a specified invocation;
