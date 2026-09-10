@@ -1,6 +1,6 @@
 import Tree.BulkUpdate.Node
 import Tree.BulkUpdate.Window
-import Tree.BulkUpdate.RangeScope
+import Tree.BulkUpdate.RangeExtent
 import Tree.UpdateMap.Range
 
 open Aeneas Aeneas.Std Result
@@ -50,6 +50,7 @@ private theorem bulk_capacity_dense_aux {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
     (hlayout : PackingLayout ValueInst factor packingDepth)
+    (oldEnd newEnd : Nat)
     (hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize × Std.Usize)
       (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)) :
     ∀ (n : Nat) (depth : Std.Usize) (treeDepth : Nat) (before after : Tree T)
@@ -61,7 +62,9 @@ private theorem bulk_capacity_dense_aux {T U : Type}
       DenseUpdateWindow (update_map.HasValueAt mapInst updates)
         (prefix1.val + offset.val) (subtreeCapacity factor treeDepth) oldLength newLength →
       0 < newLength → newLength ≤ subtreeCapacity factor treeDepth →
-      BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      oldLength = min (oldEnd - (prefix1.val + offset.val)) (subtreeCapacity factor treeDepth) →
+      newLength = min (newEnd - (prefix1.val + offset.val)) (subtreeCapacity factor treeDepth) →
+      BulkRangeOn (update_map.RangePreservesExtentAt mapInst updates oldEnd newEnd)
         mapInst updates factor treeDepth (prefix1.val + offset.val) →
       Tree.with_updated_leaves ValueInst mapInst before updates prefix1 offset depth hashes =
         ok (core.result.Result.Ok after) →
@@ -71,14 +74,14 @@ private theorem bulk_capacity_dense_aux {T U : Type}
   induction n using Nat.strong_induction_on with
   | h n ih =>
     intro depth treeDepth before after prefix1 offset oldLength newLength
-      hmeasure hdepth hready halign hoffset hwindow hpos hcap hrange hupdate
+      hmeasure hdepth hready halign hoffset hwindow hpos hcap holdEnd hnewEnd hrange hupdate
     cases hready with
     | leaf value =>
       obtain ⟨result, rfl⟩ := with_updated_leaves_leaf_shape hupdate
       have hlength : newLength = 1 := by
         simp only [subtreeCapacity, leafCapacity, pow_zero, Nat.mul_one] at hcap
         omega
-      subst newLength
+      rw [hlength]
       exact ⟨by simpa [subtreeCapacity, leafCapacity] using (1#usize).hBounds, .leaf result⟩
     | packed factor value hnonempty hfit =>
       have hz : depth = 0#usize := by scalar_tac
@@ -143,47 +146,42 @@ private theorem bulk_capacity_dense_aux {T U : Type}
           DenseUpdateWindow (update_map.HasValueAt mapInst updates)
             (start.val + offset.val) (subtreeCapacity factor child) oldLen newLen →
           newLen ≤ subtreeCapacity factor child →
-          update_map.RangeReflectsValuesAt mapInst updates lo hi →
+          oldLen = min (oldEnd - (start.val + offset.val)) (subtreeCapacity factor child) →
+          newLen = min (newEnd - (start.val + offset.val)) (subtreeCapacity factor child) →
+          update_map.RangePreservesExtentAt mapInst updates oldEnd newEnd lo hi →
           (mapInst.has_any_in_range updates lo hi = ok true →
-            BulkRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+            BulkRangeOn (update_map.RangePreservesExtentAt mapInst updates oldEnd newEnd)
               mapInst updates factor child (start.val + offset.val)) →
           Tree.BulkChildStep ValueInst mapInst updates old new start offset nd lo hi hashes →
           DenseTree factor new child newLen := by
-        intro old new start lo hi oldLen newLen hdense halign hlo hhi hwindow hcap hlocal hdescend hstep
-        have hreflect : ∀ answer, mapInst.has_any_in_range updates lo hi = ok answer →
-            (answer = true ↔ ∃ index, index < subtreeCapacity factor child ∧
-              update_map.HasValueAt mapInst updates (start.val + offset.val + index)) := by
-          intro answer hanswer
-          rw [hlocal answer hanswer]
-          constructor
-          · rintro ⟨index, hlo', hhi', hhas⟩
-            refine ⟨index - (start.val + offset.val), by omega, ?_⟩
-            have heq : start.val + offset.val + (index - (start.val + offset.val)) = index := by omega
-            rwa [heq]
-          · rintro ⟨index, hindex, hhas⟩
-            exact ⟨start.val + offset.val + index, by omega, by omega, hhas⟩
+        intro old new start lo hi oldLen newLen hdense halign hlo hhi hwindow hcap
+          holdEnd hnewEnd hlocal hdescend hstep
         rcases hstep with ⟨hempty, rfl⟩ | ⟨hhas, hupdate⟩
-        · have heq := hwindow.length_eq_of_empty hcap (by
-            intro hex
-            have := (hreflect false hempty).mpr hex
-            contradiction)
-          rwa [heq]
-        · have hpositive := hwindow.length_pos_of_update ((hreflect true hhas).mp rfl)
+        · have heq := hlocal.empty_length hempty
+          have hlength : newLen = oldLen := by omega
+          rwa [hlength]
+        · have hinside := hlocal.selected_inside hhas
+          have hchildPos := hlayout.subtreeCapacity_pos child
+          have hpositive : 0 < newLen := by omega
           have hsmall : 2 * nd.val + zeroBit old < n := by
             have := zeroBit_le_one old
             simp only [zeroBit] at hmeasure
             omega
           exact (ih _ hsmall nd child old new start offset oldLen newLen
-            (Nat.le_refl _) hndDepth (.ofDense hdense) halign hoffset hwindow hpositive hcap (hdescend hhas) hupdate).2
-      have hchildPos := hlayout.subtreeCapacity_pos child
+            (Nat.le_refl _) hndDepth (.ofDense hdense) halign hoffset hwindow hpositive hcap holdEnd hnewEnd (hdescend hhas) hupdate).2
+      have hleftCap := hleft.length_le_capacity
+      have hrightCap := hright.length_le_capacity
+      have holdEnd' := holdEnd
+      have hnewEnd' := hnewEnd
+      rw [hcapacity] at holdEnd' hnewEnd'
       have hnewLeft := childCorrect left newLeft prefix1 lo middle leftLength
         (min newLength (subtreeCapacity factor child)) hleft halignLeft hlo (by omega)
-        leftWindow (Nat.min_le_right _ _)
+        leftWindow (Nat.min_le_right _ _) (by omega) (by omega)
         (hrange.left_query (hi := middle) hlo (by omega))
         (fun hselected => hrange.left (hi := middle) hlo (by omega) hselected) leftStep
       have hnewRight := childCorrect right newRight rightPrefix middle stop rightLength
         (newLength - subtreeCapacity factor child) hright halignRight hmiddle (by omega)
-        rightWindow' (by omega)
+        rightWindow' (by omega) (by omega) (by omega)
         (hrange.right_query (lo := middle) (hi := stop) (by omega) (by omega))
         (fun hselected => by
           have h := hrange.right (lo := middle) (hi := stop) (by omega) (by omega) hselected
@@ -231,7 +229,7 @@ private theorem bulk_capacity_dense_aux {T U : Type}
             have hlength : newLength = 1 := by
               simp [subtreeCapacity, leafCapacity] at hcap
               omega
-            subst newLength
+            rw [hlength]
             exact ⟨by simpa [subtreeCapacity, leafCapacity] using (1#usize).hBounds, .leaf _⟩
         | some factor =>
           have hfactor := hlayout.tree_hash_packing_factor_eq
@@ -269,7 +267,40 @@ private theorem bulk_capacity_dense_aux {T U : Type}
             (.zero factor nd) (.zero factor nd) (Or.inl ⟨rfl, rfl⟩)
         exact ih _ hsmall depth depth.val (Tree.Node hash (.Zero nd) (.Zero nd)) after
           prefix1 offset 0 newLength (Nat.le_refl _) rfl hexpanded halign hoffset
-          hwindow hpos hcap hrange hupdate
+          hwindow hpos hcap holdEnd hnewEnd hrange hupdate
+
+/-- Density preservation needs only the numeric effects of reached range
+answers: skipped windows retain their occupied extent and selected windows
+start inside the final prefix. No range-value reflection or clone identity is
+needed. Global prefix endpoints are clipped to the actual binary window. -/
+theorem Tree.with_updated_leaves_capacity_dense_of_range_extents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {before after : Tree T} {prefix1 offset depth : Std.Usize} {oldEnd newEnd : Nat}
+    {hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize × Std.Usize)
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)}
+    (hrange : BulkRangeOn (update_map.RangePreservesExtentAt mapInst updates oldEnd newEnd)
+      mapInst updates factor depth.val (prefix1.val + offset.val))
+    (hdense : DenseTree factor before depth.val
+      (min (oldEnd - (prefix1.val + offset.val)) (subtreeCapacity factor depth.val)))
+    (halign : prefix1.val % subtreeCapacity factor depth.val = 0)
+    (hoffset : offset.val % leafCapacity factor = 0)
+    (hwindow : DenseUpdateWindow (update_map.HasValueAt mapInst updates)
+      (prefix1.val + offset.val) (subtreeCapacity factor depth.val)
+      (min (oldEnd - (prefix1.val + offset.val)) (subtreeCapacity factor depth.val))
+      (min (newEnd - (prefix1.val + offset.val)) (subtreeCapacity factor depth.val)))
+    (hpos : prefix1.val + offset.val < newEnd)
+    (hupdate : Tree.with_updated_leaves ValueInst mapInst before updates prefix1 offset depth hashes =
+      ok (core.result.Result.Ok after)) :
+    subtreeCapacity factor depth.val < 2 ^ System.Platform.numBits ∧
+      DenseTree factor after depth.val
+        (min (newEnd - (prefix1.val + offset.val)) (subtreeCapacity factor depth.val)) := by
+  have hcapacity := hlayout.subtreeCapacity_pos depth.val
+  exact bulk_capacity_dense_aux ValueInst mapInst updates hlayout oldEnd newEnd hashes
+    (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset _ _
+    (Nat.le_refl _) rfl (.ofDense hdense) halign hoffset hwindow (by omega)
+    (Nat.min_le_right _ _) rfl rfl hrange hupdate
 
 /-- A successful update of a dense binary subtree preserves density at the
     new window length, including nonzero global offsets used by progressive
@@ -294,8 +325,17 @@ theorem Tree.with_updated_leaves_capacity_dense {T U : Type}
       ok (core.result.Result.Ok after)) :
     subtreeCapacity factor depth.val < 2 ^ System.Platform.numBits ∧
       DenseTree factor after depth.val newLength := by
-  exact bulk_capacity_dense_aux ValueInst mapInst updates hlayout hashes
-    (2 * depth.val + zeroBit before) depth depth.val before after prefix1 offset oldLength newLength
-    (Nat.le_refl _) rfl (.ofDense hdense) halign hoffset hwindow hpos hcap hrange hupdate
+  have hold : min ((prefix1.val + offset.val + oldLength) - (prefix1.val + offset.val))
+      (subtreeCapacity factor depth.val) = oldLength := by
+    have := hdense.length_le_capacity
+    omega
+  have hnew : min ((prefix1.val + offset.val + newLength) - (prefix1.val + offset.val))
+      (subtreeCapacity factor depth.val) = newLength := by omega
+  have hresult := Tree.with_updated_leaves_capacity_dense_of_range_extents
+    ValueInst mapInst updates hlayout (hrange.preservesExtents_of_window hwindow)
+    (by simpa only [hold] using hdense) halign hoffset
+    (by simpa only [hold, hnew] using hwindow) (by omega) hupdate
+  simpa only [hnew] using hresult
+
 
 end milhouse.tree
