@@ -1,11 +1,12 @@
 # Aeneas upgrade review — 2026-09-10 (updated 2026-09-11)
 
-**Decision after the follow-up trial: retain the working compiler.** The
-September 7 candidate now passes the main proof library after compatibility
-repairs, but cannot extract two standard-library bodies needed by the
-existing source-validation proofs. The user requested a halt if all existing
-proofs could not be validated; the upgrade attempt is stopped. Details are
-in the follow-up below.
+**Current status: upgrade work has resumed in isolation.** The September 7
+candidate passes the main library after compatibility repairs. Existing
+source comparisons still need validation with Miri's full-MIR standard
+library: the installed nightly is missing Miri and rustfmt, and previous
+Charon runs fell back to an optimized sysroot. The working compiler remains
+unchanged until the complete upgrade validates. The resumed-check section
+below supersedes the earlier halted checkpoint.
 
 Upstream contains relevant fixes, but none has yet been verified against our
 exact borrowed-CoW failures. The latest release also breaks existing Lean
@@ -247,3 +248,65 @@ checkout remains clean at `cb50ff16b9f1`. The upgrade attempt is halted as
 requested. No trial Rust, proof, compiler-pin, or audit-gate changes are
 applied to the working branch. The existing proof goal remains incomplete;
 no additional borrowed-CoW obligation was discharged by this trial.
+
+## Resumed check: full-MIR prerequisite and reproducible bundle
+
+The active goal requests completing the compiler upgrade and repairing all
+existing proofs. Work has resumed on `sept7-compiler-trial`; it has not been
+merged into the working branch.
+
+The earlier source failures were observed after Charon warned that `cargo
+miri setup` failed because Miri was not installed and it was falling back to
+Rust's default sysroot. That optimized standard library can inline low-level
+operations across modeled calls. The pinned Charon configuration explicitly
+[requires Miri](https://github.com/AeneasVerif/charon/blob/85bba1f2a64ded1704586cdc26dfb62aeb4b7168/rust-toolchain).
+The earlier failures must be retested with the intended full-MIR sysroot;
+they do not yet establish that the candidate cannot validate those sources.
+
+The missing components are:
+
+```sh
+rustup component add --toolchain nightly-2026-08-18 miri rustfmt
+```
+
+The user has been asked to install these outside the session, since Rust
+component installation is denied by the session sandbox. Both components
+were still absent at the latest check. The trial's source-audit runner and
+production extraction script now reject the optimized-sysroot fallback,
+and the extraction preflight stops before regenerating production files.
+
+Additional progress is committed on the trial branch:
+
+- `93fe26e`: eleven Option comparisons retain their axiom-free status. The
+  residual comparison still fails its existing gate pending full-MIR review.
+- `5a01112`: source exclusion checks reconcile separate block/statement ID
+  bijections and still compare every other declaration field. Charon's
+  [own equality implementation](https://github.com/AeneasVerif/charon/blob/85bba1f2a64ded1704586cdc26dfb62aeb4b7168/charon/src/ast/bodies/structured.rs)
+  ignores these IDs. Twelve checker tests pass.
+- `48f74aa`: all three Arbitrary source comparisons pass with their existing
+  axiom expectations. All four tuple comparisons also pass unchanged.
+- All four separately extracted CoW control proofs pass without axioms,
+  and their native tests pass. This does not establish new borrowed-CoW
+  support beyond the existing controls.
+- `e9e7882`: a checksum-verified installer and explicit compiler pin make
+  the trial use the September bundle from its own ignored project cache.
+  Lake and both extraction/audit entry points use this installed bundle.
+
+Against that installed bundle, the complete Lake build and axiom/import audit
+pass with **447 modules and 6,211 theorem declarations**, now including the
+experimental intrinsic module. The external axioms are unchanged; the only
+nonstandard theorem dependency remains the existing Arc pointer contract.
+The model audit also passes with 42 roots and 151 local declarations.
+
+Current status is preserved in trial commit `60e261a`, in
+`aeneas-lean/SEPT7_TRIAL_STATUS.md`. Latest audit logs are
+`sept7-bundle-axiom-audit.log` and `sept7-bundle-model-audit.log` under the
+review artifact directory. Missing-Miri failures are recorded in
+`sept7-option-model-audit.log` and `sept7-full-mir-preflight.log`.
+The disposable `sept7-cargo-target` cache was removed to free 2.4 GB;
+source, commits, and validation logs are preserved.
+
+The remaining requirements are full-MIR production regeneration, all nine
+complete source suites and any required proof repairs, final affected
+audits, and integration into the working branch. Manual extraction/Lean
+probes are not substitutes for those complete source-suite reports.

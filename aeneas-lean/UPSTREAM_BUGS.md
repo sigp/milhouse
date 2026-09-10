@@ -12,14 +12,15 @@ Issue trackers: <https://github.com/AeneasVerif/charon/issues>,
 <https://github.com/AeneasVerif/aeneas/issues>.
 
 The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
-11, compares two newer releases with these pins. The September 7 trial now
-passes fresh production extraction, all 446 main-library modules, the axiom
-and model audits, and 324 Rust tests after isolated compatibility repairs.
-It still cannot extract the standard-library `u128::saturating_mul` and
-`u128::checked_pow` bodies required by existing source-comparison proofs.
-The upgrade attempt is halted under the user's instruction; the working pin
-is retained. Exact borrowed-CoW failures were not retested, and the issue
-statuses below are unchanged. Latest additionally needs a Result migration.
+11, records the resumed isolated upgrade. The September 7 bundle passes
+447 main-library modules, 6,211 theorem declarations, and the model audit
+after compatibility repairs; 324 Rust tests passed earlier. Source-suite
+validation remains incomplete. Charon used an optimized fallback because
+Miri is missing, so the observed standard-library failures must be retested
+with the intended full-MIR sysroot. Miri and rustfmt installation is pending.
+The working pin is retained meanwhile. The four existing CoW control proofs
+pass without axioms; exact borrowed-CoW failures were not retested, and their
+issue statuses below are unchanged. Latest additionally needs a Result migration.
 
 Scope revision (2026-09-09): Debug and Serde implementations, including
 Serde-based context deserialization, are out of scope for the

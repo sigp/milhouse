@@ -1846,15 +1846,16 @@ abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.m
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
 The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
-11, records the isolated September 7 migration. Fresh production extraction,
-all 446 main-library modules, the axiom/import and model audits, and 324 Rust
-tests pass after compatibility repairs. Existing source-comparison proofs
-cannot all be validated: Aeneas fails to extract the new standard-library
-`u128::saturating_mul` and `u128::checked_pow` bodies. The user requested
-halting on failure, so the upgrade attempt is stopped and the working
-compiler is retained. Trial changes are preserved on `sept7-compiler-trial`
-and are not applied here. No outstanding borrowed-CoW extraction obligation
-is discharged.
+11, records the resumed September 7 upgrade on `sept7-compiler-trial`.
+The installed candidate bundle passes all 447 main-library modules, the
+6,211-declaration axiom/import audit, and the model audit after compatibility
+repairs. Earlier native tests passed all 324 cases. Source validation is
+still incomplete: Charon fell back to an optimized sysroot because Miri is
+missing. Miri and rustfmt installation is pending before the full source
+suites and production extraction can be rerun correctly. The four existing
+CoW control proofs pass without axioms; no new borrowed-CoW obligation is
+discharged. The working compiler remains unchanged pending full validation
+and integration of the trial.
 
 Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
 `get_cow_with`, and `get_cow_with_value` now extract and compile through
