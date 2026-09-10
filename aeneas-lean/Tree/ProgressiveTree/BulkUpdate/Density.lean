@@ -11,6 +11,46 @@ open milhouse milhouse.tree
 namespace milhouse.progressive_tree
 
 /-- A selected progressive layer preserves density when its final slice is
+nonempty. Both layer and binary queries need only numeric extent laws;
+no range answer must reflect pending-value presence or absence. -/
+theorem ProgressiveTree.updated_layer_dense_of_range_extents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {depth next : Std.U32} {start stop binary : Std.Usize} {before after : tree.Tree T}
+    {oldLength newLength : Nat}
+    (hlocal : update_map.RangePreservesExtentAt mapInst updates oldLength newLength start stop)
+    (hrange : tree.BulkRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength)
+      mapInst updates factor binary.val start.val)
+    (hdomain : DenseUpdateDomain oldLength newLength (update_map.HasValueAt mapInst updates))
+    (hnext : depth + 1#u32 = ok next)
+    (hstart : ProgressiveTree.total_capacity_at_depth ValueInst depth = ok start)
+    (hbinary : ProgressiveTree.prog_depth_to_binary_depth ValueInst next = ok binary)
+    (hhas : ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok true)
+    (hdense : DenseTree factor before (2 * depth.val)
+      (min (oldLength - progressiveCapacity factor depth.val) (subtreeCapacity factor (2 * depth.val))))
+    (hupdate : tree.Tree.with_updated_leaves ValueInst mapInst before updates
+      0#usize start binary none = ok (core.result.Result.Ok after)) :
+    subtreeCapacity factor (2 * depth.val) < 2 ^ System.Platform.numBits ∧
+      DenseTree factor after (2 * depth.val)
+        (min (newLength - progressiveCapacity factor depth.val) (subtreeCapacity factor (2 * depth.val))) := by
+  obtain ⟨hnonempty, hmap⟩ := ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas
+  have hstartVal := ProgressiveTree.total_capacity_unclamped ValueInst
+    hlayout.opt_packing_factor_eq hstart (by scalar_tac)
+  have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
+  have hoffset : start.val % leafCapacity factor = 0 := by
+    rw [hstartVal]
+    exact progressiveCapacity_aligned factor depth.val
+  have hwindow := hdomain.window start.val (subtreeCapacity factor binary.val)
+  have hbound := hlocal.selected_inside hmap
+  have hdense' : DenseTree factor before binary.val
+      (min (oldLength - start.val) (subtreeCapacity factor binary.val)) := by
+    simpa only [hstartVal, hbinaryVal] using hdense
+  have hresult := tree.Tree.with_updated_leaves_capacity_dense_of_range_extents ValueInst mapInst updates hlayout
+    (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hrange) (by simpa using hdense') (by simp) hoffset (by simpa using hwindow) (by simpa using hbound) hupdate
+  simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add, hstartVal, hbinaryVal] using hresult
+
+/-- A selected progressive layer preserves density when its final slice is
 nonempty. The layer's positive answer needs no pending-value witness; binary
 range reflection is required only within the selected subtree. -/
 theorem ProgressiveTree.updated_layer_dense_of_extent {T U : Type}
@@ -34,24 +74,9 @@ theorem ProgressiveTree.updated_layer_dense_of_extent {T U : Type}
     subtreeCapacity factor (2 * depth.val) < 2 ^ System.Platform.numBits ∧
       DenseTree factor after (2 * depth.val)
         (min (newLength - progressiveCapacity factor depth.val) (subtreeCapacity factor (2 * depth.val))) := by
-  obtain ⟨hnonempty, hmap⟩ := ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas
-  have hstartVal := ProgressiveTree.total_capacity_unclamped ValueInst
-    hlayout.opt_packing_factor_eq hstart (by scalar_tac)
-  have hbinaryVal := ProgressiveTree.binary_depth_successor_val ValueInst hnext hbinary
-  have hoffset : start.val % leafCapacity factor = 0 := by
-    rw [hstartVal]
-    exact progressiveCapacity_aligned factor depth.val
-  have hwindow := hdomain.window start.val (subtreeCapacity factor binary.val)
-  have hbound := hlocal.selected_inside hmap
-  have hpositive : 0 < min (newLength - start.val) (subtreeCapacity factor binary.val) := by
-    have := hlayout.subtreeCapacity_pos binary.val
-    omega
-  have hdense' : DenseTree factor before binary.val
-      (min (oldLength - start.val) (subtreeCapacity factor binary.val)) := by
-    simpa only [hstartVal, hbinaryVal] using hdense
-  have hresult := tree.Tree.with_updated_leaves_capacity_dense ValueInst mapInst updates hlayout
-    (by simpa only [show (0#usize).val = 0 from rfl, Nat.zero_add] using hrange) hdense' (by simp) hoffset (by simpa using hwindow) hpositive (Nat.min_le_right _ _) hupdate
-  simpa only [hstartVal, hbinaryVal] using hresult
+  exact ProgressiveTree.updated_layer_dense_of_range_extents ValueInst mapInst updates hlayout
+    hlocal (hrange.mono (fun _ _ h => h.preservesExtent hdomain))
+    hdomain hnext hstart hbinary hhas hdense hupdate
 
 /-- Updating a selected progressive layer preserves its exact dense prefix.
     Its global offset and binary capacity are derived from actual execution,
@@ -93,7 +118,7 @@ private theorem bulk_dense_aux {T U : Type}
       before.Fits factor depth.val →
       before.BulkLayerRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
         ValueInst mapInst updates maximum depth →
-      before.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+      before.BulkBinaryRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
         ValueInst mapInst updates factor maximum depth →
       ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
         ok (core.result.Result.Ok after) →
@@ -126,7 +151,7 @@ private theorem bulk_dense_aux {T U : Type}
           right.BulkLayerRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
             ValueInst mapInst updates maximum next) →
         ((∃ last, maximum = some last ∧ stop.val ≤ last.val) →
-          right.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst updates)
+          right.BulkBinaryRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
             ValueInst mapInst updates factor maximum next) →
         ProgressiveTree.BulkRightStep ValueInst mapInst updates maximum next stop right newRight →
         newRight.Dense factor next.val (newLength.val - progressiveCapacity factor next.val) ∧
@@ -184,7 +209,7 @@ private theorem bulk_dense_aux {T U : Type}
         have hz : oldLength - progressiveCapacity factor depth.val = 0 := by omega
         rw [hz, Nat.zero_min, ← hbinaryVal]
         exact .zero factor binary
-      obtain ⟨hleftFit, hleftDense⟩ := ProgressiveTree.updated_layer_dense_of_extent ValueInst mapInst updates
+      obtain ⟨hleftFit, hleftDense⟩ := ProgressiveTree.updated_layer_dense_of_range_extents ValueInst mapInst updates
         hlayout (hlayers.here hgeometry (ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas).1)
           (hrange.zero_left hgeometry hhas) hdomain hnext hstart hbinary hhas hzeroLeft hleft
       have hrightDense : (ProgressiveTree.ProgressiveZero : ProgressiveTree T).Dense factor next.val
@@ -222,11 +247,69 @@ private theorem bulk_dense_aux {T U : Type}
           have hwidth' : stop.val - start.val = subtreeCapacity factor binary.val := by omega
           rw [hwidth', hstartExact, hbinaryVal] at heq
           exact ⟨heq ▸ holdLeft, hleftFit⟩
-        · obtain ⟨hfit, hdense⟩ := ProgressiveTree.updated_layer_dense_of_extent ValueInst mapInst updates
+        · obtain ⟨hfit, hdense⟩ := ProgressiveTree.updated_layer_dense_of_range_extents ValueInst mapInst updates
             hlayout (hlayers.here hgeometry (ProgressiveTree.has_updates_in_range_true ValueInst mapInst hhas).1)
             (hrange.node_left hgeometry hhas) hdomain hnext hstart hbinary hhas holdLeft hupdate
           exact ⟨hdense, hfit⟩
       exact finishNode newHash newLeft newRight leftCorrect.1 leftCorrect.2 hnewRight hnewRightFit
+
+/-- Recursive density needs only occupied-length agreement on skipped
+progressive and binary windows and nonempty final slices on selected ones.
+No pending-value range law is required; the maximum supplies only a numeric bound. -/
+theorem ProgressiveTree.with_updated_leaves_recursive_dense_of_all_range_extents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {maximum : Option Std.Usize} {oldLength : Nat} {newLength : Std.Usize}
+    (hextent : newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength))
+    (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
+    {before after : ProgressiveTree T} {depth : Std.U32}
+    (hlayers : before.BulkLayerRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
+      ValueInst mapInst updates maximum depth)
+    (hrange : before.BulkBinaryRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
+      ValueInst mapInst updates factor maximum depth)
+    (hdense : before.Dense factor depth.val (oldLength - progressiveCapacity factor depth.val))
+    (hfit : before.Fits factor depth.val)
+    (hupdate : ProgressiveTree.with_updated_leaves_recursive ValueInst mapInst before updates maximum depth =
+      ok (core.result.Result.Ok after)) :
+    after.Dense factor depth.val (newLength.val - progressiveCapacity factor depth.val) ∧
+      after.Fits factor depth.val := by
+  exact bulk_dense_aux ValueInst mapInst updates hlayout hextent hdomain
+    (Std.U32.max - depth.val) depth before after (Nat.le_refl _) hdense hfit hlayers hrange hupdate
+
+/-- Public density under separate numeric layer conditions and selected
+binary numeric extent laws, restricted to the actual maximum. No reached
+range answer must reflect the presence or absence of pending values. -/
+theorem ProgressiveTree.with_updated_leaves_dense_of_all_range_extents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T) (updates : U)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : PackingLayout ValueInst factor packingDepth)
+    {oldLength : Nat} {newLength : Std.Usize}
+    (hextent : ∀ maximum, mapInst.max_index updates = ok maximum →
+      newLength.val ≤ maximum.elim oldLength (fun last => max (last.val + 1) oldLength))
+    (hdomain : DenseUpdateDomain oldLength newLength.val (update_map.HasValueAt mapInst updates))
+    {before after : ProgressiveTree T}
+    (hlayers : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkLayerRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
+        ValueInst mapInst updates maximum 0#u32)
+    (hrange : ∀ maximum, mapInst.max_index updates = ok maximum →
+      before.BulkBinaryRangeOn (update_map.RangePreservesExtentAt mapInst updates oldLength newLength.val)
+        ValueInst mapInst updates factor maximum 0#u32)
+    (hdense : before.Dense factor 0 oldLength) (hfit : before.Fits factor 0)
+    (hupdate : ProgressiveTree.with_updated_leaves ValueInst mapInst before updates =
+      ok (core.result.Result.Ok after)) :
+    after.Dense factor 0 newLength.val ∧ after.Fits factor 0 := by
+  unfold ProgressiveTree.with_updated_leaves at hupdate
+  cases hmax : mapInst.max_index updates with
+  | fail e => simp [hmax] at hupdate
+  | div => simp [hmax] at hupdate
+  | ok maximum =>
+    simp only [hmax, bind_tc_ok] at hupdate
+    have hdense' : before.Dense factor (0#u32).val (oldLength - progressiveCapacity factor (0#u32).val) := by
+      simpa [progressiveCapacity] using hdense
+    have hresult := ProgressiveTree.with_updated_leaves_recursive_dense_of_all_range_extents ValueInst mapInst updates
+      hlayout (hextent maximum hmax) hdomain (hlayers maximum hmax) (hrange maximum hmax) hdense' hfit hupdate
+    simpa [progressiveCapacity] using hresult
 
 /-- Recursive density needs only occupied-length agreement on skipped
 progressive layers and nonempty final slices on selected ones. Binary reflection
@@ -249,8 +332,11 @@ theorem ProgressiveTree.with_updated_leaves_recursive_dense_of_range_extents {T 
       ok (core.result.Result.Ok after)) :
     after.Dense factor depth.val (newLength.val - progressiveCapacity factor depth.val) ∧
       after.Fits factor depth.val := by
-  exact bulk_dense_aux ValueInst mapInst updates hlayout hextent hdomain
-    (Std.U32.max - depth.val) depth before after (Nat.le_refl _) hdense hfit hlayers hrange hupdate
+  exact ProgressiveTree.with_updated_leaves_recursive_dense_of_all_range_extents
+    ValueInst mapInst updates hlayout hextent hdomain hlayers
+    (fun layer start binary hvisit =>
+      (hrange layer start binary hvisit).mono (fun _ _ h => h.preservesExtent hdomain))
+    hdense hfit hupdate
 
 /-- Public density under separate numeric layer conditions and selected
 binary range laws, restricted to the actual maximum. No layer answer needs
@@ -274,17 +360,11 @@ theorem ProgressiveTree.with_updated_leaves_dense_of_range_extents {T U : Type}
     (hupdate : ProgressiveTree.with_updated_leaves ValueInst mapInst before updates =
       ok (core.result.Result.Ok after)) :
     after.Dense factor 0 newLength.val ∧ after.Fits factor 0 := by
-  unfold ProgressiveTree.with_updated_leaves at hupdate
-  cases hmax : mapInst.max_index updates with
-  | fail e => simp [hmax] at hupdate
-  | div => simp [hmax] at hupdate
-  | ok maximum =>
-    simp only [hmax, bind_tc_ok] at hupdate
-    have hdense' : before.Dense factor (0#u32).val (oldLength - progressiveCapacity factor (0#u32).val) := by
-      simpa [progressiveCapacity] using hdense
-    have hresult := ProgressiveTree.with_updated_leaves_recursive_dense_of_range_extents ValueInst mapInst updates
-      hlayout (hextent maximum hmax) hdomain (hlayers maximum hmax) (hrange maximum hmax) hdense' hfit hupdate
-    simpa [progressiveCapacity] using hresult
+  exact ProgressiveTree.with_updated_leaves_dense_of_all_range_extents
+    ValueInst mapInst updates hlayout hextent hdomain hlayers
+    (fun maximum hmax layer start binary hvisit =>
+      (hrange maximum hmax layer start binary hvisit).mono (fun _ _ h => h.preservesExtent hdomain))
+    hdense hfit hupdate
 
 /-- Skipped-layer value agreement supplies every false-answer extent law.
 Only positive progressive answers need a separate numeric condition; binary

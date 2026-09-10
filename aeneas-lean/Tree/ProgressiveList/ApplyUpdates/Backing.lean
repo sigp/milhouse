@@ -34,10 +34,10 @@ theorem ProgressiveList.Represents.dense_update_domain {T U : Type}
     cases hread
 
 /-- Successful application preserves backing validity under numeric range
-conditions at progressive layers and reflection only inside selected binary
-subtrees. The represented sequence supplies the dense update domain, and the
+conditions at all reached progressive and binary windows. No range answer
+must reflect pending-value presence or absence. The represented sequence supplies the dense update domain, and the
 checked length supplies the maximum extent. No clone or default-map law is needed. -/
-theorem ProgressiveList.apply_updates_preserves_backing_of_range_extents {T U : Type}
+theorem ProgressiveList.apply_updates_preserves_backing_of_all_range_extents {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (contents : _root_.List T)
     {factor : Option Std.Usize} {packingDepth : Std.Usize}
@@ -50,7 +50,8 @@ theorem ProgressiveList.apply_updates_preserves_backing_of_range_extents {T U : 
         ValueInst mapInst self.updates maximum 0#u32)
     (hrange : mapInst.is_empty self.updates = ok false →
       ∀ maximum, mapInst.max_index self.updates = ok maximum →
-      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+      self.tree.BulkBinaryRangeOn
+        (update_map.RangePreservesExtentAt mapInst self.updates self.length.val contents.length)
         ValueInst mapInst self.updates factor maximum 0#u32)
     (hrep : self.Represents ValueInst mapInst contents)
     (hbacking : self.BackingValid factor)
@@ -77,9 +78,41 @@ theorem ProgressiveList.apply_updates_preserves_backing_of_range_extents {T U : 
         (utils.updated_length_eq_ok_iff mapInst self.length self.updates length).mp hlength
       have heq : actual = maximum := Result.ok.inj (hactual.symm.trans hmax)
       simpa only [heq] using Nat.le_of_eq hvalue.symm
-    exact progressive_tree.ProgressiveTree.with_updated_leaves_dense_of_range_extents ValueInst mapInst self.updates
+    exact progressive_tree.ProgressiveTree.with_updated_leaves_dense_of_all_range_extents ValueInst mapInst self.updates
       (hlayout hempty) hextent hdomain (by simpa only [hcontentsLength] using hlayers hempty)
-      (hrange hempty) hbacking.1 hbacking.2 hupdate
+      (by simpa only [hcontentsLength] using hrange hempty) hbacking.1 hbacking.2 hupdate
+
+/-- Successful application preserves backing validity under numeric range
+conditions at progressive layers and reflection only inside selected binary
+subtrees. The represented sequence supplies the dense update domain, and the
+checked length supplies the maximum extent. No clone or default-map law is needed. -/
+theorem ProgressiveList.apply_updates_preserves_backing_of_range_extents {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (contents : _root_.List T)
+    {factor : Option Std.Usize} {packingDepth : Std.Usize}
+    (hlayout : mapInst.is_empty self.updates = ok false →
+      tree.PackingLayout ValueInst factor packingDepth)
+    (hlayers : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkLayerRangeOn
+        (update_map.RangePreservesExtentAt mapInst self.updates self.length.val contents.length)
+        ValueInst mapInst self.updates maximum 0#u32)
+    (hrange : mapInst.is_empty self.updates = ok false →
+      ∀ maximum, mapInst.max_index self.updates = ok maximum →
+      self.tree.BulkBinaryRangeOn (update_map.RangeReflectsValuesAt mapInst self.updates)
+        ValueInst mapInst self.updates factor maximum 0#u32)
+    (hrep : self.Represents ValueInst mapInst contents)
+    (hbacking : self.BackingValid factor)
+    {result : ProgressiveList T U}
+    (happly : ProgressiveList.apply_updates ValueInst mapInst self =
+      ok (core.result.Result.Ok (), result)) :
+    result.BackingValid factor := by
+  exact ProgressiveList.apply_updates_preserves_backing_of_all_range_extents
+    ValueInst mapInst self contents hlayout hlayers
+    (fun hempty maximum hmax layer start binary hvisit =>
+      (hrange hempty maximum hmax layer start binary hvisit).mono
+        (fun _ _ h => h.preservesExtent hrep.dense_update_domain))
+    hrep hbacking happly
 
 /-- Skipped-layer agreement supplies false-answer extents from the input
 representation and backing invariant. The remaining progressive range law
