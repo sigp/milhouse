@@ -46,6 +46,22 @@ private theorem wrapCow_success {T U : Type} (ValueInst : Value T) (mapInst : up
     obtain ⟨rfl, hback⟩ := hwrap
     exact ⟨mapBack, rfl, hback.symm⟩
 
+/-- Once the input lookups select a fallback, the public result is exactly
+the corresponding map call with its continuation lifted to the list. This
+equation preserves failure and divergence and assumes no map or clone laws. -/
+theorem ProgressiveList.get_cow_eq_of_fallback {T U : Type}
+    (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
+    (self : ProgressiveList T U) (index : Std.Usize) (fallback : Option T)
+    (hselected : self.CowFallbackSelected ValueInst mapInst index fallback) :
+    ProgressiveList.get_cow ValueInst mapInst self index = (do
+      let (handle, mapBack) ← mapInst.get_cow_with_value
+        ValueInst.corecloneCloneInst self.updates index fallback
+      ok (handle, fun replacement => { self with updates := mapBack replacement })) := by
+  rw [get_cow_eq]
+  rcases hselected with ⟨pending, hpending, rfl⟩ | ⟨hpending, hfallback⟩
+  · simp only [hpending, bind_tc_ok, wrapCow]
+  · simp only [hpending, bind_tc_ok, hfallback, wrapCow]
+
 /-- Successful acquisition identifies the fallback selected by the input
 lookups, the actual map call, and its continuation. No map, clone, or tree
 law is needed to recover this selection evidence. -/
