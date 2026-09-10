@@ -3,7 +3,7 @@
 import copy
 import unittest
 
-from aeneas_source_model_audit import check_llbc
+from aeneas_source_model_audit import check_exclusions, check_foundation_bindings, check_llbc
 
 
 class SourceCrateTests(unittest.TestCase):
@@ -85,6 +85,103 @@ class SourceCrateTests(unittest.TestCase):
             data["translated"]["fun_decls"][0]["item_meta"]["span"] = span
             with self.subTest(span=span), self.assertRaisesRegex(ValueError, "source span"):
                 check_llbc(data, self.suite)
+
+    def test_global_initializer_must_link_to_the_selected_body(self):
+        suite = copy.deepcopy(self.suite)
+        suite["initializers"] = ["get"]
+        data = copy.deepcopy(self.data)
+        function = data["translated"]["fun_decls"][0]
+        function["src"] = {"GlobalInitializer": {"id": 7, "generics": {}}}
+        global_ = {"def_id": 7, "item_meta": copy.deepcopy(function["item_meta"]),
+                   "global_kind": "NamedConst", "value": {"Untagged": [
+                       {"Call": [{"kind": {"Fun": {"Regular": 0}}}, []]}, "type"]}}
+        data["translated"]["global_decls"] = [global_]
+        self.assertEqual(set(check_llbc(data, suite)), {"get", "as_ref"})
+        for change in ["global_id", "callee", "arguments", "metadata", "kind", "expression"]:
+            bad = copy.deepcopy(data)
+            g = bad["translated"]["global_decls"][0]
+            if change == "global_id":
+                g["def_id"] = 8
+            elif change == "callee":
+                g["value"]["Untagged"][0]["Call"][0]["kind"]["Fun"]["Regular"] = 1
+            elif change == "arguments":
+                g["value"]["Untagged"][0]["Call"][1] = [0]
+            elif change == "metadata":
+                g["item_meta"]["is_local"] = True
+            elif change == "kind":
+                g["global_kind"] = "Static"
+            else:
+                g["value"] = {"Untagged": [{"Literal": 0}, "type"]}
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                check_llbc(bad, suite)
+        with self.assertRaisesRegex(ValueError, "Unexpected global initializer"):
+            check_llbc(data, self.suite)
+
+    def test_exclusion_allows_only_bijective_statement_and_block_renumbering(self):
+        suite = copy.deepcopy(self.suite)
+        suite["allow_statement_renumbering"] = True
+        original = copy.deepcopy(self.data)
+        block = {"span": {}, "id": 0, "statements": [
+            {"span": {}, "id": 0, "kind": "Return", "comments_before": []},
+            {"span": {}, "id": 1, "kind": "Nop", "comments_before": []}]}
+        original["translated"]["fun_decls"][0]["body"] = {"Structured": {"body": block}}
+        selected = copy.deepcopy(original)
+        renamed = selected["translated"]["fun_decls"][0]["body"]["Structured"]["body"]
+        renamed["id"] = 10
+        for index, statement in enumerate(renamed["statements"]):
+            statement["id"] = index + 20
+        before = copy.deepcopy(selected)
+        unchanged, records = check_exclusions(original, selected, suite)
+        self.assertEqual(unchanged, ["get", "as_ref"])
+        self.assertEqual(records, [{"method": "get", "statementIds": [
+            {"originalId": 0, "selectedId": 20}, {"originalId": 1, "selectedId": 21}],
+            "blockIds": [{"originalId": 0, "selectedId": 10}]}])
+        self.assertEqual(selected, before)
+        for change in ["operation", "span", "duplicate_id", "negative_id", "bool_id", "count"]:
+            bad = copy.deepcopy(selected)
+            body = bad["translated"]["fun_decls"][0]["body"]["Structured"]["body"]
+            if change == "operation":
+                body["statements"][0]["kind"] = "Abort"
+            elif change == "span":
+                body["span"] = {"different": True}
+            elif change == "duplicate_id":
+                body["statements"][1]["id"] = 20
+            elif change == "negative_id":
+                body["id"] = -1
+            elif change == "bool_id":
+                body["id"] = True
+            else:
+                body["statements"].pop()
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                check_exclusions(original, bad, suite)
+
+    def test_intrinsic_foundation_requires_exact_body_provenance_and_signature(self):
+        data = copy.deepcopy(self.data)
+        source = data["translated"]["fun_decls"][0]
+        source["body"] = {"Intrinsic": {"name": "assume", "arg_names": ["b"]}}
+        source["item_meta"]["opacity"] = "Foreign"
+        suite = {"model_modules": ["Tree.Intrinsics"], "model_files": ["Tree/Intrinsics.lean"],
+                 "foundation_bindings": [{"method": "get", "source_prefix": "vec_map",
+                     "source_crate": "vec_map", "source_file": "/vec_map/src/lib.rs",
+                     "lean_name": "core.intrinsics.assume", "signature": ": Bool → Result Unit",
+                     "intrinsic": {"name": "assume", "arg_names": ["b"]},
+                     "module": "Tree.Intrinsics"}]}
+        template = "axiom core.intrinsics.assume : Bool → Result Unit\n"
+        self.assertEqual(len(check_foundation_bindings(data, suite, template)), 1)
+        for body in ["Opaque", {"Intrinsic": {"name": "other", "arg_names": ["b"]}},
+                     {"Intrinsic": {"name": "assume", "arg_names": []}}, {"Structured": {}}]:
+            bad = copy.deepcopy(data)
+            bad["translated"]["fun_decls"][0]["body"] = body
+            with self.subTest(body=body), self.assertRaisesRegex(ValueError, "provenance"):
+                check_foundation_bindings(bad, suite, template)
+        for bad_template in [template.replace("Bool", "Nat"), template + "axiom extra : Nat\n"]:
+            with self.subTest(template=bad_template), self.assertRaises(ValueError):
+                check_foundation_bindings(data, suite, bad_template)
+        for key in ["model_modules", "model_files"]:
+            bad_suite = copy.deepcopy(suite)
+            bad_suite[key] = []
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "built and hashed"):
+                check_foundation_bindings(data, bad_suite, template)
 
 
 if __name__ == "__main__":

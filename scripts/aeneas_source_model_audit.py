@@ -196,22 +196,24 @@ def check_llbc(data, suite):
     return verified
 
 
-def statement_nodes(value):
-    """Find the exact pinned LLBC Statement schema, including nested blocks."""
+def body_nodes(value, kind):
+    """Find statements or blocks by their exact pinned LLBC schema."""
+    schema = ({"span", "id", "kind", "comments_before"} if kind == "statement"
+              else {"span", "id", "statements"})
     nodes = []
     if isinstance(value, dict):
-        if set(value) == {"span", "id", "kind", "comments_before"}:
+        if set(value) == schema:
             nodes.append(value)
         for child in value.values():
-            nodes.extend(statement_nodes(child))
+            nodes.extend(body_nodes(child, kind))
     elif isinstance(value, list):
         for child in value:
-            nodes.extend(statement_nodes(child))
+            nodes.extend(body_nodes(child, kind))
     return nodes
 
 
 def check_exclusions(original, selected, suite):
-    """Compare complete declarations, optionally reconciling fresh statement IDs."""
+    """Compare complete declarations after bijective statement/block renumbering."""
     check_llbc(original, suite)
     check_llbc(selected, suite)
     renumberings = []
@@ -219,19 +221,25 @@ def check_exclusions(original, selected, suite):
         before = source_declaration(original["translated"], suite, name)
         after = copy.deepcopy(source_declaration(selected["translated"], suite, name))
         if suite.get("allow_statement_renumbering"):
-            old_nodes, new_nodes = statement_nodes(before["body"]), statement_nodes(after["body"])
-            old_ids, new_ids = [s["id"] for s in old_nodes], [s["id"] for s in new_nodes]
-            if (len(old_ids) != len(new_ids)
-                    or any(type(i) is not int or i < 0 for i in old_ids + new_ids)
-                    or len(set(old_ids)) != len(old_ids) or len(set(new_ids)) != len(new_ids)):
-                raise ValueError(f"Invalid statement-ID correspondence: {name}")
-            changes = []
-            for old, new in zip(old_nodes, new_nodes):
-                if old["id"] != new["id"]:
-                    changes.append({"originalId": old["id"], "selectedId": new["id"]})
-                new["id"] = old["id"]
-            if changes:
-                renumberings.append({"method": name, "statementIds": changes})
+            # Charon 0.1.251 numbers blocks as well as statements. Their ID
+            # spaces are separate; neither ID denotes a branch target in LLBC.
+            record = {"method": name}
+            for kind in ("statement", "block"):
+                old_nodes = body_nodes(before["body"], kind)
+                new_nodes = body_nodes(after["body"], kind)
+                old_ids, new_ids = [s["id"] for s in old_nodes], [s["id"] for s in new_nodes]
+                if (len(old_ids) != len(new_ids)
+                        or any(type(i) is not int or i < 0 for i in old_ids + new_ids)
+                        or len(set(old_ids)) != len(old_ids) or len(set(new_ids)) != len(new_ids)):
+                    raise ValueError(f"Invalid {kind}-ID correspondence: {name}")
+                changes = []
+                for old, new in zip(old_nodes, new_nodes):
+                    if old["id"] != new["id"]:
+                        changes.append({"originalId": old["id"], "selectedId": new["id"]})
+                    new["id"] = old["id"]
+                record[kind + "Ids"] = changes
+            if record["statementIds"] or record["blockIds"]:
+                renumberings.append(record)
         if before != after:
             raise ValueError(f"Source declaration changed after exclusions: {name}")
     return list(suite["source_files"]), renumberings
