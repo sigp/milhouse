@@ -11,12 +11,16 @@ filing upstream. Versions used:
 Issue trackers: <https://github.com/AeneasVerif/charon/issues>,
 <https://github.com/AeneasVerif/aeneas/issues>.
 
-The [2026-09-10 upstream version review](UPSTREAM_VERSION_REVIEW.md) compares
-two newer releases with these pins. Relevant fixes have merged, but fresh
-CoW extraction tests await the required Rust toolchain. Isolated Lean checks
-already find Slice model changes in both candidates and a Result proof
-migration on latest. The working pin and the issue statuses below are not
-changed by that review.
+The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
+11, records the resumed isolated upgrade. The September 7 bundle passes
+447 main-library modules, 6,211 theorem declarations, and the model audit
+after compatibility repairs; 324 Rust tests passed earlier. Source-suite
+validation remains incomplete. Charon used an optimized fallback because
+Miri is missing, so the observed standard-library failures must be retested
+with the intended full-MIR sysroot. Miri and rustfmt installation is pending.
+The working pin is retained meanwhile. The four existing CoW control proofs
+pass without axioms; exact borrowed-CoW failures were not retested, and their
+issue statuses below are unchanged. Latest additionally needs a Result migration.
 
 Scope revision (2026-09-09): Debug and Serde implementations, including
 Serde-based context deserialization, are out of scope for the

@@ -1845,12 +1845,17 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-The [2026-09-10 upstream version review](UPSTREAM_VERSION_REVIEW.md) identifies
-relevant merged fixes and tests two newer releases in isolation. Both require
-Slice model changes; latest also changes Result proof techniques. Fresh CoW
-extraction checks await Rust nightly 2026-08-18. No tool pin, source, or proof
-was changed, and no outstanding extraction obligation is discharged by this
-review.
+The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
+11, records the resumed September 7 upgrade on `sept7-compiler-trial`.
+The installed candidate bundle passes all 447 main-library modules, the
+6,211-declaration axiom/import audit, and the model audit after compatibility
+repairs. Earlier native tests passed all 324 cases. Source validation is
+still incomplete: Charon fell back to an optimized sysroot because Miri is
+missing. Miri and rustfmt installation is pending before the full source
+suites and production extraction can be rerun correctly. The four existing
+CoW control proofs pass without axioms; no new borrowed-CoW obligation is
+discharged. The working compiler remains unchanged pending full validation
+and integration of the trial.
 
 Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
 `get_cow_with`, and `get_cow_with_value` now extract and compile through
