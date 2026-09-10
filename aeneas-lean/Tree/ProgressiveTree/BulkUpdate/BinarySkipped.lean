@@ -28,6 +28,57 @@ theorem ProgressiveTree.BulkBinarySkippedValuesAgree.of_ranges {T U : Type}
   exact tree.Tree.BulkSkippedValuesAgree.of_ranges layer binary.val 0 start.val
     (by simpa only [Nat.zero_add] using hrange layer start binary hvisit)
 
+theorem ProgressiveTree.BulkBinarySkippedValuesAgree.zero_left {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {factor maximum : Option Std.Usize} {depth next : Std.U32} {start stop binary : Std.Usize}
+    (hself : (ProgressiveTree.ProgressiveZero : ProgressiveTree T).BulkBinarySkippedValuesAgree
+      ValueInst mapInst updates factor maximum depth)
+    (hgeometry : ProgressiveTree.BulkLayerGeometry ValueInst depth next start stop binary)
+    (hhas : ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok true) :
+    (tree.Tree.Zero binary : tree.Tree T).BulkSkippedValuesAgree
+      mapInst updates factor binary.val 0 start.val :=
+  hself _ _ _ (.zero_here hgeometry hhas)
+
+theorem ProgressiveTree.BulkBinarySkippedValuesAgree.node_left {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {factor maximum : Option Std.Usize} {depth next : Std.U32} {start stop binary : Std.Usize}
+    {hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize)} {left : tree.Tree T} {right : ProgressiveTree T}
+    (hself : (ProgressiveTree.ProgressiveNode hash left right).BulkBinarySkippedValuesAgree
+      ValueInst mapInst updates factor maximum depth)
+    (hgeometry : ProgressiveTree.BulkLayerGeometry ValueInst depth next start stop binary)
+    (hhas : ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok true) :
+    left.BulkSkippedValuesAgree mapInst updates factor binary.val 0 start.val :=
+  hself _ _ _ (.node_here hgeometry hhas)
+
+theorem ProgressiveTree.BulkBinarySkippedValuesAgree.zero_right {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {factor maximum : Option Std.Usize} {depth next : Std.U32} {start stop binary : Std.Usize}
+    (hself : (ProgressiveTree.ProgressiveZero : ProgressiveTree T).BulkBinarySkippedValuesAgree
+      ValueInst mapInst updates factor maximum depth)
+    (hgeometry : ProgressiveTree.BulkLayerGeometry ValueInst depth next start stop binary)
+    (hhas : ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok true)
+    (hmaximum : ∃ last, maximum = some last ∧ stop.val ≤ last.val) :
+    (ProgressiveTree.ProgressiveZero : ProgressiveTree T).BulkBinarySkippedValuesAgree
+      ValueInst mapInst updates factor maximum next := by
+  intro layer layerStart layerDepth hvisit
+  exact hself _ _ _ (.zero_tail hgeometry hhas hmaximum hvisit)
+
+theorem ProgressiveTree.BulkBinarySkippedValuesAgree.node_right {T U : Type}
+    {ValueInst : Value T} {mapInst : update_map.UpdateMap U T} {updates : U}
+    {factor maximum : Option Std.Usize} {depth next : Std.U32} {start stop binary : Std.Usize}
+    {hash : lock_api.rwlock.RwLock parking_lot.raw_rwlock.RawRwLock
+      (alloy_primitives.bits.fixed.FixedBytes 32#usize)} {left : tree.Tree T} {right : ProgressiveTree T}
+    (hself : (ProgressiveTree.ProgressiveNode hash left right).BulkBinarySkippedValuesAgree
+      ValueInst mapInst updates factor maximum depth)
+    (hgeometry : ProgressiveTree.BulkLayerGeometry ValueInst depth next start stop binary)
+    (hhas : ∃ has, ProgressiveTree.has_updates_in_range ValueInst mapInst updates start stop = ok has)
+    (hmaximum : ∃ last, maximum = some last ∧ stop.val ≤ last.val) :
+    right.BulkBinarySkippedValuesAgree ValueInst mapInst updates factor maximum next := by
+  intro layer layerStart layerDepth hvisit
+  obtain ⟨has, hhas⟩ := hhas
+  exact hself _ _ _ (.node_tail hgeometry hhas hmaximum hvisit)
+
 /-- Correct mathematical slots after successful progressive rebuilding force
 agreement in every skipped window of its selected binary layers. Layout alone
 identifies the windows; no input shape, density, capacity, range, clone, or
