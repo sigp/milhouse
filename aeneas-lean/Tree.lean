@@ -251,6 +251,7 @@ import Tree.BulkUpdate.Density
 import Tree.BulkUpdate.Arithmetic
 import Tree.BulkUpdate.Success
 import Tree.BulkUpdate.Contents
+import Tree.BulkUpdate.RetainedClones
 import Tree.ProgressiveTree.Rebase.Soundness
 import Tree.ProgressiveList.Rebase.Pointer
 import Tree.Rebase.HashShortcutSteps
