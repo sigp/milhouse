@@ -716,6 +716,15 @@ points and records the trusted boundaries that still need fidelity review.
   axiom-free; the others use only standard Lean axioms. Their source audit and
   four native tests pass, as do the core and Option suites after extending the
   shared runner for locked Cargo dependencies and constant initializers.
+- The [power source comparison](reproducers/pow_models/README.md) validates
+  the entire extracted `usize::pow` body for every base/exponent and either
+  compiler-selector outcome (`eb2f91b`). Both loops, zero exponents, and exact
+  overflow failure are covered, without an arithmetic or termination premise.
+  The proof uses only standard Lean axioms. The selector remains abstract,
+  represented by one arbitrary Bool parameter because the outer body calls it
+  at most once. All extracted function bodies remain unchanged; the runner
+  validates this and reports a separate parameterized source comparison.
+  Existing Aeneas scalar primitives remain a foundation boundary.
 - The [core source comparisons](reproducers/core_models/README.md) validate
   `mem::take`, used for pending-map rebuilding, `usize::div_ceil`, used in
   builder finalization, and `u128::saturating_mul`/`u128::checked_pow`, used in capacity arithmetic,
@@ -1779,6 +1788,22 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
+Latest power source-model checkpoint (`eb2f91b`): `core_pow_agrees` validates
+the complete extracted `usize::pow` body for both compiler-selector outcomes,
+including both loops, zero exponents, and overflow. Its axiom audit reports
+only `propext`, `Classical.choice`, and `Quot.sound`. Four native tests and four
+Python provenance/control-flow tests pass. All eight source suites pass:
+33 direct comparisons, one parameterized source comparison, and two
+compositions, totaling 36 proofs (16 axiom-free, twenty standard-only).
+
+The full library build and axiom/import audit pass for 6,103 declarations
+across 429 modules: 5,984 use only standard axioms or none, and 119 retain the
+existing Arc pointer contract. The dependency gate passes for the unchanged
+42 roots and 151 local model declarations. No production Rust, production
+model, main extraction, or Aeneas source changed. The compiler-selector and
+scalar foundations remain explicit; borrowed CoW and remaining model-fidelity
+work are unfinished. Debug, Serde, and TreeHash remain out of scope.
+
 Latest apply-updates binary selection necessity checkpoint:
 
 The binary selection necessity review (`3cf17f1`, progressive/list necessity
@@ -2778,7 +2803,7 @@ The model dependency inventory remains 42 roots/151 local declarations; that
 separate gate was not repeated for these proof-only changes. Borrowed CoW and
 the remaining assumption/model-fidelity review stay open.
 
-Latest source-model checkpoint (`4cbc263`): actual SSZ encoder construction
+Previous source-model checkpoint (`4cbc263`): actual SSZ encoder construction
 now compares with the local model for every buffer and fixed-byte count,
 including its buffer-release continuation on every replacement encoder state.
 The proof retains the existing concrete `Vec::reserve` model explicitly and

@@ -96,7 +96,7 @@ It is separate from the passing audit's proof roots.
 | `u128::checked_pow` | Complete exponentiation-by-squaring loop using built-in checked multiplication; equality with the local mathematical power model is proved in `3182fd0`. |
 | `usize::trailing_zeros` | The body delegates to `core::intrinsics::cttz`, emitted as an external axiom template. |
 | `usize::checked_next_power_of_two` | The private `one_less_than_next_power_of_two` helper calls `core::intrinsics::ctlz_nonzero`, emitted as an external axiom template. |
-| `usize::pow` | Both squaring loops extract, but their selector `core::intrinsics::is_val_statically_known` remains an external axiom template, even when explicitly included. Rust documents either Boolean result as permitted; a comparison must account for both branches. |
+| `usize::pow` | Both squaring loops extract; the selector `core::intrinsics::is_val_statically_known` remains an external template. The separate [power comparison](../pow_models/README.md) now proves the complete body agrees with the local model for either permitted selector outcome (`eb2f91b`). The intrinsic itself remains abstract. |
 
 Reproduce the intrinsic boundaries from the repository root:
 
@@ -123,6 +123,13 @@ never imported into its comparisons or the main proof library. A separate
 fresh run adding `--include core::intrinsics::is_val_statically_known` leaves
 the same three templates. The Rust intrinsic's apparent `false` fallback body
 does not justify fixing its result to false.
+
+The separate power audit handles only the selector template, validates its
+exact provenance and single-call control flow, and quantifies over an arbitrary
+Bool outcome. It adds a section parameter to generated Lean without changing
+any extracted body. Its report distinguishes this parameterized comparison
+from the four direct comparisons in the core suite; it never compiles the
+admitted template.
 
 Replacing the six narrow includes with `--include core::num` also attempts
 to translate existing foundation primitives. Charon succeeds, but Aeneas

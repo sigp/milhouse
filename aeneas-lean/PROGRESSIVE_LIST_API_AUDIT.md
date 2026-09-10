@@ -135,6 +135,18 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The power model review in `eb2f91b` adds a
+[parameterized source comparison](reproducers/pow_models/README.md) for the
+complete `usize::pow` body, including both permitted compiler-selector
+branches and overflow. It uses only standard Lean axioms and assumes no
+arithmetic bound or termination. The selector itself and existing scalar
+primitives remain explicit boundaries. All eight source suites pass with
+36 comparison proofs; the full axiom/import audit passes for 6,103 theorem
+declarations across 429 modules, and the dependency gate passes for 42 roots
+and 151 local model declarations. Public-operation coverage and the remaining
+borrowed CoW obligations are unchanged. Debug, Serde, and TreeHash remain
+outside the current goal.
+
 The binary selection necessity review (`3cf17f1`, progressive/list necessity
 `22b4d2f`, binary necessity `453ef4c`) removes the remaining upfront numeric
 binary selection condition from the materialization criteria. Successful
@@ -971,6 +983,11 @@ Their shared audit and all seven native tests pass. Checked multiplication
 remains an Aeneas foundation primitive; three
 other numeric helpers retain missing intrinsic templates (UPSTREAM_BUGS issue
 24). No production model or public-operation specification changed.
+
+The separate [power comparison](reproducers/pow_models/README.md) now proves
+the complete `usize::pow` body for either compiler-selector outcome. Its
+intrinsic template remains unsupported, but a section parameter permits both
+actual extracted loops to be checked without replacing their bodies.
 
 The [fixed-byte source comparisons](reproducers/fixed_bytes_models/README.md)
 also validate the actual pinned clone, equality, ZERO, default, and `is_zero`

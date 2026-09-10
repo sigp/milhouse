@@ -145,6 +145,38 @@ foundation primitives. The preserved callers, exact commands, and trust
 boundary are in the core comparison README and UPSTREAM_BUGS issue 24.
 Incomplete/template output is never imported as verified code.
 
+### Power comparison for both compiler-selector outcomes
+
+Run `python3 scripts/aeneas-audit-pow-models.py`. The separate
+[power source comparison](reproducers/pow_models/README.md) in `eb2f91b`
+proves `core_pow_agrees`: the entire extracted `usize::pow` body equals the
+local model for every base and exponent, including zero and exact overflow
+failure. Both squaring loops are proved. Termination and the intermediate
+overflow invariant are derived internally; there is no arithmetic-bound or
+termination premise.
+
+The compiler intrinsic remains an extraction boundary. The comparison
+quantifies over an arbitrary Bool outcome, covering both allowed branches.
+The checked outer body calls the selector at most once, so no repeated-call
+consistency is assumed. Its generated selector class has only that Bool field,
+without a default instance or axiom. The only change to generated `Funs.lean`
+is a section parameter; removing it restores the original file exactly.
+The report retains both file hashes, validates intrinsic source metadata and
+the full caller shape, and records this under `parameterizedSourceComparisons`
+and `abstractCompilerSelectors`. It never compiles the admitted template or
+substitutes a power/loop body. Existing Aeneas scalar primitives remain trusted.
+
+All eight source suites pass at this checkpoint: 33 direct comparisons, one
+parameterized source comparison, and two compositions, totaling 36 proofs
+(16 axiom-free, twenty standard-only). Four native power tests and four
+Python provenance/control-flow tests also pass. The full library build and
+axiom/import audit pass for 6,103 declarations across 429 modules; 5,984 use
+only standard axioms or none, and 119 retain the existing Arc pointer contract.
+The dependency gate passes for the unchanged 42 roots and 151 local model
+declarations. No production Rust, production model, main extraction, or Aeneas
+source changed. Borrowed CoW and other model-fidelity obligations remain open;
+Debug, Serde, and TreeHash remain outside the current goal.
+
 ## Fixed-byte cache source comparisons
 
 Run `python3 scripts/aeneas-audit-fixed-bytes-models.py` from the repository root.

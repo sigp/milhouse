@@ -951,9 +951,11 @@ source change or missing-method axiom is introduced.
 ## 24. Aeneas: numeric intrinsics and overflow-pair operations
 
 **Stage:** external-function modeling and symbolic evaluation.
-**Status:** three numeric helpers retain missing intrinsic templates; direct
-source extraction of overflow-pair primitives is unsupported. This is a
-retained foundation boundary, not a discovered milhouse Rust bug.
+**Status:** three numeric helpers retain missing intrinsic templates. The
+complete `usize::pow` body now has a comparison proof for both selector
+outcomes (`eb2f91b`); the intrinsic itself remains abstract. Direct source
+extraction of overflow-pair primitives is unsupported. This is a retained
+foundation boundary, not a discovered milhouse Rust bug.
 
 The [core source comparison](reproducers/core_models/README.md#remaining-numeric-boundaries)
 preserves five small callers in `remaining.rs` and the exact narrow include
@@ -971,6 +973,19 @@ Explicitly including `is_val_statically_known` in a separate fresh run still
 emits its template. Rust documents either Boolean result as permitted, so its
 apparent `false` fallback body cannot justify proving only that branch. No
 missing-intrinsic axiom or local replacement is added to the proof library.
+
+The [power source comparison](reproducers/pow_models/README.md) in `eb2f91b`
+now validates the entire `usize::pow` body for an arbitrary Bool selector,
+including both extracted loops, exponent zero, termination, and exact overflow
+failure. The outer body queries the intrinsic at most once, so quantifying
+over the choice covers Rust's permitted nondeterminism without assuming
+repeated calls agree. The runner checks this control flow and permits only a
+Lean section parameter to be inserted into freshly generated `Funs.lean`;
+all function bodies remain unchanged. The selector is a concrete projection
+from an unconstrained Bool class parameter, with no default instance or axiom.
+The report records this as a parameterized source comparison with an explicit
+compiler-selector boundary. The intrinsic extraction limitation remains;
+Aeneas's existing scalar foundation is also retained.
 
 A broader `--include core::num` probe makes Charon expose the bodies of
 existing arithmetic primitives. Aeneas then exits 1 with `Unimplemented binary
