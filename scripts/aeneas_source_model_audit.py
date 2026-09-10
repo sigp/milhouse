@@ -131,6 +131,9 @@ def check_llbc(data, suite):
     if crate["crate_name"] != suite["crate"]:
         raise ValueError("Unexpected source crate")
     source_crate = suite.get("source_crate", "core")
+    source_crates = suite.get("source_crates", {})
+    if set(source_crates) - set(suite["source_files"]):
+        raise ValueError("Source-crate override has no selected source body")
     files = {item["id"]: item for item in crate["files"] if item}
     verified = {}
     for name in suite["source_files"]:
@@ -139,7 +142,7 @@ def check_llbc(data, suite):
         span = meta["span"]["data"]
         source = files[span["file_id"]]
         if (meta["is_local"] or meta["opacity"] != "Transparent"
-                or source["crate_name"] != source_crate
+                or source["crate_name"] != source_crates.get(name, source_crate)
                 or source["name"] != {"Local": suite["source_files"][name]}
                 or not isinstance(item["body"], dict)
                 or not isinstance(item["body"].get("Structured"), dict)):
