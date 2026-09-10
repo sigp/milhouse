@@ -1846,11 +1846,13 @@ abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.m
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
 The [2026-09-10 upstream version review](UPSTREAM_VERSION_REVIEW.md) identifies
-relevant merged fixes and tests two newer releases in isolation. Both require
-Slice model changes; latest also changes Result proof techniques. Fresh CoW
-extraction checks await Rust nightly 2026-08-18. No tool pin, source, or proof
-was changed, and no outstanding extraction obligation is discharged by this
-review.
+relevant merged fixes and tests two newer releases in isolation. The follow-up
+September 7 trial regenerates the existing extraction successfully, but the
+proof library does not pass after initial model adaptations: 52 modules
+compile, 7 fail, and 387 are blocked by failed imports. The user requested
+halting on failure, so the upgrade attempt is stopped and the working compiler
+is retained. No trial source or proof changes are applied here, and no
+outstanding borrowed-CoW extraction obligation is discharged.
 
 Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
 `get_cow_with`, and `get_cow_with_value` now extract and compile through

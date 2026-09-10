@@ -12,11 +12,13 @@ Issue trackers: <https://github.com/AeneasVerif/charon/issues>,
 <https://github.com/AeneasVerif/aeneas/issues>.
 
 The [2026-09-10 upstream version review](UPSTREAM_VERSION_REVIEW.md) compares
-two newer releases with these pins. Relevant fixes have merged, but fresh
-CoW extraction tests await the required Rust toolchain. Isolated Lean checks
-already find Slice model changes in both candidates and a Result proof
-migration on latest. The working pin and the issue statuses below are not
-changed by that review.
+two newer releases with these pins. After installing the required Rust
+toolchain, the September 7 trial successfully regenerated the existing
+extraction, but proof compilation still failed after initial compatibility
+adaptations: 52 modules passed, 7 failed, and 387 were blocked by failed
+imports. The upgrade attempt was halted at the user's request; the working
+pin is retained. Exact borrowed-CoW failures were not retested, and the issue
+statuses below are unchanged. Latest additionally needs a Result migration.
 
 Scope revision (2026-09-09): Debug and Serde implementations, including
 Serde-based context deserialization, are out of scope for the

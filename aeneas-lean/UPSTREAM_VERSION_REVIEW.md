@@ -1,10 +1,16 @@
 # Aeneas upgrade review — 2026-09-10
 
+**Decision after the follow-up trial: retain the working compiler.** The
+September 7 candidate generates the existing extraction successfully, but
+the full proof library does not pass after initial compatibility adaptations.
+The user requested a halt if the existing proofs could not all be made to
+pass; the upgrade attempt is stopped. Details are in the follow-up below.
+
 Upstream contains relevant fixes, but none has yet been verified against our
 exact borrowed-CoW failures. The latest release also breaks existing Lean
-proof patterns. Keep the working pin while testing the candidates below.
-This review changes no Rust, extracted definitions, proofs, tool pins, audit
-version gates, or Aeneas sources.
+proof patterns. No changes from the isolated compiler trial are applied to the
+working branch's Rust, extracted definitions, proofs, tool pins, audit version
+gates, or Aeneas sources.
 
 ## Versions compared
 
@@ -61,7 +67,7 @@ pin. Its remaining wrapper contracts and concrete VecMap composition are
 proof obligations; they should not all be attributed to the borrowed-CoW
 extraction failure. See the [current checkpoint](PROGRESSIVE_LIST_PROOFS.md).
 
-## Compatibility checks actually run
+## Initial compatibility checks
 
 Both candidates' bundled Lean libraries were tested in isolated directories,
 using Lean 4.31.0 and the project's already-built shared dependencies. Their
@@ -119,19 +125,20 @@ Review artifacts and individual compiler logs are under
 `latest-Tree-Arbitrary-Models.log`. These temporary artifacts are not a
 replacement for the committed source audit reports.
 
-## Next evaluation step
+## Original evaluation plan
 
-The candidates' Charon binaries require `nightly-2026-08-18`, which is not
-installed. The attempt to install it failed because the session sandbox
-denies writes to `~/.rustup/tmp`. Installation must happen outside this
-session, or after restarting with the required sandbox access:
+At the initial review, the candidates' required `nightly-2026-08-18` was not
+installed. Installation failed because the session sandbox denies writes to
+`~/.rustup/tmp`. The user subsequently installed it outside the session using:
 
 ```sh
 rustup toolchain install nightly-2026-08-18 --profile minimal \
   --component rustc-dev,rust-src,llvm-tools
 ```
 
-Then, in isolated output directories:
+The planned checks were the following. The user's subsequent instruction
+prioritized existing proof compatibility and required halting on failure;
+this plan is not authorization to continue after the failed trial.
 
 1. Regenerate LLBC with each candidate's matched Charon and Rust toolchain;
    do not feed old LLBC to the new version or bypass version checks.
@@ -149,3 +156,68 @@ Then, in isolated output directories:
 `7ebd01d` is a useful first comparison because it contains the September 3
 fixes without the Result migration. It is not yet a validated upgrade.
 Debug and Serde remain excluded; TreeHash remains deferred.
+
+## Follow-up: September 7 compiler trial stopped
+
+After the toolchain installation, the user requested testing `7ebd01d` against
+all existing proofs and halting if that did not succeed. The isolated worktree
+is `/tmp/milhouse-aeneas-upstream-j6mrhx0i/milhouse-sept7`, on branch
+`sept7-compiler-trial`, based on working-branch commit `872f21e`.
+
+The verified tool versions are Aeneas `nightly-2026.09.08-7ebd01d`, Charon
+`0.1.251 (85bba1f2a64ded1704586cdc26dfb62aeb4b7168)`, Rust nightly
+`2026-08-18` at `8fa1c96cfd489e4c27654c144ae871ce2c4db6c6`, and Lean 4.31.0.
+
+Fresh Charon and Aeneas extraction using the existing selected roots succeeds
+with exit status zero. The original, ignored `Cargo.lock` was copied into the
+worktree before the definitive run and verified byte-identical afterward.
+The preliminary run without that lock resolved newer dependencies and is not
+used as evidence for the compiler-only comparison. The definitive log is
+`sept7-locked-main-extraction.log` in the review artifact directory.
+Generated `Types.lean` and `Funs.lean` contain no `sorry` or `admit` bodies and
+compile against the candidate after the initial local model adaptations.
+
+The attempt ported byte-vector construction, arbitrary control-byte slices,
+vector-pop construction, and initial UTF-8, arbitrary-generation, and SSZ
+byte proofs to the new representations. These modules compile. In particular,
+upstream `Vec` is now a structure wrapping a `Slice`; replacing every old Vec
+constructor with `Slice.from` alone is insufficient. Array representation
+changes also require explicit projection lemmas in byte proofs.
+
+All 446 project modules were scheduled for direct Lean compilation in import
+order, with a fresh output directory and candidate Aeneas library. Only shared
+third-party dependencies were read from the working project's cache; its Tree
+and old Aeneas output paths were excluded. The final attempt reports:
+
+- 52 modules compiled successfully.
+- 7 modules failed to compile.
+- 387 modules were not checked because their imports depend on failed modules.
+
+| Failed module | Remaining incompatibility |
+| --- | --- |
+| `Tree.Iterator` | The old vector subtype destructuring no longer applies; the attempted replacement still leaves the dependent iterator match unreduced. |
+| `Tree.Ssz.ReadOffset` | Array reconstruction no longer reduces definitionally; the proof also applies `Subtype.ext` to the new Array structure. |
+| `Tree.Arbitrary.Reflection` | The empty vector's list projection no longer reduces as the existing proof expects. |
+| `Tree.PackedLeaf.Insert` | The generated generic vector mutable-index call no longer matches the specialized mutable-index expression by definitional equality. |
+| `Tree.Ssz.FixedCursor` | Changed `Ord::min` reduction and Slice representation invalidate the existing reduction and subtype-extensionality steps. |
+| `Tree.Vec.Clone` | The changed vector clone representation invalidates the existing result-injectivity step. |
+| `Tree.Invariants` | Existing clone-length arguments and vector constructions depend on the old Vec/Slice representation. |
+
+The full axiom/import audit, model audit, and nine standalone source suites
+were not run on the candidate because the main proof compilation failed.
+No claim is made that the uncompiled modules would pass, or that these are
+the only remaining migration changes. This is a failed compatibility attempt,
+not evidence that the underlying correctness statements are false.
+
+Successful initial adaptations and extraction are preserved only in trial
+commit `dbbcb64`; the unsuccessful iterator adaptation remains an uncommitted
+experiment in that worktree. They are not merged into the working branch.
+The complete attempt's logs and dependency report are `sept7-build.log` and
+`sept7-build/report.json`; individual diagnostics are in `sept7-build/logs/`.
+`build_sept7.py` and `sept7-build-config.json` retain the isolated compiler
+invocations. All these artifacts are under the review directory above.
+
+The working Aeneas checkout remains clean at `b59d5188c082`, and its Charon
+checkout remains clean at `cb50ff16b9f1`. The upgrade attempt is halted as
+requested. The existing proof goal remains incomplete; no additional
+borrowed-CoW obligation was discharged by this trial.
