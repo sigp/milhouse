@@ -1,3 +1,15 @@
+#![feature(hint_must_use)]
+
+pub fn map_err<T, E, F, O: FnOnce(E) -> F>(value: Result<T, E>, op: O) -> Result<T, F> {
+    value.map_err(op)
+}
+pub fn must_use<T>(value: T) -> T {
+    std::hint::must_use(value)
+}
+pub fn borrow<T>(value: &T) -> &T {
+    <T as std::borrow::Borrow<T>>::borrow(value)
+}
+
 pub fn take<T: Default>(place: &mut T) -> T {
     std::mem::take(place)
 }
@@ -13,7 +25,7 @@ pub fn checked_pow(value: u128, exponent: u32) -> Option<u128> {
 
 #[cfg(test)]
 mod tests {
-    use super::{checked_pow, div_ceil, saturating_mul, take};
+    use super::{borrow, checked_pow, div_ceil, map_err, must_use, saturating_mul, take};
     use std::cell::{Cell, RefCell};
     use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -42,6 +54,63 @@ mod tests {
         fn drop(&mut self) {
             EVENTS.with_borrow_mut(|events| events.push(Event::Drop(self.0)));
         }
+    }
+
+    #[test]
+    fn error_mapping_skips_success_and_calls_once_on_error() {
+        let calls = Cell::new(0);
+        let success: Result<Box<u64>, Box<u64>> = Ok(Box::new(7));
+        let pointer = success.as_ref().unwrap().as_ref() as *const u64;
+        let result = map_err(success, |error| {
+            calls.set(calls.get() + 1);
+            *error + 1
+        });
+        let value = result.unwrap();
+        assert_eq!(value.as_ref() as *const u64, pointer);
+        assert_eq!(calls.get(), 0);
+
+        let error: Result<u64, Box<u64>> = Err(Box::new(11));
+        let result = map_err(error, |error| {
+            calls.set(calls.get() + 1);
+            *error + 1
+        });
+        assert_eq!(result, Err(12));
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn error_mapping_propagates_callback_panic() {
+        let calls = Cell::new(0);
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            map_err::<u64, u64, u64, _>(Err(11), |error| {
+                assert_eq!(error, 11);
+                calls.set(calls.get() + 1);
+                panic!("error mapping failed");
+            })
+        }));
+        assert!(result.is_err());
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn must_use_moves_without_cloning_or_early_drop() {
+        let value = Value(7);
+        let returned = must_use(value);
+        assert_eq!(returned.0, 7);
+        EVENTS.with_borrow(|events| assert!(events.is_empty()));
+        drop(returned);
+        EVENTS.with_borrow(|events| assert_eq!(*events, vec![Event::Drop(7)]));
+    }
+
+    #[test]
+    fn blanket_borrow_preserves_the_original_reference() {
+        let value = Value(11);
+        let returned = borrow(&value);
+        assert!(std::ptr::eq(returned, &value));
+        assert_eq!(returned.0, 11);
+        EVENTS.with_borrow(|events| assert!(events.is_empty()));
+        drop(value);
+        EVENTS.with_borrow(|events| assert_eq!(*events, vec![Event::Drop(11)]));
     }
 
     #[test]

@@ -1,8 +1,9 @@
 # Core model source comparisons
 
-This check compares the local `mem::take`, `usize::div_ceil`,
-`u128::saturating_mul`, and `u128::checked_pow` models with fresh extraction of their actual pinned
-Rust standard-library bodies. The Rust file calls those methods and contains
+This check compares the local `Result::map_err`, `hint::must_use`, blanket
+`Borrow::borrow`, `mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and
+`u128::checked_pow` models with fresh extraction of their actual pinned Rust
+standard-library bodies. The Rust file calls those methods and contains
 native protocol tests; it does not
 copy their implementations or replace a milhouse operation.
 
@@ -12,8 +13,8 @@ Run from the repository root:
 python3 scripts/aeneas-audit-core-models.py
 ```
 
-The runner builds `Tree.FunsExternal`, checks Rust formatting, runs seven native
-tests, extracts the four standard-library bodies into `CoreSource`, checks their
+The runner builds `Tree.FunsExternal`, checks Rust formatting, runs eleven native
+tests, extracts the seven standard-library bodies into `CoreSource`, checks their
 source provenance and completeness, and compiles `CheckModels.lean`. Each run
 uses a fresh directory under `.lake/core-model-audit/`; `report.json` records
 the input hashes, versions, source spans, and exact proof axiom dependencies.
@@ -25,12 +26,17 @@ Charon 0.1.223, Aeneas `b59d5188`, and `nightly-2026-06-01` Rust commit
 `scripts/aeneas_source_model_audit.py`. Each suite declares its source paths
 and per-theorem axiom policy. The Option suite still requires every comparison
 to be axiom-free; this suite permits only standard Lean axioms for ceiling
-division, saturation, and checked power and requires `take` to be axiom-free.
+division, saturation, and checked power and requires the other four comparisons
+to be axiom-free. Model inputs include `Tree/Ssz/DecodeModels.lean`, which
+defines the error adapter and must-use hint reached by included SSZ decoding.
 
 ## Verified behavior
 
 | Comparison | Result |
 | --- | --- |
+| `Result::map_err` | Equal to the actual body from `core/src/result.rs:962` for every result and arbitrary `FnOnce` dictionary. `Ok` skips the callback; `Err` preserves its actual output, failure, or divergence. The proof is axiom-free and assumes no callback law or termination. |
+| `hint::must_use` | Equal to the actual body from `core/src/hint.rs:613` for every value, without axioms. This proves runtime value behavior; compile-time unused-result diagnostics are not modeled. |
+| blanket `Borrow::borrow` | Equal to the actual blanket implementation for every value, without axioms or a clone/Borrow dictionary assumption. This is value equality within Aeneas's reference abstraction, not a general pointer-identity theorem. |
 | `mem::take` | Equal to the actual body from `core/src/mem/mod.rs:849`, for any value and Default dictionary, including default failure/divergence. Success returns the old value and installs the returned default in the modeled place. The proof is axiom-free. |
 | `usize::div_ceil` | Equal to the actual body from `core/src/num/uint_macros.rs:3755` for all machine-word inputs, including zero divisors. The proof uses only `propext`, `Classical.choice`, and `Quot.sound`; it assumes no positivity or size bound. |
 | `u128::saturating_mul` | Equal to the actual body from `core/src/num/uint_macros.rs:2516` for every pair of inputs, including overflow. The proof uses only the same three standard Lean axioms, with no bound premise. The called checked multiplication remains an existing Aeneas foundation primitive. |
@@ -69,13 +75,21 @@ the power-of-two and power-of-three overflow boundaries and `0^0`. That
 reference guards multiplication using division. Eight additional checks cover
 zero, one, two, and `u128::MAX` at the two largest `u32` exponents.
 
+Four further tests check error-mapping branch/call behavior with moved boxed
+values, propagation of a callback panic after one call, must-use movement
+without cloning or premature dropping, and the blanket borrow's original
+pointer/value with no drop during the call. The Lean error-adapter comparison
+also covers divergence; the finite native tests do not test divergence or
+establish general destructor/unwind semantics.
+
 The checker rejects missing or opaque source bodies, incorrect source paths,
 partial extraction, and unexpected axiom dependencies. Eleven malformed
 inventory/report inputs were rejected, including a null structured body and
 an injected axiom in the `take` theorem. The Option suite also rejected an
 injected `propext` dependency after moving to the shared runner.
 
-All four compared methods extract completely. The comparisons still trust
+All seven compared methods extract completely, with no external templates or
+source/metadata replacements. The comparisons still trust
 Aeneas's reference/value abstraction and its foundation models, including
 `mem::replace` and scalar arithmetic/checked multiplication. Destructor
 execution is omitted by extraction; the

@@ -3,6 +3,30 @@ import CoreSource.Funs
 
 open Aeneas Aeneas.Std Result
 
+/-- The actual Result error adapter preserves successful values without
+calling the callback. On error it preserves the callback's exact result,
+including failure and divergence, with no callback law or termination premise. -/
+theorem core_map_err_agrees {T E F O : Type}
+    (inst : core.ops.function.FnOnce O E F) (value : core.result.Result T E) (op : O) :
+    CoreSource.core.result.Result.map_err inst value op =
+      core.result.Result.map_err inst value op := by
+  cases value with
+  | Ok _ => rfl
+  | Err error =>
+    simp only [CoreSource.core.result.Result.map_err, core.result.Result.map_err]
+    cases inst.call_once op error <;> rfl
+
+/-- The standard-library hint returns its supplied value. This compares the
+runtime body; compile-time unused-result diagnostics are outside the model. -/
+theorem core_must_use_agrees {T : Type} (value : T) :
+    CoreSource.core.hint.must_use value = core.hint.must_use value := rfl
+
+/-- Blanket borrowing agrees with the local identity model in Aeneas's
+reference/value abstraction. No element clone or Borrow dictionary is assumed. -/
+theorem core_borrow_agrees {T : Type} (value : T) :
+    CoreSource.core.borrow.Borrow.Blanket.borrow value =
+      core.borrow.Borrow.Blanket.borrow value := rfl
+
 /-- The actual standard-library body calls Default before replacing the
 place, with the same returned old value and replacement as the local model.
 Default failure/divergence is preserved without a termination assumption. -/
@@ -252,3 +276,6 @@ theorem core_checked_pow_agrees (value : Std.U128) (exp : Std.U32) :
 #print axioms core_div_ceil_agrees
 #print axioms core_saturating_mul_agrees
 #print axioms core_checked_pow_agrees
+#print axioms core_map_err_agrees
+#print axioms core_must_use_agrees
+#print axioms core_borrow_agrees
