@@ -85,6 +85,14 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- `UpdateMap/MaxMap/Mutable.lean` proves the actual extracted `get_mut_with`
+  result and complete continuation. The wrapper preserves the inner initial
+  value and success/failure/divergence behavior. Present loans record the
+  selected key; missing loans preserve cached metadata. Exact lookup frames
+  and whole-map restoration transfer from the actual inner loan without laws
+  about unrelated callbacks, inner maximum queries, cloning, or index bounds.
+  The two CoW wrapper methods now extract and compile too, but their own
+  correctness contracts and concrete dictionary composition remain unfinished.
 - `UpdateMap/MaxMap/Operations.lean` proves the actual extracted wrapper's
   default construction, lookup, cardinality, cached maximum, and insertion
   behavior over an arbitrary inner `UpdateMap`. Insertion propagates the inner
@@ -1837,7 +1845,48 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-Latest MaxMap source checkpoint (`a5c77c3`, cache validity `72dba6d`): five
+Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
+`get_cow_with`, and `get_cow_with_value` now extract and compile through
+cfg-gated callers. Explicit Rust Option matches avoid the borrowed `Try`
+signature mismatch; `handle` locals avoid a generated namespace collision.
+The call order, early returns, metadata effects, and cloning behavior are
+unchanged. UPSTREAM_BUGS issue 9 records the failed original probe, including
+the failure when the actual Option helper source is included. Aeneas and the
+external templates/models are unchanged; earlier generated function bodies
+are unchanged. The extraction script also trims emitted trailing whitespace.
+
+Eight public lemmas in `UpdateMap/MaxMap/Mutable.lean` prove the exact result,
+complete continuation, initial-value correspondence, and success equivalence.
+Present loans record the borrowed index without inner maximum, cloning,
+cache-validity, or index-bound laws; missing loans preserve the cache for every
+continuation input. Lookup frames transfer pointwise from the actual inner
+loan, and missing-loan restoration transfers from that same inner invocation.
+All eight proofs use only `propext` and `Quot.sound`.
+
+The 324 Rust library tests pass with `arbitrary`; the eight update-map tests
+were rechecked after the final namespace-safe local-name adjustment. Rustfmt
+and the focused Lean build pass. The new CoW wrapper bodies are compiled,
+but their correctness contracts are not yet proved. Further semantic-invariant
+and concrete dictionary composition, borrowed CoW, and remaining assumption/
+model-fidelity review stay open. Debug and Serde are excluded; TreeHash is
+deferred.
+
+The full build passes (2,162 jobs), and the complete axiom/import audit covers
+6,207 theorem declarations across 446 project modules: 6,088 use only standard
+Lean axioms or none, and 119 retain the existing Arc pointer contract. No new
+nonstandard axiom dependencies are introduced. Logs are
+`/tmp/milhouse-max-map-borrow-extraction.log`,
+`/tmp/milhouse-max-map-mutable-axioms.log`,
+`/tmp/milhouse-max-map-borrow-native.log`,
+`/tmp/milhouse-max-map-borrow-native-final.log`, and
+`/tmp/milhouse-max-map-borrow-full-audit.log`.
+
+The model dependency audit passes for the unchanged 42 roots and 151 local
+declarations (`/tmp/milhouse-max-map-borrow-model-audit.log`). All nine source
+reports retain current input hashes and 52 checked proofs (20 axiom-free,
+32 standard-only); their inputs are unchanged, so those suites were not rerun.
+
+Previous MaxMap source checkpoint (`a5c77c3`, cache validity `72dba6d`): five
 actual wrapper paths now extract through cfg-gated proof callers: default,
 lookup, insertion, cardinality, and maximum. Eleven operational lemmas prove
 exact delegation, result propagation, inner/wrapper success equivalence,

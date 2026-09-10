@@ -83,6 +83,37 @@ formatter options, user sinks, or lock observation without further work.
 
 ## MaxMap wrapper source proofs
 
+The subsequent mutable-wrapper checkpoint `fec41a5` extracts the actual
+`get_mut_with`, `get_cow_with`, and `get_cow_with_value` methods through
+cfg-gated callers. The first has eight public proofs in
+`Tree/UpdateMap/MaxMap/Mutable.lean`; the two CoW wrappers compile but their own
+correctness contracts remain pending. Explicit Option matches avoid the
+borrowed-`Try` signature mismatch, and `handle` locals avoid namespace
+shadowing (UPSTREAM_BUGS issues 9 and 7). This Rust control-flow spelling
+preserves call order, early returns, cache effects, and clone behavior.
+External templates/models, Aeneas, and earlier generated function bodies are
+unchanged; emitted trailing whitespace is now removed by the extraction script.
+
+The mutable proofs give the exact inner-result/continuation composition,
+initial-value correspondence, and success equivalence, including failure and
+divergence. Every present loan records the selected key, independently of inner
+maximum-query laws, cache validity, cloning, or bounds. A missing loan preserves
+cached metadata for every continuation input. Lookup frames and missing-loan
+restoration transfer from only the actual inner invocation. All eight public
+lemmas use `propext` and `Quot.sound`. The 324 Rust library tests pass, and the
+eight update-map tests were rechecked after the final local-name adjustment.
+Further semantic-invariant and concrete dictionary composition remain open.
+
+The full build passes (2,162 jobs). The axiom/import gate covers 6,207
+declarations across 446 modules: 6,088 use only standard axioms or none and
+119 retain the existing Arc pointer contract. No new nonstandard axiom
+dependencies are introduced.
+
+The model dependency gate passes again for the unchanged 42 roots and 151
+local declarations. All nine source reports have current input hashes and
+retain 52 checked proofs (20 axiom-free, 32 standard-only). Their inputs are
+unchanged, so those suites were not rerun for this wrapper work.
+
 Extraction callers added in `a5c77c3` expose the actual `MaxMap` type and five
 source bodies: derived `Default::default`, `get`, `insert`, `len`, and
 `max_index`. They are included in the main extraction and proved in

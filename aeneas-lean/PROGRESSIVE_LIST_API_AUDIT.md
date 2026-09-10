@@ -135,6 +135,32 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The MaxMap mutable-wrapper checkpoint (`fec41a5`) adds eight public lemmas
+for actual `get_mut_with`: exact initial result and continuation, success
+equivalence, present/missing maximum behavior, pointwise lookup-frame transfer,
+and missing-loan restoration. No inner maximum-query law, cloning, index bound,
+or cache invariant is needed by the exact operational equations. All eight
+proofs use only `propext` and `Quot.sound`. The 324 Rust library tests pass;
+eight update-map tests were rechecked after the final local-name adjustment.
+
+The actual `get_cow_with` and `get_cow_with_value` wrappers also extract and
+compile, but their correctness contracts remain pending. Explicit Rust Option
+matches and namespace-safe locals avoid the existing Aeneas borrowed-`Try`
+and naming limitations while preserving behavior. Aeneas, external models/
+templates, and prior generated function bodies are unchanged. The remaining
+wrapper contracts, semantic-invariant and concrete dictionary composition,
+borrowed CoW, and assumption/model review are still incomplete. Debug and
+Serde are excluded; TreeHash remains deferred.
+
+The full build passes (2,162 jobs), and the complete axiom/import audit
+validates 6,207 declarations across 446 modules. Of these, 6,088 use only
+standard axioms or none and 119 retain the existing Arc pointer contract.
+No new nonstandard axiom dependencies are introduced.
+
+The model dependency audit also passes for the unchanged 42 roots and 151
+local declarations. All nine source-suite reports have current input hashes,
+retaining 52 checked proofs; unchanged suites were not rerun.
+
 The MaxMap wrapper review (`a5c77c3`, cache invariant `72dba6d`) adds
 seventeen public lemmas for five actual source paths: default construction,
 lookup, insertion, cardinality, and cached maximum. Exact insertion metadata
