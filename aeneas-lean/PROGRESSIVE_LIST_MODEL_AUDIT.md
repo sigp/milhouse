@@ -429,6 +429,34 @@ check also pass.
 
 ## Trusted boundaries and remaining work
 
+- The consuming materialization review (`8bb4bb4`, list contracts `477cdb3`)
+  proves entry readiness and actual immutable-branch clone termination
+  necessary as well as sufficient for `Cow.into_mut`. The vector-entry
+  successor bound follows from checked growth arithmetic in the existing
+  local model. A specified initial value is the actual clone result or existing
+  mutable value. Actual consuming success supplies the `Written` footprint
+  without assumed readiness or clone laws.
+
+  `CopyOnWrite/Materialization.lean` restricts these structural/clone inputs
+  to present handles from the selected map invocation. It assumes neither
+  consuming-call success nor write-back behavior, and proves the inputs
+  necessary from actual acquisition and consumption. Under the selected read
+  law, a present immutable read plus these inputs exactly characterizes success.
+  `FallbackConsuming.lean` derives complete represented replacement without
+  entry-key equality or a pending-handle classification law; the older public
+  signatures remain adapters. Its successful-call write-back theorem recovers
+  the footprint without additional CoW read, location, or clone laws.
+
+  All ten new public lemmas use only standard Lean axioms. The full build and
+  axiom/import audit pass for 6,163 declarations across 443 modules: 6,044 use
+  only standard axioms or none and 119 retain the existing Arc pointer contract.
+  No Rust, extraction, external model, or Aeneas source changed. The eight
+  source suites and unchanged 42-root/151-declaration dependency gate were not
+  repeated. These results concern the extracted consuming body and existing
+  entry models; allocation behavior, concrete map fidelity, and borrowed CoW
+  remain separate boundaries. The goal is incomplete. Debug and Serde are
+  excluded, and TreeHash remains deferred.
+
 - The CoW fallback review (`c7310ef`, exact criteria `5ad99dc`) restricts
   read, release, entry-location, occupied-handle, write-read, and maximum-result
   laws to the optional fallback selected by actual input lookups. A pending
