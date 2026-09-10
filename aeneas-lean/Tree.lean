@@ -241,6 +241,7 @@ import Tree.Cow.Consuming
 import Tree.ProgressiveList.CopyOnWrite.Consuming
 import Tree.PackedLeaf.Contents
 import Tree.PackedLeaf.BulkUpdate
+import Tree.PackedLeaf.BulkUpdateIdentity
 import Tree.Vec.Clone
 import Tree.PackedLeaf.BulkUpdateSuccess
 import Tree.BulkUpdate
