@@ -135,6 +135,41 @@ blanket conversions or iterator adapters from a proof of `next` alone.
 
 ## Result of the audit
 
+The clone-identity review (`c3b836b`, terminal/routing lemmas `ba2a10c`,
+packed identity `e6ea416`, actual clone tracking `1bc9b38`) proves that correct
+binary update contents force identity for every selected pending clone and
+retained stored clone. Actual vector/packed reads preserve the returned clone
+values without identity or termination assumptions. Packed-window correctness
+is exactly retained/pending identity; overwritten stored copies need no
+identity law. The binary proof follows selected children and zero expansion,
+using layout, input shape, and alignment, without range correctness, density,
+capacity, clone, or termination laws. Under exclusion of pending values from
+skipped binary windows, the existing converse gives an equivalence.
+
+These are lower-level results. Propagating identity necessity to progressive
+and list materialization remains unfinished; the public existence criteria
+still assume retained/pending identity, selected binary reflection, layout,
+and input invariants. Their previously derived query/stored-clone termination
+and start conditions remain on the necessary-and-sufficient side, alongside
+capacity, selection, skipped-value agreement, and actual default construction.
+No rebuilding law is added to the no-op branch.
+
+Focused and full builds pass (2,121 jobs). The axiom/import audit covers
+5,875 declarations across 405 modules: 5,756 use only standard Lean axioms or
+none, and 119 use the existing Arc pointer contract. All 13 new public lemmas
+use standard Lean axioms; private/generated declarations are included in the
+inventory. No new axiom or admission was introduced. External axiom use is
+unchanged, and `size_of` remains unused. Existing success, total, and cache
+proofs validate.
+
+Remaining progressive/list identity, binary range, and geometry minimality,
+borrowed CoW, and model fidelity are unfinished. No Rust, extraction, external
+model, or Aeneas source changed; the seven source suites and
+42-root/151-declaration dependency gate were not repeated for this proof-only
+work. Debug and Serde remain excluded; TreeHash is deferred outside the goal.
+
+Previous query-termination checkpoint:
+
 The query-termination review (`09b6d34`, progressive/list necessity `ceb502f`,
 complete scope `0095ccd`, binary necessity and geometry-step helper `b6b4338`)
 proves that successful rebuilding certifies every reached range query.
