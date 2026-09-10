@@ -122,7 +122,7 @@ theorem Tree.cachedHashesAgree_of_valid_caches {T : Type}
           intro hzero
           apply hnonzero
           simp [hzero, Array.repeat]
-        have hhash : hash = baseHash := Subtype.ext hequal
+        have hhash : hash = baseHash := Std.Array.ext _ _ hequal
         have horigRef := ((horig hpointer).1 hguard).eq_reference_of_nonzero hnonzero'
         have hbaseRef := hbaseCache.1.eq_reference_of_nonzero (by
           intro hzero

@@ -29,7 +29,7 @@ theorem vec_pop_push_same {T : Type} (stack : alloc.vec.Vec T)
       simp only [_root_.List.length_append, _root_.List.length_singleton] at hbound
       omega
     obtain ⟨rebuilt, hpush, hvalues⟩ := WP.spec_imp_exists (alloc.vec.Vec.push_spec rest node hroom)
-    have heq : rebuilt = stack := Subtype.ext (hvalues.trans hsource.symm)
+    have heq : rebuilt = stack := alloc.vec.Vec.ext _ _ (hvalues.trans hsource.symm)
     subst rebuilt
     exact ⟨rest, hpop, hpush⟩
 
