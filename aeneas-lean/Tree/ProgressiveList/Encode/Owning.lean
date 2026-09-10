@@ -31,7 +31,7 @@ theorem ProgressiveList.as_ssz_bytes_fixed_spec {T U : Type}
     (hpayloadBound : (contents.flatMap encode).length ≤ Std.Usize.max) :
     ∃ output, ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes ValueInst mapInst self = ok output ∧
       output.val = contents.flatMap encode := by
-  simpa only [ProgressiveList.as_ssz_bytes_eq_append, alloc.vec.Vec.new,
+  simpa only [ProgressiveList.as_ssz_bytes_eq_append, alloc.vec.Vec.new, alloc.vec.Vec.from_val,
     _root_.List.nil_append] using ProgressiveList.ssz_append_fixed_spec ValueInst mapInst
       hfixed width hwidth hlayout self contents hrep hdense hfits encode (alloc.vec.Vec.new Std.U8)
       happend (by simpa using hreserveBound) (by simpa using hpayloadBound)
@@ -57,7 +57,7 @@ theorem ProgressiveList.as_ssz_bytes_variable_spec {T U : Type}
     (hoffsets : OffsetsFit encode (4 * contents.length) contents) :
     ∃ output, ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes ValueInst mapInst self = ok output ∧
       output.val = variableEncoding encode contents := by
-  simpa only [ProgressiveList.as_ssz_bytes_eq_append, alloc.vec.Vec.new,
+  simpa only [ProgressiveList.as_ssz_bytes_eq_append, alloc.vec.Vec.new, alloc.vec.Vec.from_val,
     _root_.List.nil_append] using ProgressiveList.ssz_append_variable_spec ValueInst mapInst
       hvariable hlayout self contents hrep hdense hfits encode (alloc.vec.Vec.new Std.U8)
       happend (by simpa using hbound) hoffsets
