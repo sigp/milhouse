@@ -9,6 +9,33 @@ pub fn cow_into_mut<'a, T: Clone>(handle: crate::Cow<'a, T>) -> Result<&'a mut T
     handle.into_mut()
 }
 
+pub fn max_map_default<M: Default>() -> crate::update_map::MaxMap<M> {
+    crate::update_map::MaxMap::default()
+}
+
+pub fn max_map_get<T, M: UpdateMap<T>>(
+    map: &crate::update_map::MaxMap<M>,
+    key: usize,
+) -> Option<&T> {
+    map.get(key)
+}
+
+pub fn max_map_insert<T, M: UpdateMap<T>>(
+    map: &mut crate::update_map::MaxMap<M>,
+    key: usize,
+    value: T,
+) -> Option<T> {
+    map.insert(key, value)
+}
+
+pub fn max_map_len<T, M: UpdateMap<T>>(map: &crate::update_map::MaxMap<M>) -> usize {
+    map.len()
+}
+
+pub fn max_map_max_index<T, M: UpdateMap<T>>(map: &crate::update_map::MaxMap<M>) -> Option<usize> {
+    map.max_index()
+}
+
 pub fn progressive_list_eq<T: Value, U: UpdateMap<T> + PartialEq>(
     left: &ProgressiveList<T, U>,
     right: &ProgressiveList<T, U>,

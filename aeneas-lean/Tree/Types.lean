@@ -603,6 +603,13 @@ def progressive_list.ArbitraryAProgressiveList.arbitrary.closure (T : Type) (U
   : Type) :=
 Unit
 
+/-- [milhouse::update_map::MaxMap]
+    Source: 'src/update_map.rs', lines 250:0-255:1
+    Visibility: public -/
+structure update_map.MaxMap (M : Type) where
+  inner : M
+  max_index : update_map.MaxIndexState
+
 /-- [milhouse::tree::IntraRebaseAction]
     Source: 'src/tree.rs', lines 277:0-280:1
     Visibility: public -/

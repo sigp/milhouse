@@ -42,6 +42,8 @@
 # - Cow metadata helpers and consuming into_mut are included. Concrete helpers
 #   and explicit Result matches avoid borrowed trait/adapter failures. Deref
 #   and make_mut still hit borrowed-field failures; see UPSTREAM_BUGS.md.
+# - MaxMap default/get/insert/len/max_index callers expose the actual wrapper
+#   bodies and cached-maximum updates over an abstract inner UpdateMap.
 # - Progressive CoW constructors are included; next_cow still loses borrowed
 #   symbolic values during translation (UPSTREAM_BUGS.md issue 16).
 # - ProgressiveList TreeHash classification and packing rejection are included.
