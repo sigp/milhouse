@@ -1845,14 +1845,16 @@ closure includes unused dictionary fields and branches and does not resolve
 abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.md)
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
-The [2026-09-10 upstream version review](UPSTREAM_VERSION_REVIEW.md) identifies
-relevant merged fixes and tests two newer releases in isolation. The follow-up
-September 7 trial regenerates the existing extraction successfully, but the
-proof library does not pass after initial model adaptations: 52 modules
-compile, 7 fail, and 387 are blocked by failed imports. The user requested
-halting on failure, so the upgrade attempt is stopped and the working compiler
-is retained. No trial source or proof changes are applied here, and no
-outstanding borrowed-CoW extraction obligation is discharged.
+The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
+11, records the isolated September 7 migration. Fresh production extraction,
+all 446 main-library modules, the axiom/import and model audits, and 324 Rust
+tests pass after compatibility repairs. Existing source-comparison proofs
+cannot all be validated: Aeneas fails to extract the new standard-library
+`u128::saturating_mul` and `u128::checked_pow` bodies. The user requested
+halting on failure, so the upgrade attempt is stopped and the working
+compiler is retained. Trial changes are preserved on `sept7-compiler-trial`
+and are not applied here. No outstanding borrowed-CoW extraction obligation
+is discharged.
 
 Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
 `get_cow_with`, and `get_cow_with_value` now extract and compile through

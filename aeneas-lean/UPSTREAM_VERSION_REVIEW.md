@@ -1,10 +1,11 @@
-# Aeneas upgrade review — 2026-09-10
+# Aeneas upgrade review — 2026-09-10 (updated 2026-09-11)
 
 **Decision after the follow-up trial: retain the working compiler.** The
-September 7 candidate generates the existing extraction successfully, but
-the full proof library does not pass after initial compatibility adaptations.
-The user requested a halt if the existing proofs could not all be made to
-pass; the upgrade attempt is stopped. Details are in the follow-up below.
+September 7 candidate now passes the main proof library after compatibility
+repairs, but cannot extract two standard-library bodies needed by the
+existing source-validation proofs. The user requested a halt if all existing
+proofs could not be validated; the upgrade attempt is stopped. Details are
+in the follow-up below.
 
 Upstream contains relevant fixes, but none has yet been verified against our
 exact borrowed-CoW failures. The latest release also breaks existing Lean
@@ -113,9 +114,11 @@ these two techniques; this is not a full compatibility claim.
 changes `Slice` from a list subtype to a structure with length, `ListN`, and
 a bound proof. Both candidates reject our two-field constructor in
 `Tree/Ssz/Models.lean:26`; latest also rejects the constructor in
-`Tree/Arbitrary/Models.lean:16`. Upstream provides `Slice.from`, but porting
-these definitions and their dependent proofs has not been attempted. The
-older candidate therefore still requires a model/proof migration.
+`Tree/Arbitrary/Models.lean:16`. Upstream provides `Slice.from`. At this initial
+stage, porting these definitions and their dependent proofs had not been
+attempted. The follow-up
+below records the completed main-library migration and remaining source-suite
+failures.
 
 Review artifacts and individual compiler logs are under
 `/tmp/milhouse-aeneas-upstream-j6mrhx0i/` in this session. In particular:
@@ -177,47 +180,70 @@ used as evidence for the compiler-only comparison. The definitive log is
 Generated `Types.lean` and `Funs.lean` contain no `sorry` or `admit` bodies and
 compile against the candidate after the initial local model adaptations.
 
-The attempt ported byte-vector construction, arbitrary control-byte slices,
-vector-pop construction, and initial UTF-8, arbitrary-generation, and SSZ
-byte proofs to the new representations. These modules compile. In particular,
-upstream `Vec` is now a structure wrapping a `Slice`; replacing every old Vec
-constructor with `Slice.from` alone is insufficient. Array representation
-changes also require explicit projection lemmas in byte proofs.
+The initial checkpoint (`dbbcb64`) compiled only 52 modules, with 7 failures
+and 387 dependent modules blocked. Subsequent repairs migrated Vec, Slice,
+and Array constructions and extensionality, clone and iterator reasoning,
+mutable indexing, integer minimum, and SSZ encoding/roundtrip proofs.
 
-All 446 project modules were scheduled for direct Lean compilation in import
-order, with a fresh output directory and candidate Aeneas library. Only shared
-third-party dependencies were read from the working project's cache; its Tree
-and old Aeneas output paths were excluded. The final attempt reports:
+At trial commit `5322d74`, the following checks passed:
 
-- 52 modules compiled successfully.
-- 7 modules failed to compile.
-- 387 modules were not checked because their imports depend on failed modules.
-
-| Failed module | Remaining incompatibility |
+| Check | Result |
 | --- | --- |
-| `Tree.Iterator` | The old vector subtype destructuring no longer applies; the attempted replacement still leaves the dependent iterator match unreduced. |
-| `Tree.Ssz.ReadOffset` | Array reconstruction no longer reduces definitionally; the proof also applies `Subtype.ext` to the new Array structure. |
-| `Tree.Arbitrary.Reflection` | The empty vector's list projection no longer reduces as the existing proof expects. |
-| `Tree.PackedLeaf.Insert` | The generated generic vector mutable-index call no longer matches the specialized mutable-index expression by definitional equality. |
-| `Tree.Ssz.FixedCursor` | Changed `Ord::min` reduction and Slice representation invalidate the existing reduction and subtype-extensionality steps. |
-| `Tree.Vec.Clone` | The changed vector clone representation invalidates the existing result-injectivity step. |
-| `Tree.Invariants` | Existing clone-length arguments and vector constructions depend on the old Vec/Slice representation. |
+| Fresh production extraction with the original Cargo lock | Pass; no admitted generated bodies |
+| Direct compilation of every project module | 446 passed, zero failures or blocked imports |
+| Full Lake build | Pass, 2,168 build jobs |
+| Axiom/import audit | Pass, 6,210 theorem declarations across 446 modules |
+| Model dependency audit | Pass, 42 roots and 151 local model declarations |
+| Rust library tests with the arbitrary feature on the new nightly | 324 passed, zero failures |
 
-The full axiom/import audit, model audit, and nine standalone source suites
-were not run on the candidate because the main proof compilation failed.
-No claim is made that the uncompiled modules would pass, or that these are
-the only remaining migration changes. This is a failed compatibility attempt,
-not evidence that the underlying correctness statements are false.
+The axiom audit's only nonstandard theorem dependency remains the existing
+`triomphe.arc.Arc.ptr_eq_spec` (119 declarations). The declared external
+axioms remain `core.mem.size_of.usize_spec` and `triomphe.arc.Arc.ptr_eq_spec`.
+No new axioms or admissions were needed for that successful library build.
+These results supersede the initial 52/7/387 compilation checkpoint.
 
-Successful initial adaptations and extraction are preserved only in trial
-commit `dbbcb64`; the unsuccessful iterator adaptation remains an uncommitted
-experiment in that worktree. They are not merged into the working branch.
-The complete attempt's logs and dependency report are `sept7-build.log` and
-`sept7-build/report.json`; individual diagnostics are in `sept7-build/logs/`.
-`build_sept7.py` and `sept7-build-config.json` retain the isolated compiler
-invocations. All these artifacts are under the review directory above.
+The standalone source comparisons did not all validate. The full runners
+stop because the installed nightly lacks rustfmt. Exploratory extraction
+and Lean checks continued separately and do not count as complete audit
+reports. Their results are:
+
+| Source comparison | Result |
+| --- | --- |
+| FixedBytes | All five proofs compile on freshly extracted source, with the existing axiom expectations, after the equality proof repair in `730ae18`. |
+| Option | The comparison file compiles using an experimental local model for the compiler-inserted `assume` intrinsic and an `Option<Infallible>` discriminant instance. Its existing axiom-free gate fails; the allowlist was not relaxed. |
+| Core `u128::saturating_mul` | Aeneas fails with `Unimplemented binary operation` in the checked-multiplication path. |
+| Core `u128::checked_pow` | Aeneas rejects a transmute from `u128` to `Option<NonZero<u128>>` in the new power-of-two optimization path. |
+| Arbitrary | The provenance checker rejects a changed `size_hint` declaration after excluding an unused method. The cause was not investigated before halting. |
+
+The two Core extraction failures prevent validating the existing direct
+source proofs with this candidate. Aeneas exits with status 1 and generates
+partial output; that output is not accepted or imported into the library.
+These are compiler limitations, not discovered bugs in milhouse's Rust code.
+The remaining source suites and borrowed-CoW controls were not rerun on the
+candidate. Installing rustfmt alone would not resolve these extraction
+failures.
+
+The successful main-library audit predates the experimental `Tree.Intrinsics`
+addition. It must not be presented as an audit of the later trial tip.
+The unfinished source-validator adaptations and local intrinsic experiment
+are preserved in trial commit `9309531`, with their limitations in
+`aeneas-lean/SEPT7_TRIAL_STATUS.md` on `sept7-compiler-trial`. The trial branch
+is not merged into the working branch.
+
+Evidence is retained under `/tmp/milhouse-aeneas-upstream-j6mrhx0i/`:
+
+- `sept7-build.log`, `sept7-build/report.json`, and `sept7-build/logs/`:
+  successful direct dependency build.
+- `sept7-full-axiom-audit.log`, `sept7-model-dependency-audit.log`, and
+  `sept7-native-tests.log`: successful main-library audits and Rust tests.
+- `core-extraction-probe/aeneas.log`: the two Core extraction failures.
+- `option-extraction-probe/CheckModels.log` and
+  `fixed-bytes-extraction-probe/CheckModels.log`: exploratory Lean results.
+- `build_sept7.py`, `sept7-build-config.json`, `extract_probe.py`, and
+  `compile_probe.py`: temporary diagnostic invocations, not adopted tooling.
 
 The working Aeneas checkout remains clean at `b59d5188c082`, and its Charon
 checkout remains clean at `cb50ff16b9f1`. The upgrade attempt is halted as
-requested. The existing proof goal remains incomplete; no additional
-borrowed-CoW obligation was discharged by this trial.
+requested. No trial Rust, proof, compiler-pin, or audit-gate changes are
+applied to the working branch. The existing proof goal remains incomplete;
+no additional borrowed-CoW obligation was discharged by this trial.

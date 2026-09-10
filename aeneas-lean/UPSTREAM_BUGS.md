@@ -11,13 +11,14 @@ filing upstream. Versions used:
 Issue trackers: <https://github.com/AeneasVerif/charon/issues>,
 <https://github.com/AeneasVerif/aeneas/issues>.
 
-The [2026-09-10 upstream version review](UPSTREAM_VERSION_REVIEW.md) compares
-two newer releases with these pins. After installing the required Rust
-toolchain, the September 7 trial successfully regenerated the existing
-extraction, but proof compilation still failed after initial compatibility
-adaptations: 52 modules passed, 7 failed, and 387 were blocked by failed
-imports. The upgrade attempt was halted at the user's request; the working
-pin is retained. Exact borrowed-CoW failures were not retested, and the issue
+The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
+11, compares two newer releases with these pins. The September 7 trial now
+passes fresh production extraction, all 446 main-library modules, the axiom
+and model audits, and 324 Rust tests after isolated compatibility repairs.
+It still cannot extract the standard-library `u128::saturating_mul` and
+`u128::checked_pow` bodies required by existing source-comparison proofs.
+The upgrade attempt is halted under the user's instruction; the working pin
+is retained. Exact borrowed-CoW failures were not retested, and the issue
 statuses below are unchanged. Latest additionally needs a Result migration.
 
 Scope revision (2026-09-09): Debug and Serde implementations, including
