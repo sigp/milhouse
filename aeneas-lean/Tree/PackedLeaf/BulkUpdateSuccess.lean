@@ -28,11 +28,10 @@ private theorem clone_values_success {T : Type} (cloneInst : core.clone.Clone T)
       rfl
   obtain ⟨values, hvalues⟩ := hmap self.val hclone
   have hlength := List.mapM_Result_length hvalues
-  let result : alloc.vec.Vec T := ⟨values, by rw [hlength]; exact self.property⟩
-  refine ⟨result, ?_, hlength⟩
+  let result : alloc.vec.Vec T := alloc.vec.Vec.from values (by rw [hlength]; exact self.property)
+  refine ⟨result, ?_, by simpa [result] using hlength⟩
   unfold alloc.vec.CloneVec.clone Slice.clone Aeneas.Std.List.clone
-  split <;> simp_all [result]
-  rfl
+  split <;> simp_all [result, alloc.vec.Vec.val, alloc.vec.Vec.from]
 
 /-- A dense packed-window scan terminates and reaches its target length.
 Only queried map entries and actually copied pending values need successful
