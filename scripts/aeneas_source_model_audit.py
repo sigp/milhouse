@@ -436,6 +436,9 @@ def main(suite):
         log.write_text(result.stdout)
         if result.returncode:
             raise RuntimeError(f"{label} failed ({result.returncode}); see {log}\n{result.stdout[-3000:]}")
+        if label in {"charon", "charon-unfiltered"} and "falling back to rustc's default sysroot" in result.stdout:
+            raise RuntimeError(f"{label} did not use a full-MIR standard library; see {log}. "
+                               f"Install miri for {TOOLCHAIN} and resolve its setup failure.")
         return result.stdout.strip()
 
     versions = {
@@ -443,6 +446,8 @@ def main(suite):
         "aeneas": run("aeneas-version", [args.aeneas, "-version"]),
         "toolchain": run("charon-toolchain", [args.charon, "toolchain-version"]),
         "rustc": run("rustc-version", ["rustc", "+" + TOOLCHAIN, "--version", "--verbose"]),
+        "miri": run("miri-version", ["cargo", "+" + TOOLCHAIN, "miri", "--version"]),
+        "rustfmt": run("rustfmt-version", ["rustfmt", "+" + TOOLCHAIN, "--version"]),
     }
     if (versions["charon"] != "0.1.251 (85bba1f2a64ded1704586cdc26dfb62aeb4b7168)" or versions["aeneas"] != "aeneas nightly-2026.09.08-7ebd01d"
             or versions["toolchain"] != TOOLCHAIN
