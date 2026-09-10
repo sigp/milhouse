@@ -60,4 +60,47 @@ theorem vec_clone_get_of_clone_at {T : Type} (cloneInst : core.clone.Clone T)
       _root_.List.getElem?_eq_getElem hcopy, hvalue]
   · rw [_root_.List.getElem?_eq_none (by omega), _root_.List.getElem?_eq_none (by omega)]
 
+/-- Optional cloning preserves its input exactly when the present value
+clones identically. A missing value needs no clone law. -/
+theorem option_clone_identity_iff {T : Type} (cloneInst : core.clone.Clone T)
+    (value : Option T) :
+    core.option.OptionShared0T.cloned cloneInst value = ok value ↔
+      ∀ item, value = some item → cloneInst.clone item = ok item := by
+  cases value with
+  | none => simp [core.option.OptionShared0T.cloned]
+  | some value =>
+    cases hclone : cloneInst.clone value <;> simp [core.option.OptionShared0T.cloned, hclone]
+
+/-- Each optional vector lookup records its actual element-clone result.
+Success supplies termination, and out-of-bounds positions stay absent. -/
+theorem vec_clone_get_cloned {T : Type} (cloneInst : core.clone.Clone T)
+    {self copied : alloc.vec.Vec T} (index : Nat)
+    (hclone : alloc.vec.CloneVec.clone cloneInst self = ok copied) :
+    core.option.OptionShared0T.cloned cloneInst self.val[index]? = ok copied.val[index]? := by
+  have hmap := vec_clone_mapM cloneInst hclone
+  have hlength := List.mapM_Result_length hmap
+  by_cases hin : index < self.val.length
+  · have hcopy : index < copied.val.length := by omega
+    have hactual := List.mapM_Result_ok hmap index hin
+    simp only [_root_.List.getElem?_eq_getElem hin, _root_.List.getElem?_eq_getElem hcopy,
+      core.option.OptionShared0T.cloned, hactual, bind_tc_ok]
+  · rw [_root_.List.getElem?_eq_none (by omega), _root_.List.getElem?_eq_none (by omega)]
+    rfl
+
+/-- At any retained vector slot, identity of the present source clone is
+necessary and sufficient for equality of optional lookups. -/
+theorem vec_clone_get_iff_clone_at {T : Type} (cloneInst : core.clone.Clone T)
+    {self copied : alloc.vec.Vec T} (index : Nat)
+    (hclone : alloc.vec.CloneVec.clone cloneInst self = ok copied) :
+    copied.val[index]? = self.val[index]? ↔
+      ∀ value, self.val[index]? = some value → cloneInst.clone value = ok value := by
+  have hread := vec_clone_get_cloned cloneInst index hclone
+  constructor
+  · intro heq
+    rw [heq] at hread
+    exact (option_clone_identity_iff cloneInst self.val[index]?).mp hread
+  · intro hidentity
+    have hidentity := (option_clone_identity_iff cloneInst self.val[index]?).mpr hidentity
+    exact Result.ok.inj (hread.symm.trans hidentity)
+
 end milhouse_models
