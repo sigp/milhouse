@@ -1,5 +1,6 @@
 import Tree.ProgressiveList.CopyOnWrite.Fallback
 import Tree.Cow.ConsumingConditions
+import Tree.UpdateMap.CowMaterialization
 
 open Aeneas Aeneas.Std Result
 open milhouse
@@ -14,12 +15,8 @@ abbrev ProgressiveList.GetCowMaterializationInputs {T U : Type}
     (ValueInst : Value T) (mapInst : update_map.UpdateMap U T)
     (self : ProgressiveList T U) (index : Std.Usize) : Prop :=
   ∀ fallback, self.CowFallbackSelected ValueInst mapInst index fallback →
-    ∀ handle mapBack,
-      mapInst.get_cow_with_value ValueInst.corecloneCloneInst self.updates index fallback =
-        ok (some handle, mapBack) →
-      handle.CanMaterialize ∧
-        (handle.NeedsClone = true →
-          ∃ value, ValueInst.corecloneCloneInst.clone handle.value = ok value)
+    update_map.GetCowWithValueMaterializationInputsFor mapInst ValueInst.corecloneCloneInst
+      self.updates index fallback
 
 /-- Actual acquisition followed by successful consumption supplies all of
 the selected map invocation's materialization inputs. No read, location,

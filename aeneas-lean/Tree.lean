@@ -1,6 +1,9 @@
 import Tree.Funs
 import Tree.Cow.Attachment
 import Tree.Cow.CallbackAttachment
+import Tree.UpdateMap.CowMaterialization
+import Tree.UpdateMap.MaxMap.CowWriteBack
+import Tree.ProgressiveList.CopyOnWrite.MaxMapInner
 import Tree.Cow.Errors
 import Tree.CompilerModels
 import Tree.Tuple.Comparison

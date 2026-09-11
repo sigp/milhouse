@@ -89,6 +89,21 @@ theorem Cow.attachIndex_needsClone {T : Type} (self : Cow T)
     (self.attachIndex state index).NeedsClone = self.NeedsClone := by
   cases self <;> rename_i inner action <;> cases inner <;> rfl
 
+/-- Metadata attachment leaves the exact structural materialization inputs
+unchanged, including a vacant vector entry's representable growth bound. -/
+theorem Cow.attachIndex_canMaterialize {T : Type} (self : Cow T)
+    (state : update_map.MaxIndexState) (index : Std.Usize) :
+    (self.attachIndex state index).CanMaterialize ↔ self.CanMaterialize := by
+  cases self with
+  | BTree inner action =>
+    cases inner with
+    | Mutable _ => rfl
+    | Immutable _ entry => cases entry <;> rfl
+  | Vec inner action =>
+    cases inner with
+    | Mutable _ => rfl
+    | Immutable _ entry => cases entry <;> rfl
+
 /-- Releasing the attached handle unchanged restores both original borrows. -/
 theorem Cow.releaseIndex_attachIndex {T : Type} (self : Cow T)
     (state : update_map.MaxIndexState) (index : Std.Usize) :
