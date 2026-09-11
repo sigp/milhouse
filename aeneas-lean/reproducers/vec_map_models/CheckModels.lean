@@ -117,7 +117,8 @@ theorem vec_map_get_mut_present_spec {T : Type} (map : vec_map.VecMap T)
     simpa only [vec_map_get_eq, Result.ok.injEq] using hget
   refine ⟨fun replacement => { map with v := map.v.set key (some (replacement.getD original)) }, ?_, ?_⟩
   · rw [vec_map_get_mut_eq, hslot]
-  · exact fun _ => ⟨rfl, rfl⟩
+  · intro replacement
+    exact ⟨rfl, alloc.vec.Vec.set_val_eq map.v key (some replacement)⟩
 
 /-- Every continuation from actual mutable lookup preserves agreement of
 the cached count with slot occupancy, including absent loans and releases. -/
@@ -143,8 +144,8 @@ theorem vec_map_get_mut_preserves_count {T : Type} (map : vec_map.VecMap T)
       apply _root_.List.countP_pos_iff.mpr
       exact ⟨some original, hvalue ▸ _root_.List.getElem_mem hbound, rfl⟩
     intro replacement
-    change map.n.val = (map.v.val.set key.val (some (replacement.getD original))).countP Option.isSome
-    rw [_root_.List.countP_set hbound]
+    change map.n.val = (map.v.set key (some (replacement.getD original))).val.countP Option.isSome
+    rw [alloc.vec.Vec.set_val_eq, _root_.List.countP_set hbound]
     simp only [hvalue, Option.isSome_some, ↓reduceIte]
     unfold CountMatches at hcount
     omega
