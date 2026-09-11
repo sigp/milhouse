@@ -5,6 +5,23 @@ high-level correctness results; borrowed handle access and iterator stepping
 still need extraction and proofs. These obligations are not replaced by
 observations of handle data or by the consuming-method theorems.
 
+## Rust bug found during write-back composition
+
+The subsequent review confirmed that nested `MaxMap<MaxMap<M>>` loses the
+inner handle's maximum callback. CoW insertion at key 17 leaves an original
+inner maximum of 3 unchanged even though the inner map now contains key 17.
+The outer maximum and lookups remain correct in the reproducer. All eight
+combinations of VecMap/BTreeMap, supplied/lazy acquisition, and consuming/
+borrowed mutation fail the inner-cache assertion; the read-only and direct
+mutation control passes. See the [native reproducer](reproducers/nested_max_map_cow/README.md).
+
+This is a Rust callback-composition bug, independent of the Aeneas extraction
+failures. `releaseIndex` restores the original inner callback unchanged,
+whereas the inner `Written` contract requires recording it. The existing
+outer-maximum and conditional list theorems remain valid. No premise was
+added to conceal this mismatch. Proof changes stopped and the bug was raised
+as required by `AGENTS.md`; the goal remains incomplete.
+
 ## Verified source composition
 
 The September 11 continuation adds 22 named lemmas in five modules:

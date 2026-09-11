@@ -1338,6 +1338,34 @@ Evidence is in `sept7-power-branch-review/committed-*`,
 No Aeneas source changes, LLBC operation substitutions, or proof-boundary
 relaxations were made for these probes.
 
+## 30. Rust: nested MaxMap CoW attachment discards the inner maximum callback
+
+**Stage:** native Rust runtime and composition of the CoW write-back proofs.
+**Status:** confirmed on September 11 at `3575ee6`; unresolved. This is a
+milhouse Rust bug, independent of Aeneas. Proof work stopped and the issue
+was raised under `AGENTS.md`.
+
+For `MaxMap<MaxMap<VecMap<u64>>>` and the corresponding BTreeMap backend,
+insert key 3 and then materialize a fallback CoW handle at key 17. Both
+wrappers expose the new value, and the outer maximum becomes 17, but the
+inner maximum remains 3. `Cow::with_max_index` overwrites the callback that
+the inner MaxMap attached, so only the outer metadata is recorded.
+
+The [native reproducer](reproducers/nested_max_map_cow/README.md) covers both
+acquisition methods and both mutation methods for both backends. All eight
+inner-cache assertions fail. Read-only CoW, `get_mut_with`, and ordinary
+insertion pass their control. The reproducer inspects private inner metadata
+from a test module; it does not demonstrate an incorrect outer list length.
+Production Rust and Aeneas were not changed.
+
+The Lean attachment continuation correctly restores the original inner
+callback unchanged; the inner `Cow.Written` contract requires it to be
+recorded. Thus the inner filled-footprint contract does not transfer without
+an additional restriction or a Rust repair. The existing outer maximum law
+and conditional list theorems remain valid. Repairing callback composition
+must preserve delayed, one-shot recording and consider the common single-
+wrapper performance; no extra assumption was introduced to bypass the bug.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
