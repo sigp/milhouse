@@ -93,6 +93,15 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- September compiler follow-up: `UpdateMap::is_empty` and the complete
+  `MaxMap` dictionary now extract. `UpdateMap/MaxMap/Empty.lean` derives
+  wrapper emptiness from the actual inner length, including default
+  construction. `ProgressiveList/Observers/MaxMap.lean` removes the separate
+  emptiness-answer premise from the observer specialized to that dictionary.
+  All seven new lemmas use only standard Lean axioms; generic map overrides remain
+  conditional. The compiler's `-filter-trait-methods` option also permits
+  ordinary Rust `for` loops in both `to_vec` methods and the progressive
+  rebuild helper, preserving their existing proofs and semantic premises.
 - `UpdateMap/MaxMap/Mutable.lean` proves the actual extracted `get_mut_with`
   result and complete continuation. The wrapper preserves the inner initial
   value and success/failure/divergence behavior. Present loans record the

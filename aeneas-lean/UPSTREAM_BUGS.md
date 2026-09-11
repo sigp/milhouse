@@ -92,7 +92,19 @@ translation of `repeat_list` now succeeds without placeholders.
 ## 3. Aeneas: internal error on `UpdateMap::is_empty` (provided trait method)
 
 **Stage:** aeneas translation.
-**Status:** worked around via `--exclude 'milhouse::update_map::UpdateMap::is_empty'`.
+**Status:** resolved on the September 7 pin (`7ebd01d`, Charon `85bba1f2`).
+The exclusion is removed. The actual provided body and a cfg-gated
+`MaxMap::is_empty` caller now extract and compile, including the complete
+`MaxMap` UpdateMap dictionary. `Tree/UpdateMap/MaxMap/Empty.lean` proves that
+the wrapper tests the inner length against zero, including failure and
+divergence, without any inner-emptiness or cached-maximum law.
+`Tree/ProgressiveList/Observers/MaxMap.lean` specializes pending-update
+detection to this dictionary: a known inner length replaces the generic
+observer's separate emptiness-answer premise. Arbitrary UpdateMap overrides
+still require their own contracts. Seven new lemmas use only the standard
+Lean axioms (`propext`, `Classical.choice`, and `Quot.sound`).
+
+The historical failure below used the earlier compiler:
 
 `Internal error: please file an issue` on the *signature* of a provided
 trait method with a trivial body (`src/update_map.rs:32`):

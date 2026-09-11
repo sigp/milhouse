@@ -209,6 +209,7 @@ import Tree.ProgressiveTree.Rebase.Density
 import Tree.ProgressiveTree.Rebase.Contents
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
+import Tree.ProgressiveList.Observers.MaxMap
 import Tree.UpdateMap.Lookup
 import Tree.ProgressiveList.Lookup
 import Tree.UpdateMap.Length
@@ -241,6 +242,7 @@ import Tree.Cow.Metadata
 import Tree.Cow.EntrySuccess
 import Tree.Cow.ConsumingConditions
 import Tree.UpdateMap.MaxMap.Maximum
+import Tree.UpdateMap.MaxMap.Empty
 import Tree.UpdateMap.MaxMap.Mutable
 import Tree.ProgressiveList.CopyOnWrite.Consuming
 import Tree.PackedLeaf.Contents

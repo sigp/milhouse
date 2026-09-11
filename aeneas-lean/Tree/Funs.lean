@@ -7915,60 +7915,31 @@ def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.max_index
   | update_map.MaxIndexState.Empty => ok none
   | update_map.MaxIndexState.Known max_index => ok (some max_index)
 
-/-- [milhouse::proof_roots::max_map_max_index]:
-    Source: 'src/proof_roots.rs', lines 35:0-37:1
+/-- [milhouse::update_map::{impl milhouse::update_map::UpdateMap<T> for milhouse::update_map::MaxMap<M>}::has_any_in_range]:
+    Source: 'src/update_map.rs', lines 324:4-326:5
     Visibility: public -/
-def proof_roots.max_map_max_index
-  {T : Type} {M : Type} (update_mapUpdateMapInst : update_map.UpdateMap M T)
-  (map : update_map.MaxMap M) :
-  Result (Option Std.Usize)
+def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.has_any_in_range
+  {T : Type} {M : Type} (UpdateMapInst : update_map.UpdateMap M T)
+  (self : update_map.MaxMap M) (start : Std.Usize) («end» : Std.Usize) :
+  Result Bool
   := do
-  update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.max_index
-    update_mapUpdateMapInst map
+  UpdateMapInst.has_any_in_range self.inner start «end»
 
-/-- [milhouse::update_map::{impl milhouse::update_map::UpdateMap<T> for milhouse::update_map::MaxMap<M>}::get_mut_with]:
-    Source: 'src/update_map.rs', lines 271:4-282:5
+/-- [milhouse::update_map::{impl milhouse::update_map::UpdateMap<T> for milhouse::update_map::MaxMap<M>}::for_each_range]:
+    Source: 'src/update_map.rs', lines 317:4-322:5
     Visibility: public -/
-def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_mut_with
-  {T : Type} {M : Type} {F : Type} (UpdateMapInst : update_map.UpdateMap M T)
-  (coreopsfunctionFnOnceFTupleUsizeOptionInst : core.ops.function.FnOnce F
-  Std.Usize (Option T)) (self : update_map.MaxMap M) (k : Std.Usize)
-  (f : F) :
-  Result ((Option T) × (Option T → update_map.MaxMap M))
+def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.for_each_range
+  {T : Type} {M : Type} {F : Type} {E : Type} (UpdateMapInst :
+  update_map.UpdateMap M T)
+  (coreopsfunctionFnMutFPairUsizeShared0TControlFlowTupleResultTupleEInst :
+  core.ops.function.FnMut F (Std.Usize × T) (core.ops.control_flow.ControlFlow
+  Unit (core.result.Result Unit E))) (self : update_map.MaxMap M)
+  (start : Std.Usize) («end» : Std.Usize) (f : F) :
+  Result (core.result.Result Unit E)
   := do
-  let (o, get_mut_with_back) ←
-    UpdateMapInst.get_mut_with coreopsfunctionFnOnceFTupleUsizeOptionInst
-      self.inner k f
-  match o with
-  | none =>
-    let back :=
-      fun o1 => let t := get_mut_with_back none
-                { self with inner := t }
-    ok (none, back)
-  | some value =>
-    let mis ← update_map.MaxIndexState.record_insert self.max_index k
-    let back :=
-      fun o1 =>
-        let t := match o1 with
-                 | some t1 => t1
-                 | _ => value
-        let t1 := get_mut_with_back (some t)
-        ({ inner := t1, max_index := mis } : update_map.MaxMap M)
-    ok (o, back)
-
-/-- [milhouse::proof_roots::max_map_get_mut_with]:
-    Source: 'src/proof_roots.rs', lines 39:0-45:1
-    Visibility: public -/
-def proof_roots.max_map_get_mut_with
-  {T : Type} {M : Type} {F : Type} (update_mapUpdateMapInst :
-  update_map.UpdateMap M T) (coreopsfunctionFnOnceFTupleUsizeOptionInst :
-  core.ops.function.FnOnce F Std.Usize (Option T)) (map : update_map.MaxMap M)
-  (key : Std.Usize) (fallback : F) :
-  Result ((Option T) × (Option T → update_map.MaxMap M))
-  := do
-  update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_mut_with
-    update_mapUpdateMapInst coreopsfunctionFnOnceFTupleUsizeOptionInst map key
-    fallback
+  UpdateMapInst.for_each_range
+    coreopsfunctionFnMutFPairUsizeShared0TControlFlowTupleResultTupleEInst
+    self.inner start «end» f
 
 /-- [milhouse::update_map::{impl milhouse::update_map::UpdateMap<T> for milhouse::update_map::MaxMap<M>}::get_cow_with_value]:
     Source: 'src/update_map.rs', lines 298:4-309:5
@@ -7999,18 +7970,6 @@ def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_cow_with_value
         let inner := get_cow_with_value_back (some handle1)
         ({ inner, max_index } : update_map.MaxMap M)
     ok (some c, back)
-
-/-- [milhouse::proof_roots::max_map_get_cow_with_value]:
-    Source: 'src/proof_roots.rs', lines 47:0-53:1
-    Visibility: public -/
-def proof_roots.max_map_get_cow_with_value
-  {T : Type} {M : Type} (corecloneCloneInst : core.clone.Clone T)
-  (update_mapUpdateMapInst : update_map.UpdateMap M T)
-  (map : update_map.MaxMap M) (key : Std.Usize) (value : Option T) :
-  Result ((Option (cow.Cow T)) × (Option (cow.Cow T) → update_map.MaxMap M))
-  := do
-  update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_cow_with_value
-    update_mapUpdateMapInst corecloneCloneInst map key value
 
 /-- [milhouse::update_map::{impl milhouse::update_map::UpdateMap<T> for milhouse::update_map::MaxMap<M>}::get_cow_with]:
     Source: 'src/update_map.rs', lines 284:4-296:5
@@ -8045,8 +8004,183 @@ def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_cow_with
         ({ inner, max_index } : update_map.MaxMap M)
     ok (some c, back)
 
+/-- [milhouse::update_map::{impl milhouse::update_map::UpdateMap<T> for milhouse::update_map::MaxMap<M>}::get_mut_with]:
+    Source: 'src/update_map.rs', lines 271:4-282:5
+    Visibility: public -/
+def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_mut_with
+  {T : Type} {M : Type} {F : Type} (UpdateMapInst : update_map.UpdateMap M T)
+  (coreopsfunctionFnOnceFTupleUsizeOptionInst : core.ops.function.FnOnce F
+  Std.Usize (Option T)) (self : update_map.MaxMap M) (k : Std.Usize)
+  (f : F) :
+  Result ((Option T) × (Option T → update_map.MaxMap M))
+  := do
+  let (o, get_mut_with_back) ←
+    UpdateMapInst.get_mut_with coreopsfunctionFnOnceFTupleUsizeOptionInst
+      self.inner k f
+  match o with
+  | none =>
+    let back :=
+      fun o1 => let t := get_mut_with_back none
+                { self with inner := t }
+    ok (none, back)
+  | some value =>
+    let mis ← update_map.MaxIndexState.record_insert self.max_index k
+    let back :=
+      fun o1 =>
+        let t := match o1 with
+                 | some t1 => t1
+                 | _ => value
+        let t1 := get_mut_with_back (some t)
+        ({ inner := t1, max_index := mis } : update_map.MaxMap M)
+    ok (o, back)
+
+/-- [milhouse::update_map::{impl core::clone::Clone for milhouse::update_map::MaxIndexState}::clone]:
+    Source: 'src/update_map.rs', lines 221:25-221:30
+    Visibility: public -/
+def update_map.MaxIndexState.Insts.CoreCloneClone.clone
+  (self : update_map.MaxIndexState) : Result update_map.MaxIndexState := do
+  ok self
+
+/-- [milhouse::update_map::{impl core::clone::Clone for milhouse::update_map::MaxMap<M>}::clone]:
+    Source: 'src/update_map.rs', lines 244:25-244:30
+    Visibility: public -/
+def update_map.MaxMap.Insts.CoreCloneClone.clone
+  {M : Type} (corecloneCloneInst : core.clone.Clone M)
+  (self : update_map.MaxMap M) :
+  Result (update_map.MaxMap M)
+  := do
+  let t ← corecloneCloneInst.clone self.inner
+  let mis ←
+    update_map.MaxIndexState.Insts.CoreCloneClone.clone self.max_index
+  ok { inner := t, max_index := mis }
+
+/-- Trait implementation: [milhouse::update_map::{impl core::clone::Clone for milhouse::update_map::MaxMap<M>}]
+    Source: 'src/update_map.rs', lines 244:25-244:30 -/
+@[reducible]
+impl_def update_map.MaxMap.Insts.CoreCloneClone {M : Type} (corecloneCloneInst
+  : core.clone.Clone M) : core.clone.Clone (update_map.MaxMap M) := {
+  clone := update_map.MaxMap.Insts.CoreCloneClone.clone corecloneCloneInst
+  clone_from := core.clone.Clone.clone_from.default
+    (update_map.MaxMap.Insts.CoreCloneClone corecloneCloneInst)
+}
+
+/-- Trait implementation: [milhouse::update_map::{impl core::default::Default for milhouse::update_map::MaxMap<M>}]
+    Source: 'src/update_map.rs', lines 244:16-244:23 -/
+@[reducible]
+def update_map.MaxMap.Insts.CoreDefaultDefault {M : Type}
+  (coredefaultDefaultInst : core.default.Default M) : core.default.Default
+  (update_map.MaxMap M) := {
+  default := update_map.MaxMap.Insts.CoreDefaultDefault.default
+    coredefaultDefaultInst
+}
+
+/-- [milhouse::update_map::UpdateMap::is_empty]:
+    Source: 'src/update_map.rs', lines 43:4-45:5
+    Visibility: public -/
+@[trait_default]
+def update_map.UpdateMap.is_empty.default
+  {Self : Type} {T : Type} (UpdateMapInst : update_map.UpdateMap Self T)
+  (self : Self) :
+  Result Bool
+  := do
+  let i ← UpdateMapInst.len self
+  ok (i = 0#usize)
+
+/-- Trait implementation: [milhouse::update_map::{impl milhouse::update_map::UpdateMap<T> for milhouse::update_map::MaxMap<M>}]
+    Source: 'src/update_map.rs', lines 263:0-338:1 -/
+@[reducible]
+impl_def update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap {T : Type} {M :
+  Type} (UpdateMapInst : update_map.UpdateMap M T) : update_map.UpdateMap
+  (update_map.MaxMap M) T := {
+  coredefaultDefaultInst := update_map.MaxMap.Insts.CoreDefaultDefault
+    UpdateMapInst.coredefaultDefaultInst
+  corecloneCloneInst := update_map.MaxMap.Insts.CoreCloneClone
+    UpdateMapInst.corecloneCloneInst
+  get := update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get UpdateMapInst
+  get_mut_with := fun {F : Type} (coreopsfunctionFnOncePTupleUsizeOptionInst :
+    core.ops.function.FnOnce F Std.Usize (Option T)) =>
+    update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_mut_with
+    UpdateMapInst coreopsfunctionFnOncePTupleUsizeOptionInst
+  get_cow_with := fun {F : Type}
+    (coreopsfunctionFnOncePTupleUsizeOptionSharedFInst :
+    core.ops.function.FnOnce F Std.Usize (Option T)) (corecloneCloneInst1 :
+    core.clone.Clone T) =>
+    update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_cow_with
+    UpdateMapInst coreopsfunctionFnOncePTupleUsizeOptionSharedFInst
+    corecloneCloneInst1
+  get_cow_with_value := fun (corecloneCloneInst1 : core.clone.Clone T) =>
+    update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_cow_with_value
+    UpdateMapInst corecloneCloneInst1
+  insert := update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.insert
+    UpdateMapInst
+  for_each_range := fun {F : Type} {E : Type}
+    (coreopsfunctionFnMutPPairUsizeShared0FControlFlowTupleResultTuplePInst :
+    core.ops.function.FnMut F (Std.Usize × T)
+    (core.ops.control_flow.ControlFlow Unit (core.result.Result Unit E))) =>
+    update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.for_each_range
+    UpdateMapInst
+    coreopsfunctionFnMutPPairUsizeShared0FControlFlowTupleResultTuplePInst
+  has_any_in_range :=
+    update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.has_any_in_range
+    UpdateMapInst
+  max_index := update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.max_index
+    UpdateMapInst
+  len := update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.len UpdateMapInst
+  is_empty := update_map.UpdateMap.is_empty.default
+    (update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap UpdateMapInst)
+}
+
+/-- [milhouse::proof_roots::max_map_is_empty]:
+    Source: 'src/proof_roots.rs', lines 35:0-37:1
+    Visibility: public -/
+def proof_roots.max_map_is_empty
+  {T : Type} {M : Type} (update_mapUpdateMapInst : update_map.UpdateMap M T)
+  (map : update_map.MaxMap M) :
+  Result Bool
+  := do
+  update_map.UpdateMap.is_empty.default
+    (update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap
+    update_mapUpdateMapInst) map
+
+/-- [milhouse::proof_roots::max_map_max_index]:
+    Source: 'src/proof_roots.rs', lines 39:0-41:1
+    Visibility: public -/
+def proof_roots.max_map_max_index
+  {T : Type} {M : Type} (update_mapUpdateMapInst : update_map.UpdateMap M T)
+  (map : update_map.MaxMap M) :
+  Result (Option Std.Usize)
+  := do
+  update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.max_index
+    update_mapUpdateMapInst map
+
+/-- [milhouse::proof_roots::max_map_get_mut_with]:
+    Source: 'src/proof_roots.rs', lines 43:0-49:1
+    Visibility: public -/
+def proof_roots.max_map_get_mut_with
+  {T : Type} {M : Type} {F : Type} (update_mapUpdateMapInst :
+  update_map.UpdateMap M T) (coreopsfunctionFnOnceFTupleUsizeOptionInst :
+  core.ops.function.FnOnce F Std.Usize (Option T)) (map : update_map.MaxMap M)
+  (key : Std.Usize) (fallback : F) :
+  Result ((Option T) × (Option T → update_map.MaxMap M))
+  := do
+  update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_mut_with
+    update_mapUpdateMapInst coreopsfunctionFnOnceFTupleUsizeOptionInst map key
+    fallback
+
+/-- [milhouse::proof_roots::max_map_get_cow_with_value]:
+    Source: 'src/proof_roots.rs', lines 51:0-57:1
+    Visibility: public -/
+def proof_roots.max_map_get_cow_with_value
+  {T : Type} {M : Type} (corecloneCloneInst : core.clone.Clone T)
+  (update_mapUpdateMapInst : update_map.UpdateMap M T)
+  (map : update_map.MaxMap M) (key : Std.Usize) (value : Option T) :
+  Result ((Option (cow.Cow T)) × (Option (cow.Cow T) → update_map.MaxMap M))
+  := do
+  update_map.MaxMap.Insts.MilhouseUpdate_mapUpdateMap.get_cow_with_value
+    update_mapUpdateMapInst corecloneCloneInst map key value
+
 /-- [milhouse::proof_roots::max_map_get_cow_with]:
-    Source: 'src/proof_roots.rs', lines 55:0-66:1
+    Source: 'src/proof_roots.rs', lines 59:0-70:1
     Visibility: public -/
 def proof_roots.max_map_get_cow_with
   {T : Type} {M : Type} {F : Type} (corecloneCloneInst : core.clone.Clone T)
@@ -8061,7 +8195,7 @@ def proof_roots.max_map_get_cow_with
     corecloneCloneInst map key fallback
 
 /-- [milhouse::proof_roots::progressive_list_eq]:
-    Source: 'src/proof_roots.rs', lines 68:0-73:1
+    Source: 'src/proof_roots.rs', lines 72:0-77:1
     Visibility: public -/
 def proof_roots.progressive_list_eq
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8075,7 +8209,7 @@ def proof_roots.progressive_list_eq
     corecmpPartialEqInst left right
 
 /-- [milhouse::proof_roots::progressive_list_ssz_bytes_len]:
-    Source: 'src/proof_roots.rs', lines 75:0-79:1
+    Source: 'src/proof_roots.rs', lines 79:0-83:1
     Visibility: public -/
 def proof_roots.progressive_list_ssz_bytes_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8086,7 +8220,7 @@ def proof_roots.progressive_list_ssz_bytes_len
     ValueInst update_mapUpdateMapInst list
 
 /-- [milhouse::proof_roots::progressive_list_ssz_append]:
-    Source: 'src/proof_roots.rs', lines 81:0-86:1
+    Source: 'src/proof_roots.rs', lines 85:0-90:1
     Visibility: public -/
 def proof_roots.progressive_list_ssz_append
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8098,7 +8232,7 @@ def proof_roots.progressive_list_ssz_append
     update_mapUpdateMapInst list buf
 
 /-- [milhouse::proof_roots::progressive_list_ssz_fixed_len]:
-    Source: 'src/proof_roots.rs', lines 88:0-93:1
+    Source: 'src/proof_roots.rs', lines 92:0-97:1
     Visibility: public -/
 def proof_roots.progressive_list_ssz_fixed_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8114,7 +8248,7 @@ def proof_roots.progressive_list_ssz_fixed_len
   ok (b, i)
 
 /-- [milhouse::proof_roots::progressive_list_as_ssz_bytes]:
-    Source: 'src/proof_roots.rs', lines 95:0-99:1
+    Source: 'src/proof_roots.rs', lines 99:0-103:1
     Visibility: public -/
 def proof_roots.progressive_list_as_ssz_bytes
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8125,7 +8259,7 @@ def proof_roots.progressive_list_as_ssz_bytes
     update_mapUpdateMapInst list
 
 /-- [milhouse::proof_roots::progressive_list_from_ssz_bytes]:
-    Source: 'src/proof_roots.rs', lines 101:0-105:1
+    Source: 'src/proof_roots.rs', lines 105:0-109:1
     Visibility: public -/
 def proof_roots.progressive_list_from_ssz_bytes
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8137,7 +8271,7 @@ def proof_roots.progressive_list_from_ssz_bytes
     ValueInst update_mapUpdateMapInst bytes
 
 /-- [milhouse::proof_roots::progressive_list_decode_metadata]:
-    Source: 'src/proof_roots.rs', lines 107:0-112:1
+    Source: 'src/proof_roots.rs', lines 111:0-116:1
     Visibility: public -/
 def proof_roots.progressive_list_decode_metadata
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8153,7 +8287,7 @@ def proof_roots.progressive_list_decode_metadata
   ok (b, i)
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary]:
-    Source: 'src/proof_roots.rs', lines 115:0-123:1
+    Source: 'src/proof_roots.rs', lines 119:0-127:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -8166,7 +8300,7 @@ def proof_roots.progressive_list_arbitrary
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst input
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary_take_rest]:
-    Source: 'src/proof_roots.rs', lines 126:0-134:1
+    Source: 'src/proof_roots.rs', lines 130:0-138:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary_take_rest
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -8180,7 +8314,7 @@ def proof_roots.progressive_list_arbitrary_take_rest
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) input
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary_size_hint]:
-    Source: 'src/proof_roots.rs', lines 137:0-143:1
+    Source: 'src/proof_roots.rs', lines 141:0-147:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary_size_hint
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -8193,7 +8327,7 @@ def proof_roots.progressive_list_arbitrary_size_hint
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) depth
 
 /-- [milhouse::proof_roots::progressive_list_arbitrary_try_size_hint]:
-    Source: 'src/proof_roots.rs', lines 146:0-154:1
+    Source: 'src/proof_roots.rs', lines 150:0-158:1
     Visibility: public -/
 def proof_roots.progressive_list_arbitrary_try_size_hint
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -8207,7 +8341,7 @@ def proof_roots.progressive_list_arbitrary_try_size_hint
     arbitraryArbitraryInst ValueInst update_mapUpdateMapInst) depth
 
 /-- [milhouse::proof_roots::progressive_list_tree_hash_type]:
-    Source: 'src/proof_roots.rs', lines 156:0-159:1
+    Source: 'src/proof_roots.rs', lines 160:0-163:1
     Visibility: public -/
 def proof_roots.progressive_list_tree_hash_type
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8218,7 +8352,7 @@ def proof_roots.progressive_list_tree_hash_type
     ValueInst update_mapUpdateMapInst
 
 /-- [milhouse::proof_roots::progressive_list_tree_hash_packed_encoding]:
-    Source: 'src/proof_roots.rs', lines 161:0-165:1
+    Source: 'src/proof_roots.rs', lines 165:0-169:1
     Visibility: public -/
 def proof_roots.progressive_list_tree_hash_packed_encoding
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8229,7 +8363,7 @@ def proof_roots.progressive_list_tree_hash_packed_encoding
     ValueInst update_mapUpdateMapInst list
 
 /-- [milhouse::proof_roots::progressive_list_tree_hash_packing_factor]:
-    Source: 'src/proof_roots.rs', lines 167:0-170:1
+    Source: 'src/proof_roots.rs', lines 171:0-174:1
     Visibility: public -/
 def proof_roots.progressive_list_tree_hash_packing_factor
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -8240,7 +8374,7 @@ def proof_roots.progressive_list_tree_hash_packing_factor
     ValueInst update_mapUpdateMapInst
 
 /-- [milhouse::proof_roots::progressive_list_clone_from]:
-    Source: 'src/proof_roots.rs', lines 172:0-177:1
+    Source: 'src/proof_roots.rs', lines 176:0-181:1
     Visibility: public -/
 def proof_roots.progressive_list_clone_from
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :

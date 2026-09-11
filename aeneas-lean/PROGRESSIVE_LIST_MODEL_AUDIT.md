@@ -101,6 +101,21 @@ formatter options, user sinks, or lock observation without further work.
 
 ## MaxMap wrapper source proofs
 
+On the September 7 compiler, `UpdateMap::is_empty` and the concrete
+`MaxMap::is_empty` caller now extract and compile. The earlier exclusion is
+removed, and the complete wrapper dictionary is generated from Rust.
+`Tree/UpdateMap/MaxMap/Empty.lean` proves five equations/contracts for the
+actual default and wrapper: emptiness follows from inner length, including
+failure and divergence, and default construction with zero inner length
+establishes an empty wrapper. The two proofs in
+`Tree/ProgressiveList/Observers/MaxMap.lean` connect that dictionary to the
+public pending-update observer. These seven lemmas use only standard Lean axioms. The
+specialized observer needs no separate emptiness-answer premise, inner
+`is_empty` law, or maximum-cache invariant. Generic UpdateMap overrides and
+the concrete VecMap implementation retain their own fidelity obligations.
+
+The earlier checkpoints below retain their original counts and scope.
+
 The subsequent mutable-wrapper checkpoint `fec41a5` extracts the actual
 `get_mut_with`, `get_cow_with`, and `get_cow_with_value` methods through
 cfg-gated callers. The first has eight public proofs in

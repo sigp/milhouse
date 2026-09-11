@@ -32,6 +32,10 @@ pub fn max_map_len<T, M: UpdateMap<T>>(map: &crate::update_map::MaxMap<M>) -> us
     map.len()
 }
 
+pub fn max_map_is_empty<T, M: UpdateMap<T>>(map: &crate::update_map::MaxMap<M>) -> bool {
+    map.is_empty()
+}
+
 pub fn max_map_max_index<T, M: UpdateMap<T>>(map: &crate::update_map::MaxMap<M>) -> Option<usize> {
     map.max_index()
 }

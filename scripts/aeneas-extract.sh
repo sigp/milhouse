@@ -14,8 +14,8 @@
 # - `Tree::tree_hash` is excluded: its closures form a mixed mutually
 #   recursive group, and `ethereum_hashing::ZERO_HASHES` has a function
 #   pointer in its type (`LazyLock`), neither of which Aeneas supports yet.
-# - `UpdateMap::is_empty` is excluded: provided trait method that triggers
-#   an Aeneas internal error.
+# - `UpdateMap::is_empty` and its concrete MaxMap caller are included. September
+#   Aeneas can translate the provided method and the complete wrapper dictionary.
 # - `Tree::with_updated_leaves` and `PackedLeaf::update` are included since
 #   their `FnMut` closures were replaced by closure-free code (the Aeneas
 #   Lean backend mistranslates `FnMut` calling conventions).
@@ -43,7 +43,7 @@
 # - Cow metadata helpers and consuming into_mut are included. Concrete helpers
 #   and explicit Result matches avoid borrowed trait/adapter failures. Deref
 #   and make_mut still hit borrowed-field failures; see UPSTREAM_BUGS.md.
-# - MaxMap default/get/insert/len/max_index callers expose the actual wrapper
+# - MaxMap default/get/insert/len/is_empty/max_index callers expose the actual wrapper
 #   bodies and cached-maximum updates over an abstract inner UpdateMap.
 #   Mutable and CoW callers are included too; explicit Option matches avoid
 #   the borrowed Try interface mismatch (UPSTREAM_BUGS.md issue 9).
@@ -161,7 +161,7 @@ trap 'rm -f -- "$charon_log"' EXIT
     --opaque 'milhouse::list::_::intra_rebase' \
     --exclude '{impl tree_hash::TreeHash for milhouse::progressive_list::ProgressiveList}::tree_hash_root' \
     --exclude 'milhouse::tree::_::tree_hash' \
-    --exclude 'milhouse::update_map::UpdateMap::is_empty' \
+    --start-from 'milhouse::update_map::UpdateMap::is_empty' \
     --exclude 'milhouse::builder::{impl core::fmt::Debug for milhouse::builder::Builder<_>}' \
     --exclude 'milhouse::tree::{impl core::fmt::Debug for milhouse::tree::Tree<_>}' \
     --include 'tree_hash::TreeHashType' \
