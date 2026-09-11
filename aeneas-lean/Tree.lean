@@ -1,5 +1,6 @@
 import Tree.Funs
 import Tree.Cow.Attachment
+import Tree.Cow.Errors
 import Tree.CompilerModels
 import Tree.Tuple.Comparison
 import Tree.PackingDepth
