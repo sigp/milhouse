@@ -1396,6 +1396,30 @@ exactly. The complete proof and model audits pass. Logs and hashes are in
 borrowed `Deref`, `make_mut`, or `next_cow` failures, all reproduced again
 after the Rust callback repair.
 
+## 32. Aeneas: VecMap occupied-entry consumption copies a mutable borrow
+
+**Stage:** symbolic interpretation of pinned `vec_map` 0.8.2 source.
+**Status:** unresolved on Aeneas `7ebd01d` / Charon `85bba1f2` / Rust
+`nightly-2026-08-18`, independently of the insertion iterator failure.
+
+A concrete caller of `OccupiedEntry::into_mut` extracts with Charon exit 0
+and no LLBC errors using full MIR. Aeneas exits 1 with `Can't copy a mutable
+borrow` at `vec_map-0.8.2/src/lib.rs:684:13-684:21`, on the expression
+`&mut self.map[index]`. The emitter is `interp/InterpExpressions.ml:197`.
+The partial output is rejected; no model or assumption replaces the body.
+
+The acquisition side does work independently: `VecMap::contains_key` and
+`VecMap::entry` now have exact source contracts. The total entry specification
+proves classification, original map/key retention, and unchanged release
+without count, clone, allocation, or key bounds. All 16 proofs and five native
+tests in the extended source suite pass. This does not establish the concrete
+CoW adapter or occupied/vacant mutation fidelity.
+
+Reproduction commands and scope are in the
+[VecMap source-suite README](reproducers/vec_map_models/README.md). Fresh
+diagnostic logs and source hashes are in `.lake/cow-concrete-map-probe/occupied/`.
+Neither Aeneas nor the registry dependency was changed.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e

@@ -101,6 +101,14 @@ formatter options, user sinks, or lock observation without further work.
 
 ## MaxMap wrapper source proofs
 
+The independent [VecMap source suite](reproducers/vec_map_models/README.md)
+now also proves concrete entry acquisition and unchanged release (`1a93d59`),
+with 16 source/semantic proofs and five native tests. No count, clone, or
+key-bound premise is needed for acquisition. Its concrete entry stores the
+actual map; refinement to the local vacant-slot footprint remains open.
+Occupied-entry consumption has a separate mutable-borrow extraction failure,
+so these additions do not yet supply a complete concrete UpdateMap dictionary.
+
 The callback-chain repair (`c7e5128`, composition `b1842b8`) now returns the
 complete recorded inner callback footprint. Both exact insertion/read framing
 and selected fallback-aware writes transfer through the actual MaxMap wrapper,

@@ -77,6 +77,23 @@ actual acquisition/error results. It requires no representation, index bound,
 read, clone, entry-readiness, or maximum law. This concerns returned Rust
 `Err` values, not panic recovery or divergence.
 
+## Concrete VecMap entry progress
+
+Commit `1a93d59` extends the independent
+[VecMap source suite](reproducers/vec_map_models/README.md) to 16 proofs and
+five native tests. The new contracts establish actual `contains_key` and
+`entry` execution, including occupancy classification, retention of the exact
+map and key, and the full release continuation. Entry acquisition and unchanged
+release need no count, clone, allocation, or key-bound premise. The returned
+entry uses the actual source map representation, not an assumed slot model.
+
+This separates entry acquisition from another extraction failure:
+`OccupiedEntry::into_mut` is rejected with `Can't copy a mutable borrow` at
+`vec_map`'s `&mut self.map[index]`. Charon succeeds with error-free full-MIR
+LLBC, but Aeneas exits 1. The partial body is not imported. This obstacle is
+independent of the already documented insertion iterator failures. The
+concrete CoW adapter and complete entry-footprint refinement remain open.
+
 ## Open obligations
 
 - Prove the actual Rust `Deref` and borrowed `Cow::make_mut` methods. Handle
@@ -86,8 +103,8 @@ read, clone, entry-readiness, or maximum law. This concerns returned Rust
   do not establish stepping.
 - Complete concrete inner-map/entry fidelity and the remaining selected
   read-back contracts. The independent VecMap source suite covers observers
-  and mutable lookup; insertion and its iterator dependencies remain outside
-  the successful source suite.
+  and mutable lookup as well as entry acquisition; vacant insertion and
+  occupied-entry consumption remain outside the successful source suite.
 
 Fresh probes after the callback repair use the adopted
 Aeneas `7ebd01d` / Charon `85bba1f2` / Rust `nightly-2026-08-18` with full MIR.
@@ -126,9 +143,10 @@ reproduces all four generated production files exactly and preserves the
 lockfile. All 333 Rust library tests and 17 Python checker tests pass.
 
 The SSZ-offset and Arbitrary source suites were refreshed for the changed
-`Tree/Types.lean` input; both pass. The six unaffected source reports remain
-current, for 51 proofs across all eight source suites. Logs and hashes are
-under `.lake/cow-callback-chain-probe/`. The approved `usize::pow` source
+`Tree/Types.lean` input; both pass. All eight source reports are current. The subsequent VecMap
+entry extension increases their total to 54 proofs. Callback-repair logs and hashes are
+under `.lake/cow-callback-chain-probe/`, and the entry/occupied diagnostics
+are under `.lake/cow-concrete-map-probe/`. The approved `usize::pow` source
 assumption and external models are unchanged. Debug and Serde remain out of
 scope, and TreeHash remains deferred. Borrowed methods and the remaining
 concrete inner-map/entry fidelity still prevent completion of the goal.

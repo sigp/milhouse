@@ -93,6 +93,12 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- Concrete VecMap entry acquisition now has source contracts (`1a93d59`):
+  exact occupancy, map/key retention, and unchanged release, without count,
+  clone, allocation, or key bounds. Its independent suite has 16 proofs and
+  five native tests. Occupied-entry consumption and vacant insertion still
+  fail extraction; the [CoW status](COW_PROOFS_STATUS.md) distinguishes these
+  remaining obligations from the newly proved acquisition behavior.
 - The callback-chain repair (`c7e5128`, composition `b1842b8`) fixes nested
   MaxMap metadata loss and proves complete callback recording and inner
   write-back composition. `CopyOnWrite/MaxMapInner.lean` derives the wrapper's

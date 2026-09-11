@@ -1,123 +1,129 @@
 # VecMap source contracts
 
-The September 7 migration retains all 13 proofs in this suite. Use the
-[project toolchain setup](../../README.md) and the pinned defaults of its
-audit command. Earlier compiler pins, source locations, and checkpoint
-counts below are historical; current versions and input hashes are recorded
-in each new audit report. The temporary `usize::pow` assumption does not
-exclude any proof in this suite.
-
 This suite checks the pinned `vec_map` 0.8.2 implementation underlying the
-default `ProgressiveList` update map, `MaxMap<VecMap<T>>`. It proves concrete
-observer and mutable-lookup behavior against slot semantics. It does not yet
-construct a verified `UpdateMap` dictionary or validate insertion, range
-iteration, maximum queries, or `MaxMap` composition.
+default `ProgressiveList` update map, `MaxMap<VecMap<T>>`. It now proves
+concrete observers, mutable lookup, and entry acquisition against the actual
+slot representation. It does not yet construct a verified concrete
+`UpdateMap` dictionary or validate vacant insertion and occupied-entry
+consumption.
 
-The main library separately extracts and proves `MaxMap` default, lookup,
-insertion, cardinality, and cached-maximum behavior over an abstract inner
-`UpdateMap`, including preservation of cache validity. See
-[the wrapper source proofs](../../PROGRESSIVE_LIST_MODEL_AUDIT.md#maxmap-wrapper-source-proofs).
-Connecting this suite's concrete VecMap representation to that dictionary
-remains unfinished.
-
-Run from the repository root:
+Run from the repository root with the [project toolchain](../../README.md):
 
 ```sh
 python3 scripts/aeneas-audit-vec-map-models.py
 ```
 
-The shared runner pins Charon 0.1.223, Aeneas `b59d5188`, and Rust
-`nightly-2026-06-01` (commit `14210df0e27ccd7d9e6a05b8085cbd438e4bbc65`).
-It verifies the locked registry dependency, hashes its source, runs formatting
-and four native tests, and generates fresh `VecMapSource.Types` and
-`VecMapSource.Funs`. Both generated files and `CheckModels.lean` must compile.
-No LLBC names or generated bodies are changed, and no external template is
-accepted or replaced by a local definition.
+The current pin is Aeneas `7ebd01d`, Charon `85bba1f2` (0.1.251), Rust
+`nightly-2026-08-18`, and Lean 4.31.0. The runner checks the pinned compiler,
+Miri full-MIR sysroot, locked registry source and source hashes. It runs
+formatting and five native tests, then generates fresh `VecMapSource.Types`
+and `VecMapSource.Funs`. Both generated files and `CheckModels.lean` must
+compile. No generated bodies or LLBC names are changed, and no external
+template is accepted or replaced by a local definition.
 
-Seven exact source equations cover five VecMap methods and the two actual
-Option helpers they call:
+## Verified source behavior
 
-| Source body | Proved behavior |
+Nine exact source-body contracts cover seven VecMap methods and the two
+actual Option helpers they call:
+
+| Source body | Established behavior |
 | --- | --- |
-| `VecMap::new`, `vec_map/src/lib.rs:118` | Zero entry count and an empty slot vector |
-| `VecMap::len`, line 428 | Returns the stored entry count |
-| `VecMap::is_empty`, line 444 | Tests the stored count against zero |
-| `VecMap::get`, line 474 | Returns the indexed slot, with `none` for holes or keys beyond the slot vector |
-| `VecMap::get_mut`, line 513 | Returns that same optional value and the exact continuation: absent loans preserve the whole map; present loans update only their slot and retain count metadata |
-| `Option::as_ref`, `core/src/option.rs:741` | Preserves the optional value in the reference abstraction |
-| `Option::as_mut`, line 763 | An absent loan cannot insert; a present loan returns the supplied replacement, retaining its old value for a missing continuation input |
+| `VecMap::new` | Zero entry count and an empty slot vector |
+| `VecMap::len` | Returns the stored entry count |
+| `VecMap::is_empty` | Tests the stored count against zero |
+| `VecMap::get` | Indexed slot lookup, with `none` for holes and keys beyond the vector |
+| `VecMap::get_mut` | The same lookup and its complete continuation: absent loans preserve the map; present loans update only their slot and retain count metadata |
+| `VecMap::contains_key` | Presence of the actual indexed slot, independently of count metadata |
+| `VecMap::entry` | Occupied/vacant classification, the exact original map and key, and the full continuation returning a compatible entry's map |
+| `Option::as_ref` | Preserves the optional value in the reference abstraction |
+| `Option::as_mut` | Absent loans cannot insert; present loans return the replacement, retaining their original value for a missing continuation input |
 
-Six further theorems establish the semantic contracts. `CountMatches` relates
-the stored entry count to the number of occupied vector slots. Construction
-establishes it; every continuation from actual mutable lookup preserves it.
-Under this invariant, length counts occupied entries and emptiness is
-equivalent to every slot being absent. Mutable lookup needs no count invariant:
-a missing result restores the entire map, and a present result changes exactly
-one slot while preserving count metadata. The lookup equations quantify over
-arbitrary element types and all machine-word keys without cloning, count
-invariants, successful-call premises, or supplied bounds. The derived observer
-and preservation lemmas explicitly state the count invariant and successful
-immutable-read or mutable-call premises they use.
+Seven further theorems establish semantic contracts. `CountMatches` relates
+the stored count to occupied slots. Construction establishes it, and every
+mutable-lookup continuation preserves it. Under that invariant, length counts
+occupied entries and emptiness means every slot is absent. Mutable lookup
+needs no count invariant: a missing result restores the whole map, and a
+present result changes one slot while preserving count metadata.
 
-The thirteen checked proofs use only standard Lean axioms; `option_as_ref_eq`
-is axiom-free. The runner checks each theorem's axiom dependencies. It also
-checks exact transparent LLBC source provenance for all seven dependency
-bodies, including the two helpers' distinct `core` source crate. Four Python
-tests in `scripts/test_aeneas_source_crates.py` check the mixed-crate validation,
-preserve legacy single-crate checking, and reject incorrect crate/path/body/
-transparency/locality metadata and unused overrides. The eight existing source
-suites also pass with this extension.
+The new `vec_map_entry_spec` proves total acquisition, correct occupancy and
+key selection, exact map retention, and unchanged release. It needs no count,
+clone, allocation, or key-bound premise, including for `usize::MAX`. The entry
+contains its actual source map; this proof does not substitute the main
+library's abstract vacant-slot footprint for the concrete representation.
+`vec_map_entry_eq` also characterizes every continuation input: the original
+entry variant returns its replacement map, and an incompatible variant
+restores the original map.
 
-The four native tests cover empty and reserved-empty maps, sparse slots,
-extreme missing keys including `usize::MAX`, in-place replacement, unchanged
-other slots/counts, and a non-Clone element type. Native insertion/removal is
-used to build test states; these calls are not counted as proved source bodies.
+All 16 checked proofs use only standard Lean axioms; `option_as_ref_eq` is
+axiom-free. The three entry/presence lemmas were added in `1a93d59`. The
+runner checks each theorem's axiom dependencies and exact transparent LLBC
+source provenance for all nine dependency bodies, including the two helpers'
+`core` source crate. Each passing run writes
+`.lake/vec-map-model-audit/report.json` with fresh output and input hashes.
 
-## Insertion extraction boundary
+The five native tests cover empty and reserved-empty maps, sparse slots,
+extreme missing keys, mutation and unchanged release, occupancy counts, and
+non-Clone elements. Insertion/removal and occupied entry access are used in
+test setup and observations; those calls are not counted as proved bodies.
 
-The `insert` caller is retained in `source.rs`, but excluded from the successful
-proof suite. Including only `vec_map` leaves external templates for
-`Iterator::map`, map-iterator `next`, and `Vec::extend`. No proof substitutes a
-new model for these calls. Including their iterator/extension dependencies
-instead exposes unsupported `try_fold` signatures and a bound-region failure.
-Reproduce that diagnostic from the repository root:
+## Remaining extraction boundaries
+
+The `insert` and `occupied_into_mut` callers remain in `source.rs` for
+independent diagnostics. Neither is included in the successful proof roots.
+
+`OccupiedEntry::into_mut` has its own failure, independent of insertion's
+iterator dependencies. A fresh full-MIR probe on the current pin has Charon
+exit 0 with no LLBC errors, then Aeneas exit 1:
+
+```text
+Can't copy a mutable borrow
+vec_map-0.8.2/src/lib.rs:684:13-684:21
+interp/InterpExpressions.ml:197
+```
+
+This is the actual `&mut self.map[index]` expression at the end of the source
+method. The generated partial body is rejected and contributes no proof.
+Reproduce from the repository root:
 
 ```sh
-vec_map_probe_dir=$(mktemp -d /tmp/milhouse-vec-map-insert-XXXXXX)
-../aeneas/charon/bin/charon cargo --preset=aeneas \
+vec_map_probe_dir=$(mktemp -d "$PWD/aeneas-lean/.lake/vec-map-occupied.XXXXXX")
+aeneas-lean/.lake/aeneas/charon cargo --preset=aeneas \
   --include vec_map \
-  --include 'core::iter::traits::iterator::Iterator::map' \
-  --include 'core::iter::adapters::map' \
-  --include 'alloc::vec::_::extend' \
-  --start-from vec_map_source::insert \
+  --include 'core::option::_::as_ref' \
+  --include 'core::option::_::as_mut' \
+  --start-from vec_map_source::occupied_into_mut \
   --dest-file "$vec_map_probe_dir/vec_map_source.llbc" -- \
   --offline --locked \
   --manifest-path "$PWD/aeneas-lean/reproducers/vec_map_models/Cargo.toml"
-../aeneas/bin/aeneas -backend lean -namespace VecMapSource -split-files \
-  -no-progress-bar -print-error-emitters -print-error-diagnostics \
+aeneas-lean/.lake/aeneas/aeneas -backend lean -namespace VecMapSource \
+  -split-files -filter-trait-methods -no-progress-bar \
+  -print-error-emitters -print-error-diagnostics \
   -dest "$vec_map_probe_dir/VecMapSource" "$vec_map_probe_dir/vec_map_source.llbc"
 ```
 
-Charon succeeds. Aeneas exits 2: `Iterator::try_fold` and the map adapter's
-`try_fold` fail at `symbolic/SymbolicToPureTypes.ml:1012`;
-`map_try_fold` also reports `Unexpected erased region` at line 813. The source
-locations are `core/src/iter/traits/iterator.rs:2486` and
-`core/src/iter/adapters/map.rs:91,115`. This probe does not establish a Rust bug
-or a general impossibility result for other extraction strategies.
-No partial output is imported and Aeneas is unchanged. See UPSTREAM_BUGS 28.
+The diagnostic requires the same full-MIR sysroot as the successful suite;
+a fallback to rustc's default sysroot is not acceptable evidence. Session logs,
+source hashes, and per-stage statuses are retained under
+`.lake/cow-concrete-map-probe/occupied/`.
+
+For insertion, including only `vec_map` leaves templates for `Iterator::map`,
+map-iterator `next`, and `Vec::extend`. Including the actual iterator/extension
+dependencies instead fails on `try_fold` signatures. Both filtered and
+unfiltered September compiler probes fail; see the
+[compiler diagnostic matrix](../compiler_workarounds/README.md). No additional
+models replace these dependencies.
 
 ## Validation boundaries
 
-Each passing run writes `.lake/vec-map-model-audit/report.json`, removing any
-old report first. Its seven `directSourceComparisons` entries are concrete
-source contracts, not comparisons with pre-existing production VecMap models.
-`validatedProofs` also includes the six derived invariant/specification lemmas.
-The report records fresh output, source and input hashes, exact axiom use,
-and the unresolved insertion/concrete-map obligations.
+The main library separately proves the actual MaxMap wrapper's callback
+composition and its high-level CoW contracts over selected inner-map laws.
+See [the current CoW status](../../COW_PROOFS_STATUS.md). These standalone
+VecMap contracts advance concrete source fidelity, but do not yet discharge
+all of those laws or prove the local vacant-entry footprint's full refinement.
+Range/max queries and a complete concrete map dictionary remain open too.
 
 The proofs retain Aeneas's vector allocation/size, indexing, scalar, and
 reference foundations. They do not verify allocator behavior, raw pointers,
-destructor execution, or all ways of constructing a valid VecMap. These
-standalone modules are outside `Tree`; the main theorem and included-root
-model inventories are unchanged. The existing vacant-entry footprints and
-generic UpdateMap laws are not replaced or discharged by this suite alone.
+destructors, or every construction of a valid VecMap. The standalone modules
+remain outside `Tree`; the main theorem and included-root model inventories
+are unchanged. The approved `usize::pow` source assumption is unchanged.
