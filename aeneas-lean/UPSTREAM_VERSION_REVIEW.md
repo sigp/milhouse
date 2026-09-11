@@ -20,6 +20,36 @@ unchanged.
 The sections below preserve the investigation and earlier blocked checkpoints;
 the user-approved assumption supersedes their decision to retain the old pin.
 
+## September 11 follow-up: removing workarounds
+
+The adopted compiler supports two verified simplifications. Commit `da402d9`
+enables `-filter-trait-methods` and restores ordinary Rust `for` loops in both
+`to_vec` methods and the progressive rebuilding helper. Commit `2356f2c`
+removes the `UpdateMap::is_empty` extraction exclusion and generates the full
+MaxMap dictionary. Seven new lemmas derive wrapper emptiness and the public
+pending-update observer from inner length, without a separate emptiness-answer
+premise for that dictionary. Generic map overrides remain conditional.
+
+The [repeatable diagnostic matrix](reproducers/compiler_workarounds/README.md)
+records fresh failures for the other tested candidates, including all eight
+borrowed-CoW enum readers and VecMap insertion with and without the new flag.
+The maximum fix in #1286 changes comparison semantics; it does not repair the
+remaining `Ord.max.default` calling-interface mismatch. The original `.max()`
+spelling still fails Lean elaboration. No additional source assumption or
+nonstandard Lean axiom was introduced.
+
+Validation after `2356f2c` passes the complete Lean build (2,171 jobs) and
+axiom/import audit (6,217 theorem declarations, 449 modules). The same 119
+declarations retain the existing Arc pointer contract. The model audit still
+covers 42 roots and 151 local declarations, with only the approved power
+source assumption. Fresh full-MIR production extraction reproduces the
+committed generated files exactly and leaves `Cargo.lock` unchanged.
+All 324 Rust library tests and 17 Python checker tests pass. The regenerated
+type file required refreshing the SSZ-offset and Arbitrary source suites;
+both pass, and input hashes remain current for all eight source reports
+(51 proofs total). The six unaffected source suites retain their earlier
+validated results. Logs and hashes are under `.lake/sept7-simplifications/`.
+
 ## Versions compared
 
 | Component | Pre-upgrade pin | Selected September 7 candidate | Latest upstream checked on September 10 |

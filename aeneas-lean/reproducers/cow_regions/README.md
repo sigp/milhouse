@@ -7,8 +7,10 @@ entry lifetimes helps, without changing production types or methods.
 ## September compiler controls
 
 The four existing control proofs are required by the September 7 compiler
-migration. The eight failing enum-reader results below are historical
-June-pin diagnostics; no new support for those methods is claimed.
+migration. The September 11 [workaround probes](../compiler_workarounds/README.md)
+also retest all eight enum readers on Aeneas `7ebd01d` and Charon `85bba1f2`:
+all eight still fail in `lookup_loan`. The detailed June-pin results below
+are retained as historical diagnostics; no new support for those methods is claimed.
 After following the [toolchain setup](../../README.md), run these commands
 from the repository root to extract and validate the controls:
 

@@ -20,6 +20,12 @@ required, including the Core suite's documented numeric-helper foundations.
 The earlier working-pin issue descriptions below retain their original
 versions. No new borrowed-CoW extraction support is claimed.
 
+The September 11 [workaround probes](reproducers/compiler_workarounds/README.md)
+retest the main candidates with full MIR. Issue 3 is resolved, and issue 15's
+iterator-field restriction is removed by `-filter-trait-methods`; the other
+tested boundaries still fail. The matrix distinguishes generated-Lean failures,
+external-template gaps, and extraction errors.
+
 Scope revision (2026-09-09): Debug and Serde implementations, including
 Serde-based context deserialization, are out of scope for the
 [ProgressiveList proof goal](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope).
