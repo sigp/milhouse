@@ -38,11 +38,10 @@ theorem vec_eq_agrees {T U : Type} (A1 A2 : Type)
     VecSource.alloc.vec.Vec.Insts.CoreCmpPartialEqVec.eq A1 A2 inst left right =
       milhouse_models.vec_eq inst left right := by
   simp only [VecSource.alloc.vec.Vec.Insts.CoreCmpPartialEqVec.eq, alloc.vec.Vec.index,
-    VecSource.core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index,
     bind_tc_ok]
   simp only [core.slice.cmp.PartialEqSlice.eq, milhouse_models.vec_eq,
     alloc.vec.partial_eq.PartialEqVec.ne]
-  split <;> simp_all [allM_not_eq_not_anyM]
+  split <;> simp_all [allM_not_eq_not_anyM, alloc.vec.Vec.val]
 
 theorem vec_ne_agrees {T U : Type} (A1 A2 : Type)
     (inst : core.cmp.PartialEq T U) (left : alloc.vec.Vec T) (right : alloc.vec.Vec U) :
@@ -53,8 +52,7 @@ theorem vec_ne_agrees {T U : Type} (A1 A2 : Type)
           ok (!b)) := by
     simp only [VecSource.alloc.vec.Vec.Insts.CoreCmpPartialEqVec.ne,
       VecSource.alloc.vec.Vec.Insts.CoreCmpPartialEqVec.eq, alloc.vec.Vec.index,
-      VecSource.core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index,
-      bind_tc_ok]
+        bind_tc_ok]
     simp [core.cmp.PartialEq.ne.trait_default, core.cmp.PartialEq.ne.default]
   rw [hne, vec_eq_agrees]
   unfold milhouse_models.vec_eq
