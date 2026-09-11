@@ -127,6 +127,64 @@ def prepare_pow_selector(data, template, original):
     return prepared, record
 
 
+CORE_CHECKED_POW_CALLER = """
+def core.num.U128.checked_pow
+  (self : Std.U128) (exp : Std.U32) : Result (Option Std.U128) := do
+  let b ← core.intrinsics.is_val_statically_known core.marker.CopyU128 self
+  if b
+  then
+    let b1 ← core.num.U128.is_power_of_two self
+    if b1
+    then
+      let k ← core.num.U128.ilog2 self
+      let o ← lift (U32.checked_mul k exp)
+      match o with
+      | none => ok none
+      | some x => core.num.U128.checked_shl 1#u128 x
+    else
+      if exp = 0#u32
+      then ok (some 1#u128)
+      else
+        let b2 ←
+          core.intrinsics.is_val_statically_known core.marker.CopyU32 exp
+        if b2
+        then core.num.U128.checked_pow_loop0 exp self 1#u128
+        else core.num.U128.checked_pow_loop1 exp self 1#u128
+  else
+    if exp = 0#u32
+    then ok (some 1#u128)
+    else
+      let b1 ←
+        core.intrinsics.is_val_statically_known core.marker.CopyU32 exp
+      if b1
+      then core.num.U128.checked_pow_loop2 exp self 1#u128
+      else core.num.U128.checked_pow_loop3 exp self 1#u128
+"""
+
+def prepare_core_selector(original):
+    """Add a universally quantified selector while preserving every source body."""
+    name = "core.intrinsics.is_val_statically_known"
+    start = original.find("\ndef core.num.U128.checked_pow\n")
+    stop = original.find("\n/-- [core::num::{u128}::saturating_mul]", start)
+    marker = "\nnamespace CoreSource\n"
+    parameter = "\nvariable [milhouse.compiler.StaticKnown]\n"
+    if (start < 0 or stop < start or original[start:stop] != CORE_CHECKED_POW_CALLER
+            or original.count(name) != 3 or original.count(marker) != 1
+            or "milhouse.compiler.StaticKnown" in original):
+        raise ValueError("Unexpected checked-power selector calls or scope")
+    # The complete caller has one U128 query and two mutually exclusive U32
+    # sites. No query is in a loop, so a function per type/input permits both
+    # independent outcomes for every executed query.
+    prepared = original.replace(marker, marker + parameter, 1)
+    if prepared.replace(marker + parameter, marker, 1) != original:
+        raise ValueError("Checked-power source changed beyond its selector parameter")
+    return prepared, {"method": "is_val_statically_known", "caller": "checked_pow",
+        "parameter": "[milhouse.compiler.StaticKnown]", "outcomes": [False, True],
+        "scope": "at most one U128 and one U32 query per invocation; independent outcomes",
+        "originalFunsSha256": hashlib.sha256(original.encode()).hexdigest(),
+        "parameterizedFunsSha256": hashlib.sha256(prepared.encode()).hexdigest()}
+
+
 def source_declaration(crate, suite, name, kind="fun_decls"):
     prefix_key = {"type_decls": "type_source_prefix", "trait_decls": "trait_source_prefix"}.get(
         kind, "source_prefix")
@@ -568,6 +626,15 @@ def main(suite):
         imports = list(dict.fromkeys(binding["module"] for binding in foundations))
         (work / suite["namespace"] / "FunsExternal.lean").write_text(
             "".join("import " + module + "\n" for module in imports))
+    if suite.get("core_selector"):
+        if suite["namespace"] != "CoreSource" or not foundations or selectors:
+            raise ValueError("Checked-power selector requires its validated foundations")
+        funs = work / suite["namespace"] / "Funs.lean"
+        original_funs = funs.read_text()
+        prepared, selector = prepare_core_selector(original_funs)
+        (work / "Funs.original.lean").write_text(original_funs)
+        funs.write_text(prepared)
+        selectors.append(selector)
     for path in generated:
         if (foundations or selectors) and path.name == "FunsExternal_Template.lean":
             continue
@@ -579,7 +646,7 @@ def main(suite):
     env["LEAN_PATH"] = str(work) + os.pathsep + base_path
     shutil.copyfile(sources / "CheckModels.lean", work / "CheckModels.lean")
     modules = [suite["namespace"] + "/Types"]
-    if selectors:
+    if suite.get("pow_selector"):
         modules.append(suite["namespace"] + "/Selector")
     if foundations or selectors:
         modules.append(suite["namespace"] + "/FunsExternal")
@@ -589,6 +656,11 @@ def main(suite):
                      cwd=work, env=env)
         if module == "CheckModels":
             checked_axioms = check_axiom_output(output, suite["proofs"])
+    selector_methods = set(suite.get("selector_methods", provenance if selectors else []))
+    if selector_methods - set(provenance):
+        raise ValueError("Compiler selector has no selected source body")
+    direct_comparisons = {name: span for name, span in provenance.items() if name not in selector_methods}
+    parameterized_comparisons = {name: span for name, span in provenance.items() if name in selector_methods}
     inputs = [sources / "source.rs", sources / "CheckModels.lean"]
     inputs += [Path(__file__).resolve(), Path(sys.argv[0]).resolve()]
     inputs += [PIN_PATH, repo / "scripts/aeneas_toolchain.py"]
@@ -606,8 +678,8 @@ def main(suite):
         "sourceTraitMethodNameChanges": method_renames,
         "retainedLocalFoundations": foundations,
         "abstractCompilerSelectors": selectors,
-        "directSourceComparisons": {} if selectors else provenance,
-        "parameterizedSourceComparisons": provenance if selectors else {},
+        "directSourceComparisons": direct_comparisons,
+        "parameterizedSourceComparisons": parameterized_comparisons,
         "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,
@@ -616,8 +688,8 @@ def main(suite):
             + (["Compiler selector is an arbitrary total Bool; both outcomes are proved"]
                if selectors else []),
     }, indent=2) + "\n")
-    print(f"Passed: {0 if selectors else len(provenance)} direct source comparisons, "
-          f"{len(provenance) if selectors else 0} parameterized source comparisons and "
+    print(f"Passed: {len(direct_comparisons)} direct source comparisons, "
+          f"{len(parameterized_comparisons)} parameterized source comparisons and "
           f"{len(suite['composition'])} composition checks")
     print(f"Proofs: {len(checked_axioms)}; axiom-free: "
           f"{sum(not axioms for axioms in checked_axioms.values())}")
