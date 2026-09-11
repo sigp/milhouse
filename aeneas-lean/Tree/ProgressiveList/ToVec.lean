@@ -15,12 +15,12 @@ theorem ProgressiveList.to_vec_loop_spec {T U : Type}
       (ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst mapInst) cursor values)
     (hbound : accumulator.val.length + values.length ≤ Std.Usize.max)
     (hclone : ∀ value ∈ values, ValueInst.corecloneCloneInst.clone value = ok value) :
-    ∃ output, ProgressiveList.to_vec_loop ValueInst mapInst cursor accumulator = ok output ∧
+    ∃ output, ProgressiveList.to_vec_loop ValueInst mapInst accumulator cursor = ok output ∧
       output.val = accumulator.val ++ values := by
   have hprojection := ProgressiveList.to_vec_loop_mapM
     ValueInst mapInst cursor values accumulator hyields hbound
   rw [milhouse_models.list_clone_identity ValueInst.corecloneCloneInst values hclone, bind_tc_ok] at hprojection
-  cases hloop : ProgressiveList.to_vec_loop ValueInst mapInst cursor accumulator with
+  cases hloop : ProgressiveList.to_vec_loop ValueInst mapInst accumulator cursor with
   | fail e => simp [hloop] at hprojection
   | div => simp [hloop] at hprojection
   | ok output =>

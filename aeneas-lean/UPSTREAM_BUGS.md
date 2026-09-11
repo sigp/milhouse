@@ -549,8 +549,14 @@ the iterator results check that no native-evaluation dependency remains.
 ## 15. Progressive `pop_front`: cloning adapters, early loop returns, and iterator fields
 
 **Stage:** Charon transformations, Aeneas prepasses, and Lean elaboration.
-**Status:** avoided with a concrete streaming iterator-to-builder helper in
-milhouse; Aeneas is unchanged.
+**Status:** partially resolved with September Aeneas `7ebd01d`. Its
+`-filter-trait-methods` flag removes unsupported `size_hint` and `rev` fields
+from the builtin Iterator dictionary. The production extraction now uses it,
+and `ProgressiveListIter::extend_builder`, `ProgressiveList::to_vec`, and
+`List::to_vec` use ordinary `for` loops. The existing collection, reconstruction,
+and cache proofs validate after adapting to the generated loop-state order.
+The concrete streaming helper remains necessary for the other boundaries
+below. Aeneas is unchanged.
 
 Selecting `ProgressiveList::pop_front` reproduces issue 1 on its
 `self.iter_from(n)?.cloned()` adapter, followed by a signature-translation
@@ -567,8 +573,8 @@ A generic `Iterator<Item = &T>` helper then causes Aeneas to emit the full
 `rev` fields, which are absent from `Aeneas.Std`'s `Iterator` structure. The
 already-extracted standalone methods remain usable.
 
-The final helper is `ProgressiveListIter::extend_builder`: it consumes the
-concrete cursor, calls `next` directly, clones each value, and pushes it into the
+The helper is `ProgressiveListIter::extend_builder`: it consumes the
+concrete cursor, clones each value, and pushes it into the
 same `ProgressiveTreeBuilder` used by construction. `pop_front` finalizes only
 after successful consumption and replaces the original list only after all
 fallible stages succeed. This preserves streaming allocation, element and clone

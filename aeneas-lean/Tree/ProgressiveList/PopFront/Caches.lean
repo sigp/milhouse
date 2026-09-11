@@ -16,8 +16,8 @@ theorem ProgressiveListIter.extend_builder_preserves_cleared_caches {T U : Type}
     (hextend : ProgressiveListIter.extend_builder ValueInst mapInst self initial =
       ok (core.result.Result.Ok (), result)) :
     result.CachesCleared := by
-  let inv := fun (state : ProgressiveListIter T U × ProgressiveTreeBuilder T) =>
-    state.2.CachesCleared
+  let inv := fun (state : ProgressiveTreeBuilder T × ProgressiveListIter T U) =>
+    state.1.CachesCleared
   let post := fun (result : core.result.Result Unit error.Error × ProgressiveTreeBuilder T) =>
     result.1 = core.result.Result.Ok () → result.2.CachesCleared
   have hbody : ∀ state, inv state → ∀ flow,
@@ -25,7 +25,7 @@ theorem ProgressiveListIter.extend_builder_preserves_cleared_caches {T U : Type}
       match flow with
       | .cont next => inv next
       | .done result => post result := by
-    intro ⟨cursor, current⟩ hinv flow hstep
+    intro ⟨current, cursor⟩ hinv flow hstep
     unfold ProgressiveListIter.extend_builder_loop.body at hstep
     rw [bind_eq_ok_iff] at hstep
     obtain ⟨⟨entry, cursor1⟩, _, hstep⟩ := hstep
@@ -59,7 +59,7 @@ theorem ProgressiveListIter.extend_builder_preserves_cleared_caches {T U : Type}
       cases flow with
       | cont next => exact hbody state hinv (.cont next) hstep
       | done result => exact hbody state hinv (.done result) hstep)
-    (self, initial) hcache _ hextend rfl
+    (initial, self) hcache _ hextend rfl
 
 
 /-- Every successful nonzero front removal constructs entirely cleared caches.

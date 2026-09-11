@@ -21,7 +21,7 @@ theorem ProgressiveListIter.extend_builder_success {T U : Type}
     (hfits : ProgressiveTree.LengthFits factor (initial.length.val + values.length)) :
     ∃ result, ProgressiveListIter.extend_builder ValueInst mapInst self initial =
       ok (core.result.Result.Ok (), result) := by
-  change ∃ result, ProgressiveListIter.extend_builder_loop ValueInst mapInst self initial =
+  change ∃ result, ProgressiveListIter.extend_builder_loop ValueInst mapInst initial self =
     ok (core.result.Result.Ok (), result)
   induction hyields generalizing initial with
   | nil hnext =>

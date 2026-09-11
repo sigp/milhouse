@@ -1744,6 +1744,18 @@ def interface.Interface.is_empty
     interface.Interface.len ValueInst MutListInst update_mapUpdateMapInst self
   ok (i = 0#usize)
 
+/-- [milhouse::interface_iter::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::interface_iter::InterfaceIter<'a, T, U>}::size_hint]:
+    Source: 'src/interface_iter.rs', lines 29:4-32:5
+    Visibility: public -/
+def
+  interface_iter.InterfaceIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) (self : interface_iter.InterfaceIter T U) :
+  Result (Std.Usize × (Option Std.Usize))
+  := do
+  let remaining ← lift (core.num.Usize.saturating_sub self.length self.index)
+  ok (remaining, some remaining)
+
 /-- [milhouse::iter::pop_many]: loop body 0:
     Source: 'src/iter.rs', lines 41:4-44:5 -/
 @[rust_loop_body]
@@ -1866,6 +1878,19 @@ def
   match o with
   | none => ok (backing_value, { self with tree_iter := i1, index := i })
   | some _ => ok (o, { self with tree_iter := i1, index := i })
+
+/-- Trait implementation: [milhouse::interface_iter::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::interface_iter::InterfaceIter<'a, T, U>}]
+    Source: 'src/interface_iter.rs', lines 12:0-33:1 -/
+@[reducible]
+impl_def
+  interface_iter.InterfaceIter.Insts.CoreIterTraitsIteratorIteratorSharedAT {T
+  : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) : core.iter.traits.iterator.Iterator
+  (interface_iter.InterfaceIter T U) T := {
+  next :=
+    interface_iter.InterfaceIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+    ValueInst update_mapUpdateMapInst
+}
 
 /-- [milhouse::iter::{milhouse::iter::Iter<'a, T>}::from_index]:
     Source: 'src/iter.rs', lines 25:4-37:5
@@ -2494,7 +2519,7 @@ def tree.Tree.with_updated_leaves
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::update]:
-    Source: 'src/list.rs', lines 357:4-377:5
+    Source: 'src/list.rs', lines 356:4-376:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.update
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -2669,7 +2694,7 @@ def tree.Tree.with_updated_leaf
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::len]:
-    Source: 'src/list.rs', lines 316:4-318:5
+    Source: 'src/list.rs', lines 315:4-317:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.len
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2679,7 +2704,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.len
   ok self.length
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::replace]:
-    Source: 'src/list.rs', lines 342:4-355:5
+    Source: 'src/list.rs', lines 341:4-354:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.replace
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2716,7 +2741,7 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.replace
       ok (r1, self)
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::validate_push]:
-    Source: 'src/list.rs', lines 334:4-340:5
+    Source: 'src/list.rs', lines 333:4-339:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2729,7 +2754,7 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
   else ok (core.result.Result.Ok ())
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::level_iter_from]:
-    Source: 'src/list.rs', lines 324:4-326:5
+    Source: 'src/list.rs', lines 323:4-325:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2741,7 +2766,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from
     self.length
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::iter_from]:
-    Source: 'src/list.rs', lines 320:4-322:5
+    Source: 'src/list.rs', lines 319:4-321:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.iter_from
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2794,7 +2819,7 @@ def tree.Tree.get_recursive
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::get]:
-    Source: 'src/list.rs', lines 307:4-314:5
+    Source: 'src/list.rs', lines 306:4-313:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.get
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2813,7 +2838,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.get
   else ok none
 
 /-- Trait implementation: [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}]
-    Source: 'src/list.rs', lines 306:0-327:1 -/
+    Source: 'src/list.rs', lines 305:0-326:1 -/
 @[reducible]
 impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
   (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
@@ -2835,7 +2860,7 @@ impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
 }
 
 /-- Trait implementation: [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}]
-    Source: 'src/list.rs', lines 329:0-378:1 -/
+    Source: 'src/list.rs', lines 328:0-377:1 -/
 @[reducible]
 def list.ListInner.Insts.MilhouseInterfaceMutList {T : Type} {N : Type}
   (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
@@ -3043,7 +3068,7 @@ def list.push_level_nodes
   list.push_level_nodes_loop ValueInst target iter level remaining
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::depth]:
-    Source: 'src/list.rs', lines 260:4-266:5 -/
+    Source: 'src/list.rs', lines 259:4-265:5 -/
 def list.List.depth
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
   (typenummarker_traitsUnsignedInst : typenum.marker_traits.Unsigned N)
@@ -3805,7 +3830,7 @@ def list.List.repeat_slow
     update_mapUpdateMapInst (core.iter.traits.collect.IntoIteratorVec T) v
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::len]:
-    Source: 'src/list.rs', lines 244:4-246:5
+    Source: 'src/list.rs', lines 243:4-245:5
     Visibility: public -/
 def list.List.len
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -3819,7 +3844,7 @@ def list.List.len
     typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter]:
-    Source: 'src/list.rs', lines 180:4-182:5
+    Source: 'src/list.rs', lines 179:4-181:5
     Visibility: public -/
 def list.List.iter
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -3833,7 +3858,7 @@ def list.List.iter
     typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::to_vec]: loop body 0:
-    Source: 'src/list.rs', lines 174:8-176:9
+    Source: 'src/list.rs', lines 173:8-175:9
     Visibility: public -/
 @[rust_loop_body]
 def list.List.to_vec_loop.body
@@ -3854,7 +3879,7 @@ def list.List.to_vec_loop.body
     ok (cont (values1, iter1))
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::to_vec]: loop 0:
-    Source: 'src/list.rs', lines 174:8-176:9
+    Source: 'src/list.rs', lines 173:8-175:9
     Visibility: public -/
 @[rust_loop]
 def list.List.to_vec_loop
@@ -3869,7 +3894,7 @@ def list.List.to_vec_loop
     (values, iter)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::to_vec]:
-    Source: 'src/list.rs', lines 171:4-178:5
+    Source: 'src/list.rs', lines 171:4-177:5
     Visibility: public -/
 def list.List.to_vec
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -3882,13 +3907,13 @@ def list.List.to_vec
     list.List.len ValueInst typenummarker_traitsUnsignedInst
       update_mapUpdateMapInst self
   let values := alloc.vec.Vec.with_capacity T i
-  let iter ←
+  let ii ←
     list.List.iter ValueInst typenummarker_traitsUnsignedInst
       update_mapUpdateMapInst self
-  list.List.to_vec_loop ValueInst update_mapUpdateMapInst values iter
+  list.List.to_vec_loop ValueInst update_mapUpdateMapInst values ii
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter_from]:
-    Source: 'src/list.rs', lines 184:4-193:5
+    Source: 'src/list.rs', lines 183:4-192:5
     Visibility: public -/
 def list.List.iter_from
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -3911,7 +3936,7 @@ def list.List.iter_from
     ok (core.result.Result.Ok ii)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::level_iter_from]:
-    Source: 'src/list.rs', lines 196:4-205:5
+    Source: 'src/list.rs', lines 195:4-204:5
     Visibility: public -/
 def list.List.level_iter_from
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -3932,7 +3957,7 @@ def list.List.level_iter_from
       index
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter_cow]:
-    Source: 'src/list.rs', lines 207:4-209:5
+    Source: 'src/list.rs', lines 206:4-208:5
     Visibility: public -/
 def list.List.iter_cow
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -3960,7 +3985,7 @@ def list.List.iter_cow
   ok (iic, back)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::iter_cow_from]:
-    Source: 'src/list.rs', lines 211:4-219:5
+    Source: 'src/list.rs', lines 210:4-218:5
     Visibility: public -/
 def list.List.iter_cow_from
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4003,7 +4028,7 @@ def list.List.iter_cow_from
     ok (core.result.Result.Ok iic, back)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::get]:
-    Source: 'src/list.rs', lines 222:4-227:5
+    Source: 'src/list.rs', lines 221:4-226:5
     Visibility: public -/
 def list.List.get
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4020,7 +4045,7 @@ def list.List.get
   | some _ => ok o
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::get_mut]:
-    Source: 'src/list.rs', lines 229:4-231:5
+    Source: 'src/list.rs', lines 228:4-230:5
     Visibility: public -/
 def list.List.get_mut
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4040,7 +4065,7 @@ def list.List.get_mut
   ok (o, back)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::get_cow]:
-    Source: 'src/list.rs', lines 233:4-238:5
+    Source: 'src/list.rs', lines 232:4-237:5
     Visibility: public -/
 def list.List.get_cow
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4062,7 +4087,7 @@ def list.List.get_cow
   ok (o, back)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::push]:
-    Source: 'src/list.rs', lines 240:4-242:5
+    Source: 'src/list.rs', lines 239:4-241:5
     Visibility: public -/
 def list.List.push
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4079,7 +4104,7 @@ def list.List.push
   ok (r, { interface := i })
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::is_empty]:
-    Source: 'src/list.rs', lines 248:4-250:5
+    Source: 'src/list.rs', lines 247:4-249:5
     Visibility: public -/
 def list.List.is_empty
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4093,7 +4118,7 @@ def list.List.is_empty
     typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::has_pending_updates]:
-    Source: 'src/list.rs', lines 252:4-254:5
+    Source: 'src/list.rs', lines 251:4-253:5
     Visibility: public -/
 def list.List.has_pending_updates
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4107,7 +4132,7 @@ def list.List.has_pending_updates
     typenummarker_traitsUnsignedInst) update_mapUpdateMapInst self.interface
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::apply_updates]:
-    Source: 'src/list.rs', lines 256:4-258:5
+    Source: 'src/list.rs', lines 255:4-257:5
     Visibility: public -/
 def list.List.apply_updates
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4123,7 +4148,7 @@ def list.List.apply_updates
   ok (r, { interface := i })
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]: loop body 0:
-    Source: 'src/list.rs', lines 274:8-276:9
+    Source: 'src/list.rs', lines 273:8-275:9
     Visibility: public -/
 @[rust_loop_body]
 def list.List.pop_front_slow_loop.body
@@ -4144,7 +4169,7 @@ def list.List.pop_front_slow_loop.body
     ok (cont (values1, iter1))
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]: loop 0:
-    Source: 'src/list.rs', lines 274:8-276:9
+    Source: 'src/list.rs', lines 273:8-275:9
     Visibility: public -/
 @[rust_loop]
 def list.List.pop_front_slow_loop
@@ -4159,7 +4184,7 @@ def list.List.pop_front_slow_loop
     (values, iter)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]:
-    Source: 'src/list.rs', lines 271:4-279:5
+    Source: 'src/list.rs', lines 270:4-278:5
     Visibility: public -/
 def list.List.pop_front_slow
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4196,7 +4221,7 @@ def list.List.pop_front_slow
     ok (r1, self)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front]:
-    Source: 'src/list.rs', lines 284:4-303:5
+    Source: 'src/list.rs', lines 283:4-302:5
     Visibility: public -/
 def list.List.pop_front
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4983,7 +5008,7 @@ def tree.Tree.rebase_on
 partial_fixpoint
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase_on]:
-    Source: 'src/list.rs', lines 387:4-403:5
+    Source: 'src/list.rs', lines 386:4-402:5
     Visibility: public -/
 def list.List.rebase_on
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -5031,7 +5056,7 @@ def list.List.rebase_on
     ok (r1, self)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase]:
-    Source: 'src/list.rs', lines 381:4-385:5
+    Source: 'src/list.rs', lines 380:4-384:5
     Visibility: public -/
 def list.List.rebase
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -6655,7 +6680,7 @@ def progressive_list.ProgressiveList.iter_cow_from
     ok (core.result.Result.Ok plic, back)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::size_hint]:
-    Source: 'src/progressive_list.rs', lines 542:4-545:5
+    Source: 'src/progressive_list.rs', lines 541:4-544:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
@@ -6667,7 +6692,7 @@ def
   ok (remaining, some remaining)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::exact_size::ExactSizeIterator<&'_ T> for milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 551:4-553:5
+    Source: 'src/progressive_list.rs', lines 550:4-552:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
@@ -6784,7 +6809,7 @@ def
   ok (value, self1)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::next]:
-    Source: 'src/progressive_list.rs', lines 527:4-540:5
+    Source: 'src/progressive_list.rs', lines 526:4-539:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6803,6 +6828,19 @@ def
     let o1 ← core.option.Option.or o backing_value
     ok (o1, { self with tree_iter := pti, index := i })
 
+/-- Trait implementation: [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}]
+    Source: 'src/progressive_list.rs', lines 523:0-545:1 -/
+@[reducible]
+impl_def
+  progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT
+  {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
+  update_map.UpdateMap U T) : core.iter.traits.iterator.Iterator
+  (progressive_list.ProgressiveListIter T U) T := {
+  next :=
+    progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
+    ValueInst update_mapUpdateMapInst
+}
+
 /-- [milhouse::progressive_list::{impl core::iter::traits::collect::IntoIterator<&'a T, milhouse::progressive_list::ProgressiveListIter<'a, T, U>> for &'a milhouse::progressive_list::ProgressiveList<T, U>}::into_iter]:
     Source: 'src/progressive_list.rs', lines 316:4-318:5
     Visibility: public -/
@@ -6820,10 +6858,10 @@ def
 @[rust_loop_body]
 def progressive_list.ProgressiveList.to_vec_loop.body
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
-  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
-  (values : alloc.vec.Vec T) :
-  Result (ControlFlow ((progressive_list.ProgressiveListIter T U) ×
-    (alloc.vec.Vec T)) (alloc.vec.Vec T))
+  update_map.UpdateMap U T) (values : alloc.vec.Vec T)
+  (iter : progressive_list.ProgressiveListIter T U) :
+  Result (ControlFlow ((alloc.vec.Vec T) ×
+    (progressive_list.ProgressiveListIter T U)) (alloc.vec.Vec T))
   := do
   let (o, iter1) ←
     progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6833,7 +6871,7 @@ def progressive_list.ProgressiveList.to_vec_loop.body
   | some value =>
     let t ← ValueInst.corecloneCloneInst.clone value
     let values1 ← alloc.vec.Vec.push values t
-    ok (cont (iter1, values1))
+    ok (cont (values1, iter1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]: loop 0:
     Source: 'src/progressive_list.rs', lines 238:8-240:9
@@ -6841,14 +6879,14 @@ def progressive_list.ProgressiveList.to_vec_loop.body
 @[rust_loop]
 def progressive_list.ProgressiveList.to_vec_loop
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
-  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
-  (values : alloc.vec.Vec T) :
+  update_map.UpdateMap U T) (values : alloc.vec.Vec T)
+  (iter : progressive_list.ProgressiveListIter T U) :
   Result (alloc.vec.Vec T)
   := do
   loop
-    (fun (iter1, values1) => progressive_list.ProgressiveList.to_vec_loop.body
-      ValueInst update_mapUpdateMapInst iter1 values1)
-    (iter, values)
+    (fun (values1, iter1) => progressive_list.ProgressiveList.to_vec_loop.body
+      ValueInst update_mapUpdateMapInst values1 iter1)
+    (values, iter)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::to_vec]:
     Source: 'src/progressive_list.rs', lines 235:4-242:5
@@ -6866,22 +6904,23 @@ def progressive_list.ProgressiveList.to_vec
       ValueInst update_mapUpdateMapInst iter
   let values := alloc.vec.Vec.with_capacity T i
   progressive_list.ProgressiveList.to_vec_loop ValueInst
-    update_mapUpdateMapInst iter values
+    update_mapUpdateMapInst values iter
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 517:8-521:5 -/
+    Source: 'src/progressive_list.rs', lines 516:8-520:5 -/
 @[rust_loop_body]
 def progressive_list.ProgressiveListIter.extend_builder_loop.body
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
-  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U)
-  (builder : progressive_tree.ProgressiveTreeBuilder T) :
-  Result (ControlFlow ((progressive_list.ProgressiveListIter T U) ×
-    (progressive_tree.ProgressiveTreeBuilder T)) ((core.result.Result Unit
+  update_map.UpdateMap U T)
+  (builder : progressive_tree.ProgressiveTreeBuilder T)
+  (iter : progressive_list.ProgressiveListIter T U) :
+  Result (ControlFlow ((progressive_tree.ProgressiveTreeBuilder T) ×
+    (progressive_list.ProgressiveListIter T U)) ((core.result.Result Unit
     error.Error) × (progressive_tree.ProgressiveTreeBuilder T)))
   := do
-  let (o, self1) ←
+  let (o, iter1) ←
     progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
-      ValueInst update_mapUpdateMapInst self
+      ValueInst update_mapUpdateMapInst iter
   match o with
   | none => ok (done (core.result.Result.Ok (), builder))
   | some value =>
@@ -6891,7 +6930,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop.body
     let cf ← core.result.Result.Insts.CoreOpsTry.branch r
     match cf with
     | core.ops.control_flow.ControlFlow.Continue _ =>
-      ok (cont (self1, builder1))
+      ok (cont (builder1, iter1))
     | core.ops.control_flow.ControlFlow.Break residual =>
       let r1 ←
         core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual
@@ -6899,23 +6938,24 @@ def progressive_list.ProgressiveListIter.extend_builder_loop.body
       ok (done (r1, builder1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop 0:
-    Source: 'src/progressive_list.rs', lines 517:8-521:5 -/
+    Source: 'src/progressive_list.rs', lines 516:8-520:5 -/
 @[rust_loop]
 def progressive_list.ProgressiveListIter.extend_builder_loop
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
-  update_map.UpdateMap U T) (self : progressive_list.ProgressiveListIter T U)
-  (builder : progressive_tree.ProgressiveTreeBuilder T) :
+  update_map.UpdateMap U T)
+  (builder : progressive_tree.ProgressiveTreeBuilder T)
+  (iter : progressive_list.ProgressiveListIter T U) :
   Result ((core.result.Result Unit error.Error) ×
     (progressive_tree.ProgressiveTreeBuilder T))
   := do
   loop
-    (fun (self1, builder1) =>
+    (fun (builder1, iter1) =>
       progressive_list.ProgressiveListIter.extend_builder_loop.body ValueInst
-      update_mapUpdateMapInst self1 builder1)
-    (self, builder)
+      update_mapUpdateMapInst builder1 iter1)
+    (builder, iter)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]:
-    Source: 'src/progressive_list.rs', lines 516:4-521:5 -/
+    Source: 'src/progressive_list.rs', lines 515:4-520:5 -/
 @[reducible]
 def progressive_list.ProgressiveListIter.extend_builder
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6925,7 +6965,7 @@ def progressive_list.ProgressiveListIter.extend_builder
     (progressive_tree.ProgressiveTreeBuilder T))
   := do
   progressive_list.ProgressiveListIter.extend_builder_loop ValueInst
-    update_mapUpdateMapInst self builder
+    update_mapUpdateMapInst builder self
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::pop_front]:
     Source: 'src/progressive_list.rs', lines 247:4-272:5

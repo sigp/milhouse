@@ -23,7 +23,7 @@ theorem ProgressiveListIter.extend_builder_clones {T U : Type}
     ∃ copied, _root_.List.mapM ValueInst.corecloneCloneInst.clone values = ok copied ∧
       result.elements = initial.elements ++ copied ∧
       result.length.val = initial.length.val + values.length := by
-  change ProgressiveListIter.extend_builder_loop ValueInst mapInst self initial =
+  change ProgressiveListIter.extend_builder_loop ValueInst mapInst initial self =
     ok (core.result.Result.Ok (), result) at hextend
   induction hyields generalizing initial with
   | nil hnext =>

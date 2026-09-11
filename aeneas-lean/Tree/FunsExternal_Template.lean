@@ -856,7 +856,7 @@ axiom vec_map.VacantEntry.insert
   vec_map.VacantEntry V → V → Result (V × (V → vec_map.VacantEntry V))
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::intra_rebase]:
-    Source: 'src/list.rs', lines 407:4-424:5
+    Source: 'src/list.rs', lines 406:4-423:5
     Visibility: public -/
 axiom list.List.intra_rebase
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)

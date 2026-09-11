@@ -15,7 +15,7 @@ theorem ProgressiveList.to_vec_loop_mapM {T U : Type}
     (hyields : IteratorYields
       (ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst mapInst) cursor values)
     (hbound : accumulator.val.length + values.length ≤ Std.Usize.max) :
-    (do let output ← ProgressiveList.to_vec_loop ValueInst mapInst cursor accumulator
+    (do let output ← ProgressiveList.to_vec_loop ValueInst mapInst accumulator cursor
         ok output.val) =
       (do let cloned ← _root_.List.mapM ValueInst.corecloneCloneInst.clone values
           ok (accumulator.val ++ cloned)) := by

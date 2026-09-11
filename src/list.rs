@@ -170,8 +170,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
     pub fn to_vec(&self) -> Vec<T> {
         let mut values = Vec::with_capacity(self.len());
-        let mut iter = self.iter();
-        while let Some(value) = iter.next() {
+        for value in self.iter() {
             values.push(value.clone());
         }
         values

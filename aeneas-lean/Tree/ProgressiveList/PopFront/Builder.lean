@@ -36,8 +36,8 @@ theorem ProgressiveListIter.extend_builder_preserves_valid {T U : Type}
     (hextend : ProgressiveListIter.extend_builder ValueInst mapInst self initial =
       ok (core.result.Result.Ok (), result)) :
     result.Valid ValueInst factor := by
-  let inv := fun (state : ProgressiveListIter T U × ProgressiveTreeBuilder T) =>
-    state.2.Valid ValueInst factor
+  let inv := fun (state : ProgressiveTreeBuilder T × ProgressiveListIter T U) =>
+    state.1.Valid ValueInst factor
   let post := fun (result : core.result.Result Unit error.Error × ProgressiveTreeBuilder T) =>
     result.1 = core.result.Result.Ok () → result.2.Valid ValueInst factor
   have hbody : ∀ state, inv state → ∀ flow,
@@ -45,7 +45,7 @@ theorem ProgressiveListIter.extend_builder_preserves_valid {T U : Type}
       match flow with
       | .cont next => inv next
       | .done result => post result := by
-    intro ⟨cursor, current⟩ hinv flow hstep
+    intro ⟨current, cursor⟩ hinv flow hstep
     unfold ProgressiveListIter.extend_builder_loop.body at hstep
     rw [bind_eq_ok_iff] at hstep
     obtain ⟨⟨entry, cursor1⟩, _, hstep⟩ := hstep
@@ -79,6 +79,6 @@ theorem ProgressiveListIter.extend_builder_preserves_valid {T U : Type}
       cases flow with
       | cont next => exact hbody state hinv (.cont next) hstep
       | done result => exact hbody state hinv (.done result) hstep)
-    (self, initial) hvalid _ hextend rfl
+    (initial, self) hvalid _ hextend rfl
 
 end milhouse.progressive_list

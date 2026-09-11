@@ -233,9 +233,9 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        let mut iter = self.into_iter();
+        let iter = self.into_iter();
         let mut values = Vec::with_capacity(iter.len());
-        while let Some(value) = iter.next() {
+        for value in iter {
             values.push(value.clone());
         }
         values
@@ -511,10 +511,9 @@ pub struct ProgressiveListIter<'a, T: Value, U: UpdateMap<T>> {
 }
 
 impl<T: Value, U: UpdateMap<T>> ProgressiveListIter<'_, T, U> {
-    // Keep the fallible loop separate from finalization, and call concrete
-    // next directly to avoid unsupported generic adapter/trait extraction.
-    fn extend_builder(mut self, builder: &mut ProgressiveTreeBuilder<T>) -> Result<(), Error> {
-        while let Some(value) = self.next() {
+    // Keep the fallible loop separate from finalization.
+    fn extend_builder(self, builder: &mut ProgressiveTreeBuilder<T>) -> Result<(), Error> {
+        for value in self {
             builder.push(value.clone())?;
         }
         Ok(())

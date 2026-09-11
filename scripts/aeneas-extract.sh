@@ -37,8 +37,9 @@
 # - Progressive traversal steps use inline helpers to keep borrows out of loop
 #   contexts; to_vec uses an explicit loop (UPSTREAM_BUGS.md issue 13).
 # - Progressive pop_front uses a concrete iterator-to-builder helper to avoid
-#   cloned adapters, early loop returns, and unsupported trait dictionary fields
-#   (UPSTREAM_BUGS.md issue 15).
+#   cloned adapters and early loop returns (UPSTREAM_BUGS.md issue 15).
+#   September's -filter-trait-methods omits fields absent from builtin traits,
+#   allowing ordinary for loops in that helper and both to_vec methods.
 # - Cow metadata helpers and consuming into_mut are included. Concrete helpers
 #   and explicit Result matches avoid borrowed trait/adapter failures. Deref
 #   and make_mut still hit borrowed-field failures; see UPSTREAM_BUGS.md.
@@ -172,7 +173,7 @@ if rg -q -F "falling back to rustc's default sysroot" "$charon_log"; then
     exit 1
 fi
 
-"$AENEAS" -backend lean -split-files -dest aeneas-lean/Tree tree.llbc
+"$AENEAS" -backend lean -split-files -filter-trait-methods -dest aeneas-lean/Tree tree.llbc
 
 # The Arbitrary trait's `arbitrary` field shadows its namespace in later
 # field types. Qualify those names without changing the generated interface.
