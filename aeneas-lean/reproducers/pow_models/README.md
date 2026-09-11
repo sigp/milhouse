@@ -20,6 +20,40 @@ compiler pin**. They are historical evidence, not a successful comparison
 against the September standard library. The current runner command below
 reproduces the September failure on the trial branch.
 
+The separate [branch callers](branches.rs) diagnose the candidate's new
+algorithm without replacing the original proof root. Full-MIR extraction of
+`strict_pow` plus `checked_pow` fails with `Unexpected result: Cps.Unit` at
+`Interp.ml:593`. Including `core::num::imp::overflow_panic::pow` does not
+resolve it: the panic helper itself translates to `fail panic`, but its
+`strict_pow` caller still fails. Thus specializing the outer overflow flag
+alone would not suffice. `wrapping_pow` and `overflowing_pow` extract with
+external helper templates, but their overflow behavior differs from the
+existing checked model; this diagnostic is not a passing comparison proof.
+
+Reproduce the strict branch on the trial branch from the repository root:
+
+```sh
+power_probe=$(mktemp -d /tmp/milhouse-power-branch-XXXXXX)
+aeneas-lean/.lake/aeneas/charon rustc --preset=aeneas \
+  --no-dedup-serialized-ast --start-from power_branch_review::strict \
+  --include 'core::num::_::strict_pow' \
+  --include 'core::num::_::checked_pow' \
+  --include 'core::num::imp::overflow_panic::pow' \
+  --dest-file "$power_probe/branch_review.llbc" -- \
+  --edition=2024 --crate-type lib --crate-name power_branch_review \
+  "$PWD/aeneas-lean/reproducers/pow_models/branches.rs"
+aeneas-lean/.lake/aeneas/aeneas -backend lean -namespace BranchReview \
+  -split-files -no-progress-bar -print-error-emitters \
+  -dest "$power_probe/BranchReview" "$power_probe/branch_review.llbc"
+```
+
+The final command is expected to exit 1. Removing the panic-helper include
+produces the same failure. The wrapping diagnostic uses root
+`power_branch_review::wrapping` and includes only `core::num::_::wrapping_pow`
+and `core::num::_::overflowing_pow`. Charon and Aeneas exit zero for that
+diagnostic, with external declarations for the compiler selector, `ilog2`,
+and `unbounded_shl`. No admitted template or partial output is compiled.
+
 From the repository root:
 
 ```sh

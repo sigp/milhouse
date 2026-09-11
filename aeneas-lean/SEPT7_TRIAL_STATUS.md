@@ -69,6 +69,14 @@ tests pass, but Aeneas exits 1 and emits partial files, which are rejected.
 A separate `--monomorphize --rustc-arg=-Coverflow-checks=yes` extraction
 reaches the same failure.
 
+A subsequent separate branch probe finds another obstacle: `strict_pow`
+fails with `Unexpected result: Cps.Unit` at `Interp.ml:593`, both with and
+without including its panic helper. Resolving the outer selector alone would
+not suffice. `wrapping_pow` extracts with external helper templates, but its
+overflow behavior differs from the checked model. The diagnostic callers in
+`reproducers/pow_models/branches.rs` do not replace the original proof root.
+The original Pow audit was rerun and still fails at the selector.
+
 The working compiler is retained because the candidate cannot validate all
 existing proofs. Further work requires discussion of an upstream fix or an
 explicitly reviewed change to the source-model boundary. No LLBC operation
@@ -91,6 +99,10 @@ Final session artifacts are under `/tmp/milhouse-aeneas-upstream-j6mrhx0i/`:
 - `sept7-final-cow-controls/`: fresh control extraction, proofs, formatting,
   and native tests.
 - `pow-mono-probe/`: unsupported operation with explicit compiler flags.
+- `sept7-power-branch-review/committed-*` and
+  `sept7-power-branch-review/committed-results.json`: separate strict/wrapping
+  branch extraction diagnostics.
+- `sept7-pow-recheck-2.log`: unchanged failure in the complete Pow runner.
 
 Detailed successful reports and generated source files remain under the
 trial's ignored `aeneas-lean/.lake/*-model-audit/` directories. The candidate
