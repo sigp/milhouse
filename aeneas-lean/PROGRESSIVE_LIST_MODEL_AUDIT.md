@@ -101,6 +101,16 @@ formatter options, user sinks, or lock observation without further work.
 
 ## MaxMap wrapper source proofs
 
+The [CoW continuation checkpoint](COW_PROOFS_STATUS.md) proves the actual
+`get_cow_with_value` wrapper's exact result and continuation. Inner read,
+unchanged-release, entry-location, and existing-mutable laws transfer at the
+supplied fallback. Its insertion-maximum law is enforced by the source
+callback without an inner maximum or cache-validity law. The specialized
+ProgressiveList consuming/replacement contracts discharge their independent
+maximum premise, and returned consuming errors restore the whole list under
+selected unchanged release. These are wrapper composition proofs; concrete
+inner-map fidelity and borrowed operations remain separate obligations.
+
 On the September 7 compiler, `UpdateMap::is_empty` and the concrete
 `MaxMap::is_empty` caller now extract and compile. The earlier exclusion is
 removed, and the complete wrapper dictionary is generated from Rust.

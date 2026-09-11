@@ -311,6 +311,13 @@ the existing copy-on-write maximum-index tracking.
 handle dereferencing and borrowed `make_mut` remain unresolved. The extraction
 also includes `get_cow`, `Cow::with_max_index`, and `CowOnMut::run`.
 
+The September 11 [CoW continuation checkpoint](COW_PROOFS_STATUS.md) adds
+source-backed MaxMap maximum contracts and high-level consuming-error
+restoration. Fresh full-MIR probes on `7ebd01d` still fail for borrowed
+`make_mut` and a concrete `Deref` caller. Selecting only the Deref trait
+method returned zero without emitting the required bodies; it was rejected
+as incomplete coverage. The detailed earlier attempts below remain relevant.
+
 Expanding the extraction roots to `milhouse::cow` fails when translating the
 `Deref::deref` implementations for `BTreeCow` and `VecCow`. Returning the
 immutable variant's borrowed value raises `Unreachable`. Equivalent explicit
@@ -605,6 +612,11 @@ of a milhouse method. Fresh extraction and the full Lean build succeed, and all
 **Stage:** symbolic execution.
 **Status:** unresolved for `ProgressiveListIterCow::next_cow`; the actual
 `iter_cow`, `iter_cow_from`, and shared constructor translate successfully.
+
+Rechecked on September 11 with `7ebd01d`, Charon `85bba1f2`, and full MIR:
+Charon succeeds without LLBC errors, but Aeneas exits 1 on the actual
+`next_cow` root with the same non-endable closure and missing-symbolic-value
+failures. See [the current CoW status](COW_PROOFS_STATUS.md).
 
 Selecting `milhouse::progressive_list::_::next_cow` fails on the borrowed
 fallback closure with `Can't end abstraction 16 as it is set as non-endable`,

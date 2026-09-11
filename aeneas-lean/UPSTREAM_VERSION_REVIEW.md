@@ -50,6 +50,17 @@ both pass, and input hashes remain current for all eight source reports
 (51 proofs total). The six unaffected source suites retain their earlier
 validated results. Logs and hashes are under `.lake/sept7-simplifications/`.
 
+The subsequent [CoW proof checkpoint](COW_PROOFS_STATUS.md) removes another
+independent premise from the MaxMap-specialized consuming-mutation and
+replacement theorems: the wrapper's source callback establishes the required
+maximum-index behavior. This is a proof improvement using the extracted
+implementation, rather than a newly supported Rust construct. It adds 22
+named lemmas, including restoration after returned consuming errors, and
+the full audit passes 6,251 theorem declarations across 454 modules. Fresh
+probes still fail for actual borrowed `Deref`, `make_mut`, and `next_cow`;
+the CoW goal remains incomplete. The approved power assumption and other
+trust boundaries are unchanged.
+
 ## Versions compared
 
 | Component | Pre-upgrade pin | Selected September 7 candidate | Latest upstream checked on September 10 |

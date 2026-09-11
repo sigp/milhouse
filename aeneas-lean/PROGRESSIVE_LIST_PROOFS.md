@@ -93,6 +93,13 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The [CoW continuation checkpoint](COW_PROOFS_STATUS.md) adds source
+  composition for the actual MaxMap supplied-value wrapper. Its attached
+  callback proves the maximum law, removing that independent premise from
+  specialized ProgressiveList consuming-mutation and replacement theorems.
+  Returned consuming errors restore the whole list under only selected
+  unchanged release. Borrowed `Deref`, `make_mut`, stepping, and remaining
+  concrete inner-map fidelity stay open; the full CoW goal is not complete.
 - September compiler follow-up: `UpdateMap::is_empty` and the complete
   `MaxMap` dictionary now extract. `UpdateMap/MaxMap/Empty.lean` derives
   wrapper emptiness from the actual inner length, including default
