@@ -318,6 +318,15 @@ restoration. Fresh full-MIR probes on `7ebd01d` still fail for borrowed
 method returned zero without emitting the required bodies; it was rejected
 as incomplete coverage. The detailed earlier attempts below remain relevant.
 
+A focused check at `521171d` also enables Aeneas's additional `-checks`
+invariants on the concrete Deref caller. Full-MIR Charon output has no errors;
+Aeneas still exits 1, now reporting `Could not find borrow b@2` at both inner
+immutable-value projections (`interp/Invariants.ml:165`) and an outer
+invariant failure (`interp/Invariants.ml:910`). The caller patch, LLBC hash,
+and logs are retained under `.lake/cow-blocked-audit/`. No partial output is
+imported. This strengthens the diagnostic; it does not establish that every
+possible Rust representation or rewrite would fail.
+
 Expanding the extraction roots to `milhouse::cow` fails when translating the
 `Deref::deref` implementations for `BTreeCow` and `VecCow`. Returning the
 immutable variant's borrowed value raises `Unreachable`. Equivalent explicit
@@ -702,6 +711,14 @@ The generated signatures and bodies and Aeneas sources are unchanged.
 **Status:** avoided in milhouse with explicit streaming loops and identical
 explicit SSZ defaults; all five progressive-list encoding methods now extract
 and have metadata, exact size, and exact byte-output specifications.
+
+September follow-up (`d453198`): `-filter-trait-methods` allows all three
+encoding loops to use ordinary `for item in self` again. The byte-output,
+size, ordered-call, failure, and divergence proofs validate using the actual
+borrowed `IntoIterator` implementation, with unchanged semantic premises.
+The variable-size calculation still uses a streaming sum loop, and the
+explicit SSZ defaults remain. The following paragraphs describe the original
+workarounds, before iterator filtering was available.
 
 The original variable-size calculation uses `map(...).sum()`, and `ssz_append`
 uses `for item in self`. Making these methods reachable exposes adapter

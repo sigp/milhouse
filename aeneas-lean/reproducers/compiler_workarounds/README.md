@@ -60,7 +60,15 @@ Separate full-production extraction demonstrated two useful improvements:
   emptiness-answer premise for that dictionary. They use only standard Lean
   axioms. Arbitrary map overrides retain their own contracts.
 
-These changes are in `da402d9` and `2356f2c`. The mathematical clone, equality,
+Commit `d453198` applies the same iterator support to four further loops:
+the three ProgressiveList SSZ encoding loops and `List::pop_front_slow`.
+The encoder again uses `for item in self`; its existing proofs reuse the
+proved borrowed `IntoIterator` contract. Only the size loop's generated
+state-argument order needs adjustment. The slow list-removal body is unchanged
+after extraction, apart from source annotations. No semantic proof premise,
+external interface, or model changes.
+
+The initial changes are in `da402d9` and `2356f2c`. The mathematical clone, equality,
 hash, packing, and representation requirements do not disappear merely because
 the compiler supports more syntax. The approved `usize::pow` source assumption
 is unchanged. Debug and Serde remain out of scope; TreeHash remains deferred.

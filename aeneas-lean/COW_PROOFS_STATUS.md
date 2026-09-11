@@ -1,9 +1,12 @@
 # ProgressiveList CoW proof status
 
-The goal remains in progress. Acquisition and consuming mutation have
-high-level correctness results; borrowed handle access and iterator stepping
-still need extraction and proofs. These obligations are not replaced by
-observations of handle data or by the consuming-method theorems.
+Completion of the CoW goal is blocked on the pinned compiler's translation of
+borrowed handle access and iterator stepping. Acquisition and consuming
+mutation have high-level correctness results. The missing method obligations
+are not replaced by observations of handle data or by the consuming-method
+theorems. No supported workaround for the actual borrowed methods has been
+established by the probes below. Aeneas source changes remain outside the
+repository's instructions; no additional source assumptions are introduced.
 
 ## Callback composition repaired
 
@@ -132,6 +135,15 @@ methods with `Unreachable`. The original caller patch and logs remain in
 under `.lake/cow-callback-chain-probe/deref-caller/`. The caller and partial
 generated output are not imported into production.
 
+An additional focused run at `521171d` enables `-checks` on this same concrete
+Deref caller. Charon produces error-free full-MIR LLBC; Aeneas exits 1 with
+`Could not find borrow b@2` in both inner methods and an invariant failure in
+the outer method. The exact caller patch, LLBC hash, and diagnostics are under
+`.lake/cow-blocked-audit/`. The tested variants do not establish that every
+possible Rust rewrite would fail, but they provide no extractable body for the
+required proof. The remaining concrete VecMap operations have the separate
+insertion and occupied-entry failures described above.
+
 ## Validation
 
 The complete Lean build passes (2,180 jobs). The axiom/import audit covers
@@ -150,3 +162,12 @@ are under `.lake/cow-concrete-map-probe/`. The approved `usize::pow` source
 assumption and external models are unchanged. Debug and Serde remain out of
 scope, and TreeHash remains deferred. Borrowed methods and the remaining
 concrete inner-map/entry fidelity still prevent completion of the goal.
+
+The subsequent compiler-cleanup commit `d453198` restores ordinary loops in
+SSZ encoding and slow list removal. It leaves CoW implementations and all
+semantic proof premises unchanged. The complete 2,180-job build and axiom
+audit still pass with 6,309 declarations across 458 modules and identical
+axiom dependencies. The model audit and all 333 Rust tests pass. The SSZ-offset
+and Arbitrary source reports were refreshed for shifted source annotations;
+all eight reports have current inputs and retain 54 proofs. Evidence is under
+`.lake/sept7-remaining-loops/`.

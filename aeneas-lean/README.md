@@ -72,7 +72,7 @@ power when it fits in a machine word, otherwise fail with `integerOverflow`.
 Its agreement with Rust, including the failure abstraction, is assumed under
 the approved [source-model policy](SOURCE_MODEL_ASSUMPTIONS.json). No new Lean
 axiom is introduced. The model audit reports this assumption and the API roots
-that conservatively depend on it. The required source suites prove 51 lemmas;
+that conservatively depend on it. The required source suites prove 54 lemmas;
 the former `core_pow_agrees` comparison is not counted as proved.
 
 `python3 scripts/aeneas-audit-pow-models.py` remains an optional diagnostic.

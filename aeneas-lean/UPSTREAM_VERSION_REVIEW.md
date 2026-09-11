@@ -30,6 +30,20 @@ MaxMap dictionary. Seven new lemmas derive wrapper emptiness and the public
 pending-update observer from inner length, without a separate emptiness-answer
 premise for that dictionary. Generic map overrides remain conditional.
 
+Commit `d453198` restores four more ordinary loops: the three ProgressiveList
+SSZ encoding loops and `List::pop_front_slow`. The encoding proofs now reuse
+the existing borrowed `IntoIterator` theorem and the size loop's new argument
+order. Their semantic premises are unchanged. The generated slow-removal body
+is identical apart from source annotations; no new external interface is
+needed. This extends the iterator cleanup to seven loops in total.
+
+Validation of `d453198` passes the complete 2,180-job build, 6,309 theorem
+declarations across 458 modules, the model audit, and all 333 Rust tests.
+Axiom dependencies and the approved power boundary are unchanged. The two
+source suites affected by shifted annotations were refreshed; all eight
+reports are current, with 54 proofs total. Logs and the declaration-level
+generated-code comparison are under `.lake/sept7-remaining-loops/`.
+
 The [repeatable diagnostic matrix](reproducers/compiler_workarounds/README.md)
 records fresh failures for the other tested candidates, including all eight
 borrowed-CoW enum readers and VecMap insertion with and without the new flag.
