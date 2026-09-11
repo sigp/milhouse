@@ -7,20 +7,16 @@ namespace milhouse.arbitrary
 
 theorem nextControl_empty (input : _root_.arbitrary.unstructured.Unstructured)
     (hempty : input.val = []) : nextControl input = (false, input) := by
-  rcases input with ⟨bytes, hbytes⟩
-  change bytes = [] at hempty
-  subst bytes
-  rfl
+  unfold nextControl
+  split <;> simp_all
 
 /-- Every nonempty control read consumes exactly one byte, including an even
 byte that stops collection. No claim is made about element consumption. -/
 theorem nextControl_cons (input rest : _root_.arbitrary.unstructured.Unstructured)
     (byte : Std.U8) (hinput : input.val = byte :: rest.val) :
     nextControl input = (decide (byte.val % 2 = 1), rest) := by
-  rcases input with ⟨bytes, hbytes⟩
-  change bytes = byte :: rest.val at hinput
-  subst bytes
-  rfl
+  unfold nextControl
+  split <;> simp_all
 
 /-- A finite successful generator trace records only actual control reads and
 element calls. An element may consume, retain, or replace the input. -/
@@ -88,7 +84,7 @@ theorem vector_of_generates {T : Type} (inst : Arbitrary T)
     vector inst input = ok (.Ok values, after) := by
   obtain ⟨output, hloop, houtput⟩ := vector_loop_of_generates inst htrace (alloc.vec.Vec.new T)
     (by simpa [alloc.vec.Vec.new] using values.property)
-  have heq : output = values := Subtype.ext (by simpa [alloc.vec.Vec.new] using houtput)
+  have heq : output = values := alloc.vec.Vec.ext _ _ (by simpa [alloc.vec.Vec.new] using houtput)
   simpa only [vector, heq] using hloop
 
 /-- Collection stops at the first error, after pushing the successful prefix,

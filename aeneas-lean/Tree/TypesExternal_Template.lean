@@ -6,6 +6,9 @@ open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+set_option linter.style.whitespace false
+set_option linter.style.setOption false
+set_option linter.style.longLine false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -21,7 +24,7 @@ set_option maxRecDepth 2048
 axiom core.mem.maybe_uninit.MaybeUninit (T : Type) : Type
 
 /-- [std::collections::hash::map::HashMap]
-    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 246:0-251:1
+    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 245:0-250:1
     Name pattern: [std::collections::hash::map::HashMap]
     Visibility: public -/
 @[rust_type "std::collections::hash::map::HashMap"]

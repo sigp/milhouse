@@ -19,6 +19,7 @@ SUITE = {
     "crate": "option_source", "namespace": "OptionSource",
     "includes": ["core::option"],
     "source_files": {name: "/rustc/library/core/src/option.rs" for name in METHODS},
+    "rename_sources": {"ok_or": "ok_or_source"},
     "proofs": {name: [] for name in PROOFS},
     "composition": ["cloned"], "unresolved": ["cloned"],
 }

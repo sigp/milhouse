@@ -1,4 +1,5 @@
 import Tree.Funs
+import Tree.CompilerModels
 import Tree.Tuple.Comparison
 import Tree.PackingDepth
 import Tree.Arbitrary.Generation

@@ -3,18 +3,22 @@
 import copy
 import unittest
 
-from aeneas_source_model_audit import POW_SELECTOR_CALLER, prepare_pow_selector
+from aeneas_source_model_audit import (
+    CORE_CHECKED_POW_CALLER, POW_SELECTOR_CALLER,
+    prepare_core_selector, prepare_pow_selector,
+)
 
 
 class PowSelectorTests(unittest.TestCase):
     def setUp(self):
         self.source = {
-            "def_id": 2, "is_global_initializer": None,
+            "def_id": 2, "src": "Normal",
             "body": {"Intrinsic": {"name": "is_val_statically_known", "arg_names": ["_arg"]}},
             "item_meta": {
                 "name": [{"Ident": [part, 0]} for part in
                          ["core", "intrinsics", "is_val_statically_known"]],
-                "span": {"data": {"file_id": 4}}, "is_local": False, "opacity": "Foreign",
+                "span": {"Untagged": {"data": {"file_id": 4}, "generated_from_span": None}},
+                "is_local": False, "opacity": "Foreign",
             },
         }
         self.data = {"translated": {"crate_name": "pow_source", "fun_decls": [self.source],
@@ -52,7 +56,7 @@ class PowSelectorTests(unittest.TestCase):
         for mutate in [
             lambda d: d["translated"].update(crate_name="another"),
             lambda d: d["translated"]["fun_decls"][0].update(body="Opaque"),
-            lambda d: d["translated"]["fun_decls"][0].update(is_global_initializer=0),
+            lambda d: d["translated"]["fun_decls"][0].update(src={"GlobalInitializer": {"id": 0}}),
             lambda d: d["translated"]["fun_decls"][0]["item_meta"].update(is_local=True),
             lambda d: d["translated"]["fun_decls"][0]["item_meta"].update(opacity="Transparent"),
             lambda d: d["translated"]["files"][0].update(crate_name="pow_source"),
@@ -74,6 +78,43 @@ class PowSelectorTests(unittest.TestCase):
                          self.original.replace(call, "") + call]:
             with self.subTest(original=original), self.assertRaises(ValueError):
                 prepare_pow_selector(self.data, self.template, original)
+
+
+class CoreSelectorTests(unittest.TestCase):
+    def setUp(self):
+        self.original = ("import Aeneas\nnamespace CoreSource\n"
+            "\ndef core.num.U128.checked_pow_loop0 := originalLoop0\n"
+            "\ndef core.num.U128.checked_pow_loop1 := originalLoop1\n"
+            "\ndef core.num.U128.checked_pow_loop2 := originalLoop2\n"
+            "\ndef core.num.U128.checked_pow_loop3 := originalLoop3\n"
+            + CORE_CHECKED_POW_CALLER
+            + "\n/-- [core::num::{u128}::saturating_mul]: -/\n"
+            "def core.num.U128.saturating_mul := originalSaturatingMul\nend CoreSource\n")
+
+    def test_preserves_every_body_and_independent_outcomes(self):
+        prepared, record = prepare_core_selector(self.original)
+        parameter = "\nvariable [milhouse.compiler.StaticKnown]\n"
+        self.assertEqual(prepared.count(parameter), 1)
+        self.assertEqual(prepared.replace(parameter, "", 1), self.original)
+        self.assertEqual(record["outcomes"], [False, True])
+        self.assertIn("independent outcomes", record["scope"])
+        self.assertNotEqual(record["originalFunsSha256"], record["parameterizedFunsSha256"])
+
+    def test_rejects_repeated_or_moved_queries_and_changed_control_flow(self):
+        base_call = "  let b ← core.intrinsics.is_val_statically_known core.marker.CopyU128 self\n"
+        for original in [
+            self.original.replace(base_call, ""),
+            self.original.replace(base_call, base_call + base_call),
+            self.original.replace(base_call, "") + base_call,
+            self.original.replace("core.marker.CopyU32 exp", "core.marker.CopyU128 self"),
+            self.original.replace("if exp = 0#u32", "if exp = 1#u32"),
+            self.original.replace("then core.num.U128.checked_pow_loop0", "then core.num.U128.checked_pow_loop1"),
+            self.original.replace("originalLoop0", "core.intrinsics.is_val_statically_known"),
+            self.original.replace("namespace CoreSource", "namespace Other"),
+            self.original + "\nvariable [milhouse.compiler.StaticKnown]\n",
+        ]:
+            with self.subTest(original=original), self.assertRaises(ValueError):
+                prepare_core_selector(original)
 
 
 if __name__ == "__main__":

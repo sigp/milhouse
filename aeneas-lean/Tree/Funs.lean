@@ -7,6 +7,9 @@ open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+set_option linter.style.whitespace false
+set_option linter.style.setOption false
+set_option linter.style.longLine false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -1494,7 +1497,7 @@ def interface.Interface.new
   let t ← update_mapUpdateMapInst.coredefaultDefaultInst.default
   ok { backing, updates := t, _phantom := () }
 
-/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::interface::{milhouse::interface::Interface<T, B, U>[TraitClause0, TraitClause1, TraitClause2]}::get_mut::closure<'_0, T, B, U>}::call_once]:
+/-- [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::interface::{milhouse::interface::Interface<T, B, U>[TraitClause0, TraitClause1, TraitClause2]}::get_mut::{closure}<'_0, T, B, U>}::call_once]:
     Source: 'src/interface.rs', lines 70:31-70:67 -/
 def
   interface.Interface.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
@@ -1506,7 +1509,7 @@ def
   let o ← MutListInst.ImmListInst.get c tupled_args
   core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o
 
-/-- Trait implementation: [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::interface::{milhouse::interface::Interface<T, B, U>[TraitClause0, TraitClause1, TraitClause2]}::get_mut::closure<'_0, T, B, U>}]
+/-- Trait implementation: [milhouse::interface::{milhouse::interface::Interface<T, B, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::interface::{milhouse::interface::Interface<T, B, U>[TraitClause0, TraitClause1, TraitClause2]}::get_mut::{closure}<'_0, T, B, U>}]
     Source: 'src/interface.rs', lines 70:31-70:67 -/
 @[reducible]
 def
@@ -1539,7 +1542,7 @@ def interface.Interface.get_mut
               { self with updates := t }
   ok (o, back)
 
-/-- [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}::call_once]:
+/-- [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::{closure}<'_0, U, T>}::call_once]:
     Source: 'src/utils.rs', lines 87:41-89:5 -/
 def
   utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength.call_once
@@ -1552,7 +1555,7 @@ def
   let i2 ← core.cmp.max core.cmp.OrdUsize i i1
   ok i2
 
-/-- Trait implementation: [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::closure<'_0, U, T>}]
+/-- Trait implementation: [milhouse::utils::updated_length::{impl core::ops::function::FnOnce<(usize,), milhouse::utils::Length> for milhouse::utils::updated_length::{closure}<'_0, U, T>}]
     Source: 'src/utils.rs', lines 87:41-89:5 -/
 @[reducible]
 def utils.updated_length.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeLength {U
@@ -2137,7 +2140,7 @@ partial_fixpoint
 def utils.opt_hash
   (hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize ×
   Std.Usize) (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global))
-  (depth : Std.Usize) (prefix1 : Std.Usize) :
+  (depth : Std.Usize) («prefix» : Std.Usize) :
   Result (Option (alloy_primitives.bits.fixed.FixedBytes 32#usize))
   := do
   let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch hashes
@@ -2148,7 +2151,7 @@ def utils.opt_hash
         (core.borrow.Borrow.Blanket (Std.Usize × Std.Usize))
         (Pair.Insts.CoreCmpOrd core.cmp.OrdUsize core.cmp.OrdUsize)
         (Pair.Insts.CoreCmpOrd core.cmp.OrdUsize core.cmp.OrdUsize) val (depth,
-        prefix1)
+        «prefix»)
     core.option.OptionShared0T.copied
       (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreMarkerCopy 32#usize) o
   | core.ops.control_flow.ControlFlow.Break residual =>
@@ -2225,11 +2228,12 @@ def packed_leaf.PackedLeaf.update_loop.body
   {T : Type} {U : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T)
   (corecloneCloneInst : core.clone.Clone T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (updates : U) (packing_factor : Std.Usize)
-  (end1 : Std.Usize) (updated : packed_leaf.PackedLeaf T) (index : Std.Usize) :
+  («end» : Std.Usize) (updated : packed_leaf.PackedLeaf T)
+  (index : Std.Usize) :
   Result (ControlFlow ((packed_leaf.PackedLeaf T) × Std.Usize)
     (core.result.Result (packed_leaf.PackedLeaf T) error.Error))
   := do
-  if index < end1
+  if index < «end»
   then
     let o ← update_mapUpdateMapInst.get updates index
     match o with
@@ -2262,13 +2266,13 @@ def packed_leaf.PackedLeaf.update_loop
   {T : Type} {U : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T)
   (corecloneCloneInst : core.clone.Clone T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (updates : U) (updated : packed_leaf.PackedLeaf T)
-  (packing_factor : Std.Usize) (end1 : Std.Usize) (index : Std.Usize) :
+  (packing_factor : Std.Usize) («end» : Std.Usize) (index : Std.Usize) :
   Result (core.result.Result (packed_leaf.PackedLeaf T) error.Error)
   := do
   loop
     (fun (updated1, index1) => packed_leaf.PackedLeaf.update_loop.body
       tree_hashTreeHashInst corecloneCloneInst update_mapUpdateMapInst updates
-      packing_factor end1 updated1 index1)
+      packing_factor «end» updated1 index1)
     (updated, index)
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::update]:
@@ -2278,7 +2282,7 @@ def packed_leaf.PackedLeaf.update
   {T : Type} {U : Type} (tree_hashTreeHashInst : tree_hash.TreeHash T)
   (corecloneCloneInst : core.clone.Clone T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : packed_leaf.PackedLeaf T)
-  (prefix1 : Std.Usize)
+  («prefix» : Std.Usize)
   (hash : alloy_primitives.bits.fixed.FixedBytes 32#usize) (updates : U) :
   Result (core.result.Result (packed_leaf.PackedLeaf T) error.Error)
   := do
@@ -2288,10 +2292,10 @@ def packed_leaf.PackedLeaf.update
       hash
   let v ← alloc.vec.CloneVec.clone corecloneCloneInst self.values
   let packing_factor ← tree_hashTreeHashInst.tree_hash_packing_factor
-  let end1 ← prefix1 + packing_factor
+  let «end» ← «prefix» + packing_factor
   packed_leaf.PackedLeaf.update_loop tree_hashTreeHashInst corecloneCloneInst
     update_mapUpdateMapInst updates { hash := rl, values := v } packing_factor
-    end1 prefix1
+    «end» «prefix»
 
 /-- [milhouse::packed_leaf::{milhouse::packed_leaf::PackedLeaf<T>}::empty]:
     Source: 'src/packed_leaf.rs', lines 50:4-55:5
@@ -2316,12 +2320,12 @@ def packed_leaf.PackedLeaf.empty
 def tree.Tree.with_updated_leaves
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (self : tree.Tree T) (updates : U)
-  (prefix1 : Std.Usize) (offset : Std.Usize) (depth : Std.Usize)
+  («prefix» : Std.Usize) (offset : Std.Usize) (depth : Std.Usize)
   (hashes : Option (alloc.collections.btree.map.BTreeMap (Std.Usize ×
   Std.Usize) (alloy_primitives.bits.fixed.FixedBytes 32#usize) Global)) :
   Result (core.result.Result (triomphe.arc.Arc (tree.Tree T)) error.Error)
   := do
-  let o ← utils.opt_hash hashes depth prefix1
+  let o ← utils.opt_hash hashes depth «prefix»
   let hash ←
     core.option.Option.unwrap_or_default
       (alloy_primitives.bits.fixed.FixedBytes.Insts.CoreDefaultDefault
@@ -2330,7 +2334,7 @@ def tree.Tree.with_updated_leaves
   | tree.Tree.Leaf _ =>
     if depth = 0#usize
     then
-      let index ← prefix1 + offset
+      let index ← «prefix» + offset
       let o1 ← update_mapUpdateMapInst.get updates index
       let o2 ←
         core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o1
@@ -2349,7 +2353,7 @@ def tree.Tree.with_updated_leaves
   | tree.Tree.PackedLeaf pl =>
     if depth = 0#usize
     then
-      let i ← prefix1 + offset
+      let i ← «prefix» + offset
       let r ←
         packed_leaf.PackedLeaf.update ValueInst.tree_hashTreeHashInst
           ValueInst.corecloneCloneInst update_mapUpdateMapInst pl i hash
@@ -2372,11 +2376,11 @@ def tree.Tree.with_updated_leaves
       let new_depth ← depth - 1#usize
       let i ← new_depth + packing_depth
       let i1 ← 1#usize <<< i
-      let right_prefix ← lift (prefix1 ||| i1)
+      let right_prefix ← lift («prefix» ||| i1)
       let i2 ← depth + packing_depth
       let i3 ← 1#usize <<< i2
-      let right_subtree_end ← prefix1 + i3
-      let i4 ← prefix1 + offset
+      let right_subtree_end ← «prefix» + i3
+      let i4 ← «prefix» + offset
       let i5 ← right_prefix + offset
       let has_left_updates ←
         update_mapUpdateMapInst.has_any_in_range updates i4 i5
@@ -2388,7 +2392,7 @@ def tree.Tree.with_updated_leaves
         let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref left
         let r ←
           tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
-            updates prefix1 offset new_depth hashes
+            updates «prefix» offset new_depth hashes
         let cf ← core.result.Result.Insts.CoreOpsTry.branch r
         match cf with
         | core.ops.control_flow.ControlFlow.Continue val =>
@@ -2433,7 +2437,8 @@ def tree.Tree.with_updated_leaves
               (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame
               error.Error) residual
         else
-          ok (core.result.Result.Err (error.Error.NodeUpdatesMissing prefix1))
+          ok (core.result.Result.Err (error.Error.NodeUpdatesMissing
+            «prefix»))
     else ok (core.result.Result.Err error.Error.UpdateLeavesError)
   | tree.Tree.Zero zero_depth =>
     if zero_depth = depth
@@ -2447,7 +2452,7 @@ def tree.Tree.with_updated_leaves
           let pl ←
             packed_leaf.PackedLeaf.empty ValueInst.tree_hashTreeHashInst
               ValueInst.corecloneCloneInst
-          let i ← prefix1 + offset
+          let i ← «prefix» + offset
           let r ←
             packed_leaf.PackedLeaf.update ValueInst.tree_hashTreeHashInst
               ValueInst.corecloneCloneInst update_mapUpdateMapInst pl i hash
@@ -2462,7 +2467,7 @@ def tree.Tree.with_updated_leaves
               (triomphe.arc.Arc (tree.Tree T)) (core.convert.FromSame
               error.Error) residual
         else
-          let index ← prefix1 + offset
+          let index ← «prefix» + offset
           let o2 ← update_mapUpdateMapInst.get updates index
           let o3 ←
             core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o2
@@ -2484,7 +2489,7 @@ def tree.Tree.with_updated_leaves
         let a1 ← tree.Tree.node ValueInst a new_zero hash
         let t ← triomphe.arc.Arc.Insts.CoreOpsDerefDeref.deref a1
         tree.Tree.with_updated_leaves ValueInst update_mapUpdateMapInst t
-          updates prefix1 offset depth hashes
+          updates «prefix» offset depth hashes
     else ok (core.result.Result.Err error.Error.UpdateLeavesError)
 partial_fixpoint
 
@@ -4335,7 +4340,7 @@ impl_def utils.Length.Insts.CoreCmpOrd : core.cmp.Ord utils.Length := {
   min := core.cmp.Ord.min.trait_default utils.Length.Insts.CoreCmpOrd
 }
 
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure#1<'_0, T>}::call_once]:
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::{closure#1}<'_0, T>}::call_once]:
     Source: 'src/tree.rs', lines 337:25-350:21 -/
 def
   tree.Tree.rebase_on.closure_1.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthPairPairLengthLengthPairLengthLength.call_once
@@ -4357,7 +4362,7 @@ def
   let i6 ← i4 - i5
   ok ((orig_left_length, base_left_length), (i3, i6))
 
-/-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure#1<'_0, T>}]
+/-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), ((milhouse::utils::Length, milhouse::utils::Length), (milhouse::utils::Length, milhouse::utils::Length))> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::{closure#1}<'_0, T>}]
     Source: 'src/tree.rs', lines 337:25-350:21 -/
 @[reducible]
 def
@@ -4370,7 +4375,7 @@ def
     ValueInst
 }
 
-/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure<T>}::call_once]:
+/-- [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::{closure}<T>}::call_once]:
     Source: 'src/tree.rs', lines 330:42-330:97 -/
 def
   tree.Tree.rebase_on.closure.Insts.CoreOpsFunctionFnOnceTuplePairLengthLengthBool.call_once
@@ -4381,7 +4386,7 @@ def
   let (orig_length, base_length) := tupled_args
   utils.Length.Insts.CoreCmpPartialEqLength.eq orig_length base_length
 
-/-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::closure<T>}]
+/-- Trait implementation: [milhouse::tree::{milhouse::tree::Tree<T>}::rebase_on::{impl core::ops::function::FnOnce<((milhouse::utils::Length, milhouse::utils::Length),), bool> for milhouse::tree::{milhouse::tree::Tree<T>[TraitClause0]}::rebase_on::{closure}<T>}]
     Source: 'src/tree.rs', lines 330:42-330:97 -/
 @[reducible]
 def
@@ -5792,8 +5797,8 @@ def ssz_items.SszItems.next
     then ok (none, self)
     else
       let i := Slice.len remaining
-      let end1 ← core.cmp.min core.cmp.OrdUsize width i
-      let (item, rest) ← core.slice.Slice.split_at remaining end1
+      let «end» ← core.cmp.min core.cmp.OrdUsize width i
+      let (item, rest) ← core.slice.Slice.split_at remaining «end»
       ok (some (core.result.Result.Ok item), ssz_items.SszItems.Fixed rest
         width)
   | ssz_items.SszItems.Variable bytes first_offset num_items index offset =>
@@ -5986,7 +5991,7 @@ def progressive_list.ProgressiveList.get
       update_mapUpdateMapInst self index
   | some _ => ok o
 
-/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}::call_once]:
+/-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::{closure}<'_0, '_1, T, U>}::call_once]:
     Source: 'src/progressive_list.rs', lines 109:41-115:9 -/
 def
   progressive_list.ProgressiveList.get_mut.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeOption.call_once
@@ -6007,7 +6012,7 @@ def
     core.option.OptionShared0T.cloned ValueInst.corecloneCloneInst o
   else ok none
 
-/-- Trait implementation: [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::closure<'_0, '_1, T, U>}]
+/-- Trait implementation: [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>}::get_mut::{impl core::ops::function::FnOnce<(usize,), core::option::Option<T>> for milhouse::progressive_list::{milhouse::progressive_list::ProgressiveList<T, U>[TraitClause0, TraitClause1]}::get_mut::{closure}<'_0, '_1, T, U>}]
     Source: 'src/progressive_list.rs', lines 109:41-115:9 -/
 @[reducible]
 def
@@ -6136,14 +6141,14 @@ def progressive_list.ProgressiveList.has_pending_updates
 def progressive_tree.ProgressiveTree.has_updates_in_range
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
   update_map.UpdateMap U T) (updates : U) (start : Std.Usize)
-  (end1 : Std.Usize) :
+  («end» : Std.Usize) :
   Result Bool
   := do
-  if start < end1
-  then update_mapUpdateMapInst.has_any_in_range updates start end1
+  if start < «end»
+  then update_mapUpdateMapInst.has_any_in_range updates start «end»
   else ok false
 
-/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::closure<'_0, T, U>}::call_once]:
+/-- [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::{closure}<'_0, T, U>}::call_once]:
     Source: 'src/progressive_tree.rs', lines 223:49-223:73 -/
 def
   progressive_tree.ProgressiveTree.with_updated_leaves_recursive.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeBool.call_once
@@ -6155,7 +6160,7 @@ def
   := do
   ok (tupled_args >= c)
 
-/-- Trait implementation: [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::closure<'_0, T, U>}]
+/-- Trait implementation: [milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>}::with_updated_leaves_recursive::{impl core::ops::function::FnOnce<(usize,), bool> for milhouse::progressive_tree::{milhouse::progressive_tree::ProgressiveTree<T>[TraitClause0]}::with_updated_leaves_recursive::{closure}<'_0, T, U>}]
     Source: 'src/progressive_tree.rs', lines 223:49-223:73 -/
 @[reducible]
 def
@@ -7527,7 +7532,7 @@ def ssz_items.SszItems.variable
       ssz_items.SszItems (core.convert.FromSame ssz.decode.DecodeError)
       residual
 
-/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure#1<T, U>}::call_once]:
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure#1}<T, U>}::call_once]:
     Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
 def
   progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
@@ -7551,7 +7556,7 @@ def
   let s1 ← core.hint.must_use s
   ok (ssz.decode.DecodeError.BytesInvalid s1)
 
-/-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure#1<T, U>}]
+/-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure#1}<T, U>}]
     Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
 @[reducible]
 def
@@ -7565,7 +7570,7 @@ def
     ValueInst update_mapUpdateMapInst
 }
 
-/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure<T, U>}::call_once]:
+/-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure}<T, U>}::call_once]:
     Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
 def
   progressive_list.DecodeProgressiveList.from_ssz_bytes.closure.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
@@ -7590,7 +7595,7 @@ def
   let s1 ← core.hint.must_use s
   ok (ssz.decode.DecodeError.BytesInvalid s1)
 
-/-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::closure<T, U>}]
+/-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure}<T, U>}]
     Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
 @[reducible]
 def
@@ -7656,7 +7661,7 @@ def progressive_list.ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes
           (progressive_list.ProgressiveList T U) (core.convert.FromSame
           ssz.decode.DecodeError) residual
 
-/-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::closure<'a, T, U>}::call_once]:
+/-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{closure}<'a, T, U>}::call_once]:
     Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
 def
   progressive_list.ArbitraryAProgressiveList.arbitrary.closure.Insts.CoreOpsFunctionFnOnceTupleErrorError.call_once
@@ -7668,7 +7673,7 @@ def
   := do
   ok arbitrary.error.Error.IncorrectFormat
 
-/-- Trait implementation: [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::closure<'a, T, U>}]
+/-- Trait implementation: [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{closure}<'a, T, U>}]
     Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
 @[reducible]
 def

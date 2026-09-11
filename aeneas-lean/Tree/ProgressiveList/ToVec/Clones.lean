@@ -63,7 +63,7 @@ theorem ProgressiveList.to_vec_clones_iff {T U : Type}
     | div => simp [hresult] at hvalues
     | ok copied =>
       have heq : copied.val = output.val := by simpa only [hresult, bind_tc_ok, ok.injEq] using hvalues
-      exact congrArg ok (Subtype.ext heq)
+      exact congrArg ok (alloc.vec.Vec.ext _ _ heq)
 
 /-- Collection propagates exactly the failure of ordered cloning; later
 clones impose no laws. Iterator and capacity failures have already been ruled

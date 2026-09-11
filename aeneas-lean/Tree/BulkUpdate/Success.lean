@@ -239,7 +239,7 @@ private theorem bulk_update_success_aux {T U : Type}
             ValueInst.tree_hashTreeHashInst ValueInst.corecloneCloneInst mapInst empty start factor
             (Array.repeat 32#usize 0#u8) updates newLength hlayout.tree_hash_packing_factor_eq
             (by rw [hstartVal, Nat.add_mod, halign, hoffset]; simp)
-            (by omega) (by simpa only [empty, alloc.vec.Vec.new, hstartVal,
+            (by omega) (by simpa! only [empty, alloc.vec.Vec.new, alloc.vec.Vec.from_val, hstartVal,
               _root_.List.length_nil] using hwindow) hcapacity
             (fun query _ _ => hget query)
             (by intro value hv; simp [empty] at hv)

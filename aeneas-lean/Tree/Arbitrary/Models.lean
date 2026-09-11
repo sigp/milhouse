@@ -13,11 +13,11 @@ def nextControl (input : _root_.arbitrary.unstructured.Unstructured) : Bool × _
   match h : input.val with
   | [] => (false, input)
   | byte :: rest =>
-    (decide (byte.val % 2 = 1), ⟨rest, by
+    (decide (byte.val % 2 = 1), Slice.from rest (by
       have hbound := input.property
       rw [h] at hbound
       simp only [_root_.List.length_cons] at hbound
-      omega⟩)
+      omega))
 
 /-- One step of arbitrary 1.4.1's `Vec::arbitrary` collection. Rust's
 `Result::from_iter` stops at the first element error, retaining the consumed

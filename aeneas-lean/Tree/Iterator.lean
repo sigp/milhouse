@@ -42,12 +42,24 @@ def IntoIteratorYields {Input I T : Type}
 
 theorem vec_iterator_yields {T : Type} (iter : alloc.vec.into_iter.IntoIter T) :
     IteratorYields (core.iter.traits.iterator.IteratorVecIntoIter T).next iter iter.val := by
-  obtain ⟨values, hbound⟩ := iter
-  induction values with
-  | nil => exact .nil rfl
+  generalize hvalues : iter.val = values
+  induction values generalizing iter with
+  | nil =>
+    apply IteratorYields.nil (rest := iter)
+    change alloc.vec.into_iter.IteratorIntoIter.next iter = _
+    unfold alloc.vec.into_iter.IteratorIntoIter.next
+    split <;> simp_all
   | cons value values ih =>
-    have htail : values.length ≤ Std.Usize.max := by simp only [_root_.List.length_cons] at hbound; omega
-    exact .cons (rest := ⟨values, htail⟩) rfl (ih htail)
+    have htail : values.length ≤ Std.Usize.max := by
+      have hbound := iter.property
+      rw [hvalues] at hbound
+      simp only [_root_.List.length_cons] at hbound
+      omega
+    apply IteratorYields.cons (rest := alloc.vec.Vec.from values htail)
+    · change alloc.vec.into_iter.IteratorIntoIter.next iter = _
+      unfold alloc.vec.into_iter.IteratorIntoIter.next
+      split <;> simp_all <;> rfl
+    · exact ih _ (by simp)
 
 theorem vec_into_iterator_yields {T : Type} (values : alloc.vec.Vec T) :
     IntoIteratorYields (core.iter.traits.collect.IntoIteratorVec T) values values.val :=

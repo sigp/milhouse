@@ -25,6 +25,7 @@ private theorem u32_from_to_le (offset : Std.U32) :
   apply UScalar.eq_of_val_eq
   simp only [core.num.U32.from_le_bytes, core.num.U32.to_le_bytes,
     UScalar.val, BitVec.toNat_cast]
+  erw [Std.Array.from_val]
   have hmap : _root_.List.map U8.bv (_root_.List.map (@UScalar.mk .U8) offset.bv.toLEBytes) =
       offset.bv.toLEBytes := by
     rw [_root_.List.map_map]
@@ -39,8 +40,8 @@ theorem read_offset_array (bytes : Slice Std.U8) (word : Array Std.U8 4#usize)
   have hlen : word.val.length = 4 := word.property
   obtain ⟨a, b, c, d, hword⟩ := List.length_eq_four.mp hlen
   have hw : word = Array.make 4#usize [a, b, c, d] := by
-    apply Subtype.ext
-    exact hword
+    apply Std.Array.ext
+    simpa using hword
   subst word
   exact read_offset_four bytes a b c d rest hbytes
 

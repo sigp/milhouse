@@ -1,6 +1,7 @@
 -- Structural invariants for milhouse trees.
 import Tree.Arithmetic
 import Tree.PackingDepth
+import Tree.Vec.Clone
 open Aeneas Aeneas.Std Result
 set_option maxHeartbeats 4000000
 set_option linter.unusedVariables false
@@ -906,7 +907,7 @@ private theorem packedLeaf_insert_at_index_length {T : Type}
     subst h
     have hlength := packedLeaf_insert_mut_length hinsert
     have hclone_length : cloned.val.length = leaf.values.val.length := by
-      exact Aeneas.Std.Slice.clone_length hclone
+      exact milhouse_models.vec_clone_length _ hclone
     simp [hclone_length] at hlength
     exact ⟨factor, sub, hfactor, hsub, hlength⟩
 
@@ -1033,12 +1034,14 @@ theorem packedLeaf_repeat_preserves_dense {T : Type}
     | ok cloned =>
       simp [hcloned] at hvalues
       subst values
-      simpa using DenseTree.packed factor
+      have hdense := DenseTree.packed factor
         ({ hash := Array.repeat 32#usize 0#u8,
-           values := ⟨cloned.val, by scalar_tac⟩ } :
+           values := alloc.vec.Vec.from cloned.val (by scalar_tac) } :
           packed_leaf.PackedLeaf T)
         (by simpa using hn)
         (by simpa using hn_le)
+      erw [alloc.vec.Vec.from_val] at hdense
+      simpa only [cloned.property, _root_.List.length_replicate] using hdense
 
 /-- `PackedLeaf.insert_at_index` preserves packed-leaf density. A successful
     call replaces an existing slot, or appends exactly when the computed
@@ -1154,7 +1157,7 @@ theorem DenseTree.clone_preserves_dense {T : Type} (ValueInst : Value T)
     simp at hclone
     subst updated
     have hlength : new_values.val.length = leaf.values.val.length := by
-      exact Aeneas.Std.Slice.clone_length hvalues
+      exact milhouse_models.vec_clone_length _ hvalues
     have hnew_nonempty : 0 < new_values.val.length := by omega
     have hnew_fit : new_values.val.length ≤ factor.val := by omega
     have hnew_dense := DenseTree.packed factor
@@ -1826,7 +1829,7 @@ theorem packedLeaf_update_length {T U : Type}
   rw [result_bind_eq_ok_iff] at hupdate
   obtain ⟨values, hvalues, hupdate⟩ := hupdate
   have hvalues_len : values.val.length = pl.values.val.length :=
-    Aeneas.Std.Slice.clone_length hvalues
+    milhouse_models.vec_clone_length _ hvalues
   rw [hfactor] at hupdate
   simp only [bind_tc_ok] at hupdate
   rw [result_bind_eq_ok_iff] at hupdate

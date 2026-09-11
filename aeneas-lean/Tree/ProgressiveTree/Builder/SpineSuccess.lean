@@ -14,7 +14,8 @@ theorem ProgressiveTree.from_spine_subtrees_loop_success {T : Type}
       ok (ProgressiveTree.ofSubtrees iter.iter.val suffix) := by
   by_cases hempty : iter.iter.val = []
   · have hpop : alloc.vec.Vec.pop Global iter.iter = ok (none, iter.iter) := by
-      have heq : iter.iter = (⟨[], by simp⟩ : alloc.vec.Vec (tree.Tree T)) := Subtype.ext hempty
+      have heq : iter.iter = alloc.vec.Vec.new (tree.Tree T) :=
+        alloc.vec.Vec.ext _ _ (by simpa using hempty)
       rw [heq]
       rfl
     have hbody : ProgressiveTree.from_spine_subtrees_loop.body iter suffix = ok (.done suffix) := by

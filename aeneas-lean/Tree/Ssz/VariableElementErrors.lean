@@ -47,7 +47,8 @@ theorem SszItems.variable_decodes_element_error {T : Type}
     omega
   let position := usizeOfBound (4 * index.val) hpositionBound
   let tableTail := bytes.drop position
-  have htail : tableTail.val = bytes.val.drop (4 * index.val) := rfl
+  have htail : tableTail.val = bytes.val.drop (4 * index.val) := by
+    simp [tableTail, Slice.drop, position, usizeOfBound]
   have htableTail : tableTail.val = _root_.ssz.encode.offsetBytes nextOffset.val ++ tableSuffix := by
     have hlen : (_root_.ssz.encode.offsets encode first.val values ++
         _root_.ssz.encode.offsetBytes current.val).length = 4 * index.val := by
@@ -107,9 +108,9 @@ theorem SszItems.variable_decodes_final_error {T : Type}
     simp only [Slice.length] at hfirstBound ⊢
     omega
   have hlast : bytes.drop current = last := by
-    apply Subtype.ext
+    apply Slice.ext
     have h := congrArg (_root_.List.drop (values.flatMap encode).length) hpayload
-    simpa only [_root_.List.drop_drop, _root_.List.drop_left, Slice.drop, hcurrent] using h
+    simpa only [_root_.List.drop_drop, _root_.List.drop_left, Slice.drop, Slice.from_val, hcurrent] using h
   have hsuccessorBound : count.val + 1 ≤ Std.Usize.max := by
     have hb := bytes.property
     simp only [Slice.length] at hfirstBound

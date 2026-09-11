@@ -637,7 +637,7 @@ private theorem intra_key_eq_spec
     · subst hd
       subst hh
       exact ⟨true, by simp, by simp⟩
-    · have hval : ¬ kh.val = qh.val := fun hval => hh (Subtype.ext hval)
+    · have hval : ¬ kh.val = qh.val := fun hval => hh (Std.Array.ext _ _ hval)
       exact ⟨false, by simp [hd, hval], by simp [hh]⟩
   · exact ⟨false, by simp [hd], by simp [hd]⟩
 

@@ -53,7 +53,7 @@ theorem option_unwrap_or_default_agrees {T : Type}
   cases value <;> rfl
 
 theorem option_ok_or_agrees {T E : Type} (value : Option T) (error : E) :
-    OptionSource.core.option.Option.ok_or value error = core.option.Option.ok_or value error := by
+    OptionSource.core.option.Option.ok_or_source value error = core.option.Option.ok_or value error := by
   cases value <;> rfl
 
 theorem option_or_agrees {T : Type} (value fallback : Option T) :

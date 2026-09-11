@@ -71,7 +71,7 @@ theorem vector_success_iff_generates {T : Type} (inst : Arbitrary T)
   · intro hresult
     obtain ⟨generated, htrace, heq⟩ :=
       vector_loop_success_trace inst (alloc.vec.Vec.new T, input) values after hresult
-    simp only [_root_.List.nil_append] at heq
+    simp only [alloc.vec.Vec.new, alloc.vec.Vec.from_val, _root_.List.nil_append] at heq
     simpa only [heq] using htrace
   · exact vector_of_generates inst values
 

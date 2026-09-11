@@ -13,8 +13,36 @@ import sys
 import tempfile
 from pathlib import Path
 
+from aeneas_toolchain import PIN_PATH, default_bundle, load_pin
 
-TOOLCHAIN = "nightly-2026-06-01"
+
+PIN = load_pin()
+TOOLCHAIN = PIN["rustToolchain"]
+
+
+def source_span(meta):
+    """Read the untagged source span emitted by the pinned Charon 0.1.251."""
+    span = meta.get("span")
+    if (not isinstance(span, dict) or set(span) != {"Untagged"}
+            or not isinstance(span["Untagged"], dict)
+            or not isinstance(span["Untagged"].get("data"), dict)):
+        raise ValueError("Unexpected source span format")
+    return span["Untagged"]["data"]
+
+
+def source_initializer(item):
+    """Recover the global id from Charon's declaration-source discriminator."""
+    source = item["src"]
+    if source == "Normal":
+        return None
+    if isinstance(source, dict) and len(source) == 1:
+        if set(source) <= {"TraitImpl", "TraitDefault"}:
+            return None
+        if "GlobalInitializer" in source:
+            global_ref = source["GlobalInitializer"]
+            if isinstance(global_ref, dict) and type(global_ref.get("id")) is int:
+                return global_ref["id"]
+    raise ValueError("Unexpected declaration source")
 
 # This parameter represents one nondeterministic Bool outcome. The pinned
 # power body queries the intrinsic once; both loops remain freshly extracted.
@@ -58,7 +86,7 @@ def prepare_pow_selector(data, template, original):
     """
     name = "core.intrinsics.is_val_statically_known"
     signature = "{T : Type} (markerCopyInst : core.marker.Copy T) : T → Result Bool"
-    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n((?:[^\n]+\n?)*)", template)
+    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n?((?:[^\n]+\n?)*)", template)
     if ([(n, " ".join(s.split())) for n, s in records] != [(name, signature)]
             or len(re.findall(r"(?m)^axiom\b", template)) != 1
             or re.search(r"\b(sorry|admit|opaque)\b", template)
@@ -68,11 +96,11 @@ def prepare_pow_selector(data, template, original):
     source = source_declaration(crate, {"source_prefix": "core::intrinsics"},
                                 "is_val_statically_known")
     meta = source["item_meta"]
-    span = meta["span"]["data"]
+    span = source_span(meta)
     files = {file["id"]: file for file in crate["files"] if file}
     file = files[span["file_id"]]
     if (crate["crate_name"] != "pow_source" or meta["is_local"] is not False
-            or meta["opacity"] != "Foreign" or source["is_global_initializer"] is not None
+            or meta["opacity"] != "Foreign" or source_initializer(source) is not None
             or source["body"] != {"Intrinsic": {"name": "is_val_statically_known", "arg_names": ["_arg"]}}
             or file["crate_name"] != "core"
             or file["name"] != {"Local": "/rustc/library/core/src/intrinsics/mod.rs"}):
@@ -97,6 +125,64 @@ def prepare_pow_selector(data, template, original):
               "originalFunsSha256": hashlib.sha256(original.encode()).hexdigest(),
               "parameterizedFunsSha256": hashlib.sha256(prepared.encode()).hexdigest()}
     return prepared, record
+
+
+CORE_CHECKED_POW_CALLER = """
+def core.num.U128.checked_pow
+  (self : Std.U128) (exp : Std.U32) : Result (Option Std.U128) := do
+  let b ← core.intrinsics.is_val_statically_known core.marker.CopyU128 self
+  if b
+  then
+    let b1 ← core.num.U128.is_power_of_two self
+    if b1
+    then
+      let k ← core.num.U128.ilog2 self
+      let o ← lift (U32.checked_mul k exp)
+      match o with
+      | none => ok none
+      | some x => core.num.U128.checked_shl 1#u128 x
+    else
+      if exp = 0#u32
+      then ok (some 1#u128)
+      else
+        let b2 ←
+          core.intrinsics.is_val_statically_known core.marker.CopyU32 exp
+        if b2
+        then core.num.U128.checked_pow_loop0 exp self 1#u128
+        else core.num.U128.checked_pow_loop1 exp self 1#u128
+  else
+    if exp = 0#u32
+    then ok (some 1#u128)
+    else
+      let b1 ←
+        core.intrinsics.is_val_statically_known core.marker.CopyU32 exp
+      if b1
+      then core.num.U128.checked_pow_loop2 exp self 1#u128
+      else core.num.U128.checked_pow_loop3 exp self 1#u128
+"""
+
+def prepare_core_selector(original):
+    """Add a universally quantified selector while preserving every source body."""
+    name = "core.intrinsics.is_val_statically_known"
+    start = original.find("\ndef core.num.U128.checked_pow\n")
+    stop = original.find("\n/-- [core::num::{u128}::saturating_mul]", start)
+    marker = "\nnamespace CoreSource\n"
+    parameter = "\nvariable [milhouse.compiler.StaticKnown]\n"
+    if (start < 0 or stop < start or original[start:stop] != CORE_CHECKED_POW_CALLER
+            or original.count(name) != 3 or original.count(marker) != 1
+            or "milhouse.compiler.StaticKnown" in original):
+        raise ValueError("Unexpected checked-power selector calls or scope")
+    # The complete caller has one U128 query and two mutually exclusive U32
+    # sites. No query is in a loop, so a function per type/input permits both
+    # independent outcomes for every executed query.
+    prepared = original.replace(marker, marker + parameter, 1)
+    if prepared.replace(marker + parameter, marker, 1) != original:
+        raise ValueError("Checked-power source changed beyond its selector parameter")
+    return prepared, {"method": "is_val_statically_known", "caller": "checked_pow",
+        "parameter": "[milhouse.compiler.StaticKnown]", "outcomes": [False, True],
+        "scope": "at most one U128 and one U32 query per invocation; independent outcomes",
+        "originalFunsSha256": hashlib.sha256(original.encode()).hexdigest(),
+        "parameterizedFunsSha256": hashlib.sha256(prepared.encode()).hexdigest()}
 
 
 def source_declaration(crate, suite, name, kind="fun_decls"):
@@ -125,7 +211,7 @@ def trait_method_declaration(crate, suite, trait_name, method_name):
 
 
 def check_llbc(data, suite):
-    if data.get("has_errors") is not False or data.get("charon_version") != "0.1.223":
+    if data.get("has_errors") is not False or data.get("charon_version") != "0.1.251":
         raise ValueError("LLBC has errors or an unexpected Charon version")
     crate = data["translated"]
     if crate["crate_name"] != suite["crate"]:
@@ -139,7 +225,7 @@ def check_llbc(data, suite):
     for name in suite["source_files"]:
         item = source_declaration(crate, suite, name)
         meta = item["item_meta"]
-        span = meta["span"]["data"]
+        span = source_span(meta)
         source = files[span["file_id"]]
         if (meta["is_local"] or meta["opacity"] != "Transparent"
                 or source["crate_name"] != source_crates.get(name, source_crate)
@@ -147,14 +233,19 @@ def check_llbc(data, suite):
                 or not isinstance(item["body"], dict)
                 or not isinstance(item["body"].get("Structured"), dict)):
             raise ValueError(f"Missing transparent dependency provenance for {name}")
-        initializer = item["is_global_initializer"]
+        initializer = source_initializer(item)
         if name in suite.get("initializers", []):
             globals_ = [g for g in crate["global_decls"] if g
                         and type(initializer) is int and g["def_id"] == initializer]
             if len(globals_) != 1:
                 raise ValueError(f"Missing global declaration for {name}")
             global_ = globals_[0]
-            call = global_["value"]["kind"].get("Call")
+            value = global_["value"]
+            if (not isinstance(value, dict) or set(value) != {"Untagged"}
+                    or not isinstance(value["Untagged"], list) or len(value["Untagged"]) != 2
+                    or not isinstance(value["Untagged"][0], dict)):
+                raise ValueError(f"Unexpected constant expression for {name}")
+            call = value["Untagged"][0].get("Call")
             if (global_["item_meta"] != meta or global_["global_kind"] != "NamedConst"
                     or not isinstance(call, list) or len(call) != 2
                     or call[0]["kind"] != {"Fun": {"Regular": item["def_id"]}}
@@ -166,22 +257,24 @@ def check_llbc(data, suite):
     return verified
 
 
-def statement_nodes(value):
-    """Find the exact pinned LLBC Statement schema, including nested blocks."""
+def body_nodes(value, kind):
+    """Find statements or blocks by their exact pinned LLBC schema."""
+    schema = ({"span", "id", "kind", "comments_before"} if kind == "statement"
+              else {"span", "id", "statements"})
     nodes = []
     if isinstance(value, dict):
-        if set(value) == {"span", "id", "kind", "comments_before"}:
+        if set(value) == schema:
             nodes.append(value)
         for child in value.values():
-            nodes.extend(statement_nodes(child))
+            nodes.extend(body_nodes(child, kind))
     elif isinstance(value, list):
         for child in value:
-            nodes.extend(statement_nodes(child))
+            nodes.extend(body_nodes(child, kind))
     return nodes
 
 
 def check_exclusions(original, selected, suite):
-    """Compare complete declarations, optionally reconciling fresh statement IDs."""
+    """Compare complete declarations after bijective statement/block renumbering."""
     check_llbc(original, suite)
     check_llbc(selected, suite)
     renumberings = []
@@ -189,19 +282,25 @@ def check_exclusions(original, selected, suite):
         before = source_declaration(original["translated"], suite, name)
         after = copy.deepcopy(source_declaration(selected["translated"], suite, name))
         if suite.get("allow_statement_renumbering"):
-            old_nodes, new_nodes = statement_nodes(before["body"]), statement_nodes(after["body"])
-            old_ids, new_ids = [s["id"] for s in old_nodes], [s["id"] for s in new_nodes]
-            if (len(old_ids) != len(new_ids)
-                    or any(type(i) is not int or i < 0 for i in old_ids + new_ids)
-                    or len(set(old_ids)) != len(old_ids) or len(set(new_ids)) != len(new_ids)):
-                raise ValueError(f"Invalid statement-ID correspondence: {name}")
-            changes = []
-            for old, new in zip(old_nodes, new_nodes):
-                if old["id"] != new["id"]:
-                    changes.append({"originalId": old["id"], "selectedId": new["id"]})
-                new["id"] = old["id"]
-            if changes:
-                renumberings.append({"method": name, "statementIds": changes})
+            # Charon 0.1.251 numbers blocks as well as statements. Their ID
+            # spaces are separate; neither ID denotes a branch target in LLBC.
+            record = {"method": name}
+            for kind in ("statement", "block"):
+                old_nodes = body_nodes(before["body"], kind)
+                new_nodes = body_nodes(after["body"], kind)
+                old_ids, new_ids = [s["id"] for s in old_nodes], [s["id"] for s in new_nodes]
+                if (len(old_ids) != len(new_ids)
+                        or any(type(i) is not int or i < 0 for i in old_ids + new_ids)
+                        or len(set(old_ids)) != len(old_ids) or len(set(new_ids)) != len(new_ids)):
+                    raise ValueError(f"Invalid {kind}-ID correspondence: {name}")
+                changes = []
+                for old, new in zip(old_nodes, new_nodes):
+                    if old["id"] != new["id"]:
+                        changes.append({"originalId": old["id"], "selectedId": new["id"]})
+                    new["id"] = old["id"]
+                record[kind + "Ids"] = changes
+            if record["statementIds"] or record["blockIds"]:
+                renumberings.append(record)
         if before != after:
             raise ValueError(f"Source declaration changed after exclusions: {name}")
     return list(suite["source_files"]), renumberings
@@ -262,7 +361,7 @@ def check_source_metadata(original, adjusted, suite):
             raise ValueError("Invalid source type rename")
         source = source_declaration(original["translated"], suite, name, "type_decls")
         meta = source["item_meta"]
-        span = meta["span"]["data"]
+        span = source_span(meta)
         file = files[span["file_id"]]
         if (meta["is_local"] is not False or meta["opacity"] != "Transparent"
                 or file["crate_name"] != suite.get("source_crate", "core")
@@ -293,7 +392,7 @@ def check_source_metadata(original, adjusted, suite):
         trait, index, method = trait_method_declaration(original["translated"], suite, trait_name, name)
         field = method["skip_binder"]
         for meta in (trait["item_meta"], field["item_meta"]):
-            file = files[meta["span"]["data"]["file_id"]]
+            file = files[source_span(meta)["file_id"]]
             if (meta["is_local"] is not False or meta["opacity"] != "Transparent"
                     or file["crate_name"] != suite.get("source_crate", "core")
                     or file["name"] != {"Local": change["source_file"]}):
@@ -312,7 +411,7 @@ def check_source_metadata(original, adjusted, suite):
         renamed_method["skip_binder"]["item_meta"]["name"] = copy.deepcopy(field["item_meta"]["name"])
         methods.append({"trait": trait_name, "method": name, "extractedMethod": replacement,
                         "traitDefId": trait["def_id"], "methodId": index,
-                        "source": field["item_meta"]["span"]["data"]})
+                        "source": source_span(field["item_meta"])})
     # This restores any separately declared function renames and compares the
     # entire result, including code, types, IDs, dictionaries, and source spans.
     renames = check_source_renames(original, restored, suite)
@@ -341,7 +440,7 @@ def check_foundation_bindings(data, suite, template):
     The template is inspected but never compiled. The replacement module may
     contain imports only; all generated source definitions stay untouched.
     """
-    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n((?:[^\n]+\n?)*)", template)
+    records = re.findall(r"(?m)^axiom ([A-Za-z_][\w.]*)[ \t]*\n?((?:[^\n]+\n?)*)", template)
     bindings = suite.get("foundation_bindings", [])
     expected = {binding["lean_name"]: " ".join(binding["signature"].split()) for binding in bindings}
     if (len(expected) != len(bindings) or len(records) != len(expected)
@@ -361,10 +460,11 @@ def check_foundation_bindings(data, suite, template):
             raise ValueError("Foundation import must be an explicit built and hashed model module")
         source = source_declaration(crate, {"source_prefix": binding["source_prefix"]}, binding["method"])
         meta = source["item_meta"]
-        span = meta["span"]["data"]
+        span = source_span(meta)
         file = files[span["file_id"]]
+        expected_body = {"Intrinsic": binding["intrinsic"]} if "intrinsic" in binding else "Opaque"
         if (meta["is_local"] is not False or meta["opacity"] != "Foreign"
-                or source["body"] != "Opaque" or source["is_global_initializer"] is not None
+                or source["body"] != expected_body or source_initializer(source) is not None
                 or file["crate_name"] != binding["source_crate"]
                 or file["name"] != {"Local": binding["source_file"]}):
             raise ValueError(f"Unexpected foundation source provenance: {binding['method']}")
@@ -380,8 +480,8 @@ def main(suite):
     lean_project = repo / "aeneas-lean"
     sources = lean_project / "reproducers" / suite["directory"]
     parser = argparse.ArgumentParser(description=suite["description"])
-    parser.add_argument("--charon", default=os.environ.get("CHARON", str(repo.parent / "aeneas/charon/bin/charon")))
-    parser.add_argument("--aeneas", default=os.environ.get("AENEAS", str(repo.parent / "aeneas/bin/aeneas")))
+    parser.add_argument("--charon", default=os.environ.get("CHARON", str(default_bundle(repo) / "charon")))
+    parser.add_argument("--aeneas", default=os.environ.get("AENEAS", str(default_bundle(repo) / "aeneas")))
     parser.add_argument("--output", type=Path, default=lean_project / ".lake" / (suite["name"] + "-model-audit"))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
@@ -397,6 +497,9 @@ def main(suite):
         log.write_text(result.stdout)
         if result.returncode:
             raise RuntimeError(f"{label} failed ({result.returncode}); see {log}\n{result.stdout[-3000:]}")
+        if label in {"charon", "charon-unfiltered"} and "falling back to rustc's default sysroot" in result.stdout:
+            raise RuntimeError(f"{label} did not use a full-MIR standard library; see {log}. "
+                               f"Install miri for {TOOLCHAIN} and resolve its setup failure.")
         return result.stdout.strip()
 
     versions = {
@@ -404,10 +507,12 @@ def main(suite):
         "aeneas": run("aeneas-version", [args.aeneas, "-version"]),
         "toolchain": run("charon-toolchain", [args.charon, "toolchain-version"]),
         "rustc": run("rustc-version", ["rustc", "+" + TOOLCHAIN, "--version", "--verbose"]),
+        "miri": run("miri-version", ["cargo", "+" + TOOLCHAIN, "miri", "--version"]),
+        "rustfmt": run("rustfmt-version", ["rustfmt", "+" + TOOLCHAIN, "--version"]),
     }
-    if (versions["charon"] != "0.1.223" or versions["aeneas"] != "aeneas b59d5188"
+    if (versions["charon"] != PIN["charonVersion"] or versions["aeneas"] != PIN["aeneasVersion"]
             or versions["toolchain"] != TOOLCHAIN
-            or "14210df0e27ccd7d9e6a05b8085cbd438e4bbc65" not in versions["rustc"]):
+            or PIN["rustcCommit"] not in versions["rustc"]):
         raise ValueError("Tool versions changed; review the source comparison before updating pins")
     dependency_sources = []
     cargo = suite.get("cargo_dependency")
@@ -433,11 +538,10 @@ def main(suite):
         run("native-build", ["rustc", "+" + TOOLCHAIN, "--edition", "2024", "--test",
                              str(sources / "source.rs"), "-o", str(work / "native")])
         run("native-tests", [str(work / "native")], cwd=work)
-    command = [args.charon, "cargo" if cargo else "rustc", "--preset=aeneas"]
-    if suite.get("excludes"):
-        # Compare complete source declarations, not references to separately
-        # serialized hash-consed values whose meaning could change between runs.
-        command += ["--no-dedup-serialized-ast"]
+    # Compare complete source declarations, not references to separately
+    # serialized hash-consed values whose meaning could change between runs.
+    command = [args.charon, "cargo" if cargo else "rustc", "--preset=aeneas",
+               "--no-dedup-serialized-ast"]
     for include in suite["includes"]:
         command += ["--include", include]
     llbc = work / (suite["crate"] + ".llbc")
@@ -522,6 +626,15 @@ def main(suite):
         imports = list(dict.fromkeys(binding["module"] for binding in foundations))
         (work / suite["namespace"] / "FunsExternal.lean").write_text(
             "".join("import " + module + "\n" for module in imports))
+    if suite.get("core_selector"):
+        if suite["namespace"] != "CoreSource" or not foundations or selectors:
+            raise ValueError("Checked-power selector requires its validated foundations")
+        funs = work / suite["namespace"] / "Funs.lean"
+        original_funs = funs.read_text()
+        prepared, selector = prepare_core_selector(original_funs)
+        (work / "Funs.original.lean").write_text(original_funs)
+        funs.write_text(prepared)
+        selectors.append(selector)
     for path in generated:
         if (foundations or selectors) and path.name == "FunsExternal_Template.lean":
             continue
@@ -533,7 +646,7 @@ def main(suite):
     env["LEAN_PATH"] = str(work) + os.pathsep + base_path
     shutil.copyfile(sources / "CheckModels.lean", work / "CheckModels.lean")
     modules = [suite["namespace"] + "/Types"]
-    if selectors:
+    if suite.get("pow_selector"):
         modules.append(suite["namespace"] + "/Selector")
     if foundations or selectors:
         modules.append(suite["namespace"] + "/FunsExternal")
@@ -543,8 +656,14 @@ def main(suite):
                      cwd=work, env=env)
         if module == "CheckModels":
             checked_axioms = check_axiom_output(output, suite["proofs"])
+    selector_methods = set(suite.get("selector_methods", provenance if selectors else []))
+    if selector_methods - set(provenance):
+        raise ValueError("Compiler selector has no selected source body")
+    direct_comparisons = {name: span for name, span in provenance.items() if name not in selector_methods}
+    parameterized_comparisons = {name: span for name, span in provenance.items() if name in selector_methods}
     inputs = [sources / "source.rs", sources / "CheckModels.lean"]
     inputs += [Path(__file__).resolve(), Path(sys.argv[0]).resolve()]
+    inputs += [PIN_PATH, repo / "scripts/aeneas_toolchain.py"]
     inputs += [lean_project / path for path in suite.get("model_files", ["Tree/FunsExternal.lean"])]
     if cargo:
         inputs += [sources / "Cargo.toml", sources / "Cargo.lock"]
@@ -559,8 +678,8 @@ def main(suite):
         "sourceTraitMethodNameChanges": method_renames,
         "retainedLocalFoundations": foundations,
         "abstractCompilerSelectors": selectors,
-        "directSourceComparisons": {} if selectors else provenance,
-        "parameterizedSourceComparisons": provenance if selectors else {},
+        "directSourceComparisons": direct_comparisons,
+        "parameterizedSourceComparisons": parameterized_comparisons,
         "compositionChecks": suite["composition"],
         "unresolvedDirectExtraction": suite["unresolved"],
         "validatedProofs": checked_axioms,
@@ -569,8 +688,8 @@ def main(suite):
             + (["Compiler selector is an arbitrary total Bool; both outcomes are proved"]
                if selectors else []),
     }, indent=2) + "\n")
-    print(f"Passed: {0 if selectors else len(provenance)} direct source comparisons, "
-          f"{len(provenance) if selectors else 0} parameterized source comparisons and "
+    print(f"Passed: {len(direct_comparisons)} direct source comparisons, "
+          f"{len(parameterized_comparisons)} parameterized source comparisons and "
           f"{len(suite['composition'])} composition checks")
     print(f"Proofs: {len(checked_axioms)}; axiom-free: "
           f"{sum(not axioms for axioms in checked_axioms.values())}")

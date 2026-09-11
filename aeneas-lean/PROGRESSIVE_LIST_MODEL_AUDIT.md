@@ -5,6 +5,23 @@ The current scope excludes Debug and Serde and defers TreeHash. Borrowed
 required but unavailable in extraction. See the [goal and scope](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope)
 and [API inventory](PROGRESSIVE_LIST_API_AUDIT.md).
 
+The September 7 compiler upgrade has one user-approved source-fidelity
+exception: **`usize::pow` is assumed correct for now** (2026-09-11).
+[SOURCE_MODEL_ASSUMPTIONS.json](SOURCE_MODEL_ASSUMPTIONS.json) records the
+exact operation, mathematical model, failure abstraction, and deferred proof.
+The model remains a concrete definition; no Lean axiom is added. The report's
+`assumedRustModels` field lists the assumption, hashes its policy and model
+file, and identifies conservative dependent roots. This scope is deliberately
+distinct from kernel axiom dependencies.
+
+The current source-validation requirement is eight suites with 51 proofs,
+plus the four existing CoW control proofs. The old `core_pow_agrees` proof is
+retained as historical evidence and an optional failing diagnostic. Counts
+of nine suites and 52 proofs below describe earlier June-compiler checkpoints.
+The ported Core checked-power proof additionally retains explicit helper
+foundations for `ilog2`, `checked_shl`, and `is_power_of_two`; see its
+[current boundary](reproducers/core_models/README.md).
+
 ## Reproduce the dependency inventory
 
 From the repository root, run:

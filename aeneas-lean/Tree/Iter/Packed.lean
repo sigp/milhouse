@@ -78,7 +78,9 @@ theorem Iter.next_packed_step {T : Type} (ValueInst : Value T) (self : Iter T)
   have hfactor : 0 < self.packing_factor.val := by rw [hpower]; positivity
   obtain ⟨subIndex, hrem, hremVal⟩ := usize_rem_succeeds self.index hfactor
   have hread : core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice T)
-      (alloc.vec.Vec.deref value.values) subIndex = ok value.values.val[subIndex.val]? := rfl
+      (alloc.vec.Vec.deref value.values) subIndex = ok value.values.val[subIndex.val]? := by
+    simp [core.slice.Slice.get, core.slice.index.SliceIndexUsizeSlice,
+      alloc.vec.Vec.deref, alloc.vec.Vec.val]
   have hbound : self.index.val + 1 < 2 ^ System.Platform.numBits := by
     have hlen : self.length.val < 2 ^ System.Platform.numBits := by simpa using self.length.hBounds
     have hlt : self.index.val < self.length.val := by simpa only [UScalar.lt_equiv] using hlive

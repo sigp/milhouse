@@ -47,7 +47,8 @@ theorem ProgressiveList.ssz_roundtrip_variable {T U : Type}
     hencodeVariable hlayout self contents hrep hbacking.1 hbacking.2 encode happend hbytes hoffsets
   obtain ⟨restored, hdecode, hrestored, hbackingRestored, hpending⟩ :=
     ProgressiveList.from_ssz_bytes_variable_total_spec ValueInst mapInst bytes.deref contents encode
-      hdecodeVariable hencoded hoffsets hdecodeElement (fun _ => hlayout) updates hdefault hget hmax hempty
+      hdecodeVariable (by simpa [alloc.vec.Vec.deref] using hencoded)
+      hoffsets hdecodeElement (fun _ => hlayout) updates hdefault hget hmax hempty
   refine ⟨bytes, restored, hencode, hdecode, hrestored, hbackingRestored, hpending, ?_⟩
   intro index
   rw [hrestored.2 index, hrep.2 index]

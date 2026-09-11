@@ -54,7 +54,8 @@ theorem ProgressiveList.ssz_roundtrip_fixed {T U : Type}
     (by rw [fixed_payload_length encode contents width.val hwidths]; exact hbytes)
   obtain ⟨restored, hdecode, hrestored, hbackingRestored, hpending⟩ :=
     ProgressiveList.from_ssz_bytes_fixed_total_spec ValueInst mapInst bytes.deref contents encode width
-      hpositive hdecodeFixed hdecodeWidth hencoded hwidths hdecodeElement (fun _ => hlayout) hfits
+      hpositive hdecodeFixed hdecodeWidth (by simpa [alloc.vec.Vec.deref] using hencoded)
+      hwidths hdecodeElement (fun _ => hlayout) hfits
       updates hdefault hget hmax hempty
   refine ⟨bytes, restored, hencode, hdecode, hrestored, hbackingRestored, hpending, ?_⟩
   intro index

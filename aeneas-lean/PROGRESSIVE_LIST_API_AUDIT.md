@@ -1,5 +1,14 @@
 # ProgressiveList source and proof inventory
 
+Current compiler migration: September 7 Aeneas, with the user-approved
+2026-09-11 exception that `usize::pow` source correspondence is assumed.
+Its concrete Lean model and all dependent operation proofs remain in place.
+The required source suites contain 51 proofs; the old power comparison is
+deferred. Earlier nine-suite/52-proof counts below are historical.
+See [the assumption policy](SOURCE_MODEL_ASSUMPTIONS.json) and
+[compiler migration status](SEPT7_TRIAL_STATUS.md). Public API coverage and
+the Debug/Serde exclusions and TreeHash deferral are unchanged.
+
 Source checkpoint: `0ed21ba`. This inventory names the Rust entry points and
 their current proof entry points, unresolved obligations, or scope exclusions.
 It complements the [coverage and validation record](PROGRESSIVE_LIST_PROOFS.md);

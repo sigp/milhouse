@@ -1,5 +1,12 @@
 # SSZ offset and encoder-construction source comparisons
 
+The September 7 migration retains all 4 proofs in this suite. Use the
+[project toolchain setup](../../README.md) and the pinned defaults of its
+audit command. Earlier compiler pins, source locations, and checkpoint
+counts below are historical; current versions and input hashes are recorded
+in each new audit report. The temporary `usize::pow` assumption does not
+exclude any proof in this suite.
+
 This suite compares the local offset-decoding and encoder-construction models
 with freshly extracted `ethereum_ssz` 0.10.0 code. Run from the repository root:
 

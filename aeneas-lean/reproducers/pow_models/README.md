@@ -1,5 +1,75 @@
 # Power model source comparison
 
+**Current policy (user-approved 2026-09-11): assume `usize::pow` correct.**
+The concrete `core.num.Usize.pow` mathematical definition is retained, and
+its correspondence to Rust in the overflow-checking build is trusted,
+including its `integerOverflow` failure abstraction. No new Lean axiom is
+introduced. [SOURCE_MODEL_ASSUMPTIONS.json](../../SOURCE_MODEL_ASSUMPTIONS.json)
+records the exception; the model audit reports conservative dependent roots.
+
+`core_pow_agrees` is deferred and is not counted among the 51 proofs in the
+eight required source suites. The command below remains an **optional,
+expected-to-fail diagnostic**, not an upgrade gate. The historical proof,
+selector checker, and branch callers are preserved so this assumption can
+be removed once extraction is supported. The previously recorded compiler
+failures below remain accurate, but no longer block the authorized upgrade.
+
+## Historical extraction diagnostics
+
+**September 7 trial: blocked during extraction.** With the correctly installed
+Miri sysroot, Aeneas `7ebd01d19455` rejects `overflow_checks<bool>` in Rust
+`nightly-2026-08-18`'s `usize::pow` body (`uint_macros.rs:3635`). Charon
+`0.1.251` succeeds, but Aeneas exits 1 and emits partial files. The runner
+rejects those files and writes no success report. Native tests passing does
+not validate the Lean source comparison.
+
+The same operation remains unsupported with `--monomorphize` and
+`--rustc-arg=-Coverflow-checks=yes`. The intrinsic chooses between
+`strict_pow` and `wrapping_pow` using the caller's overflow configuration;
+its fallback body cannot justify replacing it with a constant. No LLBC
+operation or Rust algorithm has been substituted to bypass this failure.
+See [the trial status](../../SEPT7_TRIAL_STATUS.md) and
+[upstream issue 29](../../UPSTREAM_BUGS.md#29-september-aeneas-cannot-translate-the-overflow-check-selector-in-usizepow).
+
+The successful proof and selector description below record the **June
+compiler pin**. They are historical evidence, not a successful comparison
+against the September standard library. The current runner command below
+reproduces the September failure on the trial branch.
+
+The separate [branch callers](branches.rs) diagnose the candidate's new
+algorithm without replacing the original proof root. Full-MIR extraction of
+`strict_pow` plus `checked_pow` fails with `Unexpected result: Cps.Unit` at
+`Interp.ml:593`. Including `core::num::imp::overflow_panic::pow` does not
+resolve it: the panic helper itself translates to `fail panic`, but its
+`strict_pow` caller still fails. Thus specializing the outer overflow flag
+alone would not suffice. `wrapping_pow` and `overflowing_pow` extract with
+external helper templates, but their overflow behavior differs from the
+existing checked model; this diagnostic is not a passing comparison proof.
+
+Reproduce the strict branch on the trial branch from the repository root:
+
+```sh
+power_probe=$(mktemp -d /tmp/milhouse-power-branch-XXXXXX)
+aeneas-lean/.lake/aeneas/charon rustc --preset=aeneas \
+  --no-dedup-serialized-ast --start-from power_branch_review::strict \
+  --include 'core::num::_::strict_pow' \
+  --include 'core::num::_::checked_pow' \
+  --include 'core::num::imp::overflow_panic::pow' \
+  --dest-file "$power_probe/branch_review.llbc" -- \
+  --edition=2024 --crate-type lib --crate-name power_branch_review \
+  "$PWD/aeneas-lean/reproducers/pow_models/branches.rs"
+aeneas-lean/.lake/aeneas/aeneas -backend lean -namespace BranchReview \
+  -split-files -no-progress-bar -print-error-emitters \
+  -dest "$power_probe/BranchReview" "$power_probe/branch_review.llbc"
+```
+
+The final command is expected to exit 1. Removing the panic-helper include
+produces the same failure. The wrapping diagnostic uses root
+`power_branch_review::wrapping` and includes only `core::num::_::wrapping_pow`
+and `core::num::_::overflowing_pow`. Charon and Aeneas exit zero for that
+diagnostic, with external declarations for the compiler selector, `ilog2`,
+and `unbounded_shl`. No admitted template or partial output is compiled.
+
 From the repository root:
 
 ```sh

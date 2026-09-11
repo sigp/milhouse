@@ -1,5 +1,12 @@
 # VecMap source contracts
 
+The September 7 migration retains all 13 proofs in this suite. Use the
+[project toolchain setup](../../README.md) and the pinned defaults of its
+audit command. Earlier compiler pins, source locations, and checkpoint
+counts below are historical; current versions and input hashes are recorded
+in each new audit report. The temporary `usize::pow` assumption does not
+exclude any proof in this suite.
+
 This suite checks the pinned `vec_map` 0.8.2 implementation underlying the
 default `ProgressiveList` update map, `MaxMap<VecMap<T>>`. It proves concrete
 observer and mutable-lookup behavior against slot semantics. It does not yet

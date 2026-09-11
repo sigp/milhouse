@@ -69,14 +69,15 @@ theorem SszItems.variable_decodes_prefix {T : Type}
     let nextOffset := usizeOfBound (offset.val + (encode value).length) hnextBound
     have hnextOffset : nextOffset.val = offset.val + (encode value).length := rfl
     have hpartBound : (encode value).length ≤ Std.Usize.max := by omega
-    let part : Slice Std.U8 := ⟨encode value, hpartBound⟩
+    let part : Slice Std.U8 := Slice.from (encode value) hpartBound
     have hpositionBound : 4 * index.val ≤ Std.Usize.max := by
       have hb := bytes.property
       simp only [Slice.length] at hoffsetBound
       omega
     let position := usizeOfBound (4 * index.val) hpositionBound
     let tableTail := bytes.drop position
-    have htableTailVal : tableTail.val = bytes.val.drop (4 * index.val) := rfl
+    have htableTailVal : tableTail.val = bytes.val.drop (4 * index.val) := by
+      simp [tableTail, Slice.drop, position, usizeOfBound]
     have htableTail : tableTail.val =
         _root_.ssz.encode.offsets encode nextOffset.val values ++
           _root_.ssz.encode.offsetBytes finalOffset.val ++ tableSuffix := by
@@ -108,15 +109,14 @@ theorem SszItems.variable_decodes_prefix {T : Type}
           omega
         · simpa only [_root_.ssz.encode.offsets, _root_.List.append_assoc] using htableTail
     have hpart : part.val = bytes.val.slice offset.val nextOffset.val := by
-      simp only [_root_.List.slice, hpayload, _root_.List.flatMap_cons, hnextOffset,
+      simp only [part, Slice.from_val, _root_.List.slice, hpayload, _root_.List.flatMap_cons, hnextOffset,
         Nat.add_sub_cancel_left, _root_.List.append_assoc, _root_.List.take_left]
-      rfl
     have hitem := SszItems.variable_item_between bytes part tableTail first count index offset
-      nextOffset (by intro h; subst index; omega) (by omega) rfl hread
+      nextOffset (by intro h; subst index; omega) (by omega) htableTailVal hread
       (by omega) (by omega) (by omega) hpart
     apply SszItems.Decodes.cons
       (SszItems.next_variable_step bytes first count index successor offset nextOffset (.Ok part)
-        (by omega) hsuccessor hitem) (hdecode value (by simp) part rfl)
+        (by omega) hsuccessor hitem) (hdecode value (by simp) part (by simp [part]))
     apply ih successor nextOffset (by omega)
       (by simp only [_root_.List.length_cons] at hfinalIndex; omega) (by omega) (by omega)
     · simp only [_root_.List.flatMap_cons, _root_.List.length_append] at hfinalOffset

@@ -51,7 +51,8 @@ theorem vec_pop_some_values {A X : Type} {source rest : alloc.vec.Vec X} {last :
         source.val = source.val.reverse.reverse := by simp
         _ = (head :: tail).reverse := by rw [hreverse]
         _ = tail.reverse ++ [head] := by simp
-    have hrestValues : tail.reverse = rest.val := congrArg Subtype.val hrest
+    have hrestValues : tail.reverse = rest.val := by
+      simpa only [alloc.vec.Vec.from_val] using congrArg (fun v : alloc.vec.Vec X => v.val) hrest
     rw [hrestValues] at hsource
     exact hsource
 
