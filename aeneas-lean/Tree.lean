@@ -243,6 +243,7 @@ import Tree.Cow.Metadata
 import Tree.Cow.EntrySuccess
 import Tree.Cow.ConsumingConditions
 import Tree.UpdateMap.MaxMap.Maximum
+import Tree.UpdateMap.MaxMap.CopyOnWrite
 import Tree.UpdateMap.MaxMap.Empty
 import Tree.UpdateMap.MaxMap.Mutable
 import Tree.ProgressiveList.CopyOnWrite.Consuming
