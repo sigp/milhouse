@@ -1,4 +1,10 @@
-# Nested MaxMap loses its inner CoW callback
+# Nested MaxMap callback-loss regression
+
+The bug is fixed in `c7e5128`: callback attachment preserves the inner chain,
+and the complete Rust library suite passes all 333 tests, including these
+nine cases. The callback and inner write-back composition proofs are in
+[the current CoW status](../../COW_PROOFS_STATUS.md). The instructions below
+reproduce the original failure against its historical baseline.
 
 This native Rust reproducer demonstrates stale inner maximum metadata for
 the valid type `MaxMap<MaxMap<M>>`. It does not use Aeneas or Lean models.
@@ -20,25 +26,25 @@ not demonstrate an incorrect outer lookup, outer maximum, or public list
 length. The usual single `MaxMap<VecMap<T>>` default does not have a second
 callback to overwrite.
 
-## Cause and proof consequence
+## Original cause and proof consequence
 
 `Cow::with_max_index` assigns `on_mut.max_index = Some((max_index, index))`.
 An outer MaxMap thereby discards the callback installed by an inner MaxMap.
 The eventual mutation runs only the outer callback. The inner borrow ends
 without recording the new key.
 
-This matches the proved `Cow.releaseIndex` continuation: it restores the
+This matched the original `Cow.releaseIndex` continuation: it restored the
 original inner callback unchanged. The `Cow.Written` contract, in contrast,
-records that callback. Therefore an outer filled footprint cannot in general
+records that callback. Before the repair, an outer filled footprint could not in general
 be passed directly to the original inner handle's `Written` contract.
 The existing outer-maximum theorem and conditional list theorems remain
 valid; they do not claim that this inner contract transfers automatically.
 
 Assuming every inner handle has no callback would exclude nested MaxMap
-configurations instead of repairing their behavior. A repair must address
-callback composition while retaining delayed, one-shot recording and the
-performance of the common single-wrapper case. Proof changes were stopped
-and the Rust bug was raised under the repository's `AGENTS.md` instruction.
+configurations instead of repairing their behavior. The repair retains delayed, one-shot recording and keeps the first callback
+inline, allocating a chain node only for an additional callback. The new
+`Cow.releaseIndex_written` proof now returns the complete recorded inner
+footprint without the rejected callback-neutrality assumption.
 
 ## Reproduce
 

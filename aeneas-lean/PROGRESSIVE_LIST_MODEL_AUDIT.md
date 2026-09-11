@@ -101,6 +101,14 @@ formatter options, user sinks, or lock observation without further work.
 
 ## MaxMap wrapper source proofs
 
+The callback-chain repair (`c7e5128`, composition `b1842b8`) now returns the
+complete recorded inner callback footprint. Both exact insertion/read framing
+and selected fallback-aware writes transfer through the actual MaxMap wrapper,
+without a callback-neutrality assumption. The new high-level consuming and
+represented-replacement contracts require only the selected inner-map laws;
+wrapper maximum behavior remains derived from source. The new callback helper
+is extracted Rust, with no added model. See [the current CoW status](COW_PROOFS_STATUS.md).
+
 The [CoW continuation checkpoint](COW_PROOFS_STATUS.md) proves the actual
 `get_cow_with_value` wrapper's exact result and continuation. Inner read,
 unchanged-release, entry-location, and existing-mutable laws transfer at the

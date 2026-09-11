@@ -5,26 +5,43 @@ high-level correctness results; borrowed handle access and iterator stepping
 still need extraction and proofs. These obligations are not replaced by
 observations of handle data or by the consuming-method theorems.
 
-## Rust bug found during write-back composition
+## Callback composition repaired
 
-The subsequent review confirmed that nested `MaxMap<MaxMap<M>>` loses the
-inner handle's maximum callback. CoW insertion at key 17 leaves an original
-inner maximum of 3 unchanged even though the inner map now contains key 17.
-The outer maximum and lookups remain correct in the reproducer. All eight
-combinations of VecMap/BTreeMap, supplied/lazy acquisition, and consuming/
-borrowed mutation fail the inner-cache assertion; the read-only and direct
-mutation control passes. See the [native reproducer](reproducers/nested_max_map_cow/README.md).
+Commit `c7e5128` fixes the nested `MaxMap<MaxMap<M>>` callback bug. The first
+maximum callback stays inline; attaching an additional wrapper links the
+previous callback in a box. Running the chain records every original maximum
+and clears every action. Read-only release restores all original borrows.
+The common single-wrapper path allocates no callback node; nested wrappers
+allocate one node per additional callback.
 
-This is a Rust callback-composition bug, independent of the Aeneas extraction
-failures. `releaseIndex` restores the original inner callback unchanged,
-whereas the inner `Written` contract requires recording it. The existing
-outer-maximum and conditional list theorems remain valid. No premise was
-added to conceal this mismatch. Proof changes stopped and the bug was raised
-as required by `AGENTS.md`; the goal remains incomplete.
+All 333 Rust library tests pass, including the eight nested-map cases that
+previously failed and their read-only/direct-mutation control. The
+[original native reproducer](reproducers/nested_max_map_cow/README.md) remains
+available against the historical baseline. The new source extracts with full
+MIR and introduces no external models. A guarded postprocessor supplies a
+type annotation for one generated empty-chain continuation; it changes no
+expression behavior and no Aeneas source.
+
+`CowOnMut.run_eq` now proves complete chain recording. The new
+[CallbackAttachment.lean](Tree/Cow/CallbackAttachment.lean) proves exact
+attachment/release and preservation of all recorded inner callbacks.
+`Cow.releaseIndex_written` establishes the original inner handle's complete
+`Written` footprint, without a callback-neutrality or metadata premise.
+
+Commit `b1842b8` uses that result in
+[MaxMap/CowWriteBack.lean](Tree/UpdateMap/MaxMap/CowWriteBack.lean) to transfer
+both exact insertion/read framing and selected fallback-aware write agreement.
+It also transfers precise entry readiness and immutable-clone termination.
+[CopyOnWrite/MaxMapInner.lean](Tree/ProgressiveList/CopyOnWrite/MaxMapInner.lean)
+provides the high-level represented-replacement and complete consuming-mutation
+contracts using only the selected **inner-map** read, materialization-input,
+and write-read laws. The wrapper's callback and maximum behavior is derived
+from source. This removes the callback-composition obstacle without narrowing
+the supported nested-map configurations.
 
 ## Verified source composition
 
-The September 11 continuation adds 22 named lemmas in five modules:
+The initial September 11 continuation added 22 named lemmas in five modules:
 
 | Module | Established behavior |
 | --- | --- |
@@ -47,10 +64,10 @@ clone law. An in-bounds key is needed when using that law to preserve list
 length; the representation hypothesis supplies the successful original
 length. Out-of-bounds insertion could increase the logical extent.
 
-The complete consuming theorem retains represented input, an in-bounds key,
-the selected acquisition read law, structural entry readiness and actual
-immutable-clone termination, and selected write-back read agreement. The
-clone result may differ from the original value. It assumes neither an
+The newest complete consuming theorem retains represented input, an in-bounds
+key, and the selected inner-map acquisition read law, structural entry
+readiness and actual immutable-clone termination, and write-back read
+agreement. The clone result may differ from the original value. It assumes neither an
 intermediate CoW success nor an independent maximum law, packing invariant,
 or backing-shape invariant. The source wrapper transfers several inner laws;
 it does not establish arbitrary inner-map behavior from Rust trait bounds.
@@ -72,16 +89,17 @@ read, clone, entry-readiness, or maximum law. This concerns returned Rust
   and mutable lookup; insertion and its iterator dependencies remain outside
   the successful source suite.
 
-Current production probes of `make_mut` and `next_cow` use the adopted
+Fresh probes after the callback repair use the adopted
 Aeneas `7ebd01d` / Charon `85bba1f2` / Rust `nightly-2026-08-18` with full MIR.
-Charon reports no LLBC errors; Aeneas exits 1 on both added roots. `make_mut`
-still loses borrowed symbolic values and fails backward projection.
+Charon reports no LLBC errors; Aeneas exits 1 on `make_mut`, `next_cow`,
+and a concrete `Deref` caller. `make_mut` still loses borrowed symbolic values and fails backward projection.
 `next_cow` still fails on its borrowed fallback closure and missing symbolic
-values. Logs and source hashes are in `.lake/cow-goal-probes/`.
+values. Current logs, source hashes, and exact extraction checks are in
+`.lake/cow-callback-chain-probe/`.
 No partial output is imported into the proof library.
 
-Selecting the `Cow` Deref trait method alone exited zero but emitted none of
-the required Cow/BTreeCow/VecCow Deref bodies, so this was not successful
+The earlier selection of the `Cow` Deref trait method alone exited zero but
+emitted none of the required Cow/BTreeCow/VecCow Deref bodies, so this was not successful
 coverage. A concrete caller in an isolated worktree forced the actual
 methods into extraction:
 
@@ -92,17 +110,25 @@ pub fn cow_deref_probe<'a, 'b, T: Clone>(handle: &'b crate::Cow<'a, T>) -> &'b T
 ```
 
 Charon succeeded without LLBC errors; Aeneas exited 1 on both inner Deref
-methods with `Unreachable`. The caller patch, full-MIR LLBC, and failure log
-are retained as `deref-caller.*` in the same diagnostic directory. The caller
-and partial generated output were not added to production.
+methods with `Unreachable`. The original caller patch and logs remain in
+`.lake/cow-goal-probes/`; the repaired source has the same failure, recorded
+under `.lake/cow-callback-chain-probe/deref-caller/`. The caller and partial
+generated output are not imported into production.
 
 ## Validation
 
-The complete Lean build passes (2,176 jobs). The axiom/import audit covers
-6,251 theorem declarations, including private/generated declarations, across
-454 modules. All added lemmas use only standard Lean axioms; the same 119
+The complete Lean build passes (2,180 jobs). The axiom/import audit covers
+6,309 theorem declarations, including private/generated declarations, across
+458 modules. All added proofs use only standard Lean axioms; the same 119
 declarations retain the existing Arc pointer contract. The model audit still
-covers 42 roots and 151 local model declarations. Production Rust, generated
-Rust extraction, and external models are unchanged by this proof work.
-The approved `usize::pow` source assumption is unchanged. Debug and Serde
-remain out of scope, and TreeHash remains deferred.
+covers 42 roots and 151 local model declarations. Fresh full-MIR extraction
+reproduces all four generated production files exactly and preserves the
+lockfile. All 333 Rust library tests and 17 Python checker tests pass.
+
+The SSZ-offset and Arbitrary source suites were refreshed for the changed
+`Tree/Types.lean` input; both pass. The six unaffected source reports remain
+current, for 51 proofs across all eight source suites. Logs and hashes are
+under `.lake/cow-callback-chain-probe/`. The approved `usize::pow` source
+assumption and external models are unchanged. Debug and Serde remain out of
+scope, and TreeHash remains deferred. Borrowed methods and the remaining
+concrete inner-map/entry fidelity still prevent completion of the goal.

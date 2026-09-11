@@ -1341,11 +1341,20 @@ relaxations were made for these probes.
 ## 30. Rust: nested MaxMap CoW attachment discards the inner maximum callback
 
 **Stage:** native Rust runtime and composition of the CoW write-back proofs.
-**Status:** confirmed on September 11 at `3575ee6`; unresolved. This is a
-milhouse Rust bug, independent of Aeneas. Proof work stopped and the issue
-was raised under `AGENTS.md`.
+**Status:** fixed in `c7e5128`, with high-level inner-map composition in
+`b1842b8`. This was a milhouse Rust bug, independent of Aeneas.
 
-For `MaxMap<MaxMap<VecMap<u64>>>` and the corresponding BTreeMap backend,
+The repair keeps the first callback inline and links additional callbacks
+in boxes. Running the chain records every original maximum and clears every
+action; read-only release restores the original chain. All 333 Rust tests
+pass, including the eight formerly failing cases below. The exact source
+callback and inner `Written` composition proofs need no callback-neutrality
+assumption. The complete Lean audit passes 6,309 theorem declarations across
+458 modules with unchanged axiom boundaries. See
+[the current CoW status](COW_PROOFS_STATUS.md).
+
+On the original `3575ee6` baseline, for `MaxMap<MaxMap<VecMap<u64>>>` and the
+corresponding BTreeMap backend,
 insert key 3 and then materialize a fallback CoW handle at key 17. Both
 wrappers expose the new value, and the outer maximum becomes 17, but the
 inner maximum remains 3. `Cow::with_max_index` overwrites the callback that
@@ -1356,15 +1365,36 @@ acquisition methods and both mutation methods for both backends. All eight
 inner-cache assertions fail. Read-only CoW, `get_mut_with`, and ordinary
 insertion pass their control. The reproducer inspects private inner metadata
 from a test module; it does not demonstrate an incorrect outer list length.
-Production Rust and Aeneas were not changed.
+Aeneas source was not changed by either the investigation or the repair.
 
-The Lean attachment continuation correctly restores the original inner
+The original Lean attachment continuation correctly restored the original inner
 callback unchanged; the inner `Cow.Written` contract requires it to be
-recorded. Thus the inner filled-footprint contract does not transfer without
-an additional restriction or a Rust repair. The existing outer maximum law
-and conditional list theorems remain valid. Repairing callback composition
-must preserve delayed, one-shot recording and consider the common single-
-wrapper performance; no extra assumption was introduced to bypass the bug.
+recorded. That mismatch prevented transferring the complete inner footprint.
+The repaired continuation now returns every recorded callback and establishes
+that transfer. The existing outer maximum law and conditional list theorems
+remain valid; the new public contracts derive wrapper behavior from only
+the selected inner-map read, materialization-input, and write-read laws.
+
+## 31. Aeneas Lean output: recursive empty callback continuation lacks inferred types
+
+**Stage:** Lean elaboration of generated `CowOnMut::run`.
+**Status:** resolved locally by a guarded type annotation in
+`scripts/aeneas-annotate-cow.py`, applied by the production extraction script.
+No Aeneas source, external model, or axiom is changed.
+
+The callback-chain repair extracts successfully, but the recursive function's
+empty branch originally emitted `ok (none, fun o1 => none)`. Lean could not
+infer the constant continuation's argument/result universes and rejected the
+generated definition with `stuck at solving universe constraint`. Both types
+are `Option cow.CowOnMut`. Annotating them makes the original expression
+elaborate. The postprocessor checks that exactly one matching branch occurs
+inside the named function and rejects changed output instead of guessing.
+
+Fresh full-MIR extraction reproduces all four generated production files
+exactly. The complete proof and model audits pass. Logs and hashes are in
+`.lake/cow-callback-chain-probe/`. This annotation does not repair the separate
+borrowed `Deref`, `make_mut`, or `next_cow` failures, all reproduced again
+after the Rust callback repair.
 
 ## Also of note (not bugs)
 

@@ -61,6 +61,14 @@ probes still fail for actual borrowed `Deref`, `make_mut`, and `next_cow`;
 the CoW goal remains incomplete. The approved power assumption and other
 trust boundaries are unchanged.
 
+The subsequent callback-composition repair fixes a Rust bug in nested MaxMap
+(`c7e5128`) and derives the high-level CoW contracts from selected inner-map
+laws (`b1842b8`). The full audit now passes 6,309 theorem declarations across
+458 modules, and all 333 Rust tests pass. No model or axiom is added. Generated
+callback recursion needs one guarded type annotation; the Rust body is fully
+extracted and proved. Fresh probes still fail for the three borrowed methods.
+The [CoW status](COW_PROOFS_STATUS.md) records current validation and scope.
+
 ## Versions compared
 
 | Component | Pre-upgrade pin | Selected September 7 candidate | Latest upstream checked on September 10 |

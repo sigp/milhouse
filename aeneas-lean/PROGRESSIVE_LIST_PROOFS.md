@@ -93,6 +93,14 @@ points and records the trusted boundaries that still need fidelity review.
 
 ## Existing foundations
 
+- The callback-chain repair (`c7e5128`, composition `b1842b8`) fixes nested
+  MaxMap metadata loss and proves complete callback recording and inner
+  write-back composition. `CopyOnWrite/MaxMapInner.lean` derives the wrapper's
+  read, materialization, write-back, and maximum behavior from only selected
+  inner-map contracts. No callback-neutrality premise is added. The
+  [current CoW status](COW_PROOFS_STATUS.md) records the passing 6,309-theorem
+  audit and 333 Rust tests, plus the remaining borrowed-method and concrete
+  map-fidelity obligations.
 - The [CoW continuation checkpoint](COW_PROOFS_STATUS.md) adds source
   composition for the actual MaxMap supplied-value wrapper. Its attached
   callback proves the maximum law, removing that independent premise from
