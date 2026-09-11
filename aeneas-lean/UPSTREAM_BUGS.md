@@ -12,15 +12,15 @@ Issue trackers: <https://github.com/AeneasVerif/charon/issues>,
 <https://github.com/AeneasVerif/aeneas/issues>.
 
 The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
-11, records the resumed isolated upgrade. The September 7 bundle passes
-447 main-library modules, 6,211 theorem declarations, and the model audit
-after compatibility repairs; 324 Rust tests passed earlier. Source-suite
-validation remains incomplete. Charon used an optimized fallback because
-Miri is missing, so the observed standard-library failures must be retested
-with the intended full-MIR sysroot. Miri and rustfmt installation is pending.
-The working pin is retained meanwhile. The four existing CoW control proofs
-pass without axioms; exact borrowed-CoW failures were not retested, and their
-issue statuses below are unchanged. Latest additionally needs a Result migration.
+11, records the isolated full-MIR trial. Miri and rustfmt are installed.
+The September 7 bundle passes production extraction, all 447 library modules
+and 6,210 theorem declarations, the model audit, and 324 Rust tests. Eight
+source suites validate 51 proofs; Core checked power has three additional
+explicit numeric-helper model boundaries. Pow still fails on
+`overflow_checks<bool>` (issue 29). The working compiler remains unchanged.
+Four freshly extracted CoW control proofs pass without axioms. Exact
+borrowed-CoW failures were not retested; their issue statuses below remain
+historical. Latest additionally needs a Result migration.
 
 Scope revision (2026-09-09): Debug and Serde implementations, including
 Serde-based context deserialization, are out of scope for the
@@ -1230,6 +1230,52 @@ The successful suite independently extracts `VecMap::new`, `len`, `is_empty`,
 source-contract and invariant lemmas pass with standard Lean axioms or none,
 and four native tests pass. Insertion, range/max queries, the entry footprints,
 and concrete `UpdateMap`/`MaxMap` composition still need their own fidelity work.
+
+## 29. September Aeneas cannot translate the overflow-check selector in usize::pow
+
+**Stage:** Aeneas interpretation, using `7ebd01d19455`, Charon `0.1.251`
+(`85bba1f2a64d`), Rust `nightly-2026-08-18`, and Miri's full-MIR sysroot.
+**Status:** blocks validation of the existing power source comparison and
+therefore prevents adopting the candidate as a fully validated upgrade.
+
+The new `usize::pow` body at `core/src/num/uint_macros.rs:3634` selects
+`strict_pow` or `wrapping_pow` using `core::intrinsics::overflow_checks()`.
+Charon represents Rust's runtime-check operand as the nullary operation
+`OverflowChecks`. Aeneas exits 1 with:
+
+```text
+Unsupported operation: overflow_checks<bool>
+Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3635:15-3635:44
+Compiler source: interp/Interp.ml, line 617
+```
+
+Reproduce on `sept7-compiler-trial`, after installing its pinned bundle and
+Rust components, with `python3 scripts/aeneas-audit-pow-models.py`. All native
+tests pass and Charon exits zero. Aeneas's partial output is rejected; it
+does not establish the `core_pow_agrees` theorem for this Rust version.
+A separate extraction using `--monomorphize` and
+`--rustc-arg=-Coverflow-checks=yes` reaches the same unsupported operation.
+Changing the current crate's MIR level cannot resolve an operand retained
+in the separately extracted standard-library body.
+
+The pinned Rust intrinsic documentation says its evaluation can be delayed
+until inlining or monomorphization, inheriting the caller's overflow-check
+configuration. Its apparent `cfg!(debug_assertions)` fallback is not a valid
+general replacement. Specializing an LLBC operation to `true`, modeling the
+whole `pow` body, or validating only `strict_pow` would change the current
+source-validation boundary. None of those workarounds has been applied.
+
+The selected strict branch additionally delegates to `checked_pow` and
+panics on `None`. Any future port must inspect the translated failure result
+against the existing model's `integerOverflow`; it must not silently equate
+different Lean error constructors. This is a standard-library/compiler
+compatibility issue, not a discovered bug in milhouse Rust.
+
+The original compiler remains installed on the working branch. The trial's
+successful library and other source proofs are preserved separately. Aeneas
+and Charon sources have not been modified. Session evidence is retained in
+`/tmp/milhouse-aeneas-upstream-j6mrhx0i/sept7-final-source-pow.log`,
+`sept7-full-mir-pow.log`, and `pow-mono-probe/`.
 
 ## Also of note (not bugs)
 

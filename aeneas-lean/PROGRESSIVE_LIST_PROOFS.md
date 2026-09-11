@@ -1846,16 +1846,16 @@ abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.m
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
 The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
-11, records the resumed September 7 upgrade on `sept7-compiler-trial`.
-The installed candidate bundle passes all 447 main-library modules, the
-6,211-declaration axiom/import audit, and the model audit after compatibility
-repairs. Earlier native tests passed all 324 cases. Source validation is
-still incomplete: Charon fell back to an optimized sysroot because Miri is
-missing. Miri and rustfmt installation is pending before the full source
-suites and production extraction can be rerun correctly. The four existing
-CoW control proofs pass without axioms; no new borrowed-CoW obligation is
-discharged. The working compiler remains unchanged pending full validation
-and integration of the trial.
+11, records the September 7 trial through proof commit `f88baf5`. With Miri
+and rustfmt installed, full-MIR production extraction, the 447-module,
+6,210-declaration axiom/import audit, the model audit, and all 324 Rust tests
+pass. Eight source suites validate 51 proofs. Core checked power now has
+three explicit numeric-helper model boundaries, documented in the review.
+The remaining Pow comparison fails because Aeneas cannot translate
+`overflow_checks<bool>` in the new Rust body. All four freshly extracted CoW
+control proofs pass without axioms; no new borrowed-CoW obligation is
+discharged. The trial remains separate and the working compiler is retained.
+Completing the upgrade requires resolving the Pow extraction boundary.
 
 Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
 `get_cow_with`, and `get_cow_with_value` now extract and compile through
