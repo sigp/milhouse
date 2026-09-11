@@ -1171,6 +1171,37 @@ def builder.Builder.finish
             ((triomphe.arc.Arc (tree.Tree T)) × Std.Usize × utils.Length)
             (core.convert.FromSame error.Error) residual
 
+/-- [milhouse::cow::{milhouse::cow::CowOnMut<'a>}::with_max_index]:
+    Source: 'src/cow.rs', lines 20:4-30:5 -/
+def cow.CowOnMut.with_max_index
+  (self : cow.CowOnMut) (max_index : update_map.MaxIndexState)
+  (index : Std.Usize) :
+  Result (cow.CowOnMut × (cow.CowOnMut → (cow.CowOnMut ×
+    update_map.MaxIndexState)))
+  := do
+  let b := core.option.Option.is_some self.max_index
+  if b
+  then
+    let back :=
+      fun com =>
+        let (max_index1, o, o1) :=
+          match com with
+          | cow.CowOnMut.mk (some (mis, _)) (some (cow.CowOnMut.mk o2 o3)) =>
+            (mis, o2, o3)
+          | _ => (max_index, self.max_index, self.previous)
+        (cow.CowOnMut.mk (cow.CowOnMut.mk o o1).max_index
+          (cow.CowOnMut.mk o o1).previous, max_index1)
+    ok (cow.CowOnMut.mk (some (max_index, index)) (some self), back)
+  else
+    let back :=
+      fun com =>
+        let (max_index1, o) :=
+          match com with
+          | cow.CowOnMut.mk (some (mis, _)) o1 => (mis, o1)
+          | _ => (max_index, self.previous)
+        (cow.CowOnMut.mk self.max_index o, max_index1)
+    ok (cow.CowOnMut.mk (some (max_index, index)) self.previous, back)
+
 /-- [milhouse::update_map::{milhouse::update_map::MaxIndexState}::record_insert]:
     Source: 'src/update_map.rs', lines 231:4-241:5 -/
 def update_map.MaxIndexState.record_insert
@@ -1184,25 +1215,43 @@ def update_map.MaxIndexState.record_insert
     then ok (update_map.MaxIndexState.Known index)
     else ok self
 
-/-- [milhouse::cow::{milhouse::cow::CowOnMut<'_0>}::run]:
-    Source: 'src/cow.rs', lines 17:4-24:5 -/
+/-- [milhouse::cow::{milhouse::cow::CowOnMut<'a>}::run]:
+    Source: 'src/cow.rs', lines 32:4-43:5 -/
 def cow.CowOnMut.run
   (self : cow.CowOnMut) :
   Result (cow.CowOnMut × (cow.CowOnMut → cow.CowOnMut))
   := do
+  let (o, back) ←
+    match self.previous with
+    | none => ok (none, fun (o1 : Option cow.CowOnMut) => (none : Option cow.CowOnMut))
+    | some com =>
+      do
+      let (com1, run_back) ← cow.CowOnMut.run com
+      ok (some com1,
+        fun o1 =>
+          let (o2, o3) :=
+            match o1 with
+            | some (cow.CowOnMut.mk o4 o5) => (o4, o5)
+            | _ => (com1.max_index, o1)
+          some (cow.CowOnMut.mk (run_back (cow.CowOnMut.mk o2 o3)).max_index
+            (run_back (cow.CowOnMut.mk o2 o3)).previous))
   match self.max_index with
   | none =>
-    let back := fun self1 => ({ max_index := none } : cow.CowOnMut)
-    ok ({ max_index := none }, back)
+    let back'a := fun self1 => let o1 := back o
+                               cow.CowOnMut.mk none o1
+    ok (cow.CowOnMut.mk none none, back'a)
   | some p =>
     let (max_index, index) := p
     let max_index1 ← update_map.MaxIndexState.record_insert max_index index
-    let back :=
-      fun self1 => ({ max_index := (some (max_index1, index)) } : cow.CowOnMut)
-    ok ({ max_index := none }, back)
+    let back'a :=
+      fun self1 =>
+        let o1 := back o
+        cow.CowOnMut.mk (some (max_index1, index)) o1
+    ok (cow.CowOnMut.mk none none, back'a)
+partial_fixpoint
 
 /-- [milhouse::cow::{milhouse::cow::VecCow<'a, T>}::into_mut_inner]:
-    Source: 'src/cow.rs', lines 166:4-174:5 -/
+    Source: 'src/cow.rs', lines 185:4-193:5 -/
 def cow.VecCow.into_mut_inner
   {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.VecCow T) :
   Result ((core.result.Result T error.Error) × (core.result.Result T
@@ -1235,7 +1284,7 @@ def cow.VecCow.into_mut_inner
     ok (core.result.Result.Ok value, back)
 
 /-- [milhouse::cow::{milhouse::cow::BTreeCow<'a, T>}::into_mut_inner]:
-    Source: 'src/cow.rs', lines 109:4-117:5 -/
+    Source: 'src/cow.rs', lines 128:4-136:5 -/
 def cow.BTreeCow.into_mut_inner
   {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.BTreeCow T)
   :
@@ -1271,7 +1320,7 @@ def cow.BTreeCow.into_mut_inner
     ok (core.result.Result.Ok value, back)
 
 /-- [milhouse::cow::{milhouse::cow::Cow<'a, T>}::into_mut]:
-    Source: 'src/cow.rs', lines 44:4-63:5
+    Source: 'src/cow.rs', lines 63:4-82:5
     Visibility: public -/
 def cow.Cow.into_mut
   {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.Cow T) :
@@ -1291,7 +1340,8 @@ def cow.Cow.into_mut
                    | core.result.Result.Ok t1 => t1
                    | _ => value
           let inner1 := into_mut_inner_back (core.result.Result.Ok t)
-          cow.Cow.BTree inner1 (run_back on_mut)
+          cow.Cow.BTree inner1 (cow.CowOnMut.mk (run_back on_mut).max_index
+            (run_back on_mut).previous)
       ok (r, back)
     | core.result.Result.Err _ =>
       let back :=
@@ -1310,7 +1360,8 @@ def cow.Cow.into_mut
                    | core.result.Result.Ok t1 => t1
                    | _ => value
           let inner1 := into_mut_inner_back (core.result.Result.Ok t)
-          cow.Cow.Vec inner1 (run_back on_mut)
+          cow.Cow.Vec inner1 (cow.CowOnMut.mk (run_back on_mut).max_index
+            (run_back on_mut).previous)
       ok (r, back)
     | core.result.Result.Err _ =>
       let back :=
@@ -1319,7 +1370,7 @@ def cow.Cow.into_mut
       ok (r, back)
 
 /-- [milhouse::cow::{milhouse::cow::Cow<'a, T>}::with_max_index]:
-    Source: 'src/cow.rs', lines 80:4-87:5 -/
+    Source: 'src/cow.rs', lines 99:4-106:5 -/
 def cow.Cow.with_max_index
   {T : Type} (corecloneCloneInst : core.clone.Clone T) (self : cow.Cow T)
   (max_index : update_map.MaxIndexState) (index : Std.Usize) :
@@ -1327,24 +1378,32 @@ def cow.Cow.with_max_index
     update_map.MaxIndexState)))
   := do
   match self with
-  | cow.Cow.BTree bc com =>
+  | cow.Cow.BTree inner com =>
+    let (com1, with_max_index_back) ←
+      cow.CowOnMut.with_max_index com max_index index
     let back :=
       fun c =>
-        let (bc1, max_index1) :=
+        let (bc, o, o1) :=
           match c with
-          | cow.Cow.BTree bc2 (cow.CowOnMut.mk (some (mis, _))) => (bc2, mis)
-          | _ => (bc, max_index)
-        (cow.Cow.BTree bc1 com, max_index1)
-    ok (cow.Cow.BTree bc { max_index := (some (max_index, index)) }, back)
-  | cow.Cow.Vec vc com =>
+          | cow.Cow.BTree bc1 (cow.CowOnMut.mk o2 o3) => (bc1, o2, o3)
+          | _ => (inner, com1.max_index, com1.previous)
+        let (⟨ o2, o3 ⟩, max_index1) :=
+          with_max_index_back (cow.CowOnMut.mk o o1)
+        (cow.Cow.BTree bc (cow.CowOnMut.mk o2 o3), max_index1)
+    ok (cow.Cow.BTree inner com1, back)
+  | cow.Cow.Vec inner com =>
+    let (com1, with_max_index_back) ←
+      cow.CowOnMut.with_max_index com max_index index
     let back :=
       fun c =>
-        let (vc1, max_index1) :=
+        let (vc, o, o1) :=
           match c with
-          | cow.Cow.Vec vc2 (cow.CowOnMut.mk (some (mis, _))) => (vc2, mis)
-          | _ => (vc, max_index)
-        (cow.Cow.Vec vc1 com, max_index1)
-    ok (cow.Cow.Vec vc { max_index := (some (max_index, index)) }, back)
+          | cow.Cow.Vec vc1 (cow.CowOnMut.mk o2 o3) => (vc1, o2, o3)
+          | _ => (inner, com1.max_index, com1.previous)
+        let (⟨ o2, o3 ⟩, max_index1) :=
+          with_max_index_back (cow.CowOnMut.mk o o1)
+        (cow.Cow.Vec vc (cow.CowOnMut.mk o2 o3), max_index1)
+    ok (cow.Cow.Vec inner com1, back)
 
 /-- [milhouse::error::{impl core::fmt::Debug for milhouse::error::Error}::fmt]:
     Source: 'src/error.rs', lines 3:9-3:14

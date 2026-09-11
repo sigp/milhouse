@@ -6,10 +6,6 @@ open milhouse
 
 namespace milhouse.cow
 
-/-- Metadata returned to the original borrow after materialization. -/
-def CowOnMut.recorded (self : CowOnMut) : CowOnMut :=
-  { max_index := self.max_index.map (fun (state, index) => (state.recorded index, index)) }
-
 /-- An immutable handle needs an entry, and a vector entry needs a
 representable destination slot. Already mutable handles need no entry bound. -/
 def Cow.CanMaterialize {T : Type} : Cow T → Prop
@@ -83,12 +79,12 @@ theorem Cow.into_mut_spec {T : Type} (cloneInst : core.clone.Clone T)
       | some entry =>
         change cloneInst.clone original = ok value at hvalue
         simp! only [Cow.into_mut, BTreeCow.into_mut_inner, hvalue,
-          alloc.collections.btree.map.entry.VacantEntry.insert, CowOnMut.run_eq, bind_tc_ok]
+          alloc.collections.btree.map.entry.VacantEntry.insert, CowOnMut.run_eq, bind_tc_ok, CowOnMut.eta]
         exact ⟨_, rfl, fun replacement => .btree_immutable original replacement entry action⟩
     | Mutable original =>
       change value = original at hvalue
       subst value
-      simp! only [Cow.into_mut, BTreeCow.into_mut_inner, CowOnMut.run_eq, bind_tc_ok]
+      simp! only [Cow.into_mut, BTreeCow.into_mut_inner, CowOnMut.run_eq, bind_tc_ok, CowOnMut.eta]
       exact ⟨_, rfl, fun replacement => .btree_mutable original replacement action⟩
   | Vec inner action =>
     cases inner with
@@ -98,12 +94,12 @@ theorem Cow.into_mut_spec {T : Type} (cloneInst : core.clone.Clone T)
       | some entry =>
         change cloneInst.clone original = ok value at hvalue
         obtain ⟨size, hinsert, hsize⟩ := milhouse_models.vec_entry_insert_success entry value hready
-        simp! only [Cow.into_mut, VecCow.into_mut_inner, hvalue, hinsert, CowOnMut.run_eq, bind_tc_ok]
+        simp! only [Cow.into_mut, VecCow.into_mut_inner, hvalue, hinsert, CowOnMut.run_eq, bind_tc_ok, CowOnMut.eta]
         exact ⟨_, rfl, fun replacement => .vec_immutable original replacement entry action size hsize⟩
     | Mutable original =>
       change value = original at hvalue
       subst value
-      simp! only [Cow.into_mut, VecCow.into_mut_inner, CowOnMut.run_eq, bind_tc_ok]
+      simp! only [Cow.into_mut, VecCow.into_mut_inner, CowOnMut.run_eq, bind_tc_ok, CowOnMut.eta]
       exact ⟨_, rfl, fun replacement => .vec_mutable original replacement action⟩
 
 /-- Termination needs a clone only for the carried immutable value. The exact

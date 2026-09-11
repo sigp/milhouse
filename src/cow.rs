@@ -11,10 +11,29 @@ use std::ops::Deref;
 #[derive(Default)]
 pub struct CowOnMut<'a> {
     max_index: Option<(&'a mut MaxIndexState, usize)>,
+    // Additional wrappers need their own delayed callback. The usual single
+    // wrapper keeps its callback inline and allocates no chain node.
+    previous: Option<Box<CowOnMut<'a>>>,
 }
 
-impl CowOnMut<'_> {
+impl<'a> CowOnMut<'a> {
+    fn with_max_index(self, max_index: &'a mut MaxIndexState, index: usize) -> Self {
+        let previous = if self.max_index.is_some() {
+            Some(Box::new(self))
+        } else {
+            self.previous
+        };
+        Self {
+            max_index: Some((max_index, index)),
+            previous,
+        }
+    }
+
     fn run(&mut self) {
+        if let Some(previous) = &mut self.previous {
+            previous.run();
+        }
+        self.previous = None;
         // Update through the borrow before clearing the one-shot action. This
         // avoids a borrowed Option::take, which Aeneas cannot currently model.
         if let Some((max_index, index)) = &mut self.max_index {
@@ -77,13 +96,13 @@ impl<'a, T: Clone> Cow<'a, T> {
         }
     }
 
-    pub(crate) fn with_max_index(mut self, max_index: &'a mut MaxIndexState, index: usize) -> Self {
-        match &mut self {
-            Self::BTree(_, on_mut) | Self::Vec(_, on_mut) => {
-                on_mut.max_index = Some((max_index, index));
+    pub(crate) fn with_max_index(self, max_index: &'a mut MaxIndexState, index: usize) -> Self {
+        match self {
+            Self::BTree(inner, on_mut) => {
+                Self::BTree(inner, on_mut.with_max_index(max_index, index))
             }
+            Self::Vec(inner, on_mut) => Self::Vec(inner, on_mut.with_max_index(max_index, index)),
         }
-        self
     }
 }
 

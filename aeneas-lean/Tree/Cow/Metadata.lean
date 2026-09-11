@@ -33,49 +33,53 @@ end milhouse.update_map
 
 namespace milhouse.cow
 
-/-- Running the callback clears it immediately. Its backward continuation
-    returns the recorded maximum to the original borrow, independently of
-    subsequent callback state. -/
-theorem CowOnMut.run_eq (self : CowOnMut) :
-    CowOnMut.run self = ok
-      ({ max_index := none }, fun _ =>
-        { max_index := self.max_index.map (fun (state, index) => (state.recorded index, index)) }) := by
-  obtain ⟨action⟩ := self
-  cases action with
-  | none => rfl
-  | some action =>
-    obtain ⟨state, index⟩ := action
-    simp [CowOnMut.run, update_map.MaxIndexState.record_insert_eq]
+/-- Metadata returned to every original borrow after materialization. -/
+def CowOnMut.recorded : CowOnMut → CowOnMut
+  | .mk action none =>
+      .mk (action.map (fun (state, index) => (state.recorded index, index))) none
+  | .mk action (some previous) =>
+      .mk (action.map (fun (state, index) => (state.recorded index, index)))
+        (some previous.recorded)
 
-/-- After one run, another run has no action to execute. Composing the two
-    backward continuations returns exactly the first recorded metadata. -/
+@[simp] theorem CowOnMut.eta (self : CowOnMut) :
+    CowOnMut.mk self.max_index self.previous = self := by
+  cases self; rfl
+
+/-- Running the callback chain clears every action. Its backward continuation
+records all original maximum borrows, independently of subsequent state. -/
+theorem CowOnMut.run_eq (self : CowOnMut) :
+    CowOnMut.run self = ok (.mk none none, fun _ => self.recorded) := by
+  cases self with
+  | mk action previous =>
+    cases previous with
+    | none =>
+      rw [CowOnMut.run]
+      cases action with
+      | none => rfl
+      | some pair =>
+        obtain ⟨state, index⟩ := pair
+        simp [CowOnMut.max_index, CowOnMut.previous, CowOnMut.recorded,
+          update_map.MaxIndexState.record_insert_eq]
+    | some previous =>
+      rw [CowOnMut.run]
+      simp! only [CowOnMut.previous._simpLemma_, CowOnMut.max_index._simpLemma_,
+        CowOnMut.run_eq previous, bind_tc_ok, CowOnMut.eta]
+      cases action with
+      | none => simp
+      | some pair =>
+        obtain ⟨state, index⟩ := pair
+        simp [update_map.MaxIndexState.record_insert_eq]
+termination_by sizeOf self
+
+/-- Running the cleared chain again has no effect. Both continuations together
+return exactly the metadata recorded by the first run, at every chain depth. -/
 theorem CowOnMut.run_twice (self : CowOnMut) :
     ∃ cleared firstBack secondBack,
       CowOnMut.run self = ok (cleared, firstBack) ∧
       CowOnMut.run cleared = ok (cleared, secondBack) ∧
       ∀ later, firstBack (secondBack later) = firstBack cleared := by
   rw [CowOnMut.run_eq]
-  refine ⟨{ max_index := none },
-    fun _ => { max_index := self.max_index.map (fun (state, index) => (state.recorded index, index)) },
-    fun _ => { max_index := none }, rfl, rfl, ?_⟩
-  intro later
-  rfl
-
-/-- Attaching maximum-index tracking changes no carried value. Releasing the
-    attached handle unchanged restores the exact original handle and maximum,
-    so read-only access does not record an insertion. -/
-theorem Cow.with_max_index_roundtrip {T : Type} (cloneInst : core.clone.Clone T)
-    (self : Cow T) (state : update_map.MaxIndexState) (index : Std.Usize) :
-    ∃ attached back,
-      Cow.with_max_index cloneInst self state index = ok (attached, back) ∧
-      attached.value = self.value ∧ attached.onMut.max_index = some (state, index) ∧
-      back attached = (self, state) := by
-  cases self with
-  | BTree inner action =>
-    refine ⟨_, _, rfl, ?_, rfl, rfl⟩
-    cases inner <;> rfl
-  | Vec inner action =>
-    refine ⟨_, _, rfl, ?_, rfl, rfl⟩
-    cases inner <;> rfl
+  exact ⟨.mk none none, fun _ => self.recorded,
+    fun _ => .mk none none, rfl, CowOnMut.run_eq _, fun _ => rfl⟩
 
 end milhouse.cow

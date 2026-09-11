@@ -314,13 +314,32 @@ inductive update_map.MaxIndexState where
 | Known : Std.Usize → update_map.MaxIndexState
 
 /-- [milhouse::cow::CowOnMut]
-    Source: 'src/cow.rs', lines 12:0-14:1
+    Source: 'src/cow.rs', lines 12:0-17:1
     Visibility: public -/
-structure cow.CowOnMut where
-  max_index : Option (update_map.MaxIndexState × Std.Usize)
+inductive cow.CowOnMut where
+| mk :
+  Option (update_map.MaxIndexState × Std.Usize) →
+  Option cow.CowOnMut →
+  cow.CowOnMut
+
+def cow.CowOnMut.max_index (x : cow.CowOnMut) :=
+  match x with | cow.CowOnMut.mk x1 _ => x1
+
+def cow.CowOnMut.previous (x : cow.CowOnMut) :=
+  match x with | cow.CowOnMut.mk _ x1 => x1
+
+@[simp]
+theorem cow.CowOnMut.max_index._simpLemma_ (max_index : Option
+  (update_map.MaxIndexState × Std.Usize)) (previous : Option cow.CowOnMut) :
+  (cow.CowOnMut.mk max_index previous).max_index = max_index := by rfl
+
+@[simp]
+theorem cow.CowOnMut.previous._simpLemma_ (max_index : Option
+  (update_map.MaxIndexState × Std.Usize)) (previous : Option cow.CowOnMut) :
+  (cow.CowOnMut.mk max_index previous).previous = previous := by rfl
 
 /-- [milhouse::cow::VecCow]
-    Source: 'src/cow.rs', lines 153:0-161:1
+    Source: 'src/cow.rs', lines 172:0-180:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.VecCow (T : Type) where
@@ -328,7 +347,7 @@ inductive cow.VecCow (T : Type) where
 | Mutable : T → cow.VecCow T
 
 /-- [milhouse::cow::BTreeCow]
-    Source: 'src/cow.rs', lines 96:0-104:1
+    Source: 'src/cow.rs', lines 115:0-123:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.BTreeCow (T : Type) where
@@ -339,7 +358,7 @@ inductive cow.BTreeCow (T : Type) where
 | Mutable : T → cow.BTreeCow T
 
 /-- [milhouse::cow::Cow]
-    Source: 'src/cow.rs', lines 27:0-30:1
+    Source: 'src/cow.rs', lines 46:0-49:1
     Visibility: public -/
 @[discriminant isize]
 inductive cow.Cow (T : Type) where

@@ -179,6 +179,11 @@ fi
 # field types. Qualify those names without changing the generated interface.
 python3 scripts/aeneas-qualify-arbitrary.py aeneas-lean/Tree/Types.lean
 
+# The empty recursive callback branch emits a constant continuation whose
+# argument and result types Lean cannot infer. Annotate both with the actual
+# callback type; the extracted expression and ownership behavior are unchanged.
+python3 scripts/aeneas-annotate-cow.py aeneas-lean/Tree/Funs.lean
+
 # The pinned Rust Vec equality uses its slice's element-ne loop. Aeneas's
 # built-in Vec.eq calls element eq instead; use the faithful local external
 # model so custom eq/ne implementations need no unstated coherence assumption.
