@@ -1,6 +1,6 @@
 # Core model source comparisons
 
-The September 7 trial validates seven comparisons with freshly extracted
+The September 7 compiler validates seven comparisons with freshly extracted
 Rust standard-library bodies: `Result::map_err`, `hint::must_use`, blanket
 `Borrow::borrow`, `mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and
 `u128::checked_pow`. The Rust fixture calls these methods without copying
@@ -95,8 +95,9 @@ inventory. No production Rust or Aeneas source was changed.
 `remaining.rs` retains separate diagnostic callers. They are not passing
 proof roots. On the September candidate, `usize::pow` fails extraction on
 `overflow_checks<bool>` in the new standard-library implementation; its
-[separate comparison](../pow_models/README.md) has not migrated successfully.
-The earlier June-pin power comparison remains historical evidence only.
+[separate comparison](../pow_models/README.md) is now a user-approved trusted source model.
+The earlier June-pin power comparison remains historical evidence only; the
+Pow runner is an optional diagnostic and is excluded from required checks.
 `trailing_zeros` and `checked_next_power_of_two` retain additional intrinsic
 boundaries. See [the compiler trial status](../../SEPT7_TRIAL_STATUS.md) for
 the adoption decision and [upstream limitations](../../UPSTREAM_BUGS.md).

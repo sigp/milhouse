@@ -1,5 +1,21 @@
 # Power model source comparison
 
+**Current policy (user-approved 2026-09-11): assume `usize::pow` correct.**
+The concrete `core.num.Usize.pow` mathematical definition is retained, and
+its correspondence to Rust in the overflow-checking build is trusted,
+including its `integerOverflow` failure abstraction. No new Lean axiom is
+introduced. [SOURCE_MODEL_ASSUMPTIONS.json](../../SOURCE_MODEL_ASSUMPTIONS.json)
+records the exception; the model audit reports conservative dependent roots.
+
+`core_pow_agrees` is deferred and is not counted among the 51 proofs in the
+eight required source suites. The command below remains an **optional,
+expected-to-fail diagnostic**, not an upgrade gate. The historical proof,
+selector checker, and branch callers are preserved so this assumption can
+be removed once extraction is supported. The previously recorded compiler
+failures below remain accurate, but no longer block the authorized upgrade.
+
+## Historical extraction diagnostics
+
 **September 7 trial: blocked during extraction.** With the correctly installed
 Miri sysroot, Aeneas `7ebd01d19455` rejects `overflow_checks<bool>` in Rust
 `nightly-2026-08-18`'s `usize::pow` body (`uint_macros.rs:3635`). Charon

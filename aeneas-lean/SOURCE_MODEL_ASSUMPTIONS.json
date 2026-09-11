@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "assumptions": [
+    {
+      "rustItem": "core::num::{usize}::pow",
+      "leanDeclaration": "core.num.Usize.pow",
+      "modelModule": "Tree.FunsExternal",
+      "modelFile": "Tree/FunsExternal.lean",
+      "status": "assumed",
+      "approvedOn": "2026-09-11",
+      "reason": "User approved temporarily trusting usize::pow to unblock the September 7 Aeneas upgrade.",
+      "contract": "For every base and exponent, the model computes the mathematical natural-number power, returns it if representable as usize, and otherwise fails with integerOverflow. Correspondence to Rust in an overflow-checking build, including its failure abstraction, is assumed.",
+      "deferredCheck": "core_pow_agrees in reproducers/pow_models/CheckModels.lean"
+    }
+  ]
+}

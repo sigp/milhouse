@@ -25,6 +25,14 @@ hashing, and shared hash-cache writes. The Aeneas limitations are recorded in
 UPSTREAM_BUGS issue 21. Existing TreeHash metadata and packing-rejection proofs
 are retained; completing TreeHash is not required by the current goal.
 
+On 2026-09-11 the user explicitly approved **assuming `usize::pow` correct**
+to unblock the September 7 compiler upgrade. Its mathematical Lean definition
+is retained, while Rust/model correspondence (including overflow-failure
+abstraction) is trusted. `SOURCE_MODEL_ASSUMPTIONS.json` records this temporary
+exception; the model audit reports affected roots. The `core_pow_agrees`
+source comparison is deferred and is not counted as a proved obligation.
+This does not exclude `u128::checked_pow` or any other existing proof check.
+
 SSZ `Encode`/`Decode` implementations, borrowed CoW operations and iterator
 stepping, and the remaining assumption and model-fidelity audits for included
 operations remain in scope. Cache invariants and explicit hash assumptions
@@ -1846,16 +1854,16 @@ abstract generic callbacks. See the [model audit](PROGRESSIVE_LIST_MODEL_AUDIT.m
 for the manifest, report, trusted boundaries, and remaining fidelity work.
 
 The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
-11, records the September 7 trial through proof commit `f88baf5`. With Miri
-and rustfmt installed, full-MIR production extraction, the 447-module,
-6,210-declaration axiom/import audit, the model audit, and all 324 Rust tests
-pass. Eight source suites validate 51 proofs. Core checked power now has
-three explicit numeric-helper model boundaries, documented in the review.
-The remaining Pow comparison fails because Aeneas cannot translate
-`overflow_checks<bool>` in the new Rust body. All four freshly extracted CoW
-control proofs pass without axioms; no new borrowed-CoW obligation is
-discharged. The trial remains separate and the working compiler is retained.
-Completing the upgrade requires resolving the Pow extraction boundary.
+11, records the September 7 migration. The user approved temporarily assuming
+`usize::pow` correct, removing its source comparison from the upgrade gates.
+Its mathematical model remains concrete; the model audit reports the
+assumption and affected roots. All 6,210 library theorem declarations, eight
+source suites with 51 proofs, four CoW control proofs, and 324 native tests
+validated during the trial and are checked again after integration. Core
+checked power retains three explicitly documented numeric-helper foundations.
+The original Pow comparison is preserved as a diagnostic, not counted as
+proved. This compiler upgrade does not complete the broader ProgressiveList
+proof goal or discharge new borrowed-CoW obligations.
 
 Latest MaxMap mutable-wrapper checkpoint (`fec41a5`): `get_mut_with`,
 `get_cow_with`, and `get_cow_with_value` now extract and compile through

@@ -12,15 +12,13 @@ Issue trackers: <https://github.com/AeneasVerif/charon/issues>,
 <https://github.com/AeneasVerif/aeneas/issues>.
 
 The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
-11, records the isolated full-MIR trial. Miri and rustfmt are installed.
-The September 7 bundle passes production extraction, all 447 library modules
-and 6,210 theorem declarations, the model audit, and 324 Rust tests. Eight
-source suites validate 51 proofs; Core checked power has three additional
-explicit numeric-helper model boundaries. Pow still fails on
-`overflow_checks<bool>` (issue 29). The working compiler remains unchanged.
-Four freshly extracted CoW control proofs pass without axioms. Exact
-borrowed-CoW failures were not retested; their issue statuses below remain
-historical. Latest additionally needs a Result migration.
+11, records adoption of the September 7 candidate with a user-approved
+assumption for `usize::pow`. Its extraction failures in issue 29 are retained
+as diagnostics and no longer block the upgrade. The mathematical model is
+unchanged; the exception adds no Lean axiom. All other proof checks remain
+required, including the Core suite's documented numeric-helper foundations.
+The earlier working-pin issue descriptions below retain their original
+versions. No new borrowed-CoW extraction support is claimed.
 
 Scope revision (2026-09-09): Debug and Serde implementations, including
 Serde-based context deserialization, are out of scope for the
@@ -1235,8 +1233,10 @@ and concrete `UpdateMap`/`MaxMap` composition still need their own fidelity work
 
 **Stage:** Aeneas interpretation, using `7ebd01d19455`, Charon `0.1.251`
 (`85bba1f2a64d`), Rust `nightly-2026-08-18`, and Miri's full-MIR sysroot.
-**Status:** blocks validation of the existing power source comparison and
-therefore prevents adopting the candidate as a fully validated upgrade.
+**Status:** source comparison deferred under the user's 2026-09-11 approval
+to assume `usize::pow` correct. The extraction failures remain, but no longer
+block adoption. The policy is in `SOURCE_MODEL_ASSUMPTIONS.json`; the original
+mathematical model remains concrete and no Lean axiom has been added.
 
 The new `usize::pow` body at `core/src/num/uint_macros.rs:3634` selects
 `strict_pow` or `wrapping_pow` using `core::intrinsics::overflow_checks()`.

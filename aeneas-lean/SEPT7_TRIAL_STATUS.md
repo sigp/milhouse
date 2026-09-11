@@ -1,4 +1,12 @@
-# September 7 trial — Pow source blocker; not adopted
+# September 7 migration checkpoint
+
+**Current decision (2026-09-11): proceed with adoption.** The user approved
+assuming `usize::pow` correct. Its mathematical model is retained and its
+source-comparison proof is deferred under `SOURCE_MODEL_ASSUMPTIONS.json`.
+No new Lean axiom is added. The compiler and other proof repairs are being
+integrated into the working branch, followed by validation there.
+
+## Historical trial results before the approved assumption
 
 The migration is preserved on `sept7-compiler-trial`, through proof commit
 `f88baf5`. The working `aeneas` branch retains Aeneas `b59d5188c082` and

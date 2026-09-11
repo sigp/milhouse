@@ -1,9 +1,9 @@
 # Lean verification
 
-The September 7 compiler migration is preserved on this trial branch.
-The Pow source comparison remains blocked by an unsupported Aeneas operation.
-See [the trial status](SEPT7_TRIAL_STATUS.md) for the completed checks and
-model boundaries. The working branch retains its existing compiler.
+The project uses the September 7 Aeneas candidate with the compatibility
+repairs recorded in [the migration checkpoint](SEPT7_TRIAL_STATUS.md).
+The user approved temporarily trusting `usize::pow` on 2026-09-11; its Rust
+source comparison is deferred. All other existing proof checks remain required.
 
 ## Toolchain
 
@@ -50,12 +50,12 @@ and imports. For a build without the audit, run `lake build` from
 `AENEAS`; an alternate Lean backend uses
 `lake build -Kaeneas=/path/to/aeneas/backends/lean`.
 
-Run all nine source-comparison suites separately:
+Run the eight required source-comparison suites separately:
 
 ```sh
 (
   set -e
-  for suite in option core fixed-bytes tuple vec ssz-offset arbitrary pow vec-map; do
+  for suite in option core fixed-bytes tuple vec ssz-offset arbitrary vec-map; do
     python3 "scripts/aeneas-audit-$suite-models.py"
   done
 )
@@ -66,6 +66,19 @@ tool versions, input hashes, source provenance, and per-proof axiom
 dependencies. Failed extraction, incomplete bodies, and unexpected axioms
 do not produce a success report. Reproducer READMEs describe the individual
 comparison boundaries; earlier recorded results retain their original pins.
+
+`usize::pow` keeps its concrete mathematical model: return the natural-number
+power when it fits in a machine word, otherwise fail with `integerOverflow`.
+Its agreement with Rust, including the failure abstraction, is assumed under
+the approved [source-model policy](SOURCE_MODEL_ASSUMPTIONS.json). No new Lean
+axiom is introduced. The model audit reports this assumption and the API roots
+that conservatively depend on it. The required source suites prove 51 lemmas;
+the former `core_pow_agrees` comparison is not counted as proved.
+
+`python3 scripts/aeneas-audit-pow-models.py` remains an optional diagnostic.
+It is expected to fail on the candidate's unsupported power operations and
+is excluded from the required checks. The old comparison and branch probes
+remain available for removing this temporary assumption later.
 
 Debug and Serde implementations remain outside the proof goal. TreeHash
 implementations remain deferred. See the [proof scope](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope)

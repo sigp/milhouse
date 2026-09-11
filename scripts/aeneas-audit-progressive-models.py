@@ -6,6 +6,7 @@ model fidelity. Generic callbacks are unresolved and complete trait dictionaries
 can contribute unused fields. See PROGRESSIVE_LIST_MODEL_AUDIT.md.
 """
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -106,6 +107,39 @@ def validate(manifest, records):
     }
 
 
+def source_assumptions(policy, inventory):
+    """Expose the single approved source-fidelity exception and its callers.
+
+    This does not approve Lean axioms or alter the definition/import checks.
+    Any further source exception requires an explicit policy/checker change.
+    """
+    if not isinstance(policy, dict) or set(policy) != {"version", "assumptions"} or policy["version"] != 1:
+        raise ValueError("Unexpected source-assumption policy format")
+    entries = policy["assumptions"]
+    if not isinstance(entries, list) or len(entries) != 1:
+        raise ValueError("Expected only the approved usize::pow source assumption")
+    entry = entries[0]
+    expected = {
+        "rustItem": "core::num::{usize}::pow", "leanDeclaration": "core.num.Usize.pow",
+        "modelModule": "Tree.FunsExternal", "modelFile": "Tree/FunsExternal.lean",
+        "status": "assumed", "approvedOn": "2026-09-11",
+        "deferredCheck": "core_pow_agrees in reproducers/pow_models/CheckModels.lean",
+    }
+    if (not isinstance(entry, dict) or set(entry) != set(expected) | {"reason", "contract"}
+            or any(entry[key] != value for key, value in expected.items())
+            or any(not isinstance(entry[key], str) or not entry[key].strip() for key in ["reason", "contract"])):
+        raise ValueError("Unexpected source assumption; only usize::pow is approved")
+    declaration = {"kind": "definition", "module": entry["modelModule"], "name": entry["leanDeclaration"]}
+    matches = [node for node in inventory["localModelDeclarations"] if node["name"] == entry["leanDeclaration"]]
+    if matches != [declaration]:
+        raise ValueError("The assumed pow model must remain an inventoried concrete definition")
+    roots = sorted(root["label"] for root in inventory["roots"]
+                   if any(node["name"] == entry["leanDeclaration"] for node in root["nodes"]))
+    if not roots:
+        raise ValueError("The assumed pow model is absent from the root inventory")
+    return [{**entry, "conservativeDependentRoots": roots}]
+
+
 def main():
     project = Path(__file__).resolve().parents[1] / "aeneas-lean"
     output = project / ".lake" / "model-audit"
@@ -127,6 +161,11 @@ def main():
                 return 1
         records = [json.loads(line) for line in (output / "inventory.jsonl").read_text().splitlines() if line.strip()]
         result = validate(manifest, records)
+        policy_path = project / "SOURCE_MODEL_ASSUMPTIONS.json"
+        result["assumedRustModels"] = source_assumptions(json.loads(policy_path.read_text()), result)
+        result["sourceAssumptionPolicySha256"] = hashlib.sha256(policy_path.read_bytes()).hexdigest()
+        for entry in result["assumedRustModels"]:
+            entry["modelFileSha256"] = hashlib.sha256((project / entry["modelFile"]).read_bytes()).hexdigest()
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"Model dependency audit failed: {error}", file=sys.stderr)
         return 1
@@ -134,6 +173,8 @@ def main():
     print(f"Model dependency audit passed: {result['rootCount']} roots, "
           f"{len(result['localModelDeclarations'])} local model declarations")
     print(f"Local model module counts: {result['localModelModuleCounts']}")
+    print("Assumed Rust/model correspondence (not proved): " +
+          ", ".join(entry["rustItem"] for entry in result["assumedRustModels"]))
     print(f"Report: {report}")
     return 0
 

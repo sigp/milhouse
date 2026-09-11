@@ -136,7 +136,14 @@ def core.num.Usize.trailing_zeros (x : Std.Usize) : Result Std.U32 :=
   ok ⟨ BitVec.ofNat _ (TreeAux.bvTrailingZeros x.bv) ⟩
 
 /-- [core::num::{usize}::pow]: natural-number exponentiation, failing on
-    machine-word overflow as Rust does in this build. -/
+    machine-word overflow as Rust does in this build.
+
+    TRUSTED SOURCE MODEL (user-approved 2026-09-11): correspondence with the
+    Rust implementation, including its failure abstraction, is assumed for
+    the September 7 compiler migration. The mathematical definition below is
+    retained; the source-comparison theorem is deferred. This is a source
+    fidelity assumption, not a new Lean axiom. See SOURCE_MODEL_ASSUMPTIONS.json
+    and reproducers/pow_models/README.md. -/
 @[rust_fun "core::num::{usize}::pow"]
 def core.num.Usize.pow (x : Std.Usize) (n : Std.U32) : Result Std.Usize :=
   UScalar.tryMk .Usize (x.val ^ n.val)

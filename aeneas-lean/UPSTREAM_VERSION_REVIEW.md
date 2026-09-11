@@ -1,31 +1,33 @@
 # Aeneas upgrade review — 2026-09-10 (updated 2026-09-11)
 
-**Current status: the September 7 trial cannot yet pass every existing check.**
-With Miri and rustfmt now installed, production extraction, the complete
-library audit (447 modules, 6,210 theorem declarations), the model audit, and
-324 Rust tests pass. Eight source suites validate 51 proofs. The remaining
-`usize::pow` comparison fails because Aeneas cannot translate the new
-`overflow_checks<bool>` operation. The Core power proof also has three new,
-explicit numeric-helper model boundaries. The working compiler is retained;
-the trial has not been merged. The final full-MIR checkpoint below supersedes
-the earlier missing-component and optimized-sysroot diagnostics.
+**Current status: adopting September 7 Aeneas with an explicitly trusted
+`usize::pow` model.** On 2026-09-11 the user approved assuming that function
+correct to unblock the upgrade. The mathematical definition is retained;
+its Rust/source comparison is deferred and is not counted as proved.
+The [policy](SOURCE_MODEL_ASSUMPTIONS.json) and model audit make this boundary
+visible. No Aeneas source changes or additional Lean axioms are required.
 
-Upstream contains relevant fixes, but none has yet been verified against our
-exact borrowed-CoW failures. The latest release also breaks existing Lean
-proof patterns. No changes from the isolated compiler trial are applied to the
-working branch's Rust, extracted definitions, proofs, tool pins, audit version
-gates, or Aeneas sources.
+The previously validated migration has 447 modules, 6,210 theorem
+declarations, 51 proofs in eight source suites, four CoW control proofs,
+and 324 passing Rust tests. Integration into the working branch and final
+validation use the pinned bundle. The Core checked-power proof retains its
+three documented numeric-helper model boundaries. Debug and Serde remain
+excluded; TreeHash remains deferred. Existing borrowed-CoW obligations are
+unchanged.
+
+The sections below preserve the investigation and earlier blocked checkpoints;
+the user-approved assumption supersedes their decision to retain the old pin.
 
 ## Versions compared
 
-| Component | Working pin | Candidate before the Result change | Latest upstream checked |
+| Component | Pre-upgrade pin | Selected September 7 candidate | Latest upstream checked on September 10 |
 | --- | --- | --- | --- |
 | Aeneas commit | `b59d5188c082f704a418c7cb4e52ad69328002d1` | `7ebd01d1945570aef03bc76b47273ca1d1ff3c23` | `505b6ca35217e7be5c96c3e2f8045edfbdf47291` |
 | Charon commit | `cb50ff16b9f1066b8a97dc06da704de2da2fa41c` | `85bba1f2a64ded1704586cdc26dfb62aeb4b7168` | `b104e24fea7d721b71e6c39fd70f26ff20bc0980` |
 | Rust nightly | `2026-06-01` | `2026-08-18` | `2026-08-18` |
 | Lean | `4.31.0` | `4.31.0` | `4.31.0` |
 
-Latest upstream is 103 commits ahead of the working pin. The candidates are
+At the initial review, latest upstream was 103 commits ahead of the old pin. The candidates are
 the official Linux x86-64 bundles from releases
 [`nightly-2026.09.08-7ebd01d`](https://github.com/AeneasVerif/aeneas/releases/tag/nightly-2026.09.08-7ebd01d)
 and
@@ -345,3 +347,18 @@ fixture and reproduction commands; [issue 29](UPSTREAM_BUGS.md#29-september-aene
 records the exact results. No proof obligation was removed or weakened, and
 the compiler remains unadopted. Completing the upgrade is still blocked on
 an upstream repair or discussion of a change to the modeling boundary.
+
+## Approved temporary power assumption
+
+The user authorized trusting `usize::pow` on 2026-09-11. This removes its
+source-comparison proof from the compiler-upgrade requirements while keeping
+its concrete mathematical model and every dependent library proof. The
+exception does not cover `u128::checked_pow` or any other source suite.
+The original Pow runner remains a diagnostic and must not be counted as a
+successful comparison. The model audit records the trusted Rust/Lean
+correspondence and the conservative API roots that depend on it.
+
+The selected release, compiler setup, generated-code compatibility changes,
+and all completed proof repairs are being integrated into the working branch.
+The final adoption checkpoint records the checks after integration. Earlier
+references to the trial remaining separate describe historical checkpoints.
