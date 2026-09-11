@@ -1,101 +1,98 @@
-# September 7 trial — active, not yet adopted
+# September 7 trial — Pow source blocker; not adopted
 
-The active goal is to update Aeneas to the September 7 candidate and repair
-all existing proofs. Work resumed after the earlier halted checkpoint.
-The working `aeneas` branch still retains Aeneas `b59d5188c082` and Charon
-`cb50ff16b9f1`; migration work is isolated on `sept7-compiler-trial`.
-Aeneas sources and production Rust have not been patched.
+The migration is preserved on `sept7-compiler-trial`, through proof commit
+`f88baf5`. The working `aeneas` branch retains Aeneas `b59d5188c082` and
+Charon `cb50ff16b9f1`. No production Rust or Aeneas/Charon source was patched.
+The compiler upgrade is incomplete because one existing source comparison
+cannot be extracted by the candidate.
 
-## Compiler setup and library validation
+## Validated checkpoint
 
-Commit `e9e7882` pins the official September 7 release in
-`aeneas-toolchain.json`. The checksum-verified bundle is installed under
-`aeneas-lean/.lake/aeneas`, and the trial's Lake configuration, extraction
-script, and source-audit defaults use it. See [setup instructions](README.md).
-The setup script's installation and repeat `--check` both pass.
+Miri and rustfmt are installed for `nightly-2026-08-18`; Miri's full-MIR
+sysroot is `/home/michael/.cache/miri`. The setup helper's installation and
+repeat version/checksum check pass. See [setup instructions](README.md).
+The audit runners reject fallback to the distributed optimized sysroot.
 
-With this installed bundle, the full Lake build and axiom/import audit pass:
-447 project modules and 6,211 theorem declarations. This includes the
-experimental `Tree.Intrinsics` module. The only nonstandard theorem
-dependency is the existing `triomphe.arc.Arc.ptr_eq_spec` (119 declarations).
-The declared external axioms remain `core.mem.size_of.usize_spec` and
-`triomphe.arc.Arc.ptr_eq_spec`. The model audit passes with 42 roots and
-151 local declarations.
+| Check | Final result |
+| --- | --- |
+| Production extraction with the original Cargo lock and full MIR | Pass; generated library files unchanged |
+| Full Lake build and axiom/import audit | Pass: 447 project modules, 6,210 theorem declarations |
+| Model dependency audit | Pass: 42 roots, 151 local declarations |
+| Rust library tests on the new nightly, arbitrary enabled | Pass: 324 tests |
+| Option source suite | Pass: 12 proofs, all axiom-free |
+| Core source suite | Pass: 7 proofs, with the additional boundaries below |
+| FixedBytes source suite | Pass: 5 proofs |
+| Tuple source suite | Pass: 4 proofs |
+| Vec source suite | Pass: 3 proofs |
+| SSZ offset source suite | Pass: 4 proofs |
+| Arbitrary source suite | Pass: 3 proofs |
+| VecMap source suite | Pass: 13 proofs |
+| Pow source suite | Fail during Aeneas extraction |
+| Existing CoW controls | Pass: 4 fresh proofs without axioms, plus native tests and formatting |
+| Shared source-validator tests | Pass: 14 tests |
 
-Earlier commit `5322d74` passed fresh locked production extraction and all
-446 then-existing modules. All 324 Rust library tests passed on the new
-nightly. The definitive extraction used the original ignored `Cargo.lock`.
-Production extraction must be repeated with the full-MIR sysroot described
-below before the upgrade can be adopted.
+All eight successful source-suite reports have current input hashes. Together
+they validate 51 existing source/composition/invariant proofs. The failed Pow
+suite writes no success report. The axiom allowlists remain unchanged.
+The only nonstandard theorem dependency in the main library is the existing
+Arc pointer contract (119 declarations). The two declared external axioms
+remain `core.mem.size_of.usize_spec` and `triomphe.arc.Arc.ptr_eq_spec`.
 
-## Source comparisons and outstanding environment requirement
+The earlier `Tree.Intrinsics` experiment was removed after full-MIR Option
+extraction succeeded without it (`9642694`). `Tree.CompilerModels` is the
+additional module in this checkpoint and introduces no axiom declarations.
 
-The installed nightly is missing **Miri and rustfmt**. Charon's diagnostic
-logs confirm that it fell back to Rust's optimized standard library. This
-can inline low-level operations across Aeneas's model boundaries. The exact
-pinned Charon source also lists Miri as a required toolchain component.
-The previous extraction failures therefore do not establish failure with
-the intended full-MIR sysroot; retesting is required.
+## Core comparison boundaries
 
-The user has been asked to run outside the session:
+The new Rust checked-power algorithm contains a power-of-two shortcut and
+two squaring-loop forms, duplicated across the outer selector branches.
+The proof validates all those branches for every base and exponent,
+including zero, overflow, and termination. The compiler selector is
+universally quantified, with independent base and exponent outcomes.
+Its audited section parameter is the only generated Lean change; removing
+it recovers the original bytes, and all function bodies are preserved.
 
-```sh
-rustup component add --toolchain nightly-2026-08-18 miri rustfmt
-```
+Three new numeric helpers are explicit mathematical foundations:
+`u128::ilog2`, `u128::checked_shl`, and `u128::is_power_of_two`. Their Rust
+implementations are **not source-validated by this suite**. The checked-power
+comparison is conditional on these models and existing scalar foundations.
+See the [Core comparison](reproducers/core_models/README.md) for the exact
+boundary and report fields. Passing the kernel axiom gate is not a proof
+of the models' correspondence to Rust.
 
-The existing session sandbox prevents Rust component installation. The
-source runner now checks both components and rejects Charon's fallback
-warning. The production extraction script checks Miri before extraction and
-also rejects fallback. Its current preflight stops before regenerating
-production files, as expected.
+## Remaining failure and adoption decision
 
-Exploratory comparisons already completed are:
+The new `usize::pow` body selects `strict_pow` or `wrapping_pow` using
+`core::intrinsics::overflow_checks()`. September 7 Aeneas rejects the LLBC
+operation `overflow_checks<bool>` at `uint_macros.rs:3635`. Charon and native
+tests pass, but Aeneas exits 1 and emits partial files, which are rejected.
+A separate `--monomorphize --rustc-arg=-Coverflow-checks=yes` extraction
+reaches the same failure.
 
-- FixedBytes: all five proofs pass with existing axiom expectations
-  (`730ae18`).
-- Tuple: all four proofs pass unchanged.
-- Arbitrary: all three proofs pass with existing axiom expectations
-  (`48f74aa`). The provenance mismatch was exclusively fresh statement and
-  block numbering; the checker now validates separate bijections and then
-  compares complete declarations (`5a01112`). Twelve checker tests pass.
-- Option: eleven proofs retain their axiom-free status (`93fe26e`). The
-  residual comparison compiles with a local intrinsic experiment but fails
-  its existing axiom-free gate. The allowlist has not been relaxed; retest
-  the source using full MIR before deciding which model is needed.
-- CoW controls: all four separately extracted control proofs pass without
-  axioms; native control tests also pass. This establishes no new borrowed
-  CoW support beyond those existing controls.
+The working compiler is retained because the candidate cannot validate all
+existing proofs. Further work requires discussion of an upstream fix or an
+explicitly reviewed change to the source-model boundary. No LLBC operation
+was replaced by a constant, and no Rust algorithm was substituted to bypass
+the failure. See [issue 29](UPSTREAM_BUGS.md#29-september-aeneas-cannot-translate-the-overflow-check-selector-in-usizepow).
 
-On the optimized fallback, Core extraction fails on checked multiplication
-and a `NonZero` transmute, Vec extraction fails inside inlined allocation
-operations, SSZ extraction fails on a pointer-metadata projection, and
-VecMap's extracted `Option::as_mut` cannot copy a mutable borrow. The Pow
-source body has also changed. These suites must be re-extracted using the
-proper sysroot; partial output is not accepted as proof evidence. None of
-the nine complete source-suite runners has passed on the candidate yet.
-
-## Remaining work
-
-After the components are installed, regenerate production and source-suite
-extractions with the intended full-MIR sysroot, repair remaining comparisons,
-and run all nine complete source suites. Repeat affected library audits,
-verify the scope and source/model boundaries, and integrate the compiler pin
-and proof repairs into the working branch only after those checks pass.
-Debug and Serde remain excluded; TreeHash remains deferred.
+No bug in milhouse Rust was discovered. Debug and Serde implementations
+remain out of scope, TreeHash remains deferred, and the control checks do
+not discharge any new borrowed-CoW obligation.
 
 ## Evidence
 
-Session artifacts are in `/tmp/milhouse-aeneas-upstream-j6mrhx0i/`:
+Final session artifacts are under `/tmp/milhouse-aeneas-upstream-j6mrhx0i/`:
 
-- `sept7-bundle-axiom-audit.log` and `sept7-bundle-model-audit.log`: latest
-  successful audits against the installed bundle.
-- `sept7-locked-main-extraction.log`, `sept7-build/`, and
-  `sept7-native-tests.log`: earlier extraction, library build, and Rust tests.
-- `sept7-option-model-audit.log` and `sept7-full-mir-preflight.log`: verified
-  missing-Miri preflight failures.
-- `*-extraction-probe/`: exploratory source comparisons and diagnostics.
-  `cow-control-extraction-probe/proofs.log` records all four control proofs.
+- `sept7-full-mir-production.log`: full-MIR production regeneration.
+- `sept7-final-source-*.log`: all nine complete source runners.
+- `sept7-final-axiom-audit.log` and `sept7-final-model-audit.log`: complete
+  library and model audits at the final proof checkpoint.
+- `sept7-final-native-tests.log`: all 324 Rust tests.
+- `sept7-final-cow-controls/`: fresh control extraction, proofs, formatting,
+  and native tests.
+- `pow-mono-probe/`: unsupported operation with explicit compiler flags.
 
-The temporary `extract_probe.py` and `compile_probe.py` helpers do not write
-canonical source-audit reports. The disposable `sept7-cargo-target` build
-cache was removed to free 2.4 GB; source, commits, and validation logs remain.
+Detailed successful reports and generated source files remain under the
+trial's ignored `aeneas-lean/.lake/*-model-audit/` directories. The candidate
+pin and reproduction scripts are committed; temporary exploratory helpers
+are not accepted as substitutes for the complete audit runners.

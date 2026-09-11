@@ -1,8 +1,9 @@
 # Lean verification
 
-The September 7 compiler migration is in progress on this trial branch.
-See [the trial status](SEPT7_TRIAL_STATUS.md) for completed checks and remaining
-work. The working branch has not adopted this compiler yet.
+The September 7 compiler migration is preserved on this trial branch.
+The Pow source comparison remains blocked by an unsupported Aeneas operation.
+See [the trial status](SEPT7_TRIAL_STATUS.md) for the completed checks and
+model boundaries. The working branch retains its existing compiler.
 
 ## Toolchain
 

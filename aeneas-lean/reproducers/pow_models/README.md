@@ -1,5 +1,25 @@
 # Power model source comparison
 
+**September 7 trial: blocked during extraction.** With the correctly installed
+Miri sysroot, Aeneas `7ebd01d19455` rejects `overflow_checks<bool>` in Rust
+`nightly-2026-08-18`'s `usize::pow` body (`uint_macros.rs:3635`). Charon
+`0.1.251` succeeds, but Aeneas exits 1 and emits partial files. The runner
+rejects those files and writes no success report. Native tests passing does
+not validate the Lean source comparison.
+
+The same operation remains unsupported with `--monomorphize` and
+`--rustc-arg=-Coverflow-checks=yes`. The intrinsic chooses between
+`strict_pow` and `wrapping_pow` using the caller's overflow configuration;
+its fallback body cannot justify replacing it with a constant. No LLBC
+operation or Rust algorithm has been substituted to bypass this failure.
+See [the trial status](../../SEPT7_TRIAL_STATUS.md) and
+[upstream issue 29](../../UPSTREAM_BUGS.md#29-september-aeneas-cannot-translate-the-overflow-check-selector-in-usizepow).
+
+The successful proof and selector description below record the **June
+compiler pin**. They are historical evidence, not a successful comparison
+against the September standard library. The current runner command below
+reproduces the September failure on the trial branch.
+
 From the repository root:
 
 ```sh
