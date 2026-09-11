@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Iter.Construction
+import Tree.ProgressiveList.Iter.Traits
 import Tree.ProgressiveList.Encode.FixedLength
 
 open Aeneas Aeneas.Std Result
@@ -19,7 +19,7 @@ theorem ProgressiveList.ssz_bytes_len_loop_spec {T U : Type}
       ValueInst.sszencodeEncodeInst.ssz_bytes_len value = ok length ∧ length.val = size value)
     (hbound : accumulator.val + (values.map size).sum ≤ Std.Usize.max) :
     ∃ length, ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
-      ValueInst mapInst cursor accumulator = ok length ∧
+      ValueInst mapInst accumulator cursor = ok length ∧
       length.val = accumulator.val + (values.map size).sum := by
   induction hyields generalizing accumulator with
   | nil hnext =>
@@ -64,7 +64,7 @@ theorem ProgressiveList.ssz_bytes_len_variable_spec {T U : Type}
     ∃ length, ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len ValueInst mapInst self = ok length ∧
       length.val = (contents.map size).sum + 4 * contents.length := by
   obtain ⟨cursor, hiter, _, _, hyields⟩ :=
-    ProgressiveList.iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
+    ProgressiveList.into_iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
   obtain ⟨payload, hpayload, hpayloadSize⟩ := ProgressiveList.ssz_bytes_len_loop_spec
     ValueInst mapInst cursor contents size 0#usize hyields hsize (by simp; omega)
   simp at hpayloadSize

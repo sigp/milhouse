@@ -269,8 +269,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     /// Errors if `n > self.len()`.
     pub fn pop_front_slow(&mut self, n: usize) -> Result<(), Error> {
         let mut values = Vec::new();
-        let mut iter = self.iter_from(n)?;
-        while let Some(value) = iter.next() {
+        for value in self.iter_from(n)? {
             values.push(value.clone());
         }
         *self = Self::new(values)?;

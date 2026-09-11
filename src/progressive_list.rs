@@ -369,9 +369,8 @@ impl<T: Value, U: UpdateMap<T>> Encode for ProgressiveList<T, U> {
         if <T as Encode>::is_ssz_fixed_len() {
             <T as Encode>::ssz_fixed_len() * self.len()
         } else {
-            let mut iter = self.iter();
             let mut len = 0;
-            while let Some(item) = iter.next() {
+            for item in self {
                 len += item.ssz_bytes_len();
             }
             len += BYTES_PER_LENGTH_OFFSET * self.len();
@@ -383,15 +382,13 @@ impl<T: Value, U: UpdateMap<T>> Encode for ProgressiveList<T, U> {
         if <T as Encode>::is_ssz_fixed_len() {
             buf.reserve(<T as Encode>::ssz_fixed_len() * self.len());
 
-            let mut iter = self.iter();
-            while let Some(item) = iter.next() {
+            for item in self {
                 item.ssz_append(buf);
             }
         } else {
             let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
 
-            let mut iter = self.iter();
-            while let Some(item) = iter.next() {
+            for item in self {
                 encoder.append(item);
             }
 

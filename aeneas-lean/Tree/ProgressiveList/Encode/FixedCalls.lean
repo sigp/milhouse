@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Iter.Construction
+import Tree.ProgressiveList.Iter.Traits
 import Tree.ProgressiveList.Encode.Metadata
 
 open Aeneas Aeneas.Std Result
@@ -53,7 +53,7 @@ theorem ProgressiveList.ssz_append_fixed_calls {T U : Type}
       contents.foldlM (fun buffer value => ValueInst.sszencodeEncodeInst.ssz_append value buffer)
         reserved) := by
   obtain ⟨cursor, hiter, _, _, hyields⟩ :=
-    ProgressiveList.iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
+    ProgressiveList.into_iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
   simp only [ProgressiveList.Insts.SszEncodeEncode.ssz_append, hfixed, hwidth,
     bind_tc_ok, ↓reduceIte, hiter]
   simp_rw [ProgressiveList.ssz_append_fixed_loop_foldlM ValueInst mapInst cursor contents hyields]

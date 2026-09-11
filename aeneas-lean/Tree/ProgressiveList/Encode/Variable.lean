@@ -1,4 +1,5 @@
 import Tree.ProgressiveList.Encode.VariableLoop
+import Tree.ProgressiveList.Iter.Traits
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree
@@ -31,7 +32,7 @@ theorem ProgressiveList.ssz_append_variable_spec {T U : Type}
     ∃ output, ProgressiveList.Insts.SszEncodeEncode.ssz_append ValueInst mapInst self buf = ok output ∧
       output.val = buf.val ++ variableEncoding encode contents := by
   obtain ⟨cursor, hiter, _, _, hyields⟩ :=
-    ProgressiveList.iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
+    ProgressiveList.into_iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
   obtain ⟨count, hcount, hcountValue⟩ := hrep.1
   obtain ⟨fixed, hmul, hfixed⟩ := WP.spec_imp_exists
     (Usize.mul_spec (x := count) (y := 4#usize) (by simp [hcountValue]; omega))

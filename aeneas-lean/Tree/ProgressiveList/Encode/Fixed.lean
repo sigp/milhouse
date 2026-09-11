@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Iter.Construction
+import Tree.ProgressiveList.Iter.Traits
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree
@@ -87,7 +87,7 @@ theorem ProgressiveList.ssz_append_fixed_spec {T U : Type}
     ∃ output, ProgressiveList.Insts.SszEncodeEncode.ssz_append ValueInst mapInst self buf = ok output ∧
       output.val = buf.val ++ contents.flatMap encode := by
   obtain ⟨cursor, hiter, _, _, hyields⟩ :=
-    ProgressiveList.iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
+    ProgressiveList.into_iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
   obtain ⟨count, hcount, hcountValue⟩ := hrep.1
   obtain ⟨bytes, hmul, hbytes⟩ := WP.spec_imp_exists
     (Usize.mul_spec (x := width) (y := count) (by rw [hcountValue]; omega))

@@ -2578,7 +2578,7 @@ def tree.Tree.with_updated_leaves
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::update]:
-    Source: 'src/list.rs', lines 356:4-376:5
+    Source: 'src/list.rs', lines 355:4-375:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.update
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -2753,7 +2753,7 @@ def tree.Tree.with_updated_leaf
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::len]:
-    Source: 'src/list.rs', lines 315:4-317:5
+    Source: 'src/list.rs', lines 314:4-316:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.len
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2763,7 +2763,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.len
   ok self.length
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::replace]:
-    Source: 'src/list.rs', lines 341:4-354:5
+    Source: 'src/list.rs', lines 340:4-353:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.replace
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2800,7 +2800,7 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.replace
       ok (r1, self)
 
 /-- [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}::validate_push]:
-    Source: 'src/list.rs', lines 333:4-339:5
+    Source: 'src/list.rs', lines 332:4-338:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2813,7 +2813,7 @@ def list.ListInner.Insts.MilhouseInterfaceMutList.validate_push
   else ok (core.result.Result.Ok ())
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::level_iter_from]:
-    Source: 'src/list.rs', lines 323:4-325:5
+    Source: 'src/list.rs', lines 322:4-324:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2825,7 +2825,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.level_iter_from
     self.length
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::iter_from]:
-    Source: 'src/list.rs', lines 319:4-321:5
+    Source: 'src/list.rs', lines 318:4-320:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.iter_from
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2878,7 +2878,7 @@ def tree.Tree.get_recursive
 partial_fixpoint
 
 /-- [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}::get]:
-    Source: 'src/list.rs', lines 306:4-313:5
+    Source: 'src/list.rs', lines 305:4-312:5
     Visibility: public -/
 def list.ListInner.Insts.MilhouseInterfaceImmList.get
   {T : Type} {N : Type} (ValueInst : Value T) (typenummarker_traitsUnsignedInst
@@ -2897,7 +2897,7 @@ def list.ListInner.Insts.MilhouseInterfaceImmList.get
   else ok none
 
 /-- Trait implementation: [milhouse::list::{impl milhouse::interface::ImmList<T> for milhouse::list::ListInner<T, N>}]
-    Source: 'src/list.rs', lines 305:0-326:1 -/
+    Source: 'src/list.rs', lines 304:0-325:1 -/
 @[reducible]
 impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
   (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
@@ -2919,7 +2919,7 @@ impl_def list.ListInner.Insts.MilhouseInterfaceImmList {T : Type} {N : Type}
 }
 
 /-- Trait implementation: [milhouse::list::{impl milhouse::interface::MutList<T> for milhouse::list::ListInner<T, N>}]
-    Source: 'src/list.rs', lines 328:0-377:1 -/
+    Source: 'src/list.rs', lines 327:0-376:1 -/
 @[reducible]
 def list.ListInner.Insts.MilhouseInterfaceMutList {T : Type} {N : Type}
   (ValueInst1 : Value T) (typenummarker_traitsUnsignedInst :
@@ -4207,7 +4207,7 @@ def list.List.apply_updates
   ok (r, { interface := i })
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]: loop body 0:
-    Source: 'src/list.rs', lines 273:8-275:9
+    Source: 'src/list.rs', lines 272:8-274:9
     Visibility: public -/
 @[rust_loop_body]
 def list.List.pop_front_slow_loop.body
@@ -4228,7 +4228,7 @@ def list.List.pop_front_slow_loop.body
     ok (cont (values1, iter1))
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]: loop 0:
-    Source: 'src/list.rs', lines 273:8-275:9
+    Source: 'src/list.rs', lines 272:8-274:9
     Visibility: public -/
 @[rust_loop]
 def list.List.pop_front_slow_loop
@@ -4243,7 +4243,7 @@ def list.List.pop_front_slow_loop
     (values, iter)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front_slow]:
-    Source: 'src/list.rs', lines 270:4-278:5
+    Source: 'src/list.rs', lines 270:4-277:5
     Visibility: public -/
 def list.List.pop_front_slow
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -4280,7 +4280,7 @@ def list.List.pop_front_slow
     ok (r1, self)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::pop_front]:
-    Source: 'src/list.rs', lines 283:4-302:5
+    Source: 'src/list.rs', lines 282:4-301:5
     Visibility: public -/
 def list.List.pop_front
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -5067,7 +5067,7 @@ def tree.Tree.rebase_on
 partial_fixpoint
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase_on]:
-    Source: 'src/list.rs', lines 386:4-402:5
+    Source: 'src/list.rs', lines 385:4-401:5
     Visibility: public -/
 def list.List.rebase_on
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -5115,7 +5115,7 @@ def list.List.rebase_on
     ok (r1, self)
 
 /-- [milhouse::list::{milhouse::list::List<T, N, U>}::rebase]:
-    Source: 'src/list.rs', lines 380:4-384:5
+    Source: 'src/list.rs', lines 379:4-383:5
     Visibility: public -/
 def list.List.rebase
   {T : Type} {N : Type} {U : Type} (ValueInst : Value T)
@@ -6739,7 +6739,7 @@ def progressive_list.ProgressiveList.iter_cow_from
     ok (core.result.Result.Ok plic, back)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::size_hint]:
-    Source: 'src/progressive_list.rs', lines 541:4-544:5
+    Source: 'src/progressive_list.rs', lines 538:4-541:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint
@@ -6751,7 +6751,7 @@ def
   ok (remaining, some remaining)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::exact_size::ExactSizeIterator<&'_ T> for milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::len]:
-    Source: 'src/progressive_list.rs', lines 550:4-552:5
+    Source: 'src/progressive_list.rs', lines 547:4-549:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len
@@ -6868,7 +6868,7 @@ def
   ok (value, self1)
 
 /-- [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}::next]:
-    Source: 'src/progressive_list.rs', lines 526:4-539:5
+    Source: 'src/progressive_list.rs', lines 523:4-536:5
     Visibility: public -/
 def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next
@@ -6888,7 +6888,7 @@ def
     ok (o1, { self with tree_iter := pti, index := i })
 
 /-- Trait implementation: [milhouse::progressive_list::{impl core::iter::traits::iterator::Iterator<&'a T> for milhouse::progressive_list::ProgressiveListIter<'a, T, U>}]
-    Source: 'src/progressive_list.rs', lines 523:0-545:1 -/
+    Source: 'src/progressive_list.rs', lines 520:0-542:1 -/
 @[reducible]
 impl_def
   progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT
@@ -6966,7 +6966,7 @@ def progressive_list.ProgressiveList.to_vec
     update_mapUpdateMapInst values iter
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 516:8-520:5 -/
+    Source: 'src/progressive_list.rs', lines 513:8-517:5 -/
 @[rust_loop_body]
 def progressive_list.ProgressiveListIter.extend_builder_loop.body
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -6997,7 +6997,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop.body
       ok (done (r1, builder1))
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]: loop 0:
-    Source: 'src/progressive_list.rs', lines 516:8-520:5 -/
+    Source: 'src/progressive_list.rs', lines 513:8-517:5 -/
 @[rust_loop]
 def progressive_list.ProgressiveListIter.extend_builder_loop
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7014,7 +7014,7 @@ def progressive_list.ProgressiveListIter.extend_builder_loop
     (builder, iter)
 
 /-- [milhouse::progressive_list::{milhouse::progressive_list::ProgressiveListIter<'_0, T, U>}::extend_builder]:
-    Source: 'src/progressive_list.rs', lines 515:4-520:5 -/
+    Source: 'src/progressive_list.rs', lines 512:4-517:5 -/
 @[reducible]
 def progressive_list.ProgressiveListIter.extend_builder
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7356,15 +7356,15 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_fixed_len
   ssz.BYTES_PER_LENGTH_OFFSET
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 374:12-376:13
+    Source: 'src/progressive_list.rs', lines 373:12-375:13
     Visibility: public -/
 @[rust_loop_body]
 def
   progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop.body
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
-  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
-  (len : Std.Usize) :
-  Result (ControlFlow ((progressive_list.ProgressiveListIter T U) × Std.Usize)
+  update_map.UpdateMap U T) (len : Std.Usize)
+  (iter : progressive_list.ProgressiveListIter T U) :
+  Result (ControlFlow (Std.Usize × (progressive_list.ProgressiveListIter T U))
     Std.Usize)
   := do
   let (o, iter1) ←
@@ -7375,26 +7375,26 @@ def
   | some item =>
     let i ← ValueInst.sszencodeEncodeInst.ssz_bytes_len item
     let len1 ← len + i
-    ok (cont (iter1, len1))
+    ok (cont (len1, iter1))
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]: loop 0:
-    Source: 'src/progressive_list.rs', lines 374:12-376:13
+    Source: 'src/progressive_list.rs', lines 373:12-375:13
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
-  update_map.UpdateMap U T) (iter : progressive_list.ProgressiveListIter T U)
-  (len : Std.Usize) :
+  update_map.UpdateMap U T) (len : Std.Usize)
+  (iter : progressive_list.ProgressiveListIter T U) :
   Result Std.Usize
   := do
   loop
-    (fun (iter1, len1) =>
+    (fun (len1, iter1) =>
       progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop.body
-      ValueInst update_mapUpdateMapInst iter1 len1)
-    (iter, len)
+      ValueInst update_mapUpdateMapInst len1 iter1)
+    (len, iter)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_bytes_len]:
-    Source: 'src/progressive_list.rs', lines 368:4-380:5
+    Source: 'src/progressive_list.rs', lines 368:4-379:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7410,12 +7410,12 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len
         self
     i * i1
   else
-    let iter ←
-      progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst
-        self
+    let pli ←
+      SharedAProgressiveList.Insts.CoreIterTraitsCollectIntoIteratorSharedATProgressiveListIter.into_iter
+        ValueInst update_mapUpdateMapInst self
     let len ←
       progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
-        ValueInst update_mapUpdateMapInst iter 0#usize
+        ValueInst update_mapUpdateMapInst 0#usize pli
     let i ←
       progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst
         self
@@ -7424,7 +7424,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len
     len + i2
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop body 0:
-    Source: 'src/progressive_list.rs', lines 387:12-389:13
+    Source: 'src/progressive_list.rs', lines 385:12-387:13
     Visibility: public -/
 @[rust_loop_body]
 def
@@ -7445,7 +7445,7 @@ def
     ok (cont (buf1, iter1))
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop 0:
-    Source: 'src/progressive_list.rs', lines 387:12-389:13
+    Source: 'src/progressive_list.rs', lines 385:12-387:13
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0
@@ -7461,7 +7461,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0
     (buf, iter)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop body 1:
-    Source: 'src/progressive_list.rs', lines 394:12-396:13
+    Source: 'src/progressive_list.rs', lines 391:12-393:13
     Visibility: public -/
 @[rust_loop_body]
 def
@@ -7488,7 +7488,7 @@ def
                         back se1, encoder1, iter1))
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]: loop 1:
-    Source: 'src/progressive_list.rs', lines 394:12-396:13
+    Source: 'src/progressive_list.rs', lines 391:12-393:13
     Visibility: public -/
 @[rust_loop]
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1
@@ -7507,7 +7507,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1
     (back, encoder, iter)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_append]:
-    Source: 'src/progressive_list.rs', lines 382:4-400:5
+    Source: 'src/progressive_list.rs', lines 381:4-397:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7524,11 +7524,11 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append
         self
     let i2 ← i * i1
     let buf1 ← alloc.vec.Vec.reserve Global buf i2
-    let iter ←
-      progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst
-        self
+    let pli ←
+      SharedAProgressiveList.Insts.CoreIterTraitsCollectIntoIteratorSharedATProgressiveListIter.into_iter
+        ValueInst update_mapUpdateMapInst self
     progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop0
-      ValueInst update_mapUpdateMapInst buf1 iter
+      ValueInst update_mapUpdateMapInst buf1 pli
   else
     let i ←
       progressive_list.ProgressiveList.len ValueInst update_mapUpdateMapInst
@@ -7536,12 +7536,12 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append
     let i1 ← ssz.BYTES_PER_LENGTH_OFFSET
     let i2 ← i * i1
     let (encoder, container_back) ← ssz.encode.SszEncoder.container buf i2
-    let iter ←
-      progressive_list.ProgressiveList.iter ValueInst update_mapUpdateMapInst
-        self
+    let pli ←
+      SharedAProgressiveList.Insts.CoreIterTraitsCollectIntoIteratorSharedATProgressiveListIter.into_iter
+        ValueInst update_mapUpdateMapInst self
     let (encoder1, back) ←
       progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append_loop1
-        ValueInst update_mapUpdateMapInst (fun se => se) encoder iter
+        ValueInst update_mapUpdateMapInst (fun se => se) encoder pli
     let (v, finalize_back, finalize_back1) ←
       ssz.encode.SszEncoder.finalize encoder1
     let encoder2 := finalize_back v
@@ -7550,7 +7550,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append
     ok (container_back se)
 
 /-- [milhouse::progressive_list::{impl ssz::encode::Encode for milhouse::progressive_list::ProgressiveList<T, U>}::as_ssz_bytes]:
-    Source: 'src/progressive_list.rs', lines 404:4-408:5
+    Source: 'src/progressive_list.rs', lines 401:4-405:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7561,7 +7561,7 @@ def progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes
     update_mapUpdateMapInst self (alloc.vec.Vec.new Std.U8)
 
 /-- [milhouse::progressive_list::{impl ssz::decode::try_from_iter::TryFromIter<T, milhouse::error::Error> for milhouse::progressive_list::ProgressiveList<T, U>}::try_from_iter]:
-    Source: 'src/progressive_list.rs', lines 418:4-423:5
+    Source: 'src/progressive_list.rs', lines 415:4-420:5
     Visibility: public -/
 def
   progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter
@@ -7576,7 +7576,7 @@ def
     update_mapUpdateMapInst coreitertraitscollectIntoIteratorInst iter
 
 /-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::is_ssz_fixed_len]:
-    Source: 'src/progressive_list.rs', lines 431:4-433:5
+    Source: 'src/progressive_list.rs', lines 428:4-430:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszDecodeDecode.is_ssz_fixed_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7586,7 +7586,7 @@ def progressive_list.ProgressiveList.Insts.SszDecodeDecode.is_ssz_fixed_len
   ok false
 
 /-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::ssz_fixed_len]:
-    Source: 'src/progressive_list.rs', lines 436:4-438:5
+    Source: 'src/progressive_list.rs', lines 433:4-435:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszDecodeDecode.ssz_fixed_len
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7632,7 +7632,7 @@ def ssz_items.SszItems.variable
       residual
 
 /-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure#1}<T, U>}::call_once]:
-    Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
+    Source: 'src/progressive_list.rs', lines 464:38-468:17 -/
 def
   progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7656,7 +7656,7 @@ def
   ok (ssz.decode.DecodeError.BytesInvalid s1)
 
 /-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure#1}<T, U>}]
-    Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
+    Source: 'src/progressive_list.rs', lines 464:38-468:17 -/
 @[reducible]
 def
   progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError
@@ -7670,7 +7670,7 @@ def
 }
 
 /-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure}<T, U>}::call_once]:
-    Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
+    Source: 'src/progressive_list.rs', lines 452:38-454:13 -/
 def
   progressive_list.DecodeProgressiveList.from_ssz_bytes.closure.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError.call_once
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7695,7 +7695,7 @@ def
   ok (ssz.decode.DecodeError.BytesInvalid s1)
 
 /-- Trait implementation: [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{impl core::ops::function::FnOnce<(milhouse::error::Error,), ssz::decode::DecodeError> for milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure}<T, U>}]
-    Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
+    Source: 'src/progressive_list.rs', lines 452:38-454:13 -/
 @[reducible]
 def
   progressive_list.DecodeProgressiveList.from_ssz_bytes.closure.Insts.CoreOpsFunctionFnOnceTupleErrorDecodeError
@@ -7709,7 +7709,7 @@ def
 }
 
 /-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes]:
-    Source: 'src/progressive_list.rs', lines 440:4-474:5
+    Source: 'src/progressive_list.rs', lines 437:4-471:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes
   {T : Type} {U : Type} (ValueInst : Value T) (update_mapUpdateMapInst :
@@ -7761,7 +7761,7 @@ def progressive_list.ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes
           ssz.decode.DecodeError) residual
 
 /-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{closure}<'a, T, U>}::call_once]:
-    Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
+    Source: 'src/progressive_list.rs', lines 497:31-497:68 -/
 def
   progressive_list.ArbitraryAProgressiveList.arbitrary.closure.Insts.CoreOpsFunctionFnOnceTupleErrorError.call_once
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -7773,7 +7773,7 @@ def
   ok arbitrary.error.Error.IncorrectFormat
 
 /-- Trait implementation: [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{impl core::ops::function::FnOnce<(milhouse::error::Error,), arbitrary::error::Error> for milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{closure}<'a, T, U>}]
-    Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
+    Source: 'src/progressive_list.rs', lines 497:31-497:68 -/
 @[reducible]
 def
   progressive_list.ArbitraryAProgressiveList.arbitrary.closure.Insts.CoreOpsFunctionFnOnceTupleErrorError
@@ -7788,7 +7788,7 @@ def
 }
 
 /-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary]:
-    Source: 'src/progressive_list.rs', lines 497:4-501:5
+    Source: 'src/progressive_list.rs', lines 494:4-498:5
     Visibility: public -/
 def progressive_list.ProgressiveList.Insts.ArbitraryArbitrary.arbitrary
   {T : Type} {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T)
@@ -7818,7 +7818,7 @@ def progressive_list.ProgressiveList.Insts.ArbitraryArbitrary.arbitrary
     ok (r1, u1)
 
 /-- Trait implementation: [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}]
-    Source: 'src/progressive_list.rs', lines 492:0-502:1 -/
+    Source: 'src/progressive_list.rs', lines 489:0-499:1 -/
 @[reducible]
 impl_def progressive_list.ProgressiveList.Insts.ArbitraryArbitrary {T : Type}
   {U : Type} (arbitraryArbitraryInst : arbitrary.Arbitrary T) (ValueInst :

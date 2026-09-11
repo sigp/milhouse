@@ -588,7 +588,7 @@ structure progressive_tree.ProgressiveTreeIter (T : Type) where
   yielded : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIter]
-    Source: 'src/progressive_list.rs', lines 506:0-511:1
+    Source: 'src/progressive_list.rs', lines 503:0-508:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T
@@ -597,7 +597,7 @@ structure progressive_list.ProgressiveListIter (T : Type) (U : Type) where
   length : Std.Usize
 
 /-- [milhouse::progressive_list::ProgressiveListIterCow]
-    Source: 'src/progressive_list.rs', lines 556:0-560:1
+    Source: 'src/progressive_list.rs', lines 553:0-557:1
     Visibility: public -/
 structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
   tree_iter : progressive_tree.ProgressiveTreeIter T
@@ -605,21 +605,21 @@ structure progressive_list.ProgressiveListIterCow (T : Type) (U : Type) where
   index : Std.Usize
 
 /-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure#1}]
-    Source: 'src/progressive_list.rs', lines 467:38-471:17 -/
+    Source: 'src/progressive_list.rs', lines 464:38-468:17 -/
 @[reducible]
 def progressive_list.DecodeProgressiveList.from_ssz_bytes.closure_1 (T : Type)
   (U : Type) :=
 Unit
 
 /-- [milhouse::progressive_list::{impl ssz::decode::Decode for milhouse::progressive_list::ProgressiveList<T, U>}::from_ssz_bytes::{closure}]
-    Source: 'src/progressive_list.rs', lines 455:38-457:13 -/
+    Source: 'src/progressive_list.rs', lines 452:38-454:13 -/
 @[reducible]
 def progressive_list.DecodeProgressiveList.from_ssz_bytes.closure (T : Type) (U
   : Type) :=
 Unit
 
 /-- [milhouse::progressive_list::{impl arbitrary::Arbitrary<'a> for milhouse::progressive_list::ProgressiveList<T, U>}::arbitrary::{closure}]
-    Source: 'src/progressive_list.rs', lines 500:31-500:68 -/
+    Source: 'src/progressive_list.rs', lines 497:31-497:68 -/
 @[reducible]
 def progressive_list.ArbitraryAProgressiveList.arbitrary.closure (T : Type) (U
   : Type) :=

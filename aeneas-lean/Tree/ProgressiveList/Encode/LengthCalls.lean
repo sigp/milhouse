@@ -1,4 +1,4 @@
-import Tree.ProgressiveList.Iter.Construction
+import Tree.ProgressiveList.Iter.Traits
 
 open Aeneas Aeneas.Std Result
 open milhouse milhouse.tree
@@ -15,7 +15,7 @@ theorem ProgressiveList.ssz_bytes_len_loop_foldlM {T U : Type}
       (ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next ValueInst mapInst)
       cursor values) (accumulator : Std.Usize) :
     ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len_loop
-      ValueInst mapInst cursor accumulator =
+      ValueInst mapInst accumulator cursor =
       values.foldlM (fun (total : Std.Usize) value => do
         let size ← ValueInst.sszencodeEncodeInst.ssz_bytes_len value
         total + size) accumulator := by
@@ -60,7 +60,7 @@ theorem ProgressiveList.ssz_bytes_len_variable_calls {T U : Type}
       let offsets ← 4#usize * count
       payload + offsets) := by
   obtain ⟨cursor, hiter, _, _, hyields⟩ :=
-    ProgressiveList.iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
+    ProgressiveList.into_iter_spec ValueInst mapInst hlayout self contents hrep hdense hfits
   simp only [ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len, hvariable,
     bind_tc_ok, Bool.false_eq_true, ↓reduceIte, hiter, ssz.BYTES_PER_LENGTH_OFFSET]
   rw [ProgressiveList.ssz_bytes_len_loop_foldlM ValueInst mapInst cursor contents hyields]
