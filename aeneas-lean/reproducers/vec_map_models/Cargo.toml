@@ -1,0 +1,12 @@
+[package]
+name = "vec_map_source"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "source.rs"
+
+[dependencies]
+vec_map = "=0.8.2"
+
+[workspace]

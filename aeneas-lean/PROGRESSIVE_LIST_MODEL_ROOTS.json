@@ -1,0 +1,170 @@
+[
+  {
+    "label": "empty",
+    "declaration": "milhouse.progressive_list.ProgressiveList.empty"
+  },
+  {
+    "label": "new",
+    "declaration": "milhouse.progressive_list.ProgressiveList.new"
+  },
+  {
+    "label": "try_from_iter",
+    "declaration": "milhouse.progressive_list.ProgressiveList.try_from_iter"
+  },
+  {
+    "label": "get",
+    "declaration": "milhouse.progressive_list.ProgressiveList.get"
+  },
+  {
+    "label": "get_mut",
+    "declaration": "milhouse.progressive_list.ProgressiveList.get_mut"
+  },
+  {
+    "label": "get_cow",
+    "declaration": "milhouse.progressive_list.ProgressiveList.get_cow"
+  },
+  {
+    "label": "push",
+    "declaration": "milhouse.progressive_list.ProgressiveList.push"
+  },
+  {
+    "label": "len",
+    "declaration": "milhouse.progressive_list.ProgressiveList.len"
+  },
+  {
+    "label": "is_empty",
+    "declaration": "milhouse.progressive_list.ProgressiveList.is_empty"
+  },
+  {
+    "label": "has_pending_updates",
+    "declaration": "milhouse.progressive_list.ProgressiveList.has_pending_updates"
+  },
+  {
+    "label": "apply_updates",
+    "declaration": "milhouse.progressive_list.ProgressiveList.apply_updates"
+  },
+  {
+    "label": "iter",
+    "declaration": "milhouse.progressive_list.ProgressiveList.iter"
+  },
+  {
+    "label": "iter_from",
+    "declaration": "milhouse.progressive_list.ProgressiveList.iter_from"
+  },
+  {
+    "label": "iter_cow",
+    "declaration": "milhouse.progressive_list.ProgressiveList.iter_cow"
+  },
+  {
+    "label": "iter_cow_from",
+    "declaration": "milhouse.progressive_list.ProgressiveList.iter_cow_from"
+  },
+  {
+    "label": "to_vec",
+    "declaration": "milhouse.progressive_list.ProgressiveList.to_vec"
+  },
+  {
+    "label": "pop_front",
+    "declaration": "milhouse.progressive_list.ProgressiveList.pop_front"
+  },
+  {
+    "label": "rebase",
+    "declaration": "milhouse.progressive_list.ProgressiveList.rebase"
+  },
+  {
+    "label": "rebase_on",
+    "declaration": "milhouse.progressive_list.ProgressiveList.rebase_on"
+  },
+  {
+    "label": "Default",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.CoreDefaultDefault.default"
+  },
+  {
+    "label": "TryFromVec",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.CoreConvertTryFromVecError.try_from"
+  },
+  {
+    "label": "TryFromIter",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszDecodeTry_from_iterTryFromIterTError.try_from_iter"
+  },
+  {
+    "label": "IntoIterator",
+    "declaration": "milhouse.SharedAProgressiveList.Insts.CoreIterTraitsCollectIntoIteratorSharedATProgressiveListIter.into_iter"
+  },
+  {
+    "label": "Clone",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.CoreCloneClone.clone"
+  },
+  {
+    "label": "CloneFrom",
+    "declaration": "milhouse.proof_roots.progressive_list_clone_from"
+  },
+  {
+    "label": "PartialEq",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.CoreCmpPartialEqProgressiveList"
+  },
+  {
+    "label": "Iterator.next",
+    "declaration": "milhouse.progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.next"
+  },
+  {
+    "label": "Iterator.size_hint",
+    "declaration": "milhouse.progressive_list.ProgressiveListIter.Insts.CoreIterTraitsIteratorIteratorSharedAT.size_hint"
+  },
+  {
+    "label": "Iterator.len",
+    "declaration": "milhouse.progressive_list.ProgressiveListIter.Insts.CoreIterTraitsExact_sizeExactSizeIteratorSharedT.len"
+  },
+  {
+    "label": "Cow.into_mut",
+    "declaration": "milhouse.cow.Cow.into_mut"
+  },
+  {
+    "label": "Encode.is_ssz_fixed_len",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszEncodeEncode.is_ssz_fixed_len"
+  },
+  {
+    "label": "Encode.ssz_fixed_len",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_fixed_len"
+  },
+  {
+    "label": "Encode.ssz_bytes_len",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_bytes_len"
+  },
+  {
+    "label": "Encode.ssz_append",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszEncodeEncode.ssz_append"
+  },
+  {
+    "label": "Encode.as_ssz_bytes",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszEncodeEncode.as_ssz_bytes"
+  },
+  {
+    "label": "Decode.is_ssz_fixed_len",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszDecodeDecode.is_ssz_fixed_len"
+  },
+  {
+    "label": "Decode.ssz_fixed_len",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszDecodeDecode.ssz_fixed_len"
+  },
+  {
+    "label": "Decode.from_ssz_bytes",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.SszDecodeDecode.from_ssz_bytes"
+  },
+  {
+    "label": "Arbitrary.arbitrary",
+    "declaration": "milhouse.progressive_list.ProgressiveList.Insts.ArbitraryArbitrary.arbitrary"
+  },
+  {
+    "label": "arbitrary_take_rest",
+    "declaration": "milhouse.proof_roots.progressive_list_arbitrary_take_rest"
+  },
+  {
+    "label": "arbitrary_size_hint",
+    "declaration": "milhouse.proof_roots.progressive_list_arbitrary_size_hint"
+  },
+  {
+    "label": "arbitrary_try_size_hint",
+    "declaration": "milhouse.proof_roots.progressive_list_arbitrary_try_size_hint"
+  }
+]

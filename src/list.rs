@@ -48,6 +48,59 @@ pub struct ListInner<T: Value, N: Unsigned> {
     _phantom: PhantomData<N>,
 }
 
+fn push_all<T: Value>(
+    target: &mut Builder<T>,
+    mut iter: impl Iterator<Item = T>,
+) -> Result<(), Error> {
+    loop {
+        match iter.next() {
+            Some(item) => match target.push(item) {
+                Ok(()) => (),
+                Err(error) => break Err(error),
+            },
+            None => break Ok(()),
+        }
+    }
+}
+
+fn push_level_node<T: Value>(
+    target: &mut Builder<T>,
+    item: LevelNode<'_, T>,
+    level: usize,
+    remaining: usize,
+) -> Result<usize, Error> {
+    match item {
+        LevelNode::Internal(node) => {
+            let subtree_len = (1 << level).min(remaining);
+            target.push_node(node.clone(), subtree_len)?;
+            Ok(remaining - subtree_len)
+        }
+        LevelNode::PackedLeaf(value) => {
+            target.push(value.clone())?;
+            Ok(remaining - 1)
+        }
+    }
+}
+
+fn push_level_nodes<T: Value>(
+    target: &mut Builder<T>,
+    mut iter: LevelIter<'_, T>,
+    level: usize,
+    mut remaining: usize,
+) -> Result<(), Error> {
+    loop {
+        let item = match iter.next() {
+            Some(item) => item,
+            None => break Ok(()),
+        };
+
+        match push_level_node(target, item, level, remaining) {
+            Ok(new_remaining) => remaining = new_remaining,
+            Err(error) => break Err(error),
+        }
+    }
+}
+
 impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
         Self::try_from_iter(vec)
@@ -78,7 +131,7 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn repeat_slow(elem: T, n: usize) -> Result<Self, Error> {
-        Self::try_from_iter(std::iter::repeat_n(elem, n))
+        Self::try_from_iter(vec![elem; n])
     }
 
     pub fn builder() -> Result<Builder<T>, Error> {
@@ -86,13 +139,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
-        let mut builder = Self::builder()?;
+        let mut list_builder = Self::builder()?;
 
-        for item in iter.into_iter() {
-            builder.push(item)?;
-        }
+        push_all(&mut list_builder, iter.into_iter())?;
 
-        let (tree, depth, length) = builder.finish()?;
+        let (tree, depth, length) = list_builder.finish()?;
 
         // Check the length to cover the case where the capacity implied by packing_depth is
         // greater than N. E.g. the builder might pack up to 32 u8s, even if N is < 32.
@@ -118,7 +169,11 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().cloned().collect()
+        let mut values = Vec::with_capacity(self.len());
+        for value in self.iter() {
+            values.push(value.clone());
+        }
+        values
     }
 
     pub fn iter(&self) -> InterfaceIter<'_, T, U> {
@@ -164,7 +219,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
 
     // Wrap trait methods so we present a Vec-like interface without having to import anything.
     pub fn get(&self, index: usize) -> Option<&'_ T> {
-        self.interface.get(index)
+        match self.interface.updates.get(index) {
+            Some(value) => Some(value),
+            None => self.interface.backing.get(index),
+        }
     }
 
     pub fn get_mut(&mut self, index: usize) -> Option<&'_ mut T> {
@@ -172,7 +230,10 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     }
 
     pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
-        self.interface.get_cow(index)
+        let backing_value = self.interface.backing.get(index);
+        self.interface
+            .updates
+            .get_cow_with_value(index, backing_value)
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
@@ -207,7 +268,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
     ///
     /// Errors if `n > self.len()`.
     pub fn pop_front_slow(&mut self, n: usize) -> Result<(), Error> {
-        *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
+        let mut values = Vec::new();
+        let mut iter = self.iter_from(n)?;
+        while let Some(value) = iter.next() {
+            values.push(value.clone());
+        }
+        *self = Self::new(values)?;
         Ok(())
     }
 
@@ -224,28 +290,12 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
         let depth = Self::depth();
         let packing_depth = opt_packing_depth::<T>().unwrap_or(0);
         let level = compute_level(n, depth, packing_depth);
-        let mut builder = Builder::new(Self::depth(), level)?;
-        let mut level_iter = self.level_iter_from(n)?.peekable();
+        let mut list_builder = Builder::new(Self::depth(), level)?;
+        let level_iter = self.level_iter_from(n)?;
+        let remaining = self.len().saturating_sub(n);
+        push_level_nodes(&mut list_builder, level_iter, level, remaining)?;
 
-        while let Some(item) = level_iter.next() {
-            match item {
-                LevelNode::Internal(node) => {
-                    let last = level_iter.peek().is_none();
-                    let subtree_len = if !last {
-                        1 << level
-                    } else {
-                        // Slower, but we only need to do this once.
-                        node.compute_len()
-                    };
-                    builder.push_node(node.clone(), subtree_len)?;
-                }
-                LevelNode::PackedLeaf(value) => {
-                    builder.push(value.clone())?;
-                }
-            }
-        }
-
-        let (tree, depth, length) = builder.finish()?;
+        let (tree, depth, length) = list_builder.finish()?;
         *self = Self::from_parts(tree, depth, length);
 
         Ok(())
@@ -364,6 +414,8 @@ impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
             &self.interface.backing.tree,
             &mut known_subtrees,
             self.interface.backing.depth,
+            self.interface.backing.packing_depth,
+            self.interface.backing.length,
         )? {
             self.interface.backing.tree = new_tree;
         }

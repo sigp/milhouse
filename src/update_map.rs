@@ -18,11 +18,21 @@ pub trait UpdateMap<T>: Default + Clone {
         F: FnOnce(usize) -> Option<&'a T>,
         T: Clone + 'a;
 
+    fn get_cow_with_value<'a>(&'a mut self, k: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a;
+
     fn insert(&mut self, k: usize, value: T) -> Option<T>;
 
     fn for_each_range<F, E>(&self, start: usize, end: usize, f: F) -> Result<(), E>
     where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>;
+
+    /// Return true if any key in the half-open range `[start, end)` has an update.
+    ///
+    /// This is a closure-free alternative to `for_each_range` for existence checks, used by
+    /// `Tree::with_updated_leaves` to remain translatable by Aeneas.
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool;
 
     /// Return the largest index currently stored in the map.
     fn max_index(&self) -> Option<usize>;
@@ -73,6 +83,22 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
         Some(Cow::BTree(cow, CowOnMut::default()))
     }
 
+    fn get_cow_with_value<'a>(&'a mut self, idx: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a,
+    {
+        let cow = match self.entry(idx) {
+            Entry::Vacant(entry) => BTreeCow::Immutable {
+                value: value?,
+                entry: Some(entry),
+            },
+            Entry::Occupied(entry) => BTreeCow::Mutable {
+                value: entry.into_mut(),
+            },
+        };
+        Some(Cow::BTree(cow, CowOnMut::default()))
+    }
+
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
         BTreeMap::insert(self, idx, value)
     }
@@ -88,6 +114,10 @@ impl<T: Clone> UpdateMap<T> for BTreeMap<usize, T> {
             }
         }
         Ok(())
+    }
+
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool {
+        self.range(start..end).next().is_some()
     }
 
     fn max_index(&self) -> Option<usize> {
@@ -137,6 +167,22 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
         Some(Cow::Vec(cow, CowOnMut::default()))
     }
 
+    fn get_cow_with_value<'a>(&'a mut self, idx: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a,
+    {
+        let cow = match self.entry(idx) {
+            vec_map::Entry::Vacant(entry) => VecCow::Immutable {
+                value: value?,
+                entry: Some(entry),
+            },
+            vec_map::Entry::Occupied(entry) => VecCow::Mutable {
+                value: entry.into_mut(),
+            },
+        };
+        Some(Cow::Vec(cow, CowOnMut::default()))
+    }
+
     fn insert(&mut self, idx: usize, value: T) -> Option<T> {
         VecMap::insert(self, idx, value)
     }
@@ -157,6 +203,10 @@ impl<T: Clone> UpdateMap<T> for VecMap<T> {
             }
         }
         Ok(())
+    }
+
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool {
+        (start..end.min(self.capacity())).any(|key| self.get(key).is_some())
     }
 
     fn max_index(&self) -> Option<usize> {
@@ -181,7 +231,12 @@ impl MaxIndexState {
     pub(crate) fn record_insert(&mut self, index: usize) {
         match self {
             Self::Empty => *self = Self::Known(index),
-            Self::Known(max_index) => *max_index = (*max_index).max(index),
+            Self::Known(max_index) => {
+                // Keep this comparison explicit for Aeneas's Ord::max boundary.
+                if index > *max_index {
+                    *max_index = index;
+                }
+            }
         }
     }
 }
@@ -217,7 +272,11 @@ where
     where
         F: FnOnce(usize) -> Option<T>,
     {
-        let value = self.inner.get_mut_with(k, f)?;
+        // Keep borrowed Option results out of Aeneas's Try translation.
+        let value = match self.inner.get_mut_with(k, f) {
+            Some(value) => value,
+            None => return None,
+        };
         self.max_index.record_insert(k);
         Some(value)
     }
@@ -228,9 +287,25 @@ where
         T: Clone + 'a,
     {
         let Self { inner, max_index } = self;
-        let cow = inner.get_cow_with(k, f)?;
+        let handle = match inner.get_cow_with(k, f) {
+            Some(handle) => handle,
+            None => return None,
+        };
 
-        Some(cow.with_max_index(max_index, k))
+        Some(handle.with_max_index(max_index, k))
+    }
+
+    fn get_cow_with_value<'a>(&'a mut self, k: usize, value: Option<&'a T>) -> Option<Cow<'a, T>>
+    where
+        T: Clone + 'a,
+    {
+        let Self { inner, max_index } = self;
+        let handle = match inner.get_cow_with_value(k, value) {
+            Some(handle) => handle,
+            None => return None,
+        };
+
+        Some(handle.with_max_index(max_index, k))
     }
 
     fn insert(&mut self, k: usize, value: T) -> Option<T> {
@@ -244,6 +319,10 @@ where
         F: FnMut(usize, &T) -> ControlFlow<(), Result<(), E>>,
     {
         self.inner.for_each_range(start, end, f)
+    }
+
+    fn has_any_in_range(&self, start: usize, end: usize) -> bool {
+        self.inner.has_any_in_range(start, end)
     }
 
     fn len(&self) -> usize {

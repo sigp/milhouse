@@ -37,6 +37,13 @@ impl<'a, T: Value> Iter<'a, T> {
     }
 }
 
+fn pop_many<T>(stack: &mut Vec<T>, mut count: usize) {
+    while count > 0 {
+        stack.pop();
+        count -= 1;
+    }
+}
+
 impl<'a, T: Value> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
@@ -45,21 +52,23 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
             return None;
         }
 
-        match self.stack.last() {
-            None | Some(Tree::Zero(_)) => None,
-            Some(Tree::Leaf(Leaf { value, .. })) => {
+        // Copy the node reference without keeping `stack` borrowed while traversing it.
+        let node = self.stack.pop()?;
+        self.stack.push(node);
+
+        match node {
+            Tree::Zero(_) => None,
+            Tree::Leaf(Leaf { value, .. }) => {
                 let result = Some(value.as_ref());
 
                 self.index += 1;
 
                 // Backtrack to the parent node of the next subtree
-                for _ in 0..=self.index.trailing_zeros() {
-                    self.stack.pop();
-                }
+                pop_many(&mut self.stack, self.index.trailing_zeros() as usize + 1);
 
                 result
             }
-            Some(Tree::PackedLeaf(PackedLeaf { values, .. })) => {
+            Tree::PackedLeaf(PackedLeaf { values, .. }) => {
                 let sub_index = self.index % self.packing_factor;
 
                 let result = values.get(sub_index);
@@ -74,14 +83,12 @@ impl<'a, T: Value> Iterator for Iter<'a, T> {
                         .checked_sub(self.packing_depth as u32)
                         .expect("index should have at least `packing_depth` trailing zeroes");
 
-                    for _ in 0..=to_pop {
-                        self.stack.pop();
-                    }
+                    pop_many(&mut self.stack, to_pop as usize + 1);
                 }
 
                 result
             }
-            Some(Tree::Node { left, right, .. }) => {
+            Tree::Node { left, right, .. } => {
                 let depth = self.full_depth - self.stack.len();
 
                 // Go left

@@ -1,11 +1,11 @@
 use crate::{
     Arc, Cow, Error, UpdateMap, Value,
-    progressive_tree::{ProgressiveTree, ProgressiveTreeIter},
+    progressive_tree::{ProgressiveTree, ProgressiveTreeBuilder, ProgressiveTreeIter},
+    ssz_items::SszItems,
     update_map::MaxMap,
     utils::{Length, updated_length},
 };
 use educe::Educe;
-use itertools::process_results;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
 use std::convert::TryFrom;
@@ -15,6 +15,7 @@ use vec_map::VecMap;
 #[derive(Debug, Clone, Educe)]
 #[educe(PartialEq(bound(T: Value, U: UpdateMap<T> + PartialEq)))]
 pub struct ProgressiveList<T: Value, U: UpdateMap<T> = MaxMap<VecMap<T>>> {
+    #[educe(PartialEq(method(ProgressiveTree::arc_eq)))]
     pub(crate) tree: Arc<ProgressiveTree<T>>,
     pub(crate) length: Length,
     pub(crate) updates: U,
@@ -30,7 +31,7 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn new(vec: Vec<T>) -> Result<Self, Error> {
-        Self::try_from_iter(vec)
+        Self::try_from(vec)
     }
 
     pub fn try_from_iter(iter: impl IntoIterator<Item = T>) -> Result<Self, Error> {
@@ -42,6 +43,45 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
             length: Length(length),
             updates: U::default(),
         })
+    }
+
+    /// Keep construction streaming while retaining process_results' error ordering.
+    /// A decode error ends the input, but the partial builder is still finalized
+    /// before that error is returned. A builder error stops consumption immediately.
+    fn decode_ssz_items(
+        mut items: SszItems<'_>,
+    ) -> (Result<Self, Error>, Option<ssz::DecodeError>) {
+        let mut builder = match ProgressiveTreeBuilder::new() {
+            Ok(builder) => builder,
+            Err(error) => return (Err(error), None),
+        };
+        let mut decode_error = None;
+        while let Some(item) = items.next() {
+            let decoded = match item {
+                Ok(bytes) => T::from_ssz_bytes(bytes),
+                Err(error) => Err(error),
+            };
+            match decoded {
+                Ok(value) => {
+                    if let Err(error) = builder.push(value) {
+                        return (Err(error), None);
+                    }
+                }
+                Err(error) => {
+                    decode_error = Some(error);
+                    break;
+                }
+            }
+        }
+        let built = match builder.finish() {
+            Ok((tree, length)) => Ok(Self {
+                tree: Arc::new(tree),
+                length: Length(length),
+                updates: U::default(),
+            }),
+            Err(error) => Err(error),
+        };
+        (built, decode_error)
     }
 
     /// The length of the backing tree, ignoring any pending updates.
@@ -59,7 +99,10 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
-        self.updates.get(index).or_else(|| self.backing_get(index))
+        match self.updates.get(index) {
+            Some(value) => Some(value),
+            None => self.backing_get(index),
+        }
     }
 
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
@@ -73,13 +116,17 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn get_cow(&mut self, index: usize) -> Option<Cow<'_, T>> {
-        self.updates.get_cow_with(index, |index| {
-            if index < self.length.as_usize() {
-                self.tree.get_recursive(index, 0)
-            } else {
-                None
-            }
-        })
+        // Keep the backing lookup lazy while avoiding a borrowed fallback
+        // closure, which Aeneas cannot translate.
+        if self.updates.get(index).is_some() {
+            return self.updates.get_cow_with_value(index, None);
+        }
+        let backing_value = if index < self.length.as_usize() {
+            self.tree.get_recursive(index, 0)
+        } else {
+            None
+        };
+        self.updates.get_cow_with_value(index, backing_value)
     }
 
     pub fn push(&mut self, value: T) -> Result<(), Error> {
@@ -186,7 +233,12 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 
     pub fn to_vec(&self) -> Vec<T> {
-        self.iter().cloned().collect()
+        let iter = self.into_iter();
+        let mut values = Vec::with_capacity(iter.len());
+        for value in iter {
+            values.push(value.clone());
+        }
+        values
     }
 
     /// Remove `n` elements from the front of `self`.
@@ -206,7 +258,15 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
         // Removing from the front re-indexes every element, so nothing can be shared with the
         // old tree; rebuild from the remaining elements. The iterator includes pending updates,
         // so there is no need to apply them first.
-        *self = Self::try_from_iter(self.iter_from(n)?.cloned())?;
+        let iter = self.iter_from(n)?;
+        let mut builder = ProgressiveTreeBuilder::new()?;
+        iter.extend_builder(&mut builder)?;
+        let (tree, length) = builder.finish()?;
+        *self = Self {
+            tree: Arc::new(tree),
+            length: Length(length),
+            updates: U::default(),
+        };
 
         Ok(())
     }
@@ -299,11 +359,21 @@ impl<T: Value, U: UpdateMap<T>> Encode for ProgressiveList<T, U> {
         false
     }
 
+    // The trait default has this value. Spell it out so extraction does not
+    // need a self-referential dictionary for the default method.
+    fn ssz_fixed_len() -> usize {
+        BYTES_PER_LENGTH_OFFSET
+    }
+
     fn ssz_bytes_len(&self) -> usize {
         if <T as Encode>::is_ssz_fixed_len() {
             <T as Encode>::ssz_fixed_len() * self.len()
         } else {
-            let mut len = self.iter().map(|item| item.ssz_bytes_len()).sum();
+            let mut iter = self.iter();
+            let mut len = 0;
+            while let Some(item) = iter.next() {
+                len += item.ssz_bytes_len();
+            }
             len += BYTES_PER_LENGTH_OFFSET * self.len();
             len
         }
@@ -313,18 +383,28 @@ impl<T: Value, U: UpdateMap<T>> Encode for ProgressiveList<T, U> {
         if <T as Encode>::is_ssz_fixed_len() {
             buf.reserve(<T as Encode>::ssz_fixed_len() * self.len());
 
-            for item in self {
+            let mut iter = self.iter();
+            while let Some(item) = iter.next() {
                 item.ssz_append(buf);
             }
         } else {
             let mut encoder = SszEncoder::container(buf, self.len() * BYTES_PER_LENGTH_OFFSET);
 
-            for item in self {
+            let mut iter = self.iter();
+            while let Some(item) = iter.next() {
                 encoder.append(item);
             }
 
             encoder.finalize();
         }
+    }
+
+    // Equivalent to the trait default, with the concrete append call visible
+    // to extraction instead of a self-referential trait dictionary.
+    fn as_ssz_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.ssz_append(&mut buf);
+        buf
     }
 }
 
@@ -352,6 +432,11 @@ where
         false
     }
 
+    // Identical to the trait default, without a recursive extraction dictionary.
+    fn ssz_fixed_len() -> usize {
+        BYTES_PER_LENGTH_OFFSET
+    }
+
     fn from_ssz_bytes(bytes: &[u8]) -> Result<Self, ssz::DecodeError> {
         if bytes.is_empty() {
             Ok(ProgressiveList::empty())
@@ -361,15 +446,30 @@ where
                 // Match `List`'s handling of zero-sized items; `chunks(0)` would panic.
                 return Err(ssz::DecodeError::ZeroLengthItem);
             }
-            process_results(bytes.chunks(fixed_len).map(T::from_ssz_bytes), |iter| {
-                ProgressiveList::try_from_iter(iter).map_err(|e| {
-                    ssz::DecodeError::BytesInvalid(format!(
-                        "Error building ssz ProgressiveList: {e:?}"
-                    ))
-                })
-            })?
+            let (built, decode_error) = Self::decode_ssz_items(SszItems::Fixed {
+                remaining: bytes,
+                width: fixed_len,
+            });
+            // The original fixed-item callback formatted builder errors before
+            // process_results selected the decode error.
+            let built = built.map_err(|e| {
+                ssz::DecodeError::BytesInvalid(format!("Error building ssz ProgressiveList: {e:?}"))
+            });
+            match decode_error {
+                Some(error) => Err(error),
+                None => built,
+            }
         } else {
-            ssz::decode_list_of_variable_length_items(bytes, None)
+            let items = SszItems::variable(bytes)?;
+            let (built, decode_error) = Self::decode_ssz_items(items);
+            match decode_error {
+                Some(error) => Err(error),
+                None => built.map_err(|e| {
+                    ssz::DecodeError::BytesInvalid(format!(
+                        "Error collecting into container: {e:?}"
+                    ))
+                }),
+            }
         }
     }
 }
@@ -410,6 +510,16 @@ pub struct ProgressiveListIter<'a, T: Value, U: UpdateMap<T>> {
     length: usize,
 }
 
+impl<T: Value, U: UpdateMap<T>> ProgressiveListIter<'_, T, U> {
+    // Keep the fallible loop separate from finalization.
+    fn extend_builder(self, builder: &mut ProgressiveTreeBuilder<T>) -> Result<(), Error> {
+        for value in self {
+            builder.push(value.clone())?;
+        }
+        Ok(())
+    }
+}
+
 impl<'a, T: Value, U: UpdateMap<T>> Iterator for ProgressiveListIter<'a, T, U> {
     type Item = &'a T;
 
@@ -434,7 +544,13 @@ impl<'a, T: Value, U: UpdateMap<T>> Iterator for ProgressiveListIter<'a, T, U> {
     }
 }
 
-impl<T: Value, U: UpdateMap<T>> ExactSizeIterator for ProgressiveListIter<'_, T, U> {}
+impl<T: Value, U: UpdateMap<T>> ExactSizeIterator for ProgressiveListIter<'_, T, U> {
+    // Equivalent to the trait default; keep the concrete size_hint call visible
+    // to extraction instead of dispatching through the generic Iterator model.
+    fn len(&self) -> usize {
+        self.size_hint().0
+    }
+}
 
 #[derive(Debug)]
 pub struct ProgressiveListIterCow<'a, T: Value, U: UpdateMap<T>> {
@@ -446,7 +562,6 @@ pub struct ProgressiveListIterCow<'a, T: Value, U: UpdateMap<T>> {
 impl<T: Value, U: UpdateMap<T>> ProgressiveListIterCow<'_, T, U> {
     pub fn next_cow(&mut self) -> Option<(usize, Cow<'_, T>)> {
         let index = self.index;
-        self.index += 1;
 
         // Advance the tree iterator so that it moves in step with this iterator.
         let backing_value = self.tree_iter.next();
@@ -454,6 +569,25 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveListIterCow<'_, T, U> {
         // Construct a CoW pointer using the updated entry from the map, or the corresponding
         // vacant entry and the value from the backing iterator.
         let cow = self.updates.get_cow_with(index, |_| backing_value)?;
+        self.index += 1;
         Some((index, cow))
+    }
+}
+
+#[cfg(test)]
+mod cow_iterator_tests {
+    use super::ProgressiveList;
+
+    #[test]
+    fn exhausted_cow_iterator_does_not_overflow() {
+        let mut list = ProgressiveList::<u64>::empty();
+        let mut iter = list.iter_cow();
+        // The old implementation reached this state after repeated exhausted
+        // reads. Set the cursor directly to exercise the overflow boundary.
+        iter.index = usize::MAX;
+        assert!(iter.next_cow().is_none());
+        assert_eq!(iter.index, usize::MAX);
+        assert!(iter.next_cow().is_none());
+        assert_eq!(iter.index, usize::MAX);
     }
 }

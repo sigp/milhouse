@@ -1,0 +1,5 @@
+/target/
+/lean/
+/lean-drops/
+/*.log
+!Cargo.lock

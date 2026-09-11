@@ -15,8 +15,11 @@ pub mod mem;
 pub mod packed_leaf;
 pub mod progressive_list;
 pub mod progressive_tree;
+#[cfg(milhouse_aeneas)]
+mod proof_roots;
 mod repeat;
 pub mod serde;
+mod ssz_items;
 mod tests;
 pub mod tree;
 pub mod update_map;

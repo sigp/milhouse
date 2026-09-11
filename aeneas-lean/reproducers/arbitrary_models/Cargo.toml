@@ -1,0 +1,10 @@
+[package]
+name = "arbitrary_source"
+version = "0.0.0"
+edition = "2024"
+publish = false
+[lib]
+path = "source.rs"
+[dependencies]
+arbitrary = "=1.4.1"
+[workspace]

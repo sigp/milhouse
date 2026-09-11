@@ -42,20 +42,25 @@ where
     };
 
     for depth in 0..tree_depth {
-        let new_layer = match &layer[..] {
-            [(repeat_leaf, 1)] => {
+        // Avoid matching on `&layer[..]`: Aeneas cannot currently project
+        // metadata from the shared `SmallVec` slice produced by that pattern.
+        // The layer has at most two entries, so consume them in order instead.
+        let right = layer.pop();
+        let left = layer.pop();
+        let new_layer = match (left, right) {
+            (None, Some((repeat_leaf, 1))) => {
                 smallvec![(
                     Tree::node(repeat_leaf.clone(), Tree::zero(depth), Hash256::ZERO),
                     1,
                 )]
             }
-            [(repeat_leaf, repeat_count)] if repeat_count.is_multiple_of(2) => {
+            (None, Some((repeat_leaf, repeat_count))) if repeat_count.is_multiple_of(2) => {
                 smallvec![(
                     Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),
                     repeat_count / 2,
                 )]
             }
-            [(repeat_leaf, repeat_count)] => {
+            (None, Some((repeat_leaf, repeat_count))) => {
                 smallvec![
                     (
                         Tree::node(repeat_leaf.clone(), repeat_leaf.clone(), Hash256::ZERO),
@@ -67,13 +72,13 @@ where
                     ),
                 ]
             }
-            [(repeat_leaf, 1), (lonely_leaf, 1)] => {
+            (Some((repeat_leaf, 1)), Some((lonely_leaf, 1))) => {
                 smallvec![(
                     Tree::node(repeat_leaf.clone(), lonely_leaf.clone(), Hash256::ZERO),
                     1,
                 )]
             }
-            [(repeat_leaf, repeat_count), (lonely_leaf, 1)] => {
+            (Some((repeat_leaf, repeat_count)), Some((lonely_leaf, 1))) => {
                 if repeat_count.is_multiple_of(2) {
                     smallvec![
                         (
@@ -100,7 +105,7 @@ where
             }
             _ => unreachable!("not possible"),
         };
-        drop(std::mem::replace(&mut layer, new_layer));
+        layer = new_layer;
     }
 
     let (root, count) = layer.pop().ok_or(Error::BuilderStackEmptyFinalize)?;

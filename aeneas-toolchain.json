@@ -1,0 +1,10 @@
+{
+  "aeneasCommit": "7ebd01d1945570aef03bc76b47273ca1d1ff3c23",
+  "aeneasVersion": "aeneas nightly-2026.09.08-7ebd01d",
+  "charonVersion": "0.1.251 (85bba1f2a64ded1704586cdc26dfb62aeb4b7168)",
+  "rustToolchain": "nightly-2026-08-18",
+  "rustcCommit": "8fa1c96cfd489e4c27654c144ae871ce2c4db6c6",
+  "leanToolchain": "leanprover/lean4:v4.31.0",
+  "archiveUrl": "https://github.com/AeneasVerif/aeneas/releases/download/nightly-2026.09.08-7ebd01d/aeneas-linux-x86_64.tar.gz",
+  "archiveSha256": "763c78dc8c596c557c4984e2ecccd30a9e0145dcbb3a9dd6b6f5eb67981056c1"
+}
