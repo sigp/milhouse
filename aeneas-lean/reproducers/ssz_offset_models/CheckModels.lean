@@ -70,8 +70,9 @@ theorem decode_offset_agrees (bytes : Slice U8) :
   · have hform : ∃ a b c d, bytes = (Array.make 4#usize [a,b,c,d]).to_slice := by
       refine ⟨bytes.val[0]'(by omega), bytes.val[1]'(by omega),
         bytes.val[2]'(by omega), bytes.val[3]'(by omega), ?_⟩
-      apply Subtype.ext
-      exact List.eq_getElem_of_length_eq_four bytes.val hlen
+      apply Slice.ext
+      simpa only [Array.val_to_slice, Array.make, Array.from_val] using
+        List.eq_getElem_of_length_eq_four bytes.val hlen
     obtain ⟨a,b,c,d,rfl⟩ := hform
     rw [source_decode_four]
     simp [resultToModel, ssz.decode.read_offset, Array.to_slice, Array.make]
@@ -93,7 +94,9 @@ private def readOffsetComposition (bytes : Slice U8) :
 
 theorem read_offset_composition_agrees (bytes : Slice U8) :
     readOffsetComposition bytes = ssz.decode.read_offset bytes := by
-  rcases bytes with ⟨values, bound⟩
+  obtain ⟨values, bound, rfl⟩ : ∃ (values : List U8)
+      (bound : values.length ≤ Usize.max), bytes = Slice.from values bound :=
+    ⟨bytes.val, bytes.property, (Slice.val_from bytes bytes.property).symm⟩
   rcases values with _ | ⟨a, _ | ⟨b, _ | ⟨c, _ | ⟨d, rest⟩⟩⟩⟩
   all_goals
     simp [readOffsetComposition, decode_offset_agrees, core.slice.Slice.get,
