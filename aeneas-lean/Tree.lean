@@ -211,6 +211,7 @@ import Tree.ProgressiveTree.Rebase.Contents
 import Tree.ProgressiveList
 import Tree.ProgressiveList.Observers
 import Tree.ProgressiveList.Observers.MaxMap
+import Tree.ProgressiveList.CopyOnWrite.MaxMap
 import Tree.UpdateMap.Lookup
 import Tree.ProgressiveList.Lookup
 import Tree.UpdateMap.Length
