@@ -1,118 +1,88 @@
-# September 7 migration checkpoint
+# September 7 compiler adoption checkpoint
 
-**Current decision (2026-09-11): proceed with adoption.** The user approved
-assuming `usize::pow` correct. Its mathematical model is retained and its
-source-comparison proof is deferred under `SOURCE_MODEL_ASSUMPTIONS.json`.
-No new Lean axiom is added. The compiler and other proof repairs are being
-integrated into the working branch, followed by validation there.
+The September 7 candidate is adopted on the working `aeneas` branch in merge
+commit `130ca10`. The former trial's compiler pin, setup helper, generated
+code, proof repairs, and audit changes are integrated. Final checks ran in
+`/home/michael/Programming/milhouse` using the project's default compiler
+paths, not the trial worktree or an override to the old adjacent checkout.
 
-## Historical trial results before the approved assumption
+## Compiler and approved assumption
 
-The migration is preserved on `sept7-compiler-trial`, through proof commit
-`f88baf5`. The working `aeneas` branch retains Aeneas `b59d5188c082` and
-Charon `cb50ff16b9f1`. No production Rust or Aeneas/Charon source was patched.
-The compiler upgrade is incomplete because one existing source comparison
-cannot be extracted by the candidate.
+`aeneas-toolchain.json` pins Aeneas `7ebd01d19455` (official release
+`nightly-2026.09.08-7ebd01d`), Charon `85bba1f2a64d` (`0.1.251`), Rust
+`nightly-2026-08-18`, and Lean 4.31.0. The checksum-verified bundle is
+installed at `aeneas-lean/.lake/aeneas`; Lake, extraction, and source audits
+use it by default. Installation and repeat verification both pass.
+Miri and rustfmt are installed; extraction uses the full-MIR sysroot and
+rejects the optimized fallback.
 
-## Validated checkpoint
+On 2026-09-11 the user approved **assuming `usize::pow` correct for now**.
+`SOURCE_MODEL_ASSUMPTIONS.json` records the exact boundary. Its concrete Lean
+model is retained: compute the natural-number power, return a machine word
+when representable, and otherwise fail with `integerOverflow`. Correspondence
+to Rust in the overflow-checking build, including its failure abstraction,
+is trusted. No new Lean axiom is introduced. The model audit reports this
+assumption, policy/model hashes, and ten conservative dependent API roots.
 
-Miri and rustfmt are installed for `nightly-2026-08-18`; Miri's full-MIR
-sysroot is `/home/michael/.cache/miri`. The setup helper's installation and
-repeat version/checksum check pass. See [setup instructions](README.md).
-The audit runners reject fallback to the distributed optimized sysroot.
+The former `core_pow_agrees` source comparison is deferred and is not counted
+as proved. Its old proof and diagnostic command are preserved. The compiler
+failures (`overflow_checks<bool>` and `strict_pow`'s `Cps.Unit`) remain recorded
+in [issue 29](UPSTREAM_BUGS.md#29-september-aeneas-cannot-translate-the-overflow-check-selector-in-usizepow).
+The old working-pin success report was archived rather than left looking
+current. This is the only excluded existing proof check in the upgrade.
 
-| Check | Final result |
+## Validation on the adopted working branch
+
+| Check | Result |
 | --- | --- |
-| Production extraction with the original Cargo lock and full MIR | Pass; generated library files unchanged |
-| Full Lake build and axiom/import audit | Pass: 447 project modules, 6,210 theorem declarations |
-| Model dependency audit | Pass: 42 roots, 151 local declarations |
-| Rust library tests on the new nightly, arbitrary enabled | Pass: 324 tests |
-| Option source suite | Pass: 12 proofs, all axiom-free |
-| Core source suite | Pass: 7 proofs, with the additional boundaries below |
+| Full-MIR production extraction | Pass; regenerated files match the merge commit |
+| Full Lake build | Pass: 2,169 jobs |
+| Axiom/import audit | Pass: 447 project modules, 6,210 theorem declarations |
+| Model dependency audit | Pass: 42 roots, 151 local declarations, explicit Pow assumption |
+| Option source suite | Pass: 12 proofs |
+| Core source suite | Pass: 7 proofs |
 | FixedBytes source suite | Pass: 5 proofs |
 | Tuple source suite | Pass: 4 proofs |
 | Vec source suite | Pass: 3 proofs |
 | SSZ offset source suite | Pass: 4 proofs |
 | Arbitrary source suite | Pass: 3 proofs |
 | VecMap source suite | Pass: 13 proofs |
-| Pow source suite | Fail during Aeneas extraction |
-| Existing CoW controls | Pass: 4 fresh proofs without axioms, plus native tests and formatting |
-| Shared source-validator tests | Pass: 14 tests |
+| Fresh CoW controls | Pass: 4 proofs without axioms, plus native test and formatting |
+| Rust library tests, arbitrary feature enabled | Pass: 324 tests |
+| Native power tests with overflow checks explicitly enabled | Pass: 4 tests; these do not replace the deferred Lean comparison |
+| Python source-validator tests | Pass: 17 tests |
 
-All eight successful source-suite reports have current input hashes. Together
-they validate 51 existing source/composition/invariant proofs. The failed Pow
-suite writes no success report. The axiom allowlists remain unchanged.
-The only nonstandard theorem dependency in the main library is the existing
-Arc pointer contract (119 declarations). The two declared external axioms
-remain `core.mem.size_of.usize_spec` and `triomphe.arc.Arc.ptr_eq_spec`.
+The eight required source suites validate 51 proofs: 20 axiom-free and 31
+using only the permitted standard Lean axioms. Every source report's input
+hashes match the adopted files. Axiom allowlists are unchanged. The only
+nonstandard theorem dependency remains the existing Arc pointer contract
+(119 declarations); declared external axioms remain
+`core.mem.size_of.usize_spec` and `triomphe.arc.Arc.ptr_eq_spec`.
 
-The earlier `Tree.Intrinsics` experiment was removed after full-MIR Option
-extraction succeeded without it (`9642694`). `Tree.CompilerModels` is the
-additional module in this checkpoint and introduces no axiom declarations.
+The Core checked-power comparison retains explicit numeric-helper foundations
+for `ilog2`, `checked_shl`, and `is_power_of_two`, plus a universally quantified
+compiler selector. Its exact boundaries are documented in the
+[Core README](reproducers/core_models/README.md) and source report. These
+helper implementations are not claimed as independently source-validated.
 
-## Core comparison boundaries
+The original ignored Cargo lockfile is byte-identical after all checks:
+`87da418b718a271fd77db47e21930d2e8608f517c4a234e5e7b81f2d37d01f42`.
+Production Rust is unchanged by the migration. The adjacent Aeneas and Charon
+source checkouts remain clean at their original revisions; no compiler source
+was patched. Debug and Serde remain out of scope, and TreeHash remains
+deferred. The compiler upgrade does not discharge new borrowed-CoW obligations
+or complete the broader ProgressiveList proof goal.
 
-The new Rust checked-power algorithm contains a power-of-two shortcut and
-two squaring-loop forms, duplicated across the outer selector branches.
-The proof validates all those branches for every base and exponent,
-including zero, overflow, and termination. The compiler selector is
-universally quantified, with independent base and exponent outcomes.
-Its audited section parameter is the only generated Lean change; removing
-it recovers the original bytes, and all function bodies are preserved.
+## Reproduce and inspect
 
-Three new numeric helpers are explicit mathematical foundations:
-`u128::ilog2`, `u128::checked_shl`, and `u128::is_power_of_two`. Their Rust
-implementations are **not source-validated by this suite**. The checked-power
-comparison is conditional on these models and existing scalar foundations.
-See the [Core comparison](reproducers/core_models/README.md) for the exact
-boundary and report fields. Passing the kernel axiom gate is not a proof
-of the models' correspondence to Rust.
+Follow [the verification guide](README.md) for setup and required commands.
+Final command logs and the run manifest are under
+`aeneas-lean/.lake/sept7-upgrade/`. The detailed axiom, model, and eight source
+reports are in their respective `.lake/*-audit/` directories. The CoW report,
+freshly extracted bodies, and four axiom-free proofs are under
+`.lake/sept7-upgrade/cow-controls/`.
 
-## Remaining failure and adoption decision
-
-The new `usize::pow` body selects `strict_pow` or `wrapping_pow` using
-`core::intrinsics::overflow_checks()`. September 7 Aeneas rejects the LLBC
-operation `overflow_checks<bool>` at `uint_macros.rs:3635`. Charon and native
-tests pass, but Aeneas exits 1 and emits partial files, which are rejected.
-A separate `--monomorphize --rustc-arg=-Coverflow-checks=yes` extraction
-reaches the same failure.
-
-A subsequent separate branch probe finds another obstacle: `strict_pow`
-fails with `Unexpected result: Cps.Unit` at `Interp.ml:593`, both with and
-without including its panic helper. Resolving the outer selector alone would
-not suffice. `wrapping_pow` extracts with external helper templates, but its
-overflow behavior differs from the checked model. The diagnostic callers in
-`reproducers/pow_models/branches.rs` do not replace the original proof root.
-The original Pow audit was rerun and still fails at the selector.
-
-The working compiler is retained because the candidate cannot validate all
-existing proofs. Further work requires discussion of an upstream fix or an
-explicitly reviewed change to the source-model boundary. No LLBC operation
-was replaced by a constant, and no Rust algorithm was substituted to bypass
-the failure. See [issue 29](UPSTREAM_BUGS.md#29-september-aeneas-cannot-translate-the-overflow-check-selector-in-usizepow).
-
-No bug in milhouse Rust was discovered. Debug and Serde implementations
-remain out of scope, TreeHash remains deferred, and the control checks do
-not discharge any new borrowed-CoW obligation.
-
-## Evidence
-
-Final session artifacts are under `/tmp/milhouse-aeneas-upstream-j6mrhx0i/`:
-
-- `sept7-full-mir-production.log`: full-MIR production regeneration.
-- `sept7-final-source-*.log`: all nine complete source runners.
-- `sept7-final-axiom-audit.log` and `sept7-final-model-audit.log`: complete
-  library and model audits at the final proof checkpoint.
-- `sept7-final-native-tests.log`: all 324 Rust tests.
-- `sept7-final-cow-controls/`: fresh control extraction, proofs, formatting,
-  and native tests.
-- `pow-mono-probe/`: unsupported operation with explicit compiler flags.
-- `sept7-power-branch-review/committed-*` and
-  `sept7-power-branch-review/committed-results.json`: separate strict/wrapping
-  branch extraction diagnostics.
-- `sept7-pow-recheck-2.log`: unchanged failure in the complete Pow runner.
-
-Detailed successful reports and generated source files remain under the
-trial's ignored `aeneas-lean/.lake/*-model-audit/` directories. The candidate
-pin and reproduction scripts are committed; temporary exploratory helpers
-are not accepted as substitutes for the complete audit runners.
+The earlier trial evidence and unsuccessful power probes remain in
+`/tmp/milhouse-aeneas-upstream-j6mrhx0i/`. See
+[the version review](UPSTREAM_VERSION_REVIEW.md) for the investigation history
+and the user-approved change that removed the adoption blocker.

@@ -80,6 +80,16 @@ It is expected to fail on the candidate's unsupported power operations and
 is excluded from the required checks. The old comparison and branch probes
 remain available for removing this temporary assumption later.
 
+Validate the four existing borrowed-CoW control proofs using the
+[current control instructions](reproducers/cow_regions/README.md#september-compiler-controls).
+They establish only the already-supported control cases. Run the Rust library
+tests, including the existing arbitrary-feature tests, with:
+
+```sh
+cargo +nightly-2026-08-18 test --locked --offline --lib --features arbitrary
+python3 -m unittest discover -s scripts -p 'test_aeneas_*.py'
+```
+
 Debug and Serde implementations remain outside the proof goal. TreeHash
 implementations remain deferred. See the [proof scope](PROGRESSIVE_LIST_PROOFS.md#goal-and-scope)
 for the included APIs and retained historical results.

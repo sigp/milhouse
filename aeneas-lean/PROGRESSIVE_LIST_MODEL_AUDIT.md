@@ -14,8 +14,9 @@ The model remains a concrete definition; no Lean axiom is added. The report's
 file, and identifies conservative dependent roots. This scope is deliberately
 distinct from kernel axiom dependencies.
 
-The current source-validation requirement is eight suites with 51 proofs,
-plus the four existing CoW control proofs. The old `core_pow_agrees` proof is
+On the adopted September compiler, all eight required source suites pass
+with 51 proofs, along with the four existing CoW control proofs. The main
+axiom/import audit passes for 6,210 theorem declarations across 447 modules. The old `core_pow_agrees` proof is
 retained as historical evidence and an optional failing diagnostic. Counts
 of nine suites and 52 proofs below describe earlier June-compiler checkpoints.
 The ported Core checked-power proof additionally retains explicit helper

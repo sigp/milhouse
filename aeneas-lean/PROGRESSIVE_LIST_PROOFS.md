@@ -1859,7 +1859,7 @@ The [upstream version review](UPSTREAM_VERSION_REVIEW.md), updated September
 Its mathematical model remains concrete; the model audit reports the
 assumption and affected roots. All 6,210 library theorem declarations, eight
 source suites with 51 proofs, four CoW control proofs, and 324 native tests
-validated during the trial and are checked again after integration. Core
+pass on the adopted working branch after integration in `130ca10`. Core
 checked power retains three explicitly documented numeric-helper foundations.
 The original Pow comparison is preserved as a diagnostic, not counted as
 proved. This compiler upgrade does not complete the broader ProgressiveList

@@ -1,16 +1,18 @@
 # Aeneas upgrade review — 2026-09-10 (updated 2026-09-11)
 
-**Current status: adopting September 7 Aeneas with an explicitly trusted
+**Current status: September 7 Aeneas is adopted with an explicitly trusted
 `usize::pow` model.** On 2026-09-11 the user approved assuming that function
 correct to unblock the upgrade. The mathematical definition is retained;
 its Rust/source comparison is deferred and is not counted as proved.
 The [policy](SOURCE_MODEL_ASSUMPTIONS.json) and model audit make this boundary
 visible. No Aeneas source changes or additional Lean axioms are required.
 
-The previously validated migration has 447 modules, 6,210 theorem
-declarations, 51 proofs in eight source suites, four CoW control proofs,
-and 324 passing Rust tests. Integration into the working branch and final
-validation use the pinned bundle. The Core checked-power proof retains its
+The migration was merged into the working `aeneas` branch in `130ca10`.
+Final validation there passes 447 modules, 6,210 theorem declarations,
+51 proofs in eight source suites, four CoW control proofs, and 324 Rust tests.
+The model audit records the approved assumption; all 17 Python checker tests
+and the four native power tests pass. The [adoption checkpoint](SEPT7_TRIAL_STATUS.md)
+records the exact compiler paths, hashes, and reports. The Core checked-power proof retains its
 three documented numeric-helper model boundaries. Debug and Serde remain
 excluded; TreeHash remains deferred. Existing borrowed-CoW obligations are
 unchanged.
@@ -359,6 +361,6 @@ successful comparison. The model audit records the trusted Rust/Lean
 correspondence and the conservative API roots that depend on it.
 
 The selected release, compiler setup, generated-code compatibility changes,
-and all completed proof repairs are being integrated into the working branch.
-The final adoption checkpoint records the checks after integration. Earlier
+and all completed proof repairs are integrated into the working branch.
+The final adoption checkpoint records the successful checks after integration. Earlier
 references to the trial remaining separate describe historical checkpoints.

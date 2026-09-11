@@ -4,6 +4,38 @@ This dependency-free crate isolates the shared-reference failure affecting
 borrowed CoW reads. It tests whether separating the backing-value and mutable
 entry lifetimes helps, without changing production types or methods.
 
+## September compiler controls
+
+The four existing control proofs are required by the September 7 compiler
+migration. The eight failing enum-reader results below are historical
+June-pin diagnostics; no new support for those methods is claimed.
+After following the [toolchain setup](../../README.md), run these commands
+from the repository root to extract and validate the controls:
+
+```sh
+cow_probe=$(mktemp -d /tmp/milhouse-cow-controls-XXXXXX)
+cargo +nightly-2026-08-18 test --locked --offline \
+  --manifest-path aeneas-lean/reproducers/cow_regions/Cargo.toml
+cargo +nightly-2026-08-18 fmt --check \
+  --manifest-path aeneas-lean/reproducers/cow_regions/Cargo.toml
+aeneas-lean/.lake/aeneas/charon cargo --preset=aeneas \
+  --start-from milhouse_cow_regions_probe::read_plain \
+  --start-from milhouse_cow_regions_probe::read_nested \
+  --start-from milhouse_cow_regions_probe::read_shared_field \
+  --start-from milhouse_cow_regions_probe::read_unique_field \
+  --dest-file "$cow_probe/controls_only.llbc" -- --locked --offline \
+  --manifest-path aeneas-lean/reproducers/cow_regions/Cargo.toml
+aeneas-lean/.lake/aeneas/aeneas -backend lean -split-files -no-progress-bar \
+  -dest "$cow_probe/ControlsOnly" "$cow_probe/controls_only.llbc"
+(
+  cd aeneas-lean
+  lake env python3 reproducers/cow_regions/check_controls.py "$cow_probe"
+)
+```
+
+The source comparison for `usize::pow` is the only deferred proof in this
+compiler upgrade; that assumption does not apply to these four control lemmas.
+
 ## Observed boundary
 
 With Aeneas `b59d5188c082`, Charon `cb50ff16b9f1` (LLBC 0.1.223), and
