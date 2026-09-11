@@ -16,6 +16,19 @@ pub fn get_mut<T>(map: &mut VecMap<T>, key: usize) -> Option<&mut T> {
     map.get_mut(key)
 }
 
+pub fn contains_key<T>(map: &VecMap<T>, key: usize) -> bool {
+    map.contains_key(key)
+}
+
+pub fn entry<T>(map: &mut VecMap<T>, key: usize) -> vec_map::Entry<'_, T> {
+    map.entry(key)
+}
+
+// Retained for the independent occupied-entry extraction diagnostic.
+pub fn occupied_into_mut<T>(entry: vec_map::OccupiedEntry<'_, T>) -> &mut T {
+    entry.into_mut()
+}
+
 // Kept for native checks and the separate, incomplete insertion extraction.
 pub fn insert<T>(map: &mut VecMap<T>, key: usize, value: T) -> Option<T> {
     map.insert(key, value)
@@ -23,7 +36,31 @@ pub fn insert<T>(map: &mut VecMap<T>, key: usize, value: T) -> Option<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{get, get_mut, insert, is_empty, len, new};
+    use super::{contains_key, entry, get, get_mut, insert, is_empty, len, new};
+
+    #[test]
+    fn entry_classification_preserves_sparse_and_extreme_missing_keys() {
+        let mut map = new();
+        insert(&mut map, 7, 70_u64);
+        insert(&mut map, 255, 2550);
+        for key in [0, 7, 8, 255, 256, usize::MAX] {
+            let expected = key == 7 || key == 255;
+            assert_eq!(contains_key(&map, key), expected);
+            match entry(&mut map, key) {
+                vec_map::Entry::Occupied(occupied) => {
+                    assert!(expected);
+                    assert_eq!(*occupied.get(), if key == 7 { 70 } else { 2550 });
+                }
+                vec_map::Entry::Vacant(_) => assert!(!expected),
+            }
+            assert_eq!(len(&map), 2);
+            assert_eq!(get(&map, 7), Some(&70));
+            assert_eq!(get(&map, 255), Some(&2550));
+            if !expected {
+                assert_eq!(get(&map, key), None);
+            }
+        }
+    }
 
     #[test]
     fn empty_observers_and_missing_mutation_cover_extreme_keys() {

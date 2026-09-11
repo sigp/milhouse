@@ -41,6 +41,60 @@ theorem vec_map_get_eq {T : Type} (map : vec_map.VecMap T) (key : Std.Usize) :
   · simp [alloc.vec.Vec.index_usize, hbound, option_as_ref_eq]
   · simp [hbound]
 
+/-- Presence follows the actual indexed slot, without a count invariant or
+an input bound. Extreme missing keys remain ordinary absent lookups. -/
+theorem vec_map_contains_key_eq {T : Type} (map : vec_map.VecMap T) (key : Std.Usize) :
+    vec_map.VecMap.contains_key map key = ok (map.v.val[key.val]?.join.isSome) := by
+  rw [vec_map.VecMap.contains_key, vec_map_get_eq]
+  cases map.v.val[key.val]?.join <;> rfl
+
+def entryMap {T : Type} : vec_map.Entry T → vec_map.VecMap T
+  | .Vacant entry => entry.map
+  | .Occupied entry => entry.map
+
+def entryKey {T : Type} : vec_map.Entry T → Std.Usize
+  | .Vacant entry => entry.index
+  | .Occupied entry => entry.index
+
+def entryOccupied {T : Type} : vec_map.Entry T → Bool
+  | .Vacant _ => false
+  | .Occupied _ => true
+
+/-- The source entry continuation accepts the returned map from its
+original entry variant. A different variant restores the original map. -/
+def entryBack {T : Type} (map : vec_map.VecMap T) (occupied : Bool)
+    (replacement : vec_map.Entry T) : vec_map.VecMap T :=
+  match occupied, replacement with
+  | false, .Vacant entry => entry.map
+  | true, .Occupied entry => entry.map
+  | _, _ => map
+
+/-- Exact source acquisition, including its entire backward continuation.
+The actual entry contains the map and key, rather than an assumed abstract
+vacant-slot footprint. Acquisition neither grows storage nor changes count. -/
+theorem vec_map_entry_eq {T : Type} (map : vec_map.VecMap T) (key : Std.Usize) :
+    vec_map.VecMap.entry map key = ok
+      (if map.v.val[key.val]?.join.isSome then
+         .Occupied ⟨map, key⟩ else .Vacant ⟨map, key⟩,
+       entryBack map map.v.val[key.val]?.join.isSome) := by
+  rw [vec_map.VecMap.entry, vec_map_contains_key_eq]
+  cases map.v.val[key.val]?.join.isSome <;> apply congrArg ok <;> apply Prod.ext
+  all_goals
+    first
+    | rfl
+    | funext replacement
+      cases replacement <;> rfl
+
+/-- Entry acquisition is total, classifies occupancy from the requested
+slot, retains the exact map and key, and releases unchanged to the whole
+original map. No count, clone, allocation, or key-bound premise is needed. -/
+theorem vec_map_entry_spec {T : Type} (map : vec_map.VecMap T) (key : Std.Usize) :
+    ∃ found back, vec_map.VecMap.entry map key = ok (found, back) ∧
+      entryMap found = map ∧ entryKey found = key ∧
+      entryOccupied found = map.v.val[key.val]?.join.isSome ∧ back found = map := by
+  rw [vec_map_entry_eq]
+  cases map.v.val[key.val]?.join.isSome <;> exact ⟨_, _, rfl, rfl, rfl, rfl, rfl⟩
+
 /-- The entire mutable lookup result, including its actual continuation,
 agrees with slot lookup and updating only an originally present slot. -/
 theorem vec_map_get_mut_eq {T : Type} (map : vec_map.VecMap T) (key : Std.Usize) :
@@ -165,3 +219,6 @@ end VecMapSource
 #print axioms VecMapSource.vec_map_get_mut_missing_eq
 #print axioms VecMapSource.vec_map_get_mut_present_spec
 #print axioms VecMapSource.vec_map_get_mut_preserves_count
+#print axioms VecMapSource.vec_map_contains_key_eq
+#print axioms VecMapSource.vec_map_entry_eq
+#print axioms VecMapSource.vec_map_entry_spec

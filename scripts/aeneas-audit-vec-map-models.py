@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check concrete VecMap observers and mutable lookup against slot semantics."""
+"""Check concrete VecMap observers, mutable lookup, and entry acquisition."""
 
 import sys
 
@@ -15,9 +15,9 @@ SUITE = {
     "source_prefixes": {"as_ref": "core::option", "as_mut": "core::option"},
     "cargo_dependency": {"name": "vec_map", "version": "0.8.2", "files": ["src/lib.rs"]},
     "includes": ["vec_map", "core::option::_::as_ref", "core::option::_::as_mut"],
-    "roots": ["new", "len", "is_empty", "get", "get_mut"],
+    "roots": ["new", "len", "is_empty", "get", "get_mut", "contains_key", "entry"],
     "source_files": {
-        **{name: SOURCE for name in ("new", "len", "is_empty", "get", "get_mut")},
+        **{name: SOURCE for name in ("new", "len", "is_empty", "get", "get_mut", "contains_key", "entry")},
         "as_ref": "/rustc/library/core/src/option.rs",
         "as_mut": "/rustc/library/core/src/option.rs",
     },
@@ -37,9 +37,12 @@ SUITE = {
         "vec_map_get_mut_missing_eq": STANDARD,
         "vec_map_get_mut_present_spec": STANDARD,
         "vec_map_get_mut_preserves_count": STANDARD,
+        "vec_map_contains_key_eq": STANDARD,
+        "vec_map_entry_eq": STANDARD,
+        "vec_map_entry_spec": STANDARD,
     },
     "composition": [],
-    "unresolved": ["VecMap::insert iterator/extension dependencies; concrete UpdateMap implementations"],
+    "unresolved": ["VecMap::insert iterator/extension dependencies; OccupiedEntry::into_mut mutable-borrow copy; concrete UpdateMap implementations"],
 }
 SUITE["proofs"] = {"VecMapSource." + name: axioms for name, axioms in SUITE["proofs"].items()}
 
