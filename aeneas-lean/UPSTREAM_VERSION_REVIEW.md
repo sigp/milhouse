@@ -327,3 +327,21 @@ Final session evidence is under `/tmp/milhouse-aeneas-upstream-j6mrhx0i/`:
 `sept7-final-native-tests.log`, and `sept7-final-cow-controls/`.
 Detailed reports remain in the trial's ignored `aeneas-lean/.lake/` audit
 directories. `pow-mono-probe/` preserves the unsuccessful flag probe.
+
+### Branch follow-up
+
+Fresh diagnostic callers on the same pinned compiler establish that the
+strict branch has an additional extraction failure: `strict_pow` reports
+`Unexpected result: Cps.Unit` at `Interp.ml:593`. Including its checked-power
+body and panic helper does not resolve that caller failure. The panic helper
+itself translates to `fail panic`. Resolving only the outer overflow selector
+would therefore still leave an untranslatable source body.
+
+The wrapping branch extracts with external numeric-helper templates but
+cannot replace the existing checked-power proof because its overflow behavior
+differs. The original Pow audit was rerun and still fails on
+`overflow_checks<bool>`. The trial now preserves a two-function diagnostic
+fixture and reproduction commands; [issue 29](UPSTREAM_BUGS.md#29-september-aeneas-cannot-translate-the-overflow-check-selector-in-usizepow)
+records the exact results. No proof obligation was removed or weakened, and
+the compiler remains unadopted. Completing the upgrade is still blocked on
+an upstream repair or discussion of a change to the modeling boundary.

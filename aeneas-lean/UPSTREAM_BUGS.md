@@ -1277,6 +1277,31 @@ and Charon sources have not been modified. Session evidence is retained in
 `/tmp/milhouse-aeneas-upstream-j6mrhx0i/sept7-final-source-pow.log`,
 `sept7-full-mir-pow.log`, and `pow-mono-probe/`.
 
+A subsequent full-MIR branch probe identifies a second extraction obstacle
+behind the selector. The trial's `reproducers/pow_models/branches.rs` calls
+`strict_pow` and `wrapping_pow` separately, without replacing the original
+proof root. The exact commands are in its README.
+
+| Selected source bodies | Charon | Aeneas |
+| --- | --- | --- |
+| `strict_pow`, `checked_pow` | Exit 0 | Exit 1: `Unexpected result: Cps.Unit`, `Interp.ml:593` |
+| Those bodies plus `core::num::imp::overflow_panic::pow` | Exit 0 | Same caller failure; the panic helper itself translates to `fail panic` |
+| `wrapping_pow`, `overflowing_pow` | Exit 0 | Exit 0, with external templates for the selector, `ilog2`, and `unbounded_shl` |
+
+The strict failure is at `uint_macros.rs:2474`, even when the overflow
+selector is absent from the selected call graph. This rules out resolving
+the outer selector alone as a complete workaround. The wrapping diagnostic
+does not prove agreement with the checked model, since overflow wraps
+instead of failing. Neither diagnostic replaces the failing `core_pow_agrees`
+obligation or counts as a new passing source comparison. The complete Pow
+runner was also rerun and still rejects `overflow_checks<bool>`.
+
+Evidence is in `sept7-power-branch-review/committed-*`,
+`sept7-power-branch-review/committed-results.json`, and
+`sept7-pow-recheck-2.log` under the same session artifact directory.
+No Aeneas source changes, LLBC operation substitutions, or proof-boundary
+relaxations were made for these probes.
+
 ## Also of note (not bugs)
 
 - Aeneas's custom `do`-elaborator rejects `if ← e then ...`, `match ← e
