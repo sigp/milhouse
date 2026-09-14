@@ -5,3 +5,7 @@ Cargo.lock
 
 # IntelliJ / Clion
 .idea
+
+# Charon / Aeneas verification artifacts
+*.llbc
+/aeneas-lean/.lake

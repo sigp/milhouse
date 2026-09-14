@@ -85,6 +85,31 @@ fn iter_from_offset() {
 }
 
 #[test]
+fn get_cow_reads_and_writes_backing_and_pending_values() {
+    let mut list = ProgressiveList::<u64>::new(vec![10, 20]).unwrap();
+    {
+        let cow = list.get_cow(1).unwrap();
+        assert_eq!(*cow, 20);
+    }
+    assert!(!list.has_pending_updates());
+
+    *list.get_cow(1).unwrap().make_mut().unwrap() = 21;
+    list.push(30).unwrap();
+    {
+        let cow = list.get_cow(2).unwrap();
+        assert_eq!(*cow, 30);
+        *cow.into_mut().unwrap() = 31;
+    }
+    assert!(list.get_cow(3).is_none());
+    assert_eq!(list.len(), 3);
+    assert_eq!(list.to_vec(), vec![10, 21, 31]);
+
+    list.apply_updates().unwrap();
+    assert!(!list.has_pending_updates());
+    assert_eq!(list.to_vec(), vec![10, 21, 31]);
+}
+
+#[test]
 fn iter_from_with_pending_appends() {
     let mut list = build(4);
     list.push(4).unwrap();
