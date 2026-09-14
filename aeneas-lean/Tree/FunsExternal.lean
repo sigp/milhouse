@@ -143,7 +143,7 @@ def core.num.Usize.trailing_zeros (x : Std.Usize) : Result Std.U32 :=
     the September 7 compiler migration. The mathematical definition below is
     retained; the source-comparison theorem is deferred. This is a source
     fidelity assumption, not a new Lean axiom. See SOURCE_MODEL_ASSUMPTIONS.json
-    and reproducers/pow_models/README.md. -/
+    and aeneas-bugs/pow_models/README.md. -/
 @[rust_fun "core::num::{usize}::pow"]
 def core.num.Usize.pow (x : Std.Usize) (n : Std.U32) : Result Std.Usize :=
   UScalar.tryMk .Usize (x.val ^ n.val)

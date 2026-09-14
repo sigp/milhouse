@@ -21,7 +21,7 @@ retained as historical evidence and an optional failing diagnostic. Counts
 of nine suites and 52 proofs below describe earlier June-compiler checkpoints.
 The ported Core checked-power proof additionally retains explicit helper
 foundations for `ilog2`, `checked_shl`, and `is_power_of_two`; see its
-[current boundary](reproducers/core_models/README.md).
+[current boundary](../../aeneas-bugs/core_models/README.md).
 
 ## Reproduce the dependency inventory
 
@@ -101,7 +101,7 @@ formatter options, user sinks, or lock observation without further work.
 
 ## MaxMap wrapper source proofs
 
-The independent [VecMap source suite](reproducers/vec_map_models/README.md)
+The independent [VecMap source suite](../../aeneas-bugs/vec_map_models/README.md)
 now also proves concrete entry acquisition and unchanged release (`1a93d59`),
 with 16 source/semantic proofs and five native tests. No count, clone, or
 key-bound premise is needed for acquisition. Its concrete entry stores the
@@ -223,7 +223,7 @@ counts are separate from the seventeen main-library wrapper proofs above.
 
 ## VecMap source contracts
 
-The [VecMap suite](reproducers/vec_map_models/README.md), added in `ad39a6d`
+The [VecMap suite](../../aeneas-bugs/vec_map_models/README.md), added in `ad39a6d`
 with invariant contracts in `235382e`, checks the pinned 0.8.2 implementation
 used inside the default `MaxMap<VecMap<T>>`. Run
 `python3 scripts/aeneas-audit-vec-map-models.py` from the repository root.
@@ -263,7 +263,7 @@ not a full concrete-map or allocator refinement. Borrowed CoW remains open.
 ## Option source comparisons
 
 Run `python3 scripts/aeneas-audit-option-models.py` from the repository root.
-The [source comparison](reproducers/option_models/README.md) explicitly includes
+The [source comparison](../../aeneas-bugs/option_models/README.md) explicitly includes
 the pinned standard-library Option bodies in Charon and extracts them into an
 independent namespace. Eleven local models equal their entire generated bodies
 for all inputs and callback dictionaries, including callback failure/divergence
@@ -288,7 +288,7 @@ need their remaining review. No production model or Aeneas source changed.
 ## Core source comparisons
 
 Run `python3 scripts/aeneas-audit-core-models.py` from the repository root.
-The [core source comparisons](reproducers/core_models/README.md) prove the local
+The [core source comparisons](../../aeneas-bugs/core_models/README.md) prove the local
 `Result::map_err`, `hint::must_use`, blanket `Borrow::borrow`, `mem::take`,
 `usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` models equal
 fresh extraction of their actual standard-library bodies. The three adapter
@@ -348,7 +348,7 @@ standalone source-comparison extension.
 ### Power comparison for both compiler-selector outcomes
 
 Run `python3 scripts/aeneas-audit-pow-models.py`. The separate
-[power source comparison](reproducers/pow_models/README.md) in `eb2f91b`
+[power source comparison](../../aeneas-bugs/pow_models/README.md) in `eb2f91b`
 proves `core_pow_agrees`: the entire extracted `usize::pow` body equals the
 local model for every base and exponent, including zero and exact overflow
 failure. Both squaring loops are proved. Termination and the intermediate
@@ -380,7 +380,7 @@ Debug, Serde, and TreeHash remain outside the current goal.
 ## Fixed-byte cache source comparisons
 
 Run `python3 scripts/aeneas-audit-fixed-bytes-models.py` from the repository root.
-The [fixed-byte comparisons](reproducers/fixed_bytes_models/README.md) validate
+The [fixed-byte comparisons](../../aeneas-bugs/fixed_bytes_models/README.md) validate
 all five reached `FixedBytes` models against fresh extraction of
 `alloy-primitives` 1.0.0: clone, equality, the zero constant, default, and
 `is_zero`. Each equality holds for all array lengths and byte contents,
@@ -401,7 +401,7 @@ dependency counts are unchanged.
 ## Arbitrary source comparisons
 
 Run `python3 scripts/aeneas-audit-arbitrary-models.py` from the repository root.
-The [Arbitrary comparison](reproducers/arbitrary_models/README.md) validates
+The [Arbitrary comparison](../../aeneas-bugs/arbitrary_models/README.md) validates
 `nextControl` against actual `bool::arbitrary` in pinned `arbitrary` 1.4.1.
 It includes the actual byte generator and `fill_buffer` source, proving the
 one-byte copy/zeroing loop, write-back, termination, and low-bit interpretation.
@@ -463,7 +463,7 @@ changed; the main proof and 42-root/151-declaration inventories are unchanged.
 ## SSZ offset and encoder-construction source comparisons
 
 Run `python3 scripts/aeneas-audit-ssz-offset-models.py` from the repository root.
-The [SSZ offset comparisons](reproducers/ssz_offset_models/README.md) validate
+The [SSZ offset comparisons](../../aeneas-bugs/ssz_offset_models/README.md) validate
 the actual `ethereum_ssz` 0.10.0 four-byte constant and private `decode_offset`
 body. The decoder comparison covers every input length, preserving exact
 error fields and the four-byte little-endian value. It proves every iteration
@@ -527,7 +527,7 @@ review stay open.
 ## Vector source comparisons
 
 Run `python3 scripts/aeneas-audit-vec-models.py` from the repository root.
-The [vector comparisons](reproducers/vec_models/README.md) validate
+The [vector comparisons](../../aeneas-bugs/vec_models/README.md) validate
 `Vec::is_empty`, vector `eq`, and vector `ne` against the pinned source bodies.
 Equality matches the corrected local `milhouse_models.vec_eq`; inequality
 matches the existing vector foundation model. Both permit arbitrary callback
@@ -557,7 +557,7 @@ main proof library and 42-root/151-declaration inventory unchanged.
 ## Tuple source comparisons
 
 Run `python3 scripts/aeneas-audit-tuple-models.py` from the repository root.
-The [tuple comparisons](reproducers/tuple_models/README.md) validate all four
+The [tuple comparisons](../../aeneas-bugs/tuple_models/README.md) validate all four
 local pair-comparison bodies against fresh extraction of pinned `core::tuple`
 source: `eq`, `ne`, `partial_cmp`, and `cmp`. They permit arbitrary callback
 results, preserve short-circuiting and failure/divergence, and need no
@@ -591,7 +591,7 @@ without imposing callback-coherence laws or changing Rust or Aeneas.
 delegation after a false first result, first-call failure/divergence propagation,
 and necessary and sufficient conditions for both Boolean success results.
 The six lemmas failed against the former model and pass after correction.
-Four [native regression tests](reproducers/tuple_comparison/README.md) confirm
+Four [native regression tests](../../aeneas-bugs/tuple_comparison/README.md) confirm
 the Rust callback order, both second-call answers, and failure propagation.
 The optional-hash branch evidence above limits the impact of this finding:
 it does not show a defect in ProgressiveList's public update proofs.
@@ -1567,7 +1567,7 @@ check also pass.
   are incomplete. This gate is one part of that audit and does not complete
   the full goal.
 
-The subsequent [borrowed-read reproducer](reproducers/cow_regions/README.md)
+The subsequent [borrowed-read reproducer](../../aeneas-bugs/cow_regions/README.md)
 (`56924d0`) isolates the failed enum reference projection without map models.
 Lifetime separation, a working nested-reference helper, and direct-copy
 patterns do not resolve the eight tested readers. Four plain/nested/struct

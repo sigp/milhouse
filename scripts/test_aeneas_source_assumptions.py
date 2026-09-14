@@ -23,7 +23,7 @@ class SourceAssumptionTests(unittest.TestCase):
         self.assertEqual(report[0]["status"], "assumed")
         self.assertEqual(report[0]["conservativeDependentRoots"], ["new"])
         self.assertEqual(report[0]["deferredCheck"],
-                         "core_pow_agrees in reproducers/pow_models/CheckModels.lean")
+                         "core_pow_agrees in aeneas-bugs/pow_models/CheckModels.lean")
 
     def test_rejects_extra_or_different_exceptions(self):
         for mutate in [

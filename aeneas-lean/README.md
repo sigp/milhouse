@@ -50,6 +50,11 @@ and imports. For a build without the audit, run `lake build` from
 `AENEAS`; an alternate Lean backend uses
 `lake build -Kaeneas=/path/to/aeneas/backends/lean`.
 
+The reproducers and source-comparison fixtures live in the sibling
+[`aeneas-bugs`](../../aeneas-bugs/README.md) repository. Keep its checkout at
+`../aeneas-bugs` relative to the `milhouse` repository root. The audit runners
+read their inputs there and retain generated reports in this Lean project.
+
 Run the eight required source-comparison suites separately:
 
 ```sh
@@ -81,7 +86,7 @@ is excluded from the required checks. The old comparison and branch probes
 remain available for removing this temporary assumption later.
 
 Validate the four existing borrowed-CoW control proofs using the
-[current control instructions](reproducers/cow_regions/README.md#september-compiler-controls).
+[current control instructions](../../aeneas-bugs/cow_regions/README.md#september-compiler-controls).
 They establish only the already-supported control cases. Run the Rust library
 tests, including the existing arbitrary-feature tests, with:
 

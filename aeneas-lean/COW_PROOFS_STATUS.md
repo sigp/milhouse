@@ -19,7 +19,7 @@ allocate one node per additional callback.
 
 All 333 Rust library tests pass, including the eight nested-map cases that
 previously failed and their read-only/direct-mutation control. The
-[original native reproducer](reproducers/nested_max_map_cow/README.md) remains
+[original native reproducer](../../aeneas-bugs/nested_max_map_cow/README.md) remains
 available against the historical baseline. The new source extracts with full
 MIR and introduces no external models. A guarded postprocessor supplies a
 type annotation for one generated empty-chain continuation; it changes no
@@ -83,7 +83,7 @@ read, clone, entry-readiness, or maximum law. This concerns returned Rust
 ## Concrete VecMap entry progress
 
 Commit `1a93d59` extends the independent
-[VecMap source suite](reproducers/vec_map_models/README.md) to 16 proofs and
+[VecMap source suite](../../aeneas-bugs/vec_map_models/README.md) to 16 proofs and
 five native tests. The new contracts establish actual `contains_key` and
 `entry` execution, including occupancy classification, retention of the exact
 map and key, and the full release continuation. Entry acquisition and unchanged

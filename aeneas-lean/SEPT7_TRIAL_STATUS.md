@@ -62,7 +62,7 @@ nonstandard theorem dependency remains the existing Arc pointer contract
 The Core checked-power comparison retains explicit numeric-helper foundations
 for `ilog2`, `checked_shl`, and `is_power_of_two`, plus a universally quantified
 compiler selector. Its exact boundaries are documented in the
-[Core README](reproducers/core_models/README.md) and source report. These
+[Core README](../../aeneas-bugs/core_models/README.md) and source report. These
 helper implementations are not claimed as independently source-validated.
 
 The original ignored Cargo lockfile is byte-identical after all checks:

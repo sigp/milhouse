@@ -44,7 +44,7 @@ source suites affected by shifted annotations were refreshed; all eight
 reports are current, with 54 proofs total. Logs and the declaration-level
 generated-code comparison are under `.lake/sept7-remaining-loops/`.
 
-The [repeatable diagnostic matrix](reproducers/compiler_workarounds/README.md)
+The [repeatable diagnostic matrix](../../aeneas-bugs/compiler_workarounds/README.md)
 records fresh failures for the other tested candidates, including all eight
 borrowed-CoW enum readers and VecMap insertion with and without the new flag.
 The maximum fix in #1286 changes comparison semantics; it does not repair the
@@ -128,7 +128,7 @@ the review date:
 
 These statuses do not prove that our examples still fail on the candidates.
 Fresh extraction is required to distinguish a fix from a related change.
-The existing [CoW reproducer](reproducers/cow_regions/README.md) remains the
+The existing [CoW reproducer](../../aeneas-bugs/cow_regions/README.md) remains the
 reference for the eight failing enum readers and four successful controls.
 
 The MaxMap wrapper obstacle already has a validated local workaround:

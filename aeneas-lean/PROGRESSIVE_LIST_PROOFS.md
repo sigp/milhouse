@@ -142,7 +142,7 @@ points and records the trusted boundaries that still need fidelity review.
   the inner insertion's lookup frame. These seventeen public lemmas prove
   wrapper behavior; the concrete inner dictionary and borrowed map operations
   remain separate obligations.
-- The independent [VecMap source suite](reproducers/vec_map_models/README.md)
+- The independent [VecMap source suite](../../aeneas-bugs/vec_map_models/README.md)
   proves exact construction/observer/mutable-lookup equations from pinned
   source, including the actual Option borrow helpers. Six derived contracts
   establish the occupancy-count invariant, give semantic cardinality and
@@ -720,7 +720,7 @@ points and records the trusted boundaries that still need fidelity review.
   dependent binary, progressive, and public list rebase contents/cache
   contracts. Length, pointer, and hash shortcuts retain their existing scope.
   The proof and validation checkpoint is `fbf2a27`, with foundation `e9ada7a`.
-- The [Arbitrary source comparisons](reproducers/arbitrary_models/README.md)
+- The [Arbitrary source comparisons](../../aeneas-bugs/arbitrary_models/README.md)
   validate collection control against actual `bool::arbitrary`, including
   the actual byte generator and one-byte fill/zeroing loop. It proves the
   Boolean result and exact remaining input for every slice, consuming even
@@ -735,7 +735,7 @@ points and records the trusted boundaries that still need fidelity review.
   (UPSTREAM_BUGS 27). At `e396dad`, all seven source suites pass: 32 direct
   comparisons and two compositions, totaling 34 proofs (16 axiom-free,
   eighteen standard-only).
-- The [SSZ source comparisons](reproducers/ssz_offset_models/README.md)
+- The [SSZ source comparisons](../../aeneas-bugs/ssz_offset_models/README.md)
   validate the actual four-byte constant and private decoder for every input
   length, including the complete copy loop and exact error payloads. A separate
   composition proof relates prefix slicing followed by that decoder to the
@@ -752,7 +752,7 @@ points and records the trusted boundaries that still need fidelity review.
   Eight SSZ native tests and all seven source suites pass at `4cbc263`: 33 direct
   comparisons and two compositions, totaling 35 proofs (16 axiom-free, nineteen
   standard-only). Existing byte/array/slice/scalar foundations are retained.
-- The [vector source comparisons](reproducers/vec_models/README.md) validate
+- The [vector source comparisons](../../aeneas-bugs/vec_models/README.md) validate
   `is_empty`, `eq`, and `ne` for arbitrary vector values and comparison
   dictionaries. They preserve empty/length shortcuts, element `ne` dispatch,
   and failure/divergence without consistency or termination assumptions.
@@ -764,7 +764,7 @@ points and records the trusted boundaries that still need fidelity review.
   extraction remains unresolved (UPSTREAM_BUGS 25); native evidence does not
   replace that obligation. All five then-existing source suites pass at
   `1a575ec`.
-- The [tuple source comparisons](reproducers/tuple_models/README.md) validate
+- The [tuple source comparisons](../../aeneas-bugs/tuple_models/README.md) validate
   `eq`, `ne`, `partial_cmp`, and `cmp` against fresh extraction of the pinned
   standard-library bodies for arbitrary callback dictionaries. Short-circuiting,
   failure, and divergence match without consistency or termination premises.
@@ -774,7 +774,7 @@ points and records the trusted boundaries that still need fidelity review.
   leaves all four expanded source declarations unchanged; the runner checks
   this on each run and rejects incomplete generated output. All four source
   audit suites pass. The broader `PartialOrd` interface is not covered.
-- The [fixed-byte source comparisons](reproducers/fixed_bytes_models/README.md)
+- The [fixed-byte source comparisons](../../aeneas-bugs/fixed_bytes_models/README.md)
   validate clone, equality, ZERO, default, and `is_zero` against the actual
   pinned `alloy-primitives` bodies used by cache initialization and rebasing.
   All five comparisons hold for every length and byte array without additional
@@ -782,7 +782,7 @@ points and records the trusted boundaries that still need fidelity review.
   axiom-free; the others use only standard Lean axioms. Their source audit and
   four native tests pass, as do the core and Option suites after extending the
   shared runner for locked Cargo dependencies and constant initializers.
-- The [power source comparison](reproducers/pow_models/README.md) validates
+- The [power source comparison](../../aeneas-bugs/pow_models/README.md) validates
   the entire extracted `usize::pow` body for every base/exponent and either
   compiler-selector outcome (`eb2f91b`). Both loops, zero exponents, and exact
   overflow failure are covered, without an arithmetic or termination premise.
@@ -791,7 +791,7 @@ points and records the trusted boundaries that still need fidelity review.
   at most once. All extracted function bodies remain unchanged; the runner
   validates this and reports a separate parameterized source comparison.
   Existing Aeneas scalar primitives remain a foundation boundary.
-- The [core source comparisons](reproducers/core_models/README.md) validate
+- The [core source comparisons](../../aeneas-bugs/core_models/README.md) validate
   `Result::map_err` and `hint::must_use`, reached by SSZ decoding, blanket
   `Borrow::borrow`, and `mem::take`, used for pending-map rebuilding,
   `usize::div_ceil`, used in
@@ -809,7 +809,7 @@ points and records the trusted boundaries that still need fidelity review.
   The source audit and eleven native
   tests pass. Remaining intrinsic boundaries are recorded in UPSTREAM_BUGS
   issue 24.
-- The [Option source comparison](reproducers/option_models/README.md) checks
+- The [Option source comparison](../../aeneas-bugs/option_models/README.md) checks
   eleven local Option models against independent extraction of their actual
   pinned standard-library bodies. A twelfth theorem verifies `cloned` through
   the source's map-and-clone composition; direct extraction of its function
@@ -3379,7 +3379,7 @@ the previously assumed depth result for all dependent operation contracts.
 Borrowed CoW and the remaining assumption/model-fidelity review stay open.
 
 Previous borrowed-read diagnostic checkpoint (through `56924d0`): a standalone
-[reference-layout reproducer](reproducers/cow_regions/README.md) tests lifetime
+[reference-layout reproducer](../../aeneas-bugs/cow_regions/README.md) tests lifetime
 separation without map dependencies. Eight enum readers, including separate
 lifetimes, helper calls, and direct-copy patterns, still fail at Aeneas's
 shared-loan lookup. Four plain/nested/struct controls translate successfully;

@@ -478,12 +478,14 @@ def check_foundation_bindings(data, suite, template):
 def main(suite):
     repo = Path(__file__).resolve().parent.parent
     lean_project = repo / "aeneas-lean"
-    sources = lean_project / "reproducers" / suite["directory"]
+    sources = repo.parent / "aeneas-bugs" / suite["directory"]
     parser = argparse.ArgumentParser(description=suite["description"])
     parser.add_argument("--charon", default=os.environ.get("CHARON", str(default_bundle(repo) / "charon")))
     parser.add_argument("--aeneas", default=os.environ.get("AENEAS", str(default_bundle(repo) / "aeneas")))
     parser.add_argument("--output", type=Path, default=lean_project / ".lake" / (suite["name"] + "-model-audit"))
     args = parser.parse_args()
+    if not sources.is_dir():
+        parser.error(f"Missing source fixtures: {sources}. Keep aeneas-bugs alongside milhouse.")
     args.output.mkdir(parents=True, exist_ok=True)
     report = args.output / "report.json"
     report.unlink(missing_ok=True)
@@ -667,7 +669,7 @@ def main(suite):
     inputs += [lean_project / path for path in suite.get("model_files", ["Tree/FunsExternal.lean"])]
     if cargo:
         inputs += [sources / "Cargo.toml", sources / "Cargo.lock"]
-    hashes = {str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+    hashes = {os.path.relpath(path, repo): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     report.write_text(json.dumps({
         "versions": versions, "inputSha256": hashes, "runDirectory": str(work),
         "dependencySources": dependency_sources,

@@ -123,7 +123,7 @@ def source_assumptions(policy, inventory):
         "rustItem": "core::num::{usize}::pow", "leanDeclaration": "core.num.Usize.pow",
         "modelModule": "Tree.FunsExternal", "modelFile": "Tree/FunsExternal.lean",
         "status": "assumed", "approvedOn": "2026-09-11",
-        "deferredCheck": "core_pow_agrees in reproducers/pow_models/CheckModels.lean",
+        "deferredCheck": "core_pow_agrees in aeneas-bugs/pow_models/CheckModels.lean",
     }
     if (not isinstance(entry, dict) or set(entry) != set(expected) | {"reason", "contract"}
             or any(entry[key] != value for key, value in expected.items())

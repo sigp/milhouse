@@ -20,7 +20,7 @@ required, including the Core suite's documented numeric-helper foundations.
 The earlier working-pin issue descriptions below retain their original
 versions. No new borrowed-CoW extraction support is claimed.
 
-The September 11 [workaround probes](reproducers/compiler_workarounds/README.md)
+The September 11 [workaround probes](../../aeneas-bugs/compiler_workarounds/README.md)
 retest the main candidates with full MIR. Issue 3 is resolved, and issue 15's
 iterator-field restriction is removed by `-filter-trait-methods`; the other
 tested boundaries still fail. The matrix distinguishes generated-Lean failures,
@@ -409,7 +409,7 @@ The variants and `deref-diagnostic.log`/`make-diagnostic.log` are preserved in
 the probe directory. No trial rewrite or partial generated body was retained
 in production, and no Aeneas source was changed.
 
-A later dependency-free [reference-layout reproducer](reproducers/cow_regions/README.md)
+A later dependency-free [reference-layout reproducer](../../aeneas-bugs/cow_regions/README.md)
 tests a distinct lifetime-separation approach. One-region and two-region enums
 both fail while returning their shared-reference variant, even with no map or
 entry field. Adding an optional mutable slot, calling a separately translated
@@ -694,7 +694,7 @@ and exact delegation to the second call after a false first result.
 `Tree/Tuple/Comparison.lean` proves six branch and success-characterization
 lemmas without an `eq`/`ne` coherence law or laws on unreached callbacks.
 They failed against the old model and pass after correction. The four native
-tests in `reproducers/tuple_comparison/native.rs` independently confirm call
+tests in `../../aeneas-bugs/tuple_comparison/native.rs` independently confirm call
 order, both second-call answers, and panic propagation; every element `eq`
 panics with a distinct recorded call.
 
@@ -931,7 +931,7 @@ cache reads or aliases. A stateful/ghost-state account of shared caches and
 parallel calls is needed before claiming root or cache correctness. Removing
 parallelism alone does not address this issue and would change performance.
 
-The standalone [shared-cache reproducer](reproducers/shared_cache/README.md)
+The standalone [shared-cache reproducer](../../aeneas-bugs/shared_cache/README.md)
 now isolates this boundary without Rayon or `LazyLock`. Its native
 read/write/read test passes. Aeneas `b59d5188` with Charon `cb50ff16` (LLBC
 version 0.1.223) translates the body but drops the written argument and reuses
@@ -1012,7 +1012,7 @@ Explicitly including `core::option` in Charon exposes the pinned
 `Interp.ml:609` reports the enclosing body failure. Aeneas exits 1 and emits
 a partial body, which is not imported into the proof library or model checks.
 
-The [Option source comparison](reproducers/option_models/README.md) preserves
+The [Option source comparison](../../aeneas-bugs/option_models/README.md) preserves
 the caller and reproduction commands. Eleven other standard-library bodies
 extract completely and validate against local definitions without axioms.
 A separate axiom-free theorem checks `cloned` via the extracted `map` body and
@@ -1031,7 +1031,7 @@ outcomes (`eb2f91b`); the intrinsic itself remains abstract. Direct source
 extraction of overflow-pair primitives is unsupported. This is a retained
 foundation boundary, not a discovered milhouse Rust bug.
 
-The [core source comparison](reproducers/core_models/README.md#remaining-numeric-boundaries)
+The [core source comparison](../../aeneas-bugs/core_models/README.md#remaining-numeric-boundaries)
 preserves five small callers in `remaining.rs` and the exact narrow include
 commands. With Charon 0.1.223, Aeneas `b59d5188`, and Rust
 `nightly-2026-06-01`, both tools exit zero, but the generated external template
@@ -1048,7 +1048,7 @@ emits its template. Rust documents either Boolean result as permitted, so its
 apparent `false` fallback body cannot justify proving only that branch. No
 missing-intrinsic axiom or local replacement is added to the proof library.
 
-The [power source comparison](reproducers/pow_models/README.md) in `eb2f91b`
+The [power source comparison](../../aeneas-bugs/pow_models/README.md) in `eb2f91b`
 now validates the entire `usize::pow` body for an arbitrary Bool selector,
 including both extracted loops, exponent zero, termination, and exact overflow
 failure. The outer body queries the intrinsic at most once, so quantifying
@@ -1089,7 +1089,7 @@ production Rust, or local model body was changed.
 remains unresolved. This is an extraction/foundation boundary, not a discovered
 milhouse Rust bug. The vector observer/comparison source checks pass.
 
-The [vector source fixture](reproducers/vec_models/README.md) preserves both
+The [vector source fixture](../../aeneas-bugs/vec_models/README.md) preserves both
 callers and exact reproduction commands. Charon 0.1.223 succeeds when their
 actual standard-library bodies are included. Aeneas `b59d5188` exits 1 with
 `Unexpected error` at `Vec`'s `len` field (`alloc/src/vec/mod.rs:2851`) and
@@ -1127,7 +1127,7 @@ public-reader, offset encoding, append, and finalization extraction remain
 unresolved. These are extraction and
 foundation limitations, with no discovered Rust bug or Aeneas source change.
 
-The [SSZ offset fixture](reproducers/ssz_offset_models/README.md) pins
+The [SSZ offset fixture](../../aeneas-bugs/ssz_offset_models/README.md) pins
 `ethereum_ssz` 0.10.0 with the repository's dependency versions, Charon 0.1.223,
 Aeneas `b59d5188`, and `nightly-2026-06-01`. Its README preserves exact
 reproduction commands. Including the public `read_offset`, private decoder,
@@ -1198,7 +1198,7 @@ fill/zeroing loop. Full vector generation and the owning trait default remain
 source boundaries. No Rust
 bug is established, and no Aeneas source change is made.
 
-The [Arbitrary source fixture](reproducers/arbitrary_models/README.md) pins
+The [Arbitrary source fixture](../../aeneas-bugs/arbitrary_models/README.md) pins
 `arbitrary` 1.4.1, Charon 0.1.223, Aeneas `b59d5188`, and
 `nightly-2026-06-01`. Its README preserves exact commands for the two failing
 probes. With the real single-field `Unstructured` type, Charon succeeds but
@@ -1259,7 +1259,7 @@ LLBC. Seven native tests and all seven source suites pass at `db45ecc`.
 **Status:** isolated for the pinned `vec_map` 0.8.2 source; insertion remains
 outside the successful source-contract suite. No Aeneas or Rust source change.
 
-The [VecMap source reproducer](reproducers/vec_map_models/README.md) retains a
+The [VecMap source reproducer](../../aeneas-bugs/vec_map_models/README.md) retains a
 direct `VecMap::insert` caller and the full diagnostic command. Charon 0.1.223
 succeeds with Rust `nightly-2026-06-01`. With only `vec_map` included, the
 generated insertion still calls external `Iterator::map`, map-iterator `next`,
@@ -1331,7 +1331,7 @@ and Charon sources have not been modified. Session evidence is retained in
 `sept7-full-mir-pow.log`, and `pow-mono-probe/`.
 
 A subsequent full-MIR branch probe identifies a second extraction obstacle
-behind the selector. The trial's `reproducers/pow_models/branches.rs` calls
+behind the selector. The trial's `../../aeneas-bugs/pow_models/branches.rs` calls
 `strict_pow` and `wrapping_pow` separately, without replacing the original
 proof root. The exact commands are in its README.
 
@@ -1377,7 +1377,7 @@ wrappers expose the new value, and the outer maximum becomes 17, but the
 inner maximum remains 3. `Cow::with_max_index` overwrites the callback that
 the inner MaxMap attached, so only the outer metadata is recorded.
 
-The [native reproducer](reproducers/nested_max_map_cow/README.md) covers both
+The [native reproducer](../../aeneas-bugs/nested_max_map_cow/README.md) covers both
 acquisition methods and both mutation methods for both backends. All eight
 inner-cache assertions fail. Read-only CoW, `get_mut_with`, and ordinary
 insertion pass their control. The reproducer inspects private inner metadata
@@ -1433,7 +1433,7 @@ tests in the extended source suite pass. This does not establish the concrete
 CoW adapter or occupied/vacant mutation fidelity.
 
 Reproduction commands and scope are in the
-[VecMap source-suite README](reproducers/vec_map_models/README.md). Fresh
+[VecMap source-suite README](../../aeneas-bugs/vec_map_models/README.md). Fresh
 diagnostic logs and source hashes are in `.lake/cow-concrete-map-probe/occupied/`.
 Neither Aeneas nor the registry dependency was changed.
 

@@ -281,7 +281,7 @@ model-fidelity gaps without changing public-operation coverage or closing the
 borrowed CoW extraction obligations.
 
 The power model review in `eb2f91b` adds a
-[parameterized source comparison](reproducers/pow_models/README.md) for the
+[parameterized source comparison](../../aeneas-bugs/pow_models/README.md) for the
 complete `usize::pow` body, including both permitted compiler-selector
 branches and overflow. It uses only standard Lean axioms and assumes no
 arithmetic bound or termination. The selector itself and existing scalar
@@ -1113,14 +1113,14 @@ the same 62 pointer-contract dependencies and no new axioms or admissions.
 This changes proof assumptions; model fidelity and borrowed CoW remain open.
 Debug, Serde, and TreeHash remain outside the current scope.
 
-The separate [Option source comparison](reproducers/option_models/README.md)
+The separate [Option source comparison](../../aeneas-bugs/option_models/README.md)
 now validates eleven local models against freshly extracted pinned
 standard-library bodies and one additional `cloned` composition, all without
 axioms. Direct `cloned` extraction remains unsupported at its higher-ranked
 function item. This reduces a trusted-model review obligation; it does not
 change API coverage or complete the borrowed CoW proofs.
 
-The [core source comparisons](reproducers/core_models/README.md) additionally
+The [core source comparisons](../../aeneas-bugs/core_models/README.md) additionally
 validate `Result::map_err`, `hint::must_use`, blanket `Borrow::borrow`,
 `mem::take`, `usize::div_ceil`, `u128::saturating_mul`, and `u128::checked_pow` against their
 actual extracted standard-library bodies, including arbitrary Default results,
@@ -1131,12 +1131,12 @@ remains an Aeneas foundation primitive; three
 other numeric helpers retain missing intrinsic templates (UPSTREAM_BUGS issue
 24). No production model or public-operation specification changed.
 
-The separate [power comparison](reproducers/pow_models/README.md) now proves
+The separate [power comparison](../../aeneas-bugs/pow_models/README.md) now proves
 the complete `usize::pow` body for either compiler-selector outcome. Its
 intrinsic template remains unsupported, but a section parameter permits both
 actual extracted loops to be checked without replacing their bodies.
 
-The [fixed-byte source comparisons](reproducers/fixed_bytes_models/README.md)
+The [fixed-byte source comparisons](../../aeneas-bugs/fixed_bytes_models/README.md)
 also validate the actual pinned clone, equality, ZERO, default, and `is_zero`
 bodies used by cache initialization and rebasing. All five match the local
 models for every length and byte array without additional premises, retaining
@@ -1145,7 +1145,7 @@ pass, alongside the core and Option suites after extending the shared runner
 for locked dependencies and constant-initializer provenance. Public API
 coverage and the scope exclusions are unchanged.
 
-The [tuple source comparisons](reproducers/tuple_models/README.md) validate
+The [tuple source comparisons](../../aeneas-bugs/tuple_models/README.md) validate
 `eq`, `ne`, `partial_cmp`, and `cmp` for arbitrary callback results, without
 consistency or termination premises. Four native tests cover 59 answer
 combinations, dispatch, and call order. The runner verifies that omitting four
@@ -1155,7 +1155,7 @@ comparisons and the separate Option cloned composition: 25 proofs, 16
 axiom-free and nine standard-only. The main proof/dependency inventories are
 unchanged; borrowed CoW and remaining model/assumption review stay open.
 
-The [vector source comparisons](reproducers/vec_models/README.md) add three
+The [vector source comparisons](../../aeneas-bugs/vec_models/README.md) add three
 checks for `is_empty`, `eq`, and `ne`, preserving arbitrary callback results
 without consistency or termination assumptions. Checked name-only changes
 to temporary LLBC expose actual source bodies suppressed by builtin matching;
@@ -1166,7 +1166,7 @@ Six native vector tests pass. Direct `pop`/`next_back` extraction remains
 unresolved at container field/type analysis (UPSTREAM_BUGS 25). The main
 proof/dependency inventories and scope exclusions are unchanged.
 
-The [SSZ comparisons](reproducers/ssz_offset_models/README.md) include two
+The [SSZ comparisons](../../aeneas-bugs/ssz_offset_models/README.md) include two
 direct checks for the actual four-byte constant and private decoder, plus a
 separate composition check for the public reader's prefix slicing. All input
 lengths, the full copy loop and termination, and exact error payloads are
@@ -1183,7 +1183,7 @@ and encoder append/finalize remain unresolved (UPSTREAM_BUGS 26). The main proof
 inventories and scope exclusions remain unchanged; borrowed CoW and the
 remaining model/assumption review stay open.
 
-The [Arbitrary source comparisons](reproducers/arbitrary_models/README.md)
+The [Arbitrary source comparisons](../../aeneas-bugs/arbitrary_models/README.md)
 validate collection control against the actual bool/byte generators and
 one-byte copy/zeroing loop. For every input, the Boolean answer and exact
 remaining input match, including consumed even stopping bytes and successful
@@ -1356,7 +1356,7 @@ The revised goal is still incomplete. Borrowed-CoW obligations require faithful
 extraction and models; existing counterexamples
 and failed probes are recorded in
 [UPSTREAM_BUGS.md](UPSTREAM_BUGS.md). The dependency-free
-[reference-layout probe](reproducers/cow_regions/README.md) rules out the tested
+[reference-layout probe](../../aeneas-bugs/cow_regions/README.md) rules out the tested
 lifetime separation, helper, and direct-copy approaches: eight enum readers
 fail while four plain/nested/struct controls extract and validate without
 axioms. This diagnostic adds no borrowed-method correctness claim.
