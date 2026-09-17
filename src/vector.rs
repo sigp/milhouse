@@ -198,6 +198,8 @@ impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> Vector<T, N, U> {
             &self.interface.backing.tree,
             &mut known_subtrees,
             self.interface.backing.depth,
+            self.interface.backing.packing_depth,
+            Length(N::to_usize()),
         )? {
             self.interface.backing.tree = new_tree;
         }

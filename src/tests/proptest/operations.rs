@@ -391,16 +391,11 @@ where
                 list.apply_updates().unwrap();
                 list.tree_hash_root();
 
-                // FIXME: there is a bug in intra_rebase, see:
-                // - https://github.com/sigp/milhouse/issues/108
-                // Intra-rebasing dedupes by hash, so it may replace a zero-padded tail node by a
-                // hash-equal fully-written node; structural `PartialEq` with the original need
-                // not hold. Compare semantically, and do not keep the deduped list as the
-                // continuing state (later ops assert structural equality against canonical
-                // trees, e.g. after an SSZ round-trip).
+                assert_eq!(new_list, *list);
                 assert_eq!(new_list.len(), list.len());
                 assert_eq!(new_list.tree_hash_root(), list.tree_hash_root());
                 assert!(new_list.iter().eq(list.iter()));
+                *list = new_list;
             }
         }
     }
@@ -503,9 +498,10 @@ where
                 vect.apply_updates().unwrap();
                 vect.tree_hash_root();
 
-                // See the `List` op above: compare semantically, keep the canonical vector.
+                assert_eq!(new_vect, *vect);
                 assert_eq!(new_vect.tree_hash_root(), vect.tree_hash_root());
                 assert!(new_vect.iter().eq(vect.iter()));
+                *vect = new_vect;
             }
         }
     }
