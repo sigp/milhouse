@@ -4,7 +4,7 @@ use crate::interface_iter::{InterfaceIter, InterfaceIterCow};
 use crate::iter::Iter;
 use crate::level_iter::{LevelIter, LevelNode};
 use crate::serde::ListVisitor;
-use crate::tree::{IntraRebaseAction, RebaseAction};
+use crate::tree::RebaseAction;
 use crate::update_map::MaxMap;
 use crate::utils::{Length, compute_level, int_log, opt_packing_depth, updated_length};
 use crate::{Arc, Cow, Error, Tree, UpdateMap, Value};
@@ -14,7 +14,7 @@ use educe::Educe;
 use itertools::process_results;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeSeq};
 use ssz::{BYTES_PER_LENGTH_OFFSET, Decode, Encode, SszEncoder, TryFromIter};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tree_hash::{Hash256, PackedEncoding, TreeHash};
 use typenum::Unsigned;
@@ -347,25 +347,6 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
                 self.interface.backing.tree = replacement;
             }
             _ => (),
-        }
-        Ok(())
-    }
-}
-
-impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
-    pub fn intra_rebase(&mut self) -> Result<(), Error> {
-        // We need to be fully hashed in order to intra-rebase. To avoid putting this burden on the
-        // caller, just do it here. If we're already fully-hashed this should be quick.
-        self.apply_updates()?;
-        self.tree_hash_root();
-
-        let mut known_subtrees = HashMap::new();
-        if let IntraRebaseAction::Replace(new_tree) = Tree::intra_rebase(
-            &self.interface.backing.tree,
-            &mut known_subtrees,
-            self.interface.backing.depth,
-        )? {
-            self.interface.backing.tree = new_tree;
         }
         Ok(())
     }

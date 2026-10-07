@@ -126,8 +126,6 @@ pub enum Op<T> {
     Debase,
     /// Roundtrip via a list/vect using the TryFrom/From implementations.
     FromIntoRoundtrip,
-    /// Rebase the list on itself to exploit self-sharing.
-    IntraRebase,
 }
 
 fn arb_op<'a, T, S>(strategy: &'a S, n: usize) -> impl Strategy<Value = Op<T>> + 'a
@@ -157,11 +155,10 @@ where
         Just(Op::Rebase),
         Just(Op::Debase),
         Just(Op::FromIntoRoundtrip),
-        Just(Op::IntraRebase),
     ];
     prop_oneof![
         10 => a_block,
-        7 => b_block
+        6 => b_block
     ]
 }
 
@@ -279,9 +276,6 @@ fn apply_ops_progressive_list<T>(
             }
             // Not applicable to `ProgressiveList`, it can't be roundtripped via `Vector`.
             Op::FromIntoRoundtrip => {}
-            // Not applicable to a `ProgressiveList`: it is unbounded, and it does not (yet)
-            // implement `intra_rebase`.
-            Op::IntraRebase => {}
         }
     }
 }
@@ -384,24 +378,6 @@ where
                     assert!(list.iter().eq(re_list.iter()));
                 }
             }
-            Op::IntraRebase => {
-                let mut new_list = list.clone();
-                new_list.intra_rebase().unwrap();
-
-                list.apply_updates().unwrap();
-                list.tree_hash_root();
-
-                // FIXME: there is a bug in intra_rebase, see:
-                // - https://github.com/sigp/milhouse/issues/108
-                // Intra-rebasing dedupes by hash, so it may replace a zero-padded tail node by a
-                // hash-equal fully-written node; structural `PartialEq` with the original need
-                // not hold. Compare semantically, and do not keep the deduped list as the
-                // continuing state (later ops assert structural equality against canonical
-                // trees, e.g. after an SSZ round-trip).
-                assert_eq!(new_list.len(), list.len());
-                assert_eq!(new_list.tree_hash_root(), list.tree_hash_root());
-                assert!(new_list.iter().eq(list.iter()));
-            }
         }
     }
 }
@@ -495,17 +471,6 @@ where
                 if let Ok(re_vect) = Vector::try_from(list) {
                     assert!(vect.iter().eq(re_vect.iter()));
                 }
-            }
-            Op::IntraRebase => {
-                let mut new_vect = vect.clone();
-                new_vect.intra_rebase().unwrap();
-
-                vect.apply_updates().unwrap();
-                vect.tree_hash_root();
-
-                // See the `List` op above: compare semantically, keep the canonical vector.
-                assert_eq!(new_vect.tree_hash_root(), vect.tree_hash_root());
-                assert!(new_vect.iter().eq(vect.iter()));
             }
         }
     }
@@ -666,7 +631,7 @@ macro_rules! progressive_list_test {
                 ops in arb_ops::<$T, _>(&$strat, PROGRESSIVE_LIST_MAX_LEN, OP_LIMIT)
             ) {
                 let mut list = ProgressiveList::<$T>::try_from_iter(init.clone()).unwrap();
-                // `Op::FromIntoRoundtrip` and `Op::IntraRebase` are generated but ignored by
+                // `Op::FromIntoRoundtrip` is generated but ignored by
                 // `apply_ops_progressive_list`, so the `List` op strategy can be reused as-is.
                 let mut spec = Spec::<$T, ProgN>::list(init);
                 apply_ops_progressive_list(&mut list, &mut spec, ops);
