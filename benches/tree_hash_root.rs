@@ -140,29 +140,6 @@ pub fn tree_hash_root(c: &mut Criterion) {
             );
         },
     );
-
-    // Build a list with many duplicates, then intra_rebase to create sharing.
-    c.bench_with_input(
-        BenchmarkId::new("tree_hash_root_intra_rebased", size),
-        &size,
-        |b, &size| {
-            b.iter_batched(
-                || {
-                    let mut l =
-                        List::<u64, C>::try_from_iter((0..size as u64).map(|i| i % 256)).unwrap();
-                    l.apply_updates().unwrap();
-                    l.tree_hash_root();
-                    l.intra_rebase().unwrap();
-                    // Mutate one element to invalidate hashes along one path.
-                    *l.get_mut(0).unwrap() = 9999;
-                    l.apply_updates().unwrap();
-                    l
-                },
-                |l| l.tree_hash_root(),
-                BatchSize::LargeInput,
-            );
-        },
-    );
 }
 
 criterion_group!(benches, tree_hash_root);

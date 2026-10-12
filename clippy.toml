@@ -1,0 +1,2 @@
+# Test assertions should panic when an operation unexpectedly fails.
+allow-unwrap-in-tests = true
