@@ -127,6 +127,7 @@ impl<T: TreeHash + Clone> PackedLeaf<T> {
             });
         }
         self.values.push(value);
+        *self.hash.get_mut() = Hash256::ZERO;
         Ok(())
     }
 }
