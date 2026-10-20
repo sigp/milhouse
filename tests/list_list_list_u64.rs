@@ -4,9 +4,9 @@ use common::memory_tracker_accuracy_test;
 use milhouse::List;
 use typenum::U1024;
 
-// These tests MUST be one per file because DHAT measures allocations globally across threads.
-#[test]
-fn memory_tracker_accuracy_list_list_list_u64() {
+// This test runs without the libtest harness (see `Cargo.toml`) because DHAT measures allocations
+// globally across threads.
+fn main() {
     let list = || {
         List::<List<List<u64, U1024>, U1024>, U1024>::new(vec![
             List::new(vec![
