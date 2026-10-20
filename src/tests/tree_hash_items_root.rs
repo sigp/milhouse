@@ -1,4 +1,4 @@
-use milhouse::{List, ProgressiveList};
+use crate::{List, ProgressiveList};
 use tree_hash::TreeHash;
 use typenum::U1024;
 

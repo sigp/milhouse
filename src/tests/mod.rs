@@ -13,3 +13,4 @@ mod proptest;
 mod repeat;
 mod serde;
 mod size_of;
+mod tree_hash_items_root;
