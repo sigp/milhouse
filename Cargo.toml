@@ -61,5 +61,19 @@ harness = false
 name = "cow"
 harness = false
 
+# DHAT measures allocations globally across threads, so these tests must run without the libtest
+# harness, whose main thread allocates concurrently with the test and causes spurious failures.
+[[test]]
+name = "list_u64"
+harness = false
+
+[[test]]
+name = "list_list_u64"
+harness = false
+
+[[test]]
+name = "list_list_list_u64"
+harness = false
+
 [profile.bench]
 debug = true

@@ -6,7 +6,8 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 /// This is a test runner used in integration tests.
 ///
 /// It lives here because we want to avoid repeating this code across tests, and
-/// DHAT tests must be isolated in their own process (integration tests with one test per file).
+/// DHAT tests must be isolated in their own process (integration tests with one test per file),
+/// and must not use the libtest harness, whose main thread allocates concurrently with the test.
 ///
 /// See: https://docs.rs/dhat/latest/dhat/#heap-usage-testing
 pub fn memory_tracker_accuracy_test<T: MemorySize>(value_producer: impl FnOnce() -> T) {

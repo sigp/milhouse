@@ -30,9 +30,6 @@ pub enum Error {
     BuilderFull,
     CowMissingEntry,
     LevelIterPendingUpdates,
-    IntraRebaseZeroHash,
-    IntraRebaseZeroDepth,
-    IntraRebaseRepeatVisit,
 }
 
 impl Display for Error {
