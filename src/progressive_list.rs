@@ -235,6 +235,23 @@ impl<T: Value, U: UpdateMap<T>> ProgressiveList<T, U> {
     }
 }
 
+impl<T: Value + Send + Sync, U: UpdateMap<T>> ProgressiveList<T, U> {
+    /// Return the root of this list's items, prior to mixing in the length.
+    ///
+    /// This is the intermediate value `tree_hash_root` computes internally
+    /// (`mix_in_length(items_root, length)`) but otherwise discards. It is useful for
+    /// constructing SSZ types that need to reproduce a list's `hash_tree_root` from outside
+    /// this crate, such as a summary type that mirrors a `ProgressiveList` field with
+    /// `{ items_root, num_items }`.
+    pub fn tree_hash_items_root(&self) -> Hash256 {
+        assert!(
+            !self.has_pending_updates(),
+            "ProgressiveList has pending updates at tree_hash_items_root"
+        );
+        self.tree.tree_hash()
+    }
+}
+
 impl<T: Value, U: UpdateMap<T>> TryFrom<Vec<T>> for ProgressiveList<T, U> {
     type Error = Error;
 

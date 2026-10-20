@@ -358,6 +358,20 @@ impl<T: Value, N: Unsigned, U: UpdateMap<T>> Default for List<T, N, U> {
     }
 }
 
+impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> List<T, N, U> {
+    /// Return the root of this list's items, prior to mixing in the length.
+    ///
+    /// This is the intermediate value `tree_hash_root` computes internally
+    /// (`mix_in_length(items_root, length)`) but otherwise discards. It is useful for
+    /// constructing SSZ types that need to reproduce a list's `hash_tree_root` from outside
+    /// this crate, such as a summary type that mirrors a `List` field with `{ items_root,
+    /// num_items }`.
+    pub fn tree_hash_items_root(&self) -> Hash256 {
+        assert!(!self.interface.has_pending_updates());
+        self.interface.backing.tree.tree_hash()
+    }
+}
+
 impl<T: Value + Send + Sync, N: Unsigned, U: UpdateMap<T>> TreeHash for List<T, N, U> {
     fn tree_hash_type() -> tree_hash::TreeHashType {
         tree_hash::TreeHashType::List
