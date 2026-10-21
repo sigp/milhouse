@@ -1,7 +1,35 @@
-use crate::{List, Vector};
+use crate::{Error, List, PackedLeaf, Vector};
 use ssz_types::{FixedVector, VariableList};
 use tree_hash::TreeHash;
 use typenum::U16;
+
+#[test]
+fn packed_leaf_push_invalidates_cached_hash() {
+    let mut leaf = PackedLeaf::single(1u64);
+    let mut expected = [0u8; 32];
+    expected[..8].copy_from_slice(&1u64.to_le_bytes());
+    assert_eq!(leaf.tree_hash().as_slice(), expected);
+
+    for value in 2..=4u64 {
+        leaf.push(value).unwrap();
+        let start = (value as usize - 1) * 8;
+        expected[start..start + 8].copy_from_slice(&value.to_le_bytes());
+        assert_eq!(leaf.tree_hash().as_slice(), expected);
+    }
+}
+
+#[test]
+fn packed_leaf_full_push_preserves_cached_hash() {
+    let mut leaf = PackedLeaf::repeat(7u64, 4);
+    let hash = leaf.tree_hash();
+    assert!(matches!(
+        leaf.push(9),
+        Err(Error::PackedLeafFull { len: 4 })
+    ));
+    assert_eq!(leaf.values, vec![7u64; 4]);
+    assert_eq!(*leaf.hash.read(), hash);
+    assert_eq!(leaf.tree_hash(), hash);
+}
 
 #[test]
 fn u64_packed_list_build_and_iter() {
